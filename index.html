@@ -35,7 +35,6 @@
             position: fixed;
         }
 
-        /* Login Screen */
         #login-screen {
             position: fixed; inset: 0;
             background: var(--bg);
@@ -53,10 +52,10 @@
             align-items: center; gap: 12px;
             font-size: 16px; transition: 0.3s;
             box-shadow: 0 10px 30px rgba(255,255,255,0.1);
+            width: 280px; justify-content: center;
         }
         .google-btn:active { transform: scale(0.95); }
 
-        /* Sidebar */
         .sidebar {
             position: fixed; left: -300px; top: 0;
             width: 280px; height: 100%;
@@ -85,7 +84,6 @@
             box-shadow: 0 0 20px var(--accent-glow);
         }
 
-        /* Main View */
         .main-content { flex: 1; display: flex; flex-direction: column; height: 100dvh; position: relative; display: none; }
         
         .header {
@@ -105,7 +103,6 @@
             scroll-behavior: smooth;
         }
 
-        /* Messages */
         .msg {
             padding: 16px; border-radius: 22px;
             max-width: 85%; font-size: 15px;
@@ -129,7 +126,6 @@
             border-bottom-left-radius: 4px;
         }
 
-        /* Input Area (Dynamic Island Style) */
         .input-area {
             position: absolute; bottom: 25px;
             left: 50%; transform: translateX(-50%);
@@ -161,7 +157,6 @@
             transition: 0.3s;
             box-shadow: 0 4px 12px var(--accent-glow);
         }
-        .send-btn:hover { transform: scale(1.05); filter: brightness(1.1); }
 
         #preview-wrap {
             display: none; position: absolute; bottom: 95px; left: 50%;
@@ -171,7 +166,6 @@
         }
         #preview-img { height: 70px; border-radius: 8px; }
 
-        /* Mobile specific fixes */
         @media (max-width: 768px) {
             .msg { max-width: 90%; }
             .input-area { width: 94%; bottom: 15px; }
@@ -184,9 +178,14 @@
         <div style="font-size: 70px; margin-bottom: 10px; filter: drop-shadow(0 0 20px var(--accent-glow));">⚡</div>
         <h1 style="font-size: 38px; font-weight: 700; margin: 0; background: linear-gradient(to right, #fff, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">FLIKY AI</h1>
         <p style="opacity: 0.4; margin-bottom: 40px; font-weight: 300; letter-spacing: 2px;">NEXT GEN INTELLIGENCE</p>
+        
         <button class="google-btn" onclick="loginWithGoogle()">
             <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20">
             Google-мен кіру
+        </button>
+
+        <button class="google-btn" onclick="loginAsGuest()" style="background: rgba(255,255,255,0.1); color: white; margin-top: 15px; border: 1px solid var(--border);">
+            👤 Тіркелмей кіру (Қонақ)
         </button>
     </div>
 
@@ -247,30 +246,50 @@
             auth.signInWithPopup(provider).catch(() => auth.signInWithRedirect(provider));
         }
 
+        function loginAsGuest() {
+            currentUser = { uid: 'guest_' + Date.now(), displayName: 'Қонақ', isGuest: true };
+            startApp();
+        }
+
         function logout() { auth.signOut().then(() => location.reload()); }
 
         auth.onAuthStateChanged(user => {
             if (user) {
                 currentUser = user;
-                document.getElementById('login-screen').style.opacity = '0';
-                setTimeout(() => {
-                    document.getElementById('login-screen').style.display = 'none';
-                    document.getElementById('mainContent').style.display = 'flex';
-                }, 300);
-                loadChats();
-            } else {
+                currentUser.isGuest = false;
+                startApp();
+            } else if (!currentUser) {
                 document.getElementById('login-screen').style.display = 'flex';
                 document.getElementById('mainContent').style.display = 'none';
             }
         });
 
+        function startApp() {
+            document.getElementById('login-screen').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'flex';
+            }, 300);
+            loadChats();
+        }
+
         function loadChats() {
-            chats = JSON.parse(localStorage.getItem(`chats_${currentUser.uid}`)) || [];
+            if (currentUser && currentUser.isGuest) {
+                chats = [];
+            } else {
+                chats = JSON.parse(localStorage.getItem(`chats_${currentUser.uid}`)) || [];
+            }
             if(chats.length > 0 && activeChatId === 'welcome') activeChatId = chats[0].id;
             renderChatList(); renderMessages();
         }
-        function saveChats() { localStorage.setItem(`chats_${currentUser.uid}`, JSON.stringify(chats)); }
-        function toggleMenu() { document.getElementById('sidebar').classList.toggle('active'); document.getElementById('overlay').classList.toggle('active'); }
+
+        function saveChats() { 
+            if (currentUser && !currentUser.isGuest) {
+                localStorage.setItem(`chats_${currentUser.uid}`, JSON.stringify(chats)); 
+            }
+        }
+
+        function toggleMenu() { document.getElementById('sidebar').classList.toggle('active'); }
         
         function createNewChat() {
             isGlobalMode = false; activeChatId = Date.now();
@@ -297,11 +316,12 @@
             if(!text && !base64Image) return;
 
             if(isGlobalMode) {
+                if(currentUser.isGuest) { alert("Әлемдік чатқа жазу үшін Google-мен кіріңіз!"); return; }
                 globalDB.set({sender: currentUser.displayName, text: text, time: Date.now()});
                 input.value = ''; return;
             }
 
-            if(activeChatId === 'welcome') {
+            if(activeChatId === 'welcome' || !chats.find(c => c.id === activeChatId)) {
                 activeChatId = Date.now();
                 chats.unshift({ id: activeChatId, title: text.substring(0, 25), messages: [] });
             }
@@ -332,7 +352,7 @@
                 chat.messages.push({ role: 'assistant', content: data.choices[0].message.content });
                 saveChats(); renderMessages();
             } catch (e) { 
-                chat.messages.push({ role: 'assistant', content: "Қате кетті. Интернетті тексеріңіз." });
+                chat.messages.push({ role: 'assistant', content: "Қате кетті." });
                 renderMessages();
             }
         }
@@ -349,7 +369,7 @@
             const chat = chats.find(c => c.id === activeChatId);
             if(chat) chat.messages.forEach(m => {
                 const d = document.createElement('div'); d.className = `msg ${m.role==='user'?'user':'ai'}`;
-                let h = m.image ? `<img src="${m.image}" class="chat-img"><br>` : '';
+                let h = m.image ? `<img src="${m.image}" style="max-width:200px; border-radius:10px;"><br>` : '';
                 h += marked.parse(m.content || ''); d.innerHTML = h;
                 cont.appendChild(d);
             });

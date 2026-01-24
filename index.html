@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>FLIKY AI ✨</title>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
+
+        :root {
+            --bg: #030712;
+            --panel: rgba(17, 24, 39, 0.7);
+            --accent: #8b5cf6;
+            --accent-glow: rgba(139, 92, 246, 0.4);
+            --text: #f3f4f6;
+            --border: rgba(255, 255, 255, 0.08);
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+        
+        body {
+            background-color: var(--bg);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.1) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.1) 0px, transparent 50%);
+            color: var(--text);
+            font-family: 'Outfit', sans-serif;
+            margin: 0; padding: 0;
+            height: 100dvh; width: 100vw;
+            display: flex; overflow: hidden;
+            position: fixed;
+        }
+
+        /* Login Screen */
+        #login-screen {
+            position: fixed; inset: 0;
+            background: var(--bg);
+            z-index: 10000;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            backdrop-filter: blur(20px);
+        }
+
+        .google-btn {
+            background: white; color: black;
+            padding: 16px 32px; border-radius: 18px;
+            border: none; font-weight: 700;
+            cursor: pointer; display: flex;
+            align-items: center; gap: 12px;
+            font-size: 16px; transition: 0.3s;
+            box-shadow: 0 10px 30px rgba(255,255,255,0.1);
+        }
+        .google-btn:active { transform: scale(0.95); }
+
+        /* Sidebar */
+        .sidebar {
+            position: fixed; left: -300px; top: 0;
+            width: 280px; height: 100%;
+            background: var(--panel);
+            backdrop-filter: blur(20px);
+            z-index: 2000; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border-right: 1px solid var(--border);
+            display: flex; flex-direction: column;
+        }
+        .sidebar.active { left: 0; box-shadow: 20px 0 60px rgba(0,0,0,0.8); }
+
+        .chat-list { flex: 1; overflow-y: auto; padding: 15px; }
+        .chat-item {
+            padding: 14px; border-radius: 14px;
+            margin-bottom: 8px;
+            background: rgba(255,255,255,0.03);
+            cursor: pointer; transition: 0.2s;
+            border: 1px solid transparent;
+            font-size: 14px;
+            color: #9ca3af;
+        }
+        .chat-item.active {
+            background: rgba(139, 92, 246, 0.15);
+            border-color: var(--accent);
+            color: white;
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        /* Main View */
+        .main-content { flex: 1; display: flex; flex-direction: column; height: 100dvh; position: relative; display: none; }
+        
+        .header {
+            display: flex; align-items: center;
+            padding: 0 20px;
+            background: rgba(3, 7, 18, 0.6);
+            backdrop-filter: blur(15px);
+            border-bottom: 1px solid var(--border);
+            height: 70px;
+        }
+
+        .chat-container {
+            flex: 1; padding: 20px;
+            overflow-y: auto; display: flex;
+            flex-direction: column; gap: 20px;
+            padding-bottom: 120px;
+            scroll-behavior: smooth;
+        }
+
+        /* Messages */
+        .msg {
+            padding: 16px; border-radius: 22px;
+            max-width: 85%; font-size: 15px;
+            line-height: 1.6;
+            animation: slideUp 0.3s ease-out;
+            word-wrap: break-word;
+        }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        .user {
+            background: var(--accent);
+            align-self: flex-end;
+            color: white;
+            border-bottom-right-radius: 4px;
+            box-shadow: 0 8px 25px var(--accent-glow);
+        }
+        .ai {
+            background: rgba(31, 41, 55, 0.6);
+            align-self: flex-start;
+            border: 1px solid var(--border);
+            border-bottom-left-radius: 4px;
+        }
+
+        /* Input Area (Dynamic Island Style) */
+        .input-area {
+            position: absolute; bottom: 25px;
+            left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 600px;
+            padding: 8px 8px 8px 20px;
+            background: rgba(31, 41, 55, 0.85);
+            backdrop-filter: blur(25px);
+            border-radius: 28px;
+            display: flex; gap: 12px;
+            align-items: center;
+            border: 1px solid var(--border);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+            z-index: 1000;
+        }
+
+        input {
+            flex: 1; background: transparent;
+            border: none; color: white;
+            font-family: inherit; font-size: 16px;
+            padding: 12px 0;
+        }
+
+        .send-btn {
+            background: var(--accent);
+            width: 44px; height: 44px;
+            border-radius: 20px; border: none;
+            color: white; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: 0.3s;
+            box-shadow: 0 4px 12px var(--accent-glow);
+        }
+        .send-btn:hover { transform: scale(1.05); filter: brightness(1.1); }
+
+        #preview-wrap {
+            display: none; position: absolute; bottom: 95px; left: 50%;
+            transform: translateX(-50%); width: 85%; max-width: 550px;
+            background: var(--panel); padding: 10px; border-radius: 15px;
+            border: 1px solid var(--accent); z-index: 1001;
+        }
+        #preview-img { height: 70px; border-radius: 8px; }
+
+        /* Mobile specific fixes */
+        @media (max-width: 768px) {
+            .msg { max-width: 90%; }
+            .input-area { width: 94%; bottom: 15px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="login-screen">
+        <div style="font-size: 70px; margin-bottom: 10px; filter: drop-shadow(0 0 20px var(--accent-glow));">⚡</div>
+        <h1 style="font-size: 38px; font-weight: 700; margin: 0; background: linear-gradient(to right, #fff, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">FLIKY AI</h1>
+        <p style="opacity: 0.4; margin-bottom: 40px; font-weight: 300; letter-spacing: 2px;">NEXT GEN INTELLIGENCE</p>
+        <button class="google-btn" onclick="loginWithGoogle()">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20">
+            Google-мен кіру
+        </button>
+    </div>
+
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header" style="padding: 25px 20px;">
+            <button style="width:100%; padding:16px; border-radius:18px; background:var(--accent); border:none; color:white; font-weight:700; cursor:pointer; box-shadow: 0 10px 20px var(--accent-glow);" onclick="createNewChat()">+ Жаңа чат</button>
+            <button style="width:100%; padding:13px; border-radius:18px; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:white; font-weight:600; margin-top:12px; cursor:pointer;" onclick="openGlobalChat()">🌍 Әлемдік чат</button>
+        </div>
+        <div class="chat-list" id="chatList"></div>
+        <div style="padding: 25px; border-top: 1px solid var(--border);">
+            <button onclick="logout()" style="background:none; border:none; color:#f87171; cursor:pointer; font-weight:600; font-size: 14px;">Шығу</button>
+        </div>
+    </div>
+
+    <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+
+    <div class="main-content" id="mainContent">
+        <div class="header">
+            <button style="background:none; border:none; color:white; font-size:26px; cursor:pointer;" onclick="toggleMenu()">☰</button>
+            <span id="headerTitle" style="margin-left:20px; font-weight:700; font-size:22px;">FLIKY AI</span>
+        </div>
+        
+        <div id="chat" class="chat-container"></div>
+
+        <div id="preview-wrap">
+            <img id="preview-img" src="">
+            <button onclick="clearImage()" style="background:none; border:none; color:#ef4444; font-size: 22px; margin-left: 15px; cursor:pointer;">✕</button>
+        </div>
+
+        <div class="input-area">
+            <label style="cursor:pointer; font-size: 22px; margin-right: 5px;">📷<input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleImage(this)"></label>
+            <input type="text" id="userInput" placeholder="Сұрағыңызды жазыңыз..." onkeypress="if(event.key==='Enter') send()">
+            <button class="send-btn" onclick="send()">➤</button>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+          apiKey: "AIzaSyClnvxC1lgvrxn-m7X1huqNmvtH7HaYsxU",
+          authDomain: "flikyfloky-61eed.firebaseapp.com",
+          projectId: "flikyfloky-61eed",
+          storageBucket: "flikyfloky-61eed.firebasestorage.app",
+          messagingSenderId: "167396726913",
+          appId: "1:167396726913:web:871fb5bc1cf4eca509d580",
+          measurementId: "G-SL8RCSM055"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const gun = Gun(['https://gun-manhattan.herokuapp.com/gun']);
+        const globalDB = gun.get('fliky_ai_global_v1');
+        const _k = "gsk_Ui06zHrORxYH5" + "spkmge9WGdyb3FYiPY" + "yl9VgOfBu1jgvLLvsm6I8";
+
+        let currentUser = null, chats = [], activeChatId = 'welcome', base64Image = null, isGlobalMode = false;
+
+        function loginWithGoogle() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider).catch(() => auth.signInWithRedirect(provider));
+        }
+
+        function logout() { auth.signOut().then(() => location.reload()); }
+
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('login-screen').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('login-screen').style.display = 'none';
+                    document.getElementById('mainContent').style.display = 'flex';
+                }, 300);
+                loadChats();
+            } else {
+                document.getElementById('login-screen').style.display = 'flex';
+                document.getElementById('mainContent').style.display = 'none';
+            }
+        });
+
+        function loadChats() {
+            chats = JSON.parse(localStorage.getItem(`chats_${currentUser.uid}`)) || [];
+            if(chats.length > 0 && activeChatId === 'welcome') activeChatId = chats[0].id;
+            renderChatList(); renderMessages();
+        }
+        function saveChats() { localStorage.setItem(`chats_${currentUser.uid}`, JSON.stringify(chats)); }
+        function toggleMenu() { document.getElementById('sidebar').classList.toggle('active'); document.getElementById('overlay').classList.toggle('active'); }
+        
+        function createNewChat() {
+            isGlobalMode = false; activeChatId = Date.now();
+            chats.unshift({ id: activeChatId, title: "Жаңа сұхбат", messages: [] });
+            renderChatList(); renderMessages(); if(window.innerWidth < 768) toggleMenu();
+        }
+
+        function renderChatList() {
+            const list = document.getElementById('chatList'); list.innerHTML = '';
+            chats.forEach(chat => {
+                const item = document.createElement('div');
+                item.className = `chat-item ${chat.id === activeChatId && !isGlobalMode ? 'active' : ''}`;
+                item.innerText = chat.title;
+                item.onclick = () => { isGlobalMode = false; activeChatId = chat.id; renderMessages(); renderChatList(); if(window.innerWidth < 768) toggleMenu(); };
+                list.appendChild(item);
+            });
+        }
+
+        function openGlobalChat() { isGlobalMode = true; activeChatId = 'global'; renderMessages(); renderChatList(); if(window.innerWidth < 768) toggleMenu(); }
+
+        async function send() {
+            const input = document.getElementById('userInput');
+            const text = input.value.trim();
+            if(!text && !base64Image) return;
+
+            if(isGlobalMode) {
+                globalDB.set({sender: currentUser.displayName, text: text, time: Date.now()});
+                input.value = ''; return;
+            }
+
+            if(activeChatId === 'welcome') {
+                activeChatId = Date.now();
+                chats.unshift({ id: activeChatId, title: text.substring(0, 25), messages: [] });
+            }
+            
+            const chat = chats.find(c => c.id === activeChatId);
+            const currentImg = base64Image;
+            chat.messages.push({ role: 'user', content: text, image: currentImg });
+            if(chat.title === "Жаңа сұхбат") chat.title = text.substring(0, 25);
+            
+            input.value = ''; clearImage(); renderMessages();
+
+            try {
+                const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${_k}` },
+                    body: JSON.stringify({
+                        model: currentImg ? "llama-3.2-11b-vision-preview" : "llama-3.3-70b-versatile",
+                        messages: [
+                            {role: "system", content: "Сен Флокисің. Қазақша жауап бер."},
+                            ...chat.messages.slice(-6).map(m => {
+                                if(m.image) return { role: m.role, content: [{type:"text", text:m.content || "Талда"}, {type:"image_url", image_url:{url:m.image}}] };
+                                return { role: m.role, content: m.content };
+                            })
+                        ]
+                    })
+                });
+                const data = await response.json();
+                chat.messages.push({ role: 'assistant', content: data.choices[0].message.content });
+                saveChats(); renderMessages();
+            } catch (e) { 
+                chat.messages.push({ role: 'assistant', content: "Қате кетті. Интернетті тексеріңіз." });
+                renderMessages();
+            }
+        }
+
+        function renderMessages() {
+            const cont = document.getElementById('chat'); cont.innerHTML = '';
+            if(isGlobalMode) {
+                globalDB.map().once(d => { if(d && d.text) {
+                    const m = document.createElement('div'); m.className = 'msg ai';
+                    m.innerHTML = `<small style="color:var(--accent); font-weight:700;">${d.sender}</small><br>${d.text}`;
+                    cont.appendChild(m); cont.scrollTop = cont.scrollHeight;
+                }}); return;
+            }
+            const chat = chats.find(c => c.id === activeChatId);
+            if(chat) chat.messages.forEach(m => {
+                const d = document.createElement('div'); d.className = `msg ${m.role==='user'?'user':'ai'}`;
+                let h = m.image ? `<img src="${m.image}" class="chat-img"><br>` : '';
+                h += marked.parse(m.content || ''); d.innerHTML = h;
+                cont.appendChild(d);
+            });
+            cont.scrollTop = cont.scrollHeight;
+        }
+
+        function handleImage(i) {
+            const r = new FileReader();
+            r.onload = (e) => { 
+                base64Image = e.target.result; 
+                document.getElementById('preview-img').src = base64Image; 
+                document.getElementById('preview-wrap').style.display = 'block'; 
+            };
+            r.readAsDataURL(i.files[0]);
+        }
+        function clearImage() { 
+            base64Image = null; 
+            document.getElementById('preview-wrap').style.display = 'none'; 
+            document.getElementById('fileInput').value = ''; 
+        }
+    </script>
+</body>
+</html>

@@ -179,31 +179,41 @@
             container.appendChild(msgDiv);
 
             try {
-                // ОБНОВЛЕННЫЕ МОДЕЛИ 2026
+                // ПРОВЕРКА VISION МОДЕЛИ
                 const model = currentImg ? "llama-3.2-11b-vision-preview" : "llama-3.3-70b-versatile";
                 
                 let bodyMessages = [{role: "system", content: "Ты FLIKY AI. Если пользователь пишет на казахском - отвечай на казахском. Пиши грамотно и понятно."}];
                 
+                // --- 100% ТОЧНЫЙ VISION FORMAT ---
                 if(currentImg) {
                     bodyMessages.push({
                         role: "user",
                         content: [
-                            { type: "text", text: text || "Что на фото?" },
+                            { type: "text", text: text || "Что на фото? Опиши подробно." },
                             { type: "image_url", image_url: { url: currentImg } }
                         ]
                     });
                 } else {
-                    chat.messages.slice(-6).forEach(m => bodyMessages.push({role: m.role, content: m.content}));
+                    // Контекстты тек мәтін болса қосамыз
+                    chat.messages.slice(-6).forEach(m => {
+                        if (m.content) bodyMessages.push({role: m.role, content: m.content});
+                    });
                 }
 
                 const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
                     method: "POST",
                     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${_k}` },
-                    body: JSON.stringify({ model: model, messages: bodyMessages })
+                    body: JSON.stringify({ model: model, messages: bodyMessages, temperature: 0.5 })
                 });
 
                 const data = await response.json();
-                if(data.error) throw new Error(data.error.message);
+                
+                if(data.error) {
+                   if(data.error.message.includes("decommissioned")) {
+                       throw new Error("Модель сурет талдауды уақытша тоқтатты. Басқа модельге ауысу керек.");
+                   }
+                   throw new Error(data.error.message);
+                }
                 
                 const result = data.choices[0].message.content;
                 let i = 0;
@@ -216,7 +226,7 @@
                 }, 10);
 
             } catch (e) { 
-                aiMsg.content = "Ошибка API: " + e.message + ". Попробуйте еще раз."; 
+                aiMsg.content = "Ошибка: " + e.message; 
                 msgDiv.innerHTML = aiMsg.content;
             }
         }
@@ -255,7 +265,7 @@
             reader.readAsDataURL(input.files[0]);
         }
         function clearImage() { base64Image = null; document.getElementById('preview-wrap').style.display = 'none'; }
-        function buyPro() { alert("Переход на оплату 200₸..."); localStorage.setItem('is_pro', 'true'); toggleProModal(); }
+        function buyPro() { alert("Оплата 200₸... (Демо)"); localStorage.setItem('is_pro', 'true'); toggleProModal(); }
     </script>
 </body>
 </html>

@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>FLIKY AI PRO ✨</title>
+    <title>Daupro AI PRO ✨ Code Assistant</title>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
-        :root { --bg: #030712; --panel: rgba(17, 24, 39, 0.85); --accent: #8b5cf6; --text: #f3f4f6; --border: rgba(255, 255, 255, 0.08); }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; margin: 0; padding: 0; }
+        :root { --bg: #030712; --panel: rgba(17, 24, 39, 0.85); --accent: #10b981; --accent2: #6366f1; --text: #f3f4f6; --border: rgba(255, 255, 255, 0.08); }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
         body { background: var(--bg); color: var(--text); font-family: 'Outfit', sans-serif; margin: 0; height: 100dvh; overflow: hidden; display: flex; width: 100vw; }
 
         .sidebar { position: fixed; left: -300px; top: 0; width: 280px; height: 100%; background: rgba(10, 15, 25, 0.95); backdrop-filter: blur(25px); z-index: 2000; transition: 0.3s ease; border-right: 1px solid var(--border); display: flex; flex-direction: column; }
@@ -22,9 +22,9 @@
         .chat-container { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; padding-bottom: 110px; }
         .msg { padding: 14px 18px; border-radius: 20px; max-width: 85%; font-size: 15px; line-height: 1.5; animation: slide 0.2s ease-out; word-wrap: break-word; }
         @keyframes slide { from { opacity:0; transform: translateY(10px); } to { opacity:1; } }
-        .user { background: var(--accent); align-self: flex-end; border-bottom-right-radius: 4px; }
+        .user { background: var(--accent2); align-self: flex-end; border-bottom-right-radius: 4px; }
         .ai { background: rgba(31, 41, 55, 0.7); align-self: flex-start; border-bottom-left-radius: 4px; border: 1px solid var(--border); }
-        .global-msg { background: rgba(59, 130, 246, 0.15) !important; border-color: #3b82f6; }
+        .global-msg { background: rgba(99, 102, 241, 0.15) !important; border-color: #6366f1; }
 
         .input-area { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 92%; max-width: 700px; background: rgba(31, 41, 55, 0.95); backdrop-filter: blur(20px); border-radius: 25px; display: flex; align-items: center; padding: 5px 15px; border: 1px solid var(--border); }
         input { flex: 1; background: transparent; border: none; color: white; height: 50px; font-size: 16px; padding: 0 10px; }
@@ -36,29 +36,38 @@
         .google-btn { background: white; color: black; padding: 15px 30px; border-radius: 15px; font-weight: 700; cursor: pointer; border: none; width: 280px; margin: 5px; font-size: 16px; transition: 0.2s; }
         .google-btn:hover { transform: scale(1.02); }
         .chat-item { padding: 12px; margin: 5px 10px; background: rgba(255,255,255,0.03); border-radius: 12px; cursor: pointer; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: 0.2s; }
-        .chat-item:hover { background: rgba(139, 92, 246, 0.2); }
+        .chat-item:hover { background: rgba(16, 185, 129, 0.2); }
         .preview-box { display: flex; align-items: center; gap: 10px; background: #1f2937; padding: 10px 15px; border-radius: 15px; margin-bottom: 10px; }
         .preview-img { height: 60px; width: 60px; object-fit: cover; border-radius: 8px; }
         
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #1f2937; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb { background: #8b5cf6; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
         
         .typing-indicator { display: flex; gap: 5px; padding: 12px 18px; background: rgba(31, 41, 55, 0.7); border-radius: 20px; align-self: flex-start; border: 1px solid var(--border); }
-        .typing-indicator span { width: 8px; height: 8px; background: #8b5cf6; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out; }
+        .typing-indicator span { width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out; }
         .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
         .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
         @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
         
         .btn-danger { background: none; border: none; color: #f87171; cursor: pointer; padding: 15px 20px; font-size: 14px; transition: 0.2s; }
         .btn-danger:hover { background: rgba(248, 113, 113, 0.1); }
+        
+        .mode-switch { display: flex; gap: 10px; margin: 0 20px 20px 20px; }
+        .mode-btn { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--border); background: transparent; color: white; cursor: pointer; transition: 0.2s; font-weight: 600; }
+        .mode-btn.active { background: #10b981; border-color: #10b981; color: white; }
+        .mode-btn.code { border-color: #10b981; }
+        .mode-btn.chat { border-color: #6366f1; }
+        
+        pre { background: #0f0f12; padding: 12px; border-radius: 12px; overflow-x: auto; margin: 8px 0; }
+        code { font-family: 'Courier New', monospace; font-size: 13px; }
     </style>
 </head>
 <body>
 
     <div id="login-screen">
-        <h1 style="font-size: 50px; background: linear-gradient(45deg, #8b5cf6, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">⚡ FLIKY AI</h1>
-        <p style="color: #aaa; margin-bottom: 20px;">Ваш персональный AI-помощник</p>
+        <h1 style="font-size: 50px; background: linear-gradient(45deg, #10b981, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">💻 Daupro AI</h1>
+        <p style="color: #aaa; margin-bottom: 20px;">Ваш профессиональный AI-кодер</p>
         <button class="google-btn" id="googleLoginBtn">🚀 Войти через Google</button>
         <button class="google-btn" id="guestLoginBtn" style="background: rgba(255,255,255,0.1); color: white; border: 1px solid #444;">👤 Режим гостя</button>
     </div>
@@ -67,11 +76,17 @@
 
     <div class="sidebar" id="sidebar">
         <div style="padding: 25px; display:flex; justify-content:space-between; align-items:center;">
-            <b style="font-size:20px; background: linear-gradient(45deg, #8b5cf6, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">МЕНЮ</b>
+            <b style="font-size:20px; background: linear-gradient(45deg, #10b981, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">МЕНЮ</b>
             <button onclick="toggleMenu()" style="background:none; border:none; color:white; font-size:24px; cursor:pointer;">✕</button>
         </div>
-        <button onclick="switchToGlobal()" style="margin: 0 20px 10px 20px; padding: 15px; background:linear-gradient(45deg, #3b82f6, #8b5cf6); border:none; border-radius:15px; color:white; font-weight:bold; cursor:pointer; transition:0.2s;">🌍 World Chat</button>
-        <button onclick="createNewChat()" style="margin: 0 20px 20px 20px; padding: 15px; background:var(--accent); border:none; border-radius:15px; color:white; font-weight:bold; cursor:pointer; transition:0.2s;">+ Новый чат</button>
+        
+        <div class="mode-switch">
+            <button class="mode-btn code active" id="codeModeBtn" onclick="setMode('code')">💻 CODE AI</button>
+            <button class="mode-btn chat" id="chatModeBtn" onclick="setMode('chat')">💬 CHAT AI</button>
+        </div>
+        
+        <button onclick="switchToGlobal()" style="margin: 0 20px 10px 20px; padding: 15px; background:linear-gradient(45deg, #6366f1, #10b981); border:none; border-radius:15px; color:white; font-weight:bold; cursor:pointer; transition:0.2s;">🌍 World Chat</button>
+        <button onclick="createNewChat()" style="margin: 0 20px 20px 20px; padding: 15px; background:#10b981; border:none; border-radius:15px; color:white; font-weight:bold; cursor:pointer; transition:0.2s;">+ Новый чат</button>
         <div id="chatList" style="flex:1; overflow-y:auto;"></div>
         <button onclick="logout()" class="btn-danger">🚪 Выйти</button>
     </div>
@@ -80,9 +95,9 @@
         <div style="height:70px; border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 20px; justify-content:space-between;">
             <div style="display:flex; align-items:center;">
                 <button onclick="toggleMenu()" style="background:none; border:none; color:white; font-size:28px; cursor:pointer;">☰</button>
-                <span id="headerTitle" style="margin-left:15px; font-weight:700; font-size:18px;">FLIKY AI</span>
+                <span id="headerTitle" style="margin-left:15px; font-weight:700; font-size:18px;">Daupro AI</span>
             </div>
-            <div id="proBadge" style="background:linear-gradient(45deg, gold, #ffd700); color:black; padding:4px 12px; border-radius:20px; font-size:11px; font-weight:800;">PRO</div>
+            <div id="proBadge" style="background:linear-gradient(45deg, #10b981, #6366f1); color:white; padding:4px 12px; border-radius:20px; font-size:11px; font-weight:800;">CODE MODE</div>
         </div>
 
         <div id="chat" class="chat-container"></div>
@@ -99,13 +114,13 @@
                 <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleImage(this)">
             </label>
             <button class="btn-icon" id="micBtn" onclick="runVoice()">🎤</button>
-            <input type="text" id="userInput" placeholder="Напишите сообщение..." onkeypress="if(event.key==='Enter') send()">
-            <button class="btn-icon" onclick="send()" style="color:var(--accent); font-size:22px;">➤</button>
+            <input type="text" id="userInput" placeholder="Напишите код или вопрос..." onkeypress="if(event.key==='Enter') send()">
+            <button class="btn-icon" onclick="send()" style="color:#10b981; font-size:22px;">➤</button>
         </div>
     </div>
 
     <script>
-        // Конфигурация Firebase
+        // Firebase конфиг
         const firebaseConfig = { 
             apiKey: "AIzaSyClnvxC1lgvrxn-m7X1huqNmvtH7HaYsxU", 
             authDomain: "flikyfloky-61eed.firebaseapp.com", 
@@ -118,25 +133,75 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
-        const API_KEY = "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";
+        
+        // НОВЫЙ API КЛЮЧ
+        const API_KEY = "AQ.Ab8RN6KlBl1pXmJY81bNkiTCTQgDKWkv9q0ZB5ttZ3KTKeYqtw";
         
         let currentUser = null;
         let chats = [];
         let activeChatId = null;
         let base64Image = null;
         let isGlobal = false;
-        let isTyping = false;
-
-        // --- ИСПРАВЛЕННЫЙ ВХОД (Popup + Redirect fallback) ---
+        let currentMode = "code"; // code или chat
+        
+        // --- НАСТРОЙКА РЕЖИМОВ AI ---
+        function setMode(mode) {
+            currentMode = mode;
+            const codeBtn = document.getElementById('codeModeBtn');
+            const chatBtn = document.getElementById('chatModeBtn');
+            const badge = document.getElementById('proBadge');
+            
+            if (mode === 'code') {
+                codeBtn.classList.add('active');
+                chatBtn.classList.remove('active');
+                badge.innerHTML = '💻 CODE MODE';
+                badge.style.background = "linear-gradient(45deg, #10b981, #6366f1)";
+            } else {
+                chatBtn.classList.add('active');
+                codeBtn.classList.remove('active');
+                badge.innerHTML = '💬 CHAT MODE';
+                badge.style.background = "linear-gradient(45deg, #6366f1, #10b981)";
+            }
+        }
+        
+        // --- СИСТЕМНЫЙ ПРОМПТ В ЗАВИСИМОСТИ ОТ РЕЖИМА ---
+        function getSystemPrompt() {
+            if (currentMode === 'code') {
+                return `Ты Daupro AI - профессиональный AI-ассистент программиста. 
+Твоя главная задача - помогать с кодом, алгоритмами, отладкой, рефакторингом.
+Ты эксперт в: Python, JavaScript, TypeScript, Java, C++, HTML/CSS, React, Node.js, SQL.
+ВСЕГДА:
+- Давай готовые рабочие решения с примерами кода
+- Объясняй код построчно
+- Исправляй ошибки и предлагай оптимизации
+- Форматируй код с использованием markdown (```язык```)
+- Будь конкретным и практичным
+Если пользователь спрашивает не про код, ты МОЖЕШЬ ответить, но в приоритете программирование.
+Твой создатель - Даулет (@dauletbr).`;
+            } else {
+                return `Ты Daupro AI - дружелюбный и умный помощник.
+Ты можешь общаться на любые темы, отвечать на вопросы, давать советы.
+Ты умеешь шутить, поддерживать беседу, помогать с проблемами.
+Основные навыки:
+- Отвечать на общие вопросы
+- Давать советы по жизни, учебе, работе
+- Поддерживать дружескую беседу
+- Помогать с творческими задачами
+Если пользователь спрашивает про код - ты тоже можешь помочь, но не углубляйся слишком сильно.
+Будь вежливым, позитивным и полезным.
+Твой создатель - Даулет (@dauletbr).`;
+            }
+        }
+        
+        // --- ВХОД ---
         function loginWithGoogle() {
             const provider = new firebase.auth.GoogleAuthProvider();
             provider.setCustomParameters({ prompt: 'select_account' });
-            
             auth.signInWithPopup(provider).catch(error => {
-                console.error("Popup error:", error);
-                // Если popup заблокирован, используем redirect
                 if (error.code === 'auth/popup-blocked') {
                     auth.signInWithRedirect(provider);
+                } else {
+                    alert("Ошибка входа: " + error.message);
                 }
             });
         }
@@ -147,30 +212,22 @@
             startApp();
         }
         
-        // Обработка redirect результата
         auth.getRedirectResult().then(result => {
             if (result.user) {
                 currentUser = result.user;
                 document.getElementById('login-screen').style.display = 'none';
                 startApp();
             }
-        }).catch(error => {
-            console.error("Redirect error:", error);
-        });
+        }).catch(error => console.error("Redirect error:", error));
         
-        // Слушаем изменения состояния авторизации
         auth.onAuthStateChanged(user => {
             if (user && !currentUser) {
                 currentUser = user;
                 document.getElementById('login-screen').style.display = 'none';
                 startApp();
-            } else if (!user && !currentUser) {
-                // Показываем экран логина
-                document.getElementById('login-screen').style.display = 'flex';
             }
         });
         
-        // Привязываем кнопки после загрузки DOM
         document.addEventListener('DOMContentLoaded', () => {
             const googleBtn = document.getElementById('googleLoginBtn');
             const guestBtn = document.getElementById('guestLoginBtn');
@@ -184,130 +241,88 @@
             if (!activeChatId) createNewChat();
         }
         
-        // --- ИСПРАВЛЕННОЕ РАСПОЗНАВАНИЕ ГОЛОСА ---
+        // --- ГОЛОСОВОЙ ВВОД ---
         function runVoice() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRecognition) {
-                alert("Ваш браузер не поддерживает распознавание речи. Используйте Chrome, Edge или Safari.");
+                alert("Ваш браузер не поддерживает распознавание речи.");
                 return;
             }
-            
             const recognition = new SpeechRecognition();
             recognition.lang = 'ru-RU';
             recognition.continuous = false;
             recognition.interimResults = false;
-            recognition.maxAlternatives = 1;
-            
             const micBtn = document.getElementById('micBtn');
-            
             recognition.onstart = () => {
                 micBtn.style.color = '#ef4444';
-                micBtn.style.transform = 'scale(1.1)';
                 micBtn.innerHTML = '🎙️';
             };
-            
             recognition.onend = () => {
                 micBtn.style.color = 'white';
-                micBtn.style.transform = 'scale(1)';
                 micBtn.innerHTML = '🎤';
             };
-            
-            recognition.onerror = (event) => {
-                console.error("Speech recognition error:", event.error);
-                alert("Ошибка распознавания: " + event.error);
+            recognition.onerror = () => {
                 micBtn.style.color = 'white';
                 micBtn.innerHTML = '🎤';
             };
-            
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
-                const input = document.getElementById('userInput');
-                input.value = transcript;
-                // Автоматически отправляем после распознавания
+                document.getElementById('userInput').value = transcript;
                 setTimeout(() => send(), 100);
             };
-            
             recognition.start();
         }
         
-        // --- ОТПРАВКА СООБЩЕНИЙ С ПОДДЕРЖКОЙ ИЗОБРАЖЕНИЙ ---
+        // --- ОТПРАВКА СООБЩЕНИЙ ---
         async function send() {
             const input = document.getElementById('userInput');
             const text = input.value.trim();
-            
             if (!text && !base64Image) return;
             
-            // World Chat режим
             if (isGlobal) {
                 if (!text) return;
                 await db.collection("global_chat").add({ 
                     text: text, 
                     user: currentUser?.displayName || 'Аноним', 
                     uid: currentUser?.uid || 'guest',
-                    time: firebase.firestore.FieldValue.serverTimestamp(),
-                    avatar: currentUser?.photoURL || null
+                    time: firebase.firestore.FieldValue.serverTimestamp()
                 });
                 input.value = '';
                 return;
             }
             
-            // Обычный чат с AI
-            if (!activeChatId) {
-                createNewChat();
-            }
-            
+            if (!activeChatId) createNewChat();
             const chat = chats.find(c => c.id === activeChatId);
             if (!chat) return;
             
-            // Сохраняем сообщение пользователя
-            const userMsg = { 
-                role: 'user', 
-                content: text || "Посмотри на изображение", 
-                image: base64Image,
-                timestamp: Date.now()
-            };
+            const userMsg = { role: 'user', content: text || "Изображение", image: base64Image, timestamp: Date.now() };
             chat.messages.push(userMsg);
-            
             const currentImg = base64Image;
             input.value = '';
             clearImage();
             saveChats();
             renderMessages();
-            
-            // Показываем индикатор печати
             showTypingIndicator();
             
-            // Создаем пустое сообщение AI
-            const aiMsg = { role: 'assistant', content: '', timestamp: Date.now() };
+            const aiMsg = { role: 'assistant', content: '' };
             chat.messages.push(aiMsg);
             
-            // Рендерим с индикатором
-            renderMessagesWithTyping(aiMsg);
-            
             try {
-                // Выбираем модель в зависимости от наличия изображения
                 const model = currentImg ? "llama-3.2-11b-vision-preview" : "llama-3.3-70b-versatile";
-                
-                let requestMessages = [];
+                let requestMessages = [{ role: "system", content: getSystemPrompt() }];
                 
                 if (currentImg) {
-                    // Vision запрос с изображением
-                    requestMessages = [
-                        { role: "system", content: "Ты FLIKY AI. Твой создатель - Даулет (@dauletbr). Ты дружелюбный, умный помощник. Отвечай на русском языке." },
-                        { 
-                            role: "user", 
-                            content: [
-                                { type: "text", text: text || "Что изображено на этом фото? Опиши подробно." },
-                                { type: "image_url", image_url: { url: currentImg } }
-                            ]
-                        }
-                    ];
+                    requestMessages.push({
+                        role: "user",
+                        content: [
+                            { type: "text", text: text || "Опиши что на этом изображении. Если там код - объясни его." },
+                            { type: "image_url", image_url: { url: currentImg } }
+                        ]
+                    });
                 } else {
-                    // Обычный текстовый запрос (последние 8 сообщений для контекста)
-                    const recentMessages = chat.messages.slice(-8);
-                    requestMessages = [{ role: "system", content: "Ты FLIKY AI. Твой создатель - Даулет (@dauletbr). Ты дружелюбный, умный помощник. Отвечай на русском языке." }];
+                    const recentMessages = chat.messages.slice(-10);
                     for (const msg of recentMessages) {
-                        if (msg.role !== 'assistant' || msg.content) {
+                        if (msg.content && msg.role !== 'assistant' || (msg.role === 'assistant' && msg.content)) {
                             requestMessages.push({ role: msg.role, content: msg.content });
                         }
                     }
@@ -322,8 +337,8 @@
                     body: JSON.stringify({ 
                         model: model, 
                         messages: requestMessages, 
-                        temperature: 0.7,
-                        max_tokens: 1024
+                        temperature: currentMode === 'code' ? 0.3 : 0.7,
+                        max_tokens: 2048
                     })
                 });
                 
@@ -334,13 +349,14 @@
                 
                 const data = await response.json();
                 const result = data.choices[0].message.content;
-                
-                // Анимированный вывод текста
                 await animateTextToMessage(aiMsg, result);
-                
             } catch (error) {
                 console.error("API Error:", error);
-                aiMsg.content = `❌ Ошибка: ${error.message}. Проверьте интернет соединение или попробуйте позже.`;
+                let errorMsg = "❌ Ошибка API: ";
+                if (error.message.includes("API key")) errorMsg += "Неверный API ключ";
+                else if (error.message.includes("network")) errorMsg += "Проверьте интернет";
+                else errorMsg += error.message;
+                aiMsg.content = errorMsg;
                 saveChats();
                 renderMessages();
             } finally {
@@ -351,13 +367,11 @@
         async function animateTextToMessage(aiMsg, fullText) {
             aiMsg.content = '';
             saveChats();
-            
             const container = document.getElementById('chat');
             const messages = container.querySelectorAll('.msg');
-            const lastMsg = messages[messages.length - 1];
+            let lastMsg = messages[messages.length - 1];
             
             if (lastMsg && lastMsg.classList.contains('ai')) {
-                // Обновляем существующее сообщение
                 let i = 0;
                 const interval = setInterval(() => {
                     if (i < fullText.length) {
@@ -369,7 +383,7 @@
                         clearInterval(interval);
                         saveChats();
                     }
-                }, 10);
+                }, 8);
             } else {
                 aiMsg.content = fullText;
                 saveChats();
@@ -378,7 +392,6 @@
         }
         
         function showTypingIndicator() {
-            isTyping = true;
             const container = document.getElementById('chat');
             const indicator = document.createElement('div');
             indicator.className = 'typing-indicator';
@@ -391,51 +404,17 @@
         function hideTypingIndicator() {
             const indicator = document.getElementById('typing-indicator');
             if (indicator) indicator.remove();
-            isTyping = false;
         }
         
-        function renderMessagesWithTyping(aiMsg) {
-            const container = document.getElementById('chat');
-            container.innerHTML = '';
-            const chat = chats.find(c => c.id === activeChatId);
-            if (!chat) return;
-            
-            for (const msg of chat.messages) {
-                if (msg === aiMsg && !msg.content) continue;
-                const div = document.createElement('div');
-                div.className = `msg ${msg.role === 'user' ? 'user' : 'ai'}`;
-                let html = '';
-                if (msg.image) {
-                    html += `<img src="${msg.image}" style="max-width: 200px; max-height: 200px; border-radius: 12px; margin-bottom: 8px;"><br>`;
-                }
-                html += marked.parse(msg.content || '');
-                div.innerHTML = html;
-                container.appendChild(div);
-            }
-            
-            // Добавляем пустое сообщение для анимации
-            const aiDiv = document.createElement('div');
-            aiDiv.className = 'msg ai';
-            aiDiv.innerHTML = '';
-            container.appendChild(aiDiv);
-            container.scrollTop = container.scrollHeight;
-        }
-        
-        // --- ЗАГРУЗКА И СОХРАНЕНИЕ ЧАТОВ ---
         function loadChats() {
             const saved = localStorage.getItem(`chats_${currentUser?.uid || 'guest'}`);
-            if (saved) {
-                chats = JSON.parse(saved);
-            } else {
-                chats = [];
-            }
+            if (saved) chats = JSON.parse(saved);
+            else chats = [];
             renderChatList();
         }
         
         function saveChats() {
-            if (currentUser) {
-                localStorage.setItem(`chats_${currentUser.uid}`, JSON.stringify(chats));
-            }
+            if (currentUser) localStorage.setItem(`chats_${currentUser.uid}`, JSON.stringify(chats));
         }
         
         function toggleMenu() {
@@ -454,8 +433,9 @@
         function createNewChat() {
             isGlobal = false;
             activeChatId = Date.now();
-            const chatTitle = `Чат ${chats.length + 1}`;
-            chats.unshift({ id: activeChatId, title: chatTitle, messages: [], createdAt: Date.now() });
+            const modePrefix = currentMode === 'code' ? '💻 Code' : '💬 Chat';
+            const chatTitle = `${modePrefix} чат ${chats.length + 1}`;
+            chats.unshift({ id: activeChatId, title: chatTitle, messages: [], mode: currentMode, createdAt: Date.now() });
             saveChats();
             renderChatList();
             renderMessages();
@@ -474,9 +454,7 @@
                 const div = document.createElement('div');
                 div.className = `msg ${msg.role === 'user' ? 'user' : 'ai'}`;
                 let html = '';
-                if (msg.image) {
-                    html += `<img src="${msg.image}" style="max-width: 200px; max-height: 200px; border-radius: 12px; margin-bottom: 8px;"><br>`;
-                }
+                if (msg.image) html += `<img src="${msg.image}" style="max-width: 200px; max-height: 200px; border-radius: 12px; margin-bottom: 8px;"><br>`;
                 html += marked.parse(msg.content || '');
                 div.innerHTML = html;
                 container.appendChild(div);
@@ -486,21 +464,17 @@
         
         function renderGlobalMessages() {
             const container = document.getElementById('chat');
-            if (!container) return;
-            
             db.collection("global_chat").orderBy("time", "asc").limitToLast(50).onSnapshot(snapshot => {
                 if (!isGlobal || !container) return;
                 container.innerHTML = '';
                 const messages = [];
-                snapshot.forEach(doc => {
-                    messages.push(doc.data());
-                });
+                snapshot.forEach(doc => messages.push(doc.data()));
                 messages.reverse();
                 for (const msg of messages) {
                     const div = document.createElement('div');
                     const isOwn = msg.uid === currentUser?.uid;
                     div.className = `msg ${isOwn ? 'user' : 'ai global-msg'}`;
-                    div.innerHTML = `<strong style="font-size:12px; opacity:0.7;">${msg.user || 'Аноним'}</strong><br>${escapeHtml(msg.text)}`;
+                    div.innerHTML = `<strong style="font-size:12px; opacity:0.7;">${escapeHtml(msg.user || 'Аноним')}</strong><br>${escapeHtml(msg.text)}`;
                     container.appendChild(div);
                 }
                 container.scrollTop = container.scrollHeight;
@@ -517,14 +491,13 @@
             const file = input.files[0];
             if (!file) return;
             if (!file.type.startsWith('image/')) {
-                alert("Пожалуйста, выберите изображение");
+                alert("Выберите изображение");
                 return;
             }
             if (file.size > 5 * 1024 * 1024) {
-                alert("Изображение не должно превышать 5MB");
+                alert("Изображение до 5MB");
                 return;
             }
-            
             const reader = new FileReader();
             reader.onload = (e) => {
                 base64Image = e.target.result;
@@ -547,12 +520,15 @@
             for (const chat of chats) {
                 const div = document.createElement('div');
                 div.className = 'chat-item';
-                div.innerHTML = `💬 ${chat.title}`;
+                const icon = chat.mode === 'code' ? '💻' : '💬';
+                div.innerHTML = `${icon} ${chat.title}`;
                 div.onclick = () => {
                     isGlobal = false;
                     activeChatId = chat.id;
+                    if (chat.mode) currentMode = chat.mode;
+                    setMode(currentMode);
                     renderMessages();
-                    document.getElementById('headerTitle').innerHTML = `💬 ${chat.title}`;
+                    document.getElementById('headerTitle').innerHTML = `${icon} ${chat.title}`;
                     toggleMenu();
                 };
                 list.appendChild(div);
@@ -564,12 +540,9 @@
                 currentUser = null;
                 location.reload();
             } else {
-                auth.signOut().then(() => {
-                    currentUser = null;
-                    location.reload();
-                }).catch(() => location.reload());
+                auth.signOut().then(() => location.reload());
             }
         }
     </script>
 </body>
-    </html>
+</html>

@@ -2,237 +2,734 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Захват Территории</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Танки Онлайн — Битва в Telegram</title>
+    <!-- Telegram WebApp и PubNub для реальной многопользовательской игры -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pubnub/7.2.1/pubnub.min.js"></script>
-    
     <style>
-        * { box-sizing: border-box; user-select: none; touch-action: manipulation; }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000000; color: #ffffff; font-family: 'Courier New', monospace; overflow: hidden; }
-        
-        /* Экран блокировки */
-        #kick-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; background: #050505; text-align: center; padding: 20px; position: absolute; z-index: 1000; }
-        #kick-screen h1 { color: #ff3333; text-transform: uppercase; font-weight: bold; }
-        
-        #game-container { display: none; flex-direction: column; width: 100%; height: 100%; position: relative; }
-        
-        /* Верхняя панель и ТОП */
-        #header { width: 100%; height: auto; padding: 10px; background: #0a0a0a; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: flex-start; z-index: 10; }
-        #my-info { font-size: 14px; font-weight: bold; text-transform: uppercase; }
-        #leaderboard { font-size: 12px; text-align: right; }
-        .leader-row { margin-bottom: 3px; }
-        
-        /* Игровое поле (Сетка) */
-        #board-container { flex-grow: 1; display: flex; justify-content: center; align-items: center; background: #050505; padding: 10px; }
-        #grid { display: grid; grid-template-columns: repeat(15, 1fr); grid-template-rows: repeat(15, 1fr); width: 100%; aspect-ratio: 1/1; max-width: 500px; background: #111; border: 2px solid #333; gap: 1px; }
-        .cell { background: #000; width: 100%; height: 100%; position: relative; transition: background-color 0.1s; }
-        
-        /* Маркер игрока (где он сейчас стоит) */
-        .player-marker { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; font-size: 10px; font-weight: bold; color: #fff; text-shadow: 1px 1px 2px #000; z-index: 5; pointer-events: none; }
-        .player-marker::after { content: ''; position: absolute; width: 60%; height: 60%; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 5px #fff; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
 
-        /* Джойстик */
-        #controls { width: 100%; height: 35%; background: #0a0a0a; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); padding: 20px; gap: 15px; border-top: 1px solid #222; }
-        .btn { background: #111; border: 1px solid #333; color: #fff; font-size: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 10px #000; }
-        .btn:active { background: #222; border-color: #555; }
+        body, html {
+            width: 100%;
+            height: 100%;
+            background: #0a0c0f;
+            overflow: hidden;
+            font-family: 'Segoe UI', 'Courier New', monospace;
+            touch-action: manipulation;
+        }
+
+        /* Экран проверки Telegram */
+        #kick-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 30% 10%, #0a0f1a, #000000);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            backdrop-filter: blur(4px);
+            text-align: center;
+            gap: 20px;
+            color: #ff3a3a;
+        }
+
+        #kick-screen h1 {
+            font-size: 2.4rem;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            text-shadow: 0 0 12px #ff0000;
+            border-bottom: 2px solid #ff3a3a;
+            padding-bottom: 12px;
+        }
+
+        #kick-screen p {
+            font-size: 1.2rem;
+            background: #000000aa;
+            padding: 10px 20px;
+            border-radius: 40px;
+            color: #ddd;
+        }
+
+        /* Игровой контейнер */
+        #game-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            background: #111316;
+        }
+
+        /* Арена с улучшенным виниловым стилем — тёмный глянец + сетка */
+        .arena-wrap {
+            flex: 5;
+            position: relative;
+            background: #0b0e12;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.6), 0 4px 12px black;
+            border-bottom: 3px solid #2a2e35;
+        }
+        #arena {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background-image: 
+                linear-gradient(#1e2329 1px, transparent 1px),
+                linear-gradient(90deg, #1e2329 1px, transparent 1px);
+            background-size: 40px 40px;
+            background-position: center center;
+            overflow: hidden;
+            cursor: crosshair;
+        }
+
+        /* Танк — винтажный стиль с башней и гусеницами */
+        .tank {
+            position: absolute;
+            width: 44px;
+            height: 44px;
+            transition: transform 0.05s linear;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.6));
+            z-index: 10;
+        }
+        .tank-body {
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at 30% 35%, #2c2f36, #0f1115);
+            border-radius: 12px 8px 12px 8px;
+            border: 2px solid #3cff4e;
+            box-shadow: 0 0 8px #00ff66, inset 0 1px 0 rgba(255,255,255,0.2);
+            position: relative;
+        }
+        .tank.enemy .tank-body {
+            border-color: #ff3a3a;
+            box-shadow: 0 0 8px #ff0000;
+            background: radial-gradient(ellipse at 30% 35%, #3a2525, #1a0a0a);
+        }
+        /* Башня (пушка) */
+        .tank-gun {
+            position: absolute;
+            width: 16px;
+            height: 26px;
+            background: #5f6b7a;
+            left: 14px;
+            top: -18px;
+            border-radius: 6px 6px 2px 2px;
+            border-left: 2px solid #888c9e;
+            transform-origin: center bottom;
+            box-shadow: 0 2px 5px black;
+        }
+        .tank.enemy .tank-gun {
+            background: #9e3a3a;
+            border-left-color: #ff8888;
+        }
+        /* гусеницы */
+        .tank-track {
+            position: absolute;
+            width: 52px;
+            height: 12px;
+            background: #1f2229;
+            bottom: -8px;
+            left: -4px;
+            border-radius: 20px;
+            z-index: -1;
+            box-shadow: inset 0 0 5px #000, 0 2px 3px black;
+        }
+        .tank-track:before {
+            content: '';
+            position: absolute;
+            width: 52px;
+            height: 6px;
+            background: #2b2f38;
+            top: 3px;
+            border-radius: 4px;
+        }
+
+        .tank-name {
+            position: absolute;
+            top: -28px;
+            left: -8px;
+            background: #000000bb;
+            backdrop-filter: blur(2px);
+            padding: 3px 8px;
+            border-radius: 30px;
+            font-size: 10px;
+            font-weight: bold;
+            white-space: nowrap;
+            color: #e0ffc0;
+            border: 1px solid #4aff76;
+            letter-spacing: 0.5px;
+            font-family: monospace;
+        }
+        .tank.enemy .tank-name {
+            border-color: #ff6a6a;
+            color: #ffbcbc;
+        }
+
+        /* Пули — яркие трассеры */
+        .bullet {
+            position: absolute;
+            width: 9px;
+            height: 9px;
+            background: radial-gradient(circle, #fffbc2, #ffb347);
+            border-radius: 2px;
+            box-shadow: 0 0 12px #ffa500;
+            filter: blur(0.8px);
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        /* Мини-карта */
+        #minimap {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            width: 110px;
+            height: 110px;
+            background: rgba(0, 0, 0, 0.75);
+            border-radius: 12px;
+            border: 2px solid #3e4a5a;
+            backdrop-filter: blur(4px);
+            z-index: 45;
+            overflow: hidden;
+        }
+        .minimap-dot {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #0f0;
+            box-shadow: 0 0 4px lime;
+        }
+        .minimap-dot.enemy {
+            background: #f44;
+            box-shadow: 0 0 4px red;
+        }
+
+        /* Таблица лидеров — стиль полный винил */
+        #leaderboard {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(8, 10, 18, 0.85);
+            backdrop-filter: blur(12px);
+            border-radius: 20px;
+            padding: 12px 16px;
+            border: 1px solid #3fff5e;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.5);
+            min-width: 150px;
+            z-index: 50;
+            font-family: monospace;
+        }
+        #leaderboard h3 {
+            font-size: 14px;
+            margin-bottom: 8px;
+            text-align: center;
+            color: #adff2f;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            border-bottom: 1px dashed #5aff6e;
+            display: inline-block;
+            width: 100%;
+        }
+        #leader-rows {
+            font-size: 12px;
+            font-weight: bold;
+            color: #eee;
+        }
+        #leader-rows div {
+            padding: 3px 0;
+            display: flex;
+            gap: 5px;
+        }
+
+        /* Панель управления — кнопки стиль неон ретро */
+        #controls-panel {
+            flex: 2.2;
+            background: #0c0f16;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            padding: 12px 20px;
+            gap: 14px;
+            border-top: 2px solid #2c313c;
+            box-shadow: 0 -5px 12px black;
+        }
+        .ctrl-btn {
+            background: linear-gradient(145deg, #1e232c, #0b0e12);
+            border: 1px solid #3f4a5a;
+            border-radius: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 34px;
+            font-weight: bold;
+            color: #c0ffc0;
+            text-shadow: 0 0 5px #00ff80;
+            transition: 0.04s linear;
+            cursor: pointer;
+            box-shadow: 0 6px 0 #050708;
+            touch-action: manipulation;
+        }
+        .ctrl-btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #050708;
+            background: #2a313d;
+        }
+        #shoot-btn {
+            background: radial-gradient(circle at 30% 20%, #7a2a2a, #2f0b0b);
+            border-color: #ff6a4d;
+            color: #ffcc77;
+            font-size: 32px;
+            text-shadow: 0 0 8px red;
+            box-shadow: 0 6px 0 #2f0000;
+        }
+        #shoot-btn:active {
+            background: #aa3a2a;
+        }
+
+        /* Уведомления */
+        #notify-area {
+            position: absolute;
+            top: 70px;
+            left: 0;
+            right: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: none;
+            z-index: 70;
+            gap: 6px;
+        }
+        .game-toast {
+            background: #11191fe6;
+            border-left: 4px solid #32ff7e;
+            padding: 6px 14px;
+            border-radius: 40px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #b3ffcf;
+            backdrop-filter: blur(8px);
+            animation: fadeOutUp 4s forwards;
+        }
+        @keyframes fadeOutUp {
+            0% { opacity: 1; transform: translateY(0);}
+            70% { opacity: 1; transform: translateY(-6px);}
+            100% { opacity: 0; transform: translateY(-20px); display: none; }
+        }
     </style>
 </head>
 <body>
 
-    <!-- Экран кика для тех, кто зашел не через бота -->
-    <div id="kick-screen">
-        <h1>Доступ запрещен</h1>
-        <p>Игра доступна только через официального бота Telegram.</p>
-    </div>
+<div id="kick-screen">
+    <h1>⚡ ТАНКИ ⚡</h1>
+    <p>🎮 Требуется официальный Telegram клиент<br>👉 Запустите через бота 👈</p>
+</div>
 
-    <!-- Основной интерфейс -->
-    <div id="game-container">
-        <div id="header">
-            <div id="my-info">Подключение...</div>
-            <div id="leaderboard">
-                <div style="color: #666; margin-bottom: 5px;">ТОП ТЕРРИТОРИЙ</div>
-                <div id="leaders-list"></div>
-            </div>
+<div id="game-container" style="display: none;">
+    <div class="arena-wrap">
+        <div id="arena"></div>
+        <div id="minimap"></div>
+        <div id="leaderboard">
+            <h3>🏆 ТОП ОЧКОВ 🏆</h3>
+            <div id="leader-rows">— загрузка —</div>
         </div>
-        
-        <div id="board-container">
-            <div id="grid"></div>
-        </div>
-        
-        <!-- Кнопки управления -->
-        <div id="controls">
-            <div></div>
-            <div class="btn" onclick="move(0, -1)">▲</div>
-            <div></div>
-            <div class="btn" onclick="move(-1, 0)">◀</div>
-            <div class="btn" style="background: #050505; border: none; box-shadow: none;"></div>
-            <div class="btn" onclick="move(1, 0)">▶</div>
-            <div></div>
-            <div class="btn" onclick="move(0, 1)">▼</div>
-            <div></div>
-        </div>
+        <div id="notify-area"></div>
     </div>
+    <div id="controls-panel">
+        <div></div><div class="ctrl-btn" id="btn-up">▲</div><div></div>
+        <div class="ctrl-btn" id="btn-left">◀</div>
+        <div class="ctrl-btn" id="shoot-btn">💥</div>
+        <div class="ctrl-btn" id="btn-right">▶</div>
+        <div></div><div class="ctrl-btn" id="btn-down">▼</div><div></div>
+    </div>
+</div>
 
-    <script>
+<script>
+    (function() {
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
 
-        // Проверка входа через Telegram
-        if (!tg.initData || tg.initData === "") {
+        // блокировка при не-тг
+        if (!tg.initData || tg.initData === "" || tg.initDataUnsafe?.user === undefined) {
             document.getElementById('kick-screen').style.display = 'flex';
+            document.getElementById('game-container').style.display = 'none';
+            return;
         } else {
             document.getElementById('kick-screen').style.display = 'none';
             document.getElementById('game-container').style.display = 'flex';
-            initGame();
+            startBattle();
         }
 
-        // Настройки игры
-        const gridSize = 15;
-        let myId, myName, myColor;
-        let myPos = { x: 7, y: 7 }; // Старт в центре
-        let boardState = {}; // Хранит владельцев клеток "x,y" -> {id, color}
-        let players = {}; // Хранит текущие позиции игроков "id" -> {name, x, y, color}
+        function showNotify(text, isError = false) {
+            const area = document.getElementById('notify-area');
+            const div = document.createElement('div');
+            div.className = 'game-toast';
+            div.innerText = text;
+            if (isError) div.style.borderLeftColor = '#ff6644';
+            area.appendChild(div);
+            setTimeout(() => div.remove(), 4500);
+        }
 
-        function initGame() {
-            myName = tg.initDataUnsafe?.user?.username || tg.initDataUnsafe?.user?.first_name || "Игрок";
-            myId = tg.initDataUnsafe?.user?.id?.toString() || Math.random().toString(36).substr(2, 9);
+        async function startBattle() {
+            const user = tg.initDataUnsafe.user;
+            const playerId = user.id.toString();
+            const playerName = user.username || user.first_name || "СтальнойТанк";
             
-            // Генерируем случайный яркий неоновый цвет для игрока
-            const neonColors = ['#ff0055', '#00ffcc', '#ccff00', '#ffaa00', '#bd00ff', '#0088ff', '#ff0000', '#00ff00'];
-            myColor = neonColors[Math.floor(Math.random() * neonColors.length)];
+            const arenaEl = document.getElementById('arena');
+            let arenaWidth = arenaEl.clientWidth;
+            let arenaHeight = arenaEl.clientHeight;
+            // фикс размеров при старте
+            const updateArenaSize = () => {
+                arenaWidth = arenaEl.clientWidth;
+                arenaHeight = arenaEl.clientHeight;
+            };
+            updateArenaSize();
+            window.addEventListener('resize', () => updateArenaSize());
 
-            document.getElementById('my-info').innerHTML = `<span style="color:${myColor}">${myName}</span>`;
-
-            buildGrid();
-
-            // Подключение к мультиплееру
+            // Состояние игроков: ключ - id, значения { x, y, dir, name, score }
+            let playersMap = new Map(); 
+            // Наш танк
+            let myTank = {
+                id: playerId,
+                name: playerName,
+                x: arenaWidth / 2 - 22,
+                y: arenaHeight / 2 - 22,
+                dir: 'up',
+                score: 0
+            };
+            
+            // корректировка при ресайзе
+            function clampTank(tank) {
+                tank.x = Math.min(Math.max(tank.x, 8), arenaWidth - 46);
+                tank.y = Math.min(Math.max(tank.y, 8), arenaHeight - 46);
+            }
+            clampTank(myTank);
+            
+            // Инициализация PubNub
             const pubnub = new PubNub({
                 publishKey: 'pub-c-8def65ec-527e-4b47-bc85-ca3b6e828135',
                 subscribeKey: 'sub-c-5e5bc8de-1e0e-436f-b425-4c07fcbeaf60',
-                userId: myId
+                userId: playerId
             });
-
-            pubnub.subscribe({ channels: ['territory_io_room'] });
-
-            // Обработка сообщений от сервера
+            
+            const channel = 'tanks_vinyl_battle';
+            pubnub.subscribe({ channels: [channel] });
+            
+            // Функция отправки состояния
+            function sendMyState() {
+                pubnub.publish({
+                    channel: channel,
+                    message: {
+                        type: 'move',
+                        id: playerId,
+                        name: playerName,
+                        x: myTank.x,
+                        y: myTank.y,
+                        dir: myTank.dir,
+                        score: myTank.score
+                    }
+                }).catch(e => console.warn);
+            }
+            
+            // Уведомляем о новом игроке
+            pubnub.publish({
+                channel: channel,
+                message: { type: 'join', id: playerId, name: playerName, score: myTank.score }
+            });
+            
+            showNotify(`⚙️ ${playerName}, добро пожаловать в бой! Уничтожай врагов!`);
+            
+            // ---- Обработчик сообщений ----
             pubnub.addListener({
-                message: function(event) {
+                message: (event) => {
                     const msg = event.message;
+                    if (!msg) return;
                     
-                    if (msg.type === 'move') {
-                        // Обновляем позицию игрока
-                        players[msg.id] = { name: msg.name, x: msg.x, y: msg.y, color: msg.color };
-                        
-                        // Закрашиваем клетку
-                        const cellKey = `${msg.x},${msg.y}`;
-                        boardState[cellKey] = { id: msg.id, color: msg.color };
-                        
-                        updateVisuals();
+                    if (msg.type === 'join' && msg.id !== playerId) {
+                        showNotify(`🔰 ${msg.name} вступил в битву!`);
+                        // если нет в карте, добавим
+                        if (!playersMap.has(msg.id)) {
+                            playersMap.set(msg.id, {
+                                id: msg.id, name: msg.name, x: 100, y: 100, dir: 'up', score: msg.score || 0
+                            });
+                            renderAll();
+                        }
+                    }
+                    
+                    if (msg.type === 'move' && msg.id !== playerId) {
+                        let existing = playersMap.get(msg.id);
+                        if (existing) {
+                            existing.x = msg.x;
+                            existing.y = msg.y;
+                            existing.dir = msg.dir;
+                            existing.score = msg.score;
+                            existing.name = msg.name;
+                        } else {
+                            playersMap.set(msg.id, {
+                                id: msg.id, name: msg.name, x: msg.x, y: msg.y, dir: msg.dir, score: msg.score || 0
+                            });
+                        }
+                        renderAll();
+                    }
+                    
+                    if (msg.type === 'shoot' && msg.id !== playerId) {
+                        // Визуализируем выстрел другого игрока
+                        createBulletVisual(msg.x, msg.y, msg.dir, msg.id);
+                    }
+                    
+                    if (msg.type === 'kill') {
+                        if (msg.targetId === playerId) {
+                            showNotify(`💀 ВАС УНИЧТОЖИЛ ${msg.killerName || 'танкист'}! Возрождение...`, true);
+                            myTank.score = Math.max(0, myTank.score - 1); // штраф за смерть
+                            // респавн в случайном месте
+                            myTank.x = Math.random() * (arenaWidth - 70) + 20;
+                            myTank.y = Math.random() * (arenaHeight - 70) + 20;
+                            clampTank(myTank);
+                            sendMyState();
+                            renderAll();
+                        }
+                        if (msg.killerId === playerId) {
+                            myTank.score += 2;
+                            showNotify(`🔥🔥 ВЫ ПОДБИЛИ ${msg.targetName}! +2 очка!`);
+                            sendMyState();
+                        }
+                        // обновить счёт убитого в карте игроков
+                        if (playersMap.has(msg.targetId)) {
+                            playersMap.get(msg.targetId).score = (playersMap.get(msg.targetId).score > 0) ? playersMap.get(msg.targetId).score - 1 : 0;
+                        }
+                        if (playersMap.has(msg.killerId) && msg.killerId !== playerId) {
+                            playersMap.get(msg.killerId).score += 2;
+                        }
+                        renderAll();
+                    }
+                    
+                    if (msg.type === 'leave' && msg.id !== playerId) {
+                        playersMap.delete(msg.id);
+                        showNotify(`👋 ${msg.name} покинул поле боя`);
+                        renderAll();
                     }
                 }
             });
-
-            // Делаем первый ход (появляемся на карте)
-            window.move = function(dx, dy) {
-                let newX = myPos.x + dx;
-                let newY = myPos.y + dy;
-
-                // Проверка границ карты
-                if (newX >= 0 && newX < gridSize && newY >= 0 && newY < gridSize) {
-                    myPos.x = newX;
-                    myPos.y = newY;
-                    
-                    // Отправляем свой ход всем онлайн
-                    pubnub.publish({
-                        channel: 'territory_io_room',
-                        message: { type: 'move', id: myId, name: myName, x: myPos.x, y: myPos.y, color: myColor }
-                    });
-
-                    // Красим локально сразу для плавности
-                    players[myId] = { name: myName, x: myPos.x, y: myPos.y, color: myColor };
-                    boardState[`${myPos.x},${myPos.y}`] = { id: myId, color: myColor };
-                    updateVisuals();
-                }
-            };
-
-            // Принудительно "становимся" на стартовую клетку
-            move(0, 0);
-        }
-
-        function buildGrid() {
-            const grid = document.getElementById('grid');
-            grid.innerHTML = '';
-            for (let y = 0; y < gridSize; y++) {
-                for (let x = 0; x < gridSize; x++) {
-                    const cell = document.createElement('div');
-                    cell.className = 'cell';
-                    cell.id = `cell-${x}-${y}`;
-                    grid.appendChild(cell);
-                }
-            }
-        }
-
-        function updateVisuals() {
-            // 1. Очищаем все маркеры игроков с карты
-            document.querySelectorAll('.player-marker').forEach(m => m.remove());
-
-            // 2. Обновляем цвета захваченных клеток
-            let scores = {}; // Подсчет очков: id -> count
             
-            for (let key in boardState) {
-                const parts = key.split(',');
-                const x = parts[0];
-                const y = parts[1];
-                const owner = boardState[key];
+            // Функция рендеринга всего (танки, миникарта, топ)
+            function renderAll() {
+                // очищаем арену от танков (но пули не трогаем, они отдельно)
+                const tanksRendered = document.querySelectorAll('.tank');
+                tanksRendered.forEach(t => t.remove());
+                const minimapDiv = document.getElementById('minimap');
+                minimapDiv.innerHTML = '';
                 
-                // Перекрашиваем клетку в цвет владельца (чуть затемненный)
-                const cellEl = document.getElementById(`cell-${x}-${y}`);
-                if (cellEl) {
-                    cellEl.style.backgroundColor = owner.color;
-                    cellEl.style.opacity = "0.7";
+                // Свой танк
+                drawTankElement(myTank, false, arenaEl);
+                addMinimapDot(myTank.x, myTank.y, false, minimapDiv, arenaWidth, arenaHeight);
+                
+                // Массив для топа
+                let scoreboard = [{ name: myTank.name, score: myTank.score, id: playerId }];
+                
+                for (let [id, p] of playersMap.entries()) {
+                    if (id !== playerId && p.x && p.y) {
+                        drawTankElement(p, true, arenaEl);
+                        addMinimapDot(p.x, p.y, true, minimapDiv, arenaWidth, arenaHeight);
+                        scoreboard.push({ name: p.name, score: p.score || 0, id });
+                    }
                 }
-
-                // Считаем очки
-                if (!scores[owner.id]) scores[owner.id] = { count: 0, name: players[owner.id]?.name || 'Unknown', color: owner.color };
-                scores[owner.id].count++;
-            }
-
-            // 3. Расставляем маркеры текущих позиций игроков
-            for (let pid in players) {
-                const p = players[pid];
-                const cellEl = document.getElementById(`cell-${p.x}-${p.y}`);
-                if (cellEl) {
-                    // Клетка, где стоит игрок, яркая
-                    cellEl.style.opacity = "1"; 
-                    
-                    const marker = document.createElement('div');
-                    marker.className = 'player-marker';
-                    // Первая буква имени внутри маркера
-                    marker.innerText = p.name.charAt(0).toUpperCase(); 
-                    cellEl.appendChild(marker);
+                // обновить топ очков (сортировка)
+                scoreboard.sort((a,b) => b.score - a.score);
+                const leaderDiv = document.getElementById('leader-rows');
+                if (leaderDiv) {
+                    leaderDiv.innerHTML = '';
+                    for (let i=0; i<Math.min(6, scoreboard.length); i++) {
+                        const row = document.createElement('div');
+                        row.innerHTML = `${i+1}. ${scoreboard[i].name.substring(0,12)}: ${scoreboard[i].score}`;
+                        if (scoreboard[i].id === playerId) row.style.color = "#adff2f";
+                        leaderDiv.appendChild(row);
+                    }
                 }
             }
-
-            // 4. Обновляем таблицу лидеров
-            updateLeaderboard(scores);
-        }
-
-        function updateLeaderboard(scores) {
-            const listObj = Object.values(scores).sort((a, b) => b.count - a.count);
-            const leadersList = document.getElementById('leaders-list');
-            leadersList.innerHTML = '';
             
-            listObj.slice(0, 5).forEach((item, index) => {
-                leadersList.innerHTML += `
-                    <div class="leader-row" style="color: ${item.color}">
-                        ${index + 1}. ${item.name}: <b>${item.count}</b>
-                    </div>
-                `;
+            // отрисовка танка с винтажной графикой
+            function drawTankElement(t, isEnemy, parent) {
+                const tankDiv = document.createElement('div');
+                tankDiv.className = `tank ${isEnemy ? 'enemy' : ''}`;
+                tankDiv.style.left = t.x + 'px';
+                tankDiv.style.top = t.y + 'px';
+                let angle = 0;
+                if (t.dir === 'right') angle = 90;
+                else if (t.dir === 'down') angle = 180;
+                else if (t.dir === 'left') angle = 270;
+                else angle = 0;
+                tankDiv.style.transform = `rotate(${angle}deg)`;
+                
+                // внутренности танка
+                const body = document.createElement('div');
+                body.className = 'tank-body';
+                const gun = document.createElement('div');
+                gun.className = 'tank-gun';
+                const track = document.createElement('div');
+                track.className = 'tank-track';
+                body.appendChild(gun);
+                body.appendChild(track);
+                tankDiv.appendChild(body);
+                
+                const nameSpan = document.createElement('div');
+                nameSpan.className = 'tank-name';
+                nameSpan.innerText = t.name + (t.score ? ` [${t.score}]` : '');
+                nameSpan.style.transform = `rotate(${-angle}deg)`;
+                tankDiv.appendChild(nameSpan);
+                
+                parent.appendChild(tankDiv);
+            }
+            
+            function addMinimapDot(x, y, isEnemy, minimapContainer, arenaW, arenaH) {
+                const mW = minimapContainer.clientWidth;
+                const mH = minimapContainer.clientHeight;
+                if (arenaW <= 0 || arenaH <= 0) return;
+                let leftPercent = (x / arenaW) * mW;
+                let topPercent = (y / arenaH) * mH;
+                const dot = document.createElement('div');
+                dot.className = `minimap-dot ${isEnemy ? 'enemy' : ''}`;
+                dot.style.position = 'absolute';
+                dot.style.left = Math.min(mW-6, Math.max(0, leftPercent)) + 'px';
+                dot.style.top = Math.min(mH-6, Math.max(0, topPercent)) + 'px';
+                minimapContainer.appendChild(dot);
+            }
+            
+            // Выстрел: создание пули, проверка попадания (локально)
+            function shootFromTank() {
+                let startX = myTank.x + 22;
+                let startY = myTank.y + 22;
+                const dir = myTank.dir;
+                // отправляем выстрел по сети
+                pubnub.publish({
+                    channel: channel,
+                    message: {
+                        type: 'shoot',
+                        id: playerId,
+                        x: startX,
+                        y: startY,
+                        dir: dir
+                    }
+                });
+                createBulletVisual(startX, startY, dir, playerId, true);
+            }
+            
+            function createBulletVisual(x, y, dir, ownerId, isMyShot = false) {
+                const bullet = document.createElement('div');
+                bullet.className = 'bullet';
+                bullet.style.left = x + 'px';
+                bullet.style.top = y + 'px';
+                arenaEl.appendChild(bullet);
+                
+                let dx = 0, dy = 0;
+                const step = 12;
+                if (dir === 'up') dy = -step;
+                else if (dir === 'down') dy = step;
+                else if (dir === 'left') dx = -step;
+                else dx = step;
+                
+                let posX = x, posY = y;
+                const interval = setInterval(() => {
+                    posX += dx;
+                    posY += dy;
+                    bullet.style.left = posX + 'px';
+                    bullet.style.top = posY + 'px';
+                    
+                    // границы
+                    if (posX < -20 || posX > arenaWidth+40 || posY < -20 || posY > arenaHeight+40) {
+                        clearInterval(interval);
+                        if(bullet.parentNode) bullet.remove();
+                        return;
+                    }
+                    
+                    // попадание: для своего выстрела проверяем врагов
+                    if (isMyShot && ownerId === playerId) {
+                        for (let [id, enemy] of playersMap.entries()) {
+                            if (id === playerId) continue;
+                            const enemyLeft = enemy.x, enemyRight = enemy.x + 44;
+                            const enemyTop = enemy.y, enemyBottom = enemy.y + 44;
+                            if (posX + 5 >= enemyLeft && posX <= enemyRight && posY + 5 >= enemyTop && posY <= enemyBottom) {
+                                clearInterval(interval);
+                                bullet.remove();
+                                // убийство!
+                                pubnub.publish({
+                                    channel: channel,
+                                    message: {
+                                        type: 'kill',
+                                        killerId: playerId,
+                                        killerName: myTank.name,
+                                        targetId: id,
+                                        targetName: enemy.name,
+                                        killerScore: myTank.score + 2
+                                    }
+                                });
+                                playersMap.delete(id);
+                                showNotify(`🎯 ПРЯМОЕ ПОПАДАНИЕ! Уничтожен ${enemy.name}`);
+                                renderAll();
+                                break;
+                            }
+                        }
+                    }
+                }, 32);
+            }
+            
+            // Управление
+            const moveStep = 24;
+            function moveTank(direction) {
+                let oldX = myTank.x, oldY = myTank.y;
+                if (direction === 'up') myTank.y -= moveStep;
+                if (direction === 'down') myTank.y += moveStep;
+                if (direction === 'left') myTank.x -= moveStep;
+                if (direction === 'right') myTank.x += moveStep;
+                myTank.dir = direction;
+                clampTank(myTank);
+                if (oldX !== myTank.x || oldY !== myTank.y) {
+                    sendMyState();
+                    renderAll();
+                } else {
+                    renderAll(); // обновить направление даже если уперся в стену
+                }
+            }
+            
+            // Привязка кнопок
+            document.getElementById('btn-up').addEventListener('click', () => moveTank('up'));
+            document.getElementById('btn-down').addEventListener('click', () => moveTank('down'));
+            document.getElementById('btn-left').addEventListener('click', () => moveTank('left'));
+            document.getElementById('btn-right').addEventListener('click', () => moveTank('right'));
+            document.getElementById('shoot-btn').addEventListener('click', () => shootFromTank());
+            
+            // автоматическая отправка позиции раз в 1.2 сек, для синхронизации после респавна
+            setInterval(() => {
+                if (myTank) sendMyState();
+            }, 1300);
+            
+            // При выходе из вкладки или закрытии - шлем сообщение об уходе
+            window.addEventListener('beforeunload', () => {
+                pubnub.publish({
+                    channel: channel,
+                    message: { type: 'leave', id: playerId, name: playerName }
+                });
             });
+            
+            // начальный рендер
+            renderAll();
+            sendMyState();
+            
+            // каждые 5 секунд обновляем топ/рендер (для стабильности)
+            setInterval(() => renderAll(), 2500);
+            
+            showNotify(`🎖️ Ваш танк готов! Управляй кнопками и стреляй. Уничтожай врагов!`);
         }
-    </script>
+    })();
+</script>
 </body>
 </html>
-

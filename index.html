@@ -2,962 +2,290 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Daupro AI 💻 Мобильный кодер</title>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Танки Онлайн TG</title>
+    <!-- Подключаем Telegram WebApp API -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Подключаем библиотеку для бесплатного мультиплеера без своего сервера -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pubnub/7.2.1/pubnub.min.js"></script>
+    
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
+        * { box-sizing: border-box; user-select: none; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #111; color: #fff; font-family: Arial, sans-serif; overflow: hidden; }
+        
+        #kick-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; background: #000; text-align: center; padding: 20px; }
+        #kick-screen h1 { color: #ff3333; font-size: 24px; }
+        
+        #game-container { display: none; width: 100%; height: 100%; position: relative; }
+        
+        /* Карта (Арена) */
+        #arena { width: 100%; height: 60%; background: #222; border-bottom: 2px solid #444; position: relative; overflow: hidden; }
+        
+        /* Танк */
+        .tank { width: 30px; height: 30px; position: absolute; background: #00ff00; border-radius: 5px; transition: all 0.1s linear; }
+        .tank::after { content: ''; position: absolute; width: 6px; height: 15px; background: #00aa00; top: -12px; left: 12px; }
+        .tank.enemy { background: #ff3333; }
+        .tank.enemy::after { background: #aa0000; }
+        .tank-name { position: absolute; top: -30px; left: -10px; font-size: 10px; background: rgba(0,0,0,0.7); padding: 2px 5px; border-radius: 3px; white-space: nowrap; }
+        
+        /* Пуля */
+        .bullet { width: 6px; height: 6px; background: #ffff00; border-radius: 50%; position: absolute; }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
-            background: #0a0a0f;
-            color: #ffffff;
-            height: 100dvh;
-            overflow: hidden;
-            position: fixed;
-            width: 100%;
-        }
-
-        /* Login Screen - Мобильный */
-        #login-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 100%);
-            z-index: 10000;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 16px;
-            padding: 20px;
-        }
-
-        .login-title {
-            font-size: 42px;
-            font-weight: 800;
-            background: linear-gradient(45deg, #10b981, #6366f1);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-align: center;
-        }
-
-        .login-subtitle {
-            color: #888;
-            margin-bottom: 20px;
-            text-align: center;
-            font-size: 14px;
-        }
-
-        .google-btn {
-            background: white;
-            color: #1a1a2e;
-            padding: 14px 24px;
-            border-radius: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            border: none;
-            width: 280px;
-            max-width: 90%;
-            font-size: 16px;
-            transition: 0.2s;
-        }
-
-        .guest-btn {
-            background: rgba(255,255,255,0.1);
-            color: white;
-            border: 1px solid #333;
-        }
-
-        /* Main App */
-        .app-container {
-            display: none;
-            width: 100%;
-            height: 100dvh;
-            position: relative;
-            flex-direction: column;
-        }
-
-        /* Sidebar мобильный */
-        .sidebar {
-            position: fixed;
-            left: -85%;
-            top: 0;
-            width: 85%;
-            max-width: 300px;
-            height: 100%;
-            background: rgba(15, 15, 25, 0.98);
-            backdrop-filter: blur(20px);
-            z-index: 1000;
-            transition: left 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
-            display: flex;
-            flex-direction: column;
-            border-right: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .sidebar.open {
-            left: 0;
-        }
-
-        .sidebar-header {
-            padding: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .close-sidebar {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 28px;
-            cursor: pointer;
-            padding: 5px;
-        }
-
-        .mode-switch {
-            display: flex;
-            gap: 10px;
-            margin: 20px;
-        }
-
-        .mode-btn {
-            flex: 1;
-            padding: 12px;
-            border-radius: 12px;
-            border: 1px solid rgba(255,255,255,0.2);
-            background: transparent;
-            color: white;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 14px;
-            transition: 0.2s;
-        }
-
-        .mode-btn.active {
-            background: #10b981;
-            border-color: #10b981;
-        }
-
-        .sidebar-btn {
-            margin: 0 20px 10px 20px;
-            padding: 14px;
-            border-radius: 12px;
-            border: none;
-            font-weight: 600;
-            cursor: pointer;
-            font-size: 15px;
-        }
-
-        .global-btn {
-            background: linear-gradient(45deg, #6366f1, #10b981);
-            color: white;
-        }
-
-        .new-chat-btn {
-            background: #10b981;
-            color: white;
-        }
-
-        .chat-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 10px;
-        }
-
-        .chat-item {
-            padding: 14px;
-            margin: 5px 0;
-            background: rgba(255,255,255,0.05);
-            border-radius: 12px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: 0.2s;
-        }
-
-        .logout-btn {
-            margin: 20px;
-            padding: 14px;
-            background: none;
-            border: none;
-            color: #f87171;
-            font-weight: 600;
-            cursor: pointer;
-            border-top: 1px solid rgba(255,255,255,0.1);
-            font-size: 15px;
-        }
-
-        .overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.7);
-            z-index: 999;
-            display: none;
-        }
-
-        .overlay.show {
-            display: block;
-        }
-
-        /* Top Bar */
-        .top-bar {
-            height: 60px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            display: flex;
-            align-items: center;
-            padding: 0 16px;
-            justify-content: space-between;
-            background: rgba(10, 10, 15, 0.95);
-            backdrop-filter: blur(10px);
-        }
-
-        .menu-btn {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 26px;
-            cursor: pointer;
-            padding: 8px;
-        }
-
-        .header-title {
-            font-size: 16px;
-            font-weight: 600;
-            margin-left: 10px;
-        }
-
-        .mode-badge {
-            background: linear-gradient(45deg, #10b981, #6366f1);
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 700;
-        }
-
-        /* Chat Container */
-        .chat-container {
-            flex: 1;
-            overflow-y: auto;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            padding-bottom: 80px;
-        }
-
-        .message {
-            padding: 12px 16px;
-            border-radius: 18px;
-            max-width: 85%;
-            animation: fadeIn 0.2s ease;
-            word-wrap: break-word;
-            font-size: 15px;
-            line-height: 1.45;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .message.user {
-            background: #6366f1;
-            align-self: flex-end;
-            border-bottom-right-radius: 4px;
-        }
-
-        .message.ai {
-            background: rgba(31, 41, 55, 0.9);
-            align-self: flex-start;
-            border-bottom-left-radius: 4px;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .message.global {
-            background: rgba(99, 102, 241, 0.15);
-        }
-
-        /* Input Area - фиксированный внизу */
-        .input-area {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(31, 41, 55, 0.98);
-            backdrop-filter: blur(20px);
-            display: flex;
-            align-items: center;
-            padding: 8px 16px;
-            border-top: 1px solid rgba(255,255,255,0.1);
-            gap: 8px;
-        }
-
-        .input-area input {
-            flex: 1;
-            background: rgba(255,255,255,0.1);
-            border: none;
-            color: white;
-            height: 44px;
-            border-radius: 25px;
-            padding: 0 16px;
-            font-size: 16px;
-            outline: none;
-        }
-
-        .input-area input:focus {
-            background: rgba(255,255,255,0.15);
-        }
-
-        .icon-btn {
-            background: none;
-            border: none;
-            color: white;
-            cursor: pointer;
-            padding: 8px;
-            font-size: 22px;
-            min-width: 44px;
-            min-height: 44px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            transition: 0.2s;
-        }
-
-        .icon-btn:active {
-            transform: scale(0.95);
-            background: rgba(255,255,255,0.1);
-        }
-
-        /* Preview */
-        .preview-wrap {
-            display: none;
-            position: fixed;
-            bottom: 70px;
-            left: 16px;
-            background: #1f2937;
-            padding: 8px 12px;
-            border-radius: 16px;
-            z-index: 100;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        }
-
-        .preview-box {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .preview-img {
-            width: 50px;
-            height: 50px;
-            object-fit: cover;
-            border-radius: 10px;
-        }
-
-        /* Typing */
-        .typing-indicator {
-            display: flex;
-            gap: 5px;
-            padding: 12px 16px;
-            background: rgba(31, 41, 55, 0.9);
-            border-radius: 18px;
-            align-self: flex-start;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .typing-indicator span {
-            width: 8px;
-            height: 8px;
-            background: #10b981;
-            border-radius: 50%;
-            animation: bounce 1.4s infinite;
-        }
-
-        @keyframes bounce {
-            0%, 60%, 100% { transform: translateY(0); }
-            30% { transform: translateY(-8px); }
-        }
-
-        /* Code styling */
-        pre {
-            background: #0f0f12;
-            padding: 12px;
-            border-radius: 10px;
-            overflow-x: auto;
-            margin: 8px 0;
-            font-size: 12px;
-        }
-
-        code {
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-        }
-
-        ::-webkit-scrollbar {
-            width: 4px;
-        }
+        /* Таблица лидеров */
+        #leaderboard { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 5px; font-size: 12px; min-width: 120px; max-height: 120px; overflow-y: auto; }
+        #leaderboard h3 { margin: 0 0 5px 0; font-size: 14px; color: #00ff00; }
+        
+        /* Кнопки управления (Джойстик) */
+        #controls { width: 100%; height: 40%; background: #151515; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); padding: 10px; gap: 10px; }
+        .btn { background: #333; border: 2px solid #555; color: white; font-size: 20px; font-weight: bold; border-radius: 10px; display: flex; align-items: center; justify-content: center; active-background: #555; }
+        .btn:active { background: #555; }
+        #btn-shoot { background: #cc3333; border-color: #ff5555; grid-column: 2; grid-row: 2; }
+        #btn-shoot:active { background: #ff3333; }
     </style>
 </head>
 <body>
 
-<!-- Login Screen -->
-<div id="login-screen">
-    <h1 class="login-title">💻 Daupro AI</h1>
-    <p class="login-subtitle">Мобильный AI-кодер</p>
-    <button class="google-btn" id="google-login-btn">🚀 Войти через Google</button>
-    <button class="google-btn guest-btn" id="guest-login-btn">👤 Режим гостя</button>
-</div>
+    <!-- Экран блокировки, если зашли через обычный браузер -->
+    <div id="kick-screen">
+        <h1>ДОСТУП ЗАБЛОКИРОВАН</h1>
+        <p>Для защиты от читеров играть можно только напрямую через официального Telegram-бота!</p>
+    </div>
 
-<!-- Main App -->
-<div class="app-container" id="app-container">
-    <div class="overlay" id="overlay"></div>
-    
-    <div class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <h2 style="font-size: 18px;">📱 Меню</h2>
-            <button class="close-sidebar" id="close-sidebar-btn">✕</button>
+    <!-- Игровой интерфейс -->
+    <div id="game-container">
+        <div id="arena" id="arena-map"></div>
+        
+        <div id="leaderboard">
+            <h3>ТОП ОЧКОВ</h3>
+            <div id="leader-rows"></div>
         </div>
         
-        <div class="mode-switch">
-            <button class="mode-btn" id="code-mode-btn">💻 CODE</button>
-            <button class="mode-btn" id="chat-mode-btn">💬 CHAT</button>
-        </div>
-        
-        <button class="sidebar-btn global-btn" id="global-chat-btn">🌍 World Chat</button>
-        <button class="sidebar-btn new-chat-btn" id="new-chat-btn">➕ Новый чат</button>
-        
-        <div class="chat-list" id="chat-list"></div>
-        
-        <button class="logout-btn" id="logout-btn">🚪 Выйти</button>
-    </div>
-    
-    <div class="top-bar">
-        <div style="display: flex; align-items: center;">
-            <button class="menu-btn" id="menu-btn">☰</button>
-            <span class="header-title" id="header-title">Daupro AI</span>
-        </div>
-        <div class="mode-badge" id="mode-badge">💻 CODE</div>
-    </div>
-    
-    <div class="chat-container" id="chat-container"></div>
-    
-    <div class="preview-wrap" id="preview-wrap">
-        <div class="preview-box">
-            <img class="preview-img" id="preview-img" src="">
-            <button class="icon-btn" id="clear-image-btn" style="color:#f87171; font-size: 20px;">✕</button>
+        <div id="controls">
+            <div></div>
+            <div class="btn" onclick="move('up')">▲</div>
+            <div></div>
+            
+            <div class="btn" onclick="move('left')">◀</div>
+            <div class="btn" id="btn-shoot" onclick="shoot()">🔥</div>
+            <div class="btn" onclick="move('right')">▶</div>
+            
+            <div></div>
+            <div class="btn" onclick="move('down')">▼</div>
+            <div></div>
         </div>
     </div>
-    
-    <div class="input-area">
-        <label class="icon-btn" style="cursor: pointer;">📷
-            <input type="file" id="file-input" accept="image/*" style="display: none;">
-        </label>
-        <button class="icon-btn" id="mic-btn">🎤</button>
-        <input type="text" id="message-input" placeholder="Напишите код или вопрос...">
-        <button class="icon-btn" id="send-btn" style="color:#10b981;">➤</button>
-    </div>
-</div>
 
-<script>
-    // ============ FIREBASE ============
-    const firebaseConfig = {
-        apiKey: "AIzaSyClnvxC1lgvrxn-m7X1huqNmvtH7HaYsxU",
-        authDomain: "flikyfloky-61eed.firebaseapp.com",
-        projectId: "flikyfloky-61eed",
-        storageBucket: "flikyfloky-61eed.firebasestorage.app",
-        messagingSenderId: "167396726913",
-        appId: "1:167396726913:web:871fb5bc1cf4eca509d580"
-    };
-    
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.firestore();
-    
-    // ============ GEMINI API KEY (ваш ключ) ============
-    // ВСТАВЬТЕ СЮДА ВАШ КЛЮЧ ОТ GEMINI (AI Studio)
-    const GEMINI_API_KEY = "AIzaSyClnvxC1lgvrxn-m7X1huqNmvtH7HaYsxU";  // <- СЮДА ВСТАВЬТЕ ВАШ КЛЮЧ!
-    
-    // ============ ПЕРЕМЕННЫЕ ============
-    let currentUser = null;
-    let chats = [];
-    let activeChatId = null;
-    let currentMode = "code";
-    let isGlobal = false;
-    let currentImage = null;
-    
-    // ============ СИСТЕМНЫЙ ПРОМПТ ============
-    function getSystemPrompt() {
-        if (currentMode === "code") {
-            return "Ты профессиональный AI-помощник программиста. Помогай с кодом, алгоритмами, отладкой. Давай готовые решения с примерами кода. Объясняй код. Форматируй код с помощью markdown. Отвечай кратко и по делу. Ты - Daupro AI.";
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand(); // Расширяем на весь экран телефона
+
+        // --- ПРОВЕРКА НА КИК ИЗ БРАУЗЕРА ---
+        // Если initData пустая, значит открыли не в Телеграмме
+        if (!tg.initData || tg.initData === "" || !tg.initDataUnsafe.user) {
+            document.getElementById('kick-screen').style.display = 'flex';
+            document.getElementById('game-container').style.display = 'none';
+            throw new Error("Kicked: Not in Telegram"); 
         } else {
-            return "Ты дружелюбный AI-помощник. Отвечай на вопросы, помогай, будь вежливым. Ты - Daupro AI.";
+            // Если всё норм, пускаем в игру
+            document.getElementById('kick-screen').style.display = 'none';
+            document.getElementById('game-container').style.display = 'block';
         }
-    }
-    
-    // ============ GEMINI API ЗАПРОС ============
-    async function askGemini(prompt, imageBase64 = null) {
-        try {
-            let url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-            
-            let parts = [{ text: prompt }];
-            
-            // Если есть изображение
-            if (imageBase64) {
-                // Убираем префикс data:image/...;base64,
-                let base64Data = imageBase64.split(',')[1];
-                parts.push({
-                    inline_data: {
-                        mime_type: "image/jpeg",
-                        data: base64Data
+
+        // Данные текущего игрока из Telegram
+        const username = tg.initDataUnsafe.user.username || tg.initDataUnsafe.user.first_name || "Танкист";
+        const myId = tg.initDataUnsafe.user.id.toString();
+
+        // Параметры нашей игры
+        const arena = document.getElementById('arena');
+        let myTank = { id: myId, name: username, x: 100, y: 100, dir: 'up', score: 0 };
+        let players = {};
+        
+        // Автоматическое подключение к единому онлайн-серверу обмена сообщениями
+        // Используем демо-ключи PubNub для моментального старта мультиплеера
+        const pubnub = new PubNub({
+            publishKey: 'pub-c-8def65ec-527e-4b47-bc85-ca3b6e828135',
+            subscribeKey: 'sub-c-5e5bc8de-1e0e-436f-b425-4c07fcbeaf60',
+            userId: myId
+        });
+
+        // Подписываемся на единую комнату для всех игроков сервера
+        pubnub.subscribe({ channels: ['tanks_online_global_room'] });
+
+        // Слушаем обновление позиций других игроков
+        pubnub.addListener({
+            message: function(event) {
+                const msg = event.message;
+                
+                if (msg.type === 'update' && msg.id !== myId) {
+                    players[msg.id] = msg;
+                    renderPlayers();
+                }
+                if (msg.type === 'shoot' && msg.id !== myId) {
+                    spawnEnemyBullet(msg.x, msg.y, msg.dir, msg.id);
+                }
+                if (msg.type === 'kill') {
+                    if (msg.targetId === myId) {
+                        alert('Вас подбили! Очки сброшены.');
+                        myTank.score = 0;
+                        myTank.x = Math.floor(Math.random() * (arena.clientWidth - 40));
+                        myTank.y = Math.floor(Math.random() * (arena.clientHeight - 40));
+                        sendPos();
                     }
-                });
-            }
-            
-            const requestBody = {
-                contents: [{
-                    parts: parts
-                }],
-                generationConfig: {
-                    temperature: currentMode === "code" ? 0.2 : 0.8,
-                    maxOutputTokens: 2048
-                }
-            };
-            
-            const response = await fetch(url, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(requestBody)
-            });
-            
-            if (!response.ok) {
-                const error = await response.json();
-                console.error("Gemini API error:", error);
-                throw new Error(`API ошибка: ${error.error?.message || response.status}`);
-            }
-            
-            const data = await response.json();
-            const text = data.candidates[0]?.content?.parts[0]?.text || "Нет ответа от API";
-            return text;
-            
-        } catch (error) {
-            console.error("Gemini error:", error);
-            throw error;
-        }
-    }
-    
-    // ============ LOCAL STORAGE ============
-    function loadChats() {
-        const key = `daupro_chats_${currentUser?.uid || 'guest'}`;
-        const saved = localStorage.getItem(key);
-        if (saved) {
-            chats = JSON.parse(saved);
-        } else {
-            chats = [];
-        }
-        renderChatList();
-    }
-    
-    function saveChats() {
-        if (currentUser) {
-            const key = `daupro_chats_${currentUser.uid}`;
-            localStorage.setItem(key, JSON.stringify(chats));
-        }
-    }
-    
-    // ============ UI ФУНКЦИИ ============
-    function renderChatList() {
-        const container = document.getElementById('chat-list');
-        if (!container) return;
-        container.innerHTML = '';
-        chats.forEach(chat => {
-            const div = document.createElement('div');
-            div.className = 'chat-item';
-            const icon = chat.mode === 'code' ? '💻' : '💬';
-            div.innerHTML = `${icon} ${chat.title || 'Чат'}`;
-            div.onclick = () => {
-                isGlobal = false;
-                activeChatId = chat.id;
-                if (chat.mode) currentMode = chat.mode;
-                updateModeUI();
-                renderMessages();
-                document.getElementById('header-title').innerHTML = `${icon} ${chat.title}`;
-                closeSidebar();
-            };
-            container.appendChild(div);
-        });
-    }
-    
-    function renderMessages() {
-        const container = document.getElementById('chat-container');
-        if (!container) return;
-        if (isGlobal) return;
-        
-        container.innerHTML = '';
-        const chat = chats.find(c => c.id === activeChatId);
-        if (!chat || !chat.messages) return;
-        
-        chat.messages.forEach(msg => {
-            const div = document.createElement('div');
-            div.className = `message ${msg.role}`;
-            let html = '';
-            if (msg.image) {
-                html += `<img src="${msg.image}" style="max-width: 150px; max-height: 150px; border-radius: 12px; margin-bottom: 8px;"><br>`;
-            }
-            if (msg.content) {
-                html += marked.parse(msg.content);
-            }
-            div.innerHTML = html;
-            container.appendChild(div);
-        });
-        container.scrollTop = container.scrollHeight;
-    }
-    
-    function updateModeUI() {
-        const codeBtn = document.getElementById('code-mode-btn');
-        const chatBtn = document.getElementById('chat-mode-btn');
-        const badge = document.getElementById('mode-badge');
-        
-        if (currentMode === 'code') {
-            codeBtn.classList.add('active');
-            chatBtn.classList.remove('active');
-            badge.innerHTML = '💻 CODE';
-            badge.style.background = "linear-gradient(45deg, #10b981, #6366f1)";
-        } else {
-            chatBtn.classList.add('active');
-            codeBtn.classList.remove('active');
-            badge.innerHTML = '💬 CHAT';
-            badge.style.background = "linear-gradient(45deg, #6366f1, #10b981)";
-        }
-    }
-    
-    function createNewChat() {
-        isGlobal = false;
-        activeChatId = Date.now();
-        const modeIcon = currentMode === 'code' ? '💻' : '💬';
-        const modeName = currentMode === 'code' ? 'Code' : 'Chat';
-        const chatTitle = `${modeIcon} ${modeName} ${chats.length + 1}`;
-        chats.unshift({
-            id: activeChatId,
-            title: chatTitle,
-            messages: [],
-            mode: currentMode,
-            createdAt: Date.now()
-        });
-        saveChats();
-        renderChatList();
-        renderMessages();
-        document.getElementById('header-title').innerHTML = chatTitle;
-        closeSidebar();
-    }
-    
-    function showTyping() {
-        const container = document.getElementById('chat-container');
-        const indicator = document.createElement('div');
-        indicator.className = 'typing-indicator';
-        indicator.id = 'typing-indicator';
-        indicator.innerHTML = '<span></span><span></span><span></span>';
-        container.appendChild(indicator);
-        container.scrollTop = container.scrollHeight;
-    }
-    
-    function hideTyping() {
-        const indicator = document.getElementById('typing-indicator');
-        if (indicator) indicator.remove();
-    }
-    
-    // ============ ОТПРАВКА СООБЩЕНИЯ ============
-    async function sendMessage() {
-        const input = document.getElementById('message-input');
-        const text = input.value.trim();
-        
-        if (!text && !currentImage) return;
-        
-        // World Chat
-        if (isGlobal) {
-            if (!text) return;
-            try {
-                await db.collection("global_chat").add({
-                    text: text,
-                    user: currentUser?.displayName || 'Аноним',
-                    uid: currentUser?.uid || 'guest',
-                    time: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                input.value = '';
-            } catch (e) {
-                alert("Ошибка отправки в World Chat");
-            }
-            return;
-        }
-        
-        // Обычный чат
-        if (!activeChatId) createNewChat();
-        
-        const chat = chats.find(c => c.id === activeChatId);
-        if (!chat) return;
-        
-        // Сообщение пользователя
-        const userMsg = {
-            role: 'user',
-            content: text || "Посмотри на изображение",
-            image: currentImage,
-            timestamp: Date.now()
-        };
-        chat.messages.push(userMsg);
-        
-        const imageToSend = currentImage;
-        input.value = '';
-        clearImage();
-        saveChats();
-        renderMessages();
-        showTyping();
-        
-        // Пустое сообщение AI
-        const aiMsg = { role: 'ai', content: '' };
-        chat.messages.push(aiMsg);
-        
-        try {
-            // Формируем промпт с контекстом
-            let prompt = getSystemPrompt() + "\n\n";
-            
-            // Добавляем историю (последние 6 сообщений)
-            const recentMsgs = chat.messages.slice(-7, -1);
-            for (const msg of recentMsgs) {
-                if (msg.role === 'user') {
-                    prompt += `Пользователь: ${msg.content}\n`;
-                } else if (msg.role === 'ai' && msg.content) {
-                    prompt += `Ассистент: ${msg.content}\n`;
+                    if (players[msg.killerId]) players[msg.killerId].score = msg.killerScore;
+                    if (msg.killerId === myId) {
+                        myTank.score = msg.killerScore;
+                    }
+                    renderPlayers();
                 }
             }
-            
-            prompt += `\nПользователь: ${text || "Что на изображении?"}\nАссистент: `;
-            
-            // Запрос к Gemini
-            const response = await askGemini(prompt, imageToSend);
-            
-            aiMsg.content = response;
-            saveChats();
-            renderMessages();
-            
-        } catch (error) {
-            console.error("Error:", error);
-            let errorMsg = "❌ Ошибка: ";
-            if (error.message.includes("API")) {
-                errorMsg += "Неверный API ключ Gemini. Проверьте ключ в настройках.";
-            } else {
-                errorMsg += error.message;
-            }
-            aiMsg.content = errorMsg;
-            saveChats();
-            renderMessages();
-        } finally {
-            hideTyping();
-        }
-    }
-    
-    // ============ WORLD CHAT ============
-    function switchToGlobal() {
-        isGlobal = true;
-        activeChatId = 'global';
-        document.getElementById('header-title').innerHTML = "🌍 World Chat";
-        const container = document.getElementById('chat-container');
-        container.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">Загрузка...</div>';
-        
-        db.collection("global_chat").orderBy("time", "asc").limitToLast(50).onSnapshot(snapshot => {
-            if (!isGlobal) return;
-            container.innerHTML = '';
-            const msgs = [];
-            snapshot.forEach(doc => msgs.push(doc.data()));
-            msgs.reverse();
-            msgs.forEach(msg => {
-                const div = document.createElement('div');
-                const isOwn = msg.uid === currentUser?.uid;
-                div.className = `message ${isOwn ? 'user' : 'ai'} global`;
-                div.innerHTML = `<strong style="font-size: 11px; opacity: 0.7;">${escapeHtml(msg.user || 'Аноним')}</strong><br>${escapeHtml(msg.text)}`;
-                container.appendChild(div);
-            });
-            container.scrollTop = container.scrollHeight;
         });
-        closeSidebar();
-    }
-    
-    function escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-    
-    // ============ ИЗОБРАЖЕНИЯ ============
-    function handleImage(file) {
-        if (!file) return;
-        if (!file.type.startsWith('image/')) {
-            alert("Выберите изображение");
-            return;
-        }
-        if (file.size > 5 * 1024 * 1024) {
-            alert("Изображение до 5MB");
-            return;
-        }
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            currentImage = e.target.result;
-            document.getElementById('preview-img').src = currentImage;
-            document.getElementById('preview-wrap').style.display = 'block';
-        };
-        reader.readAsDataURL(file);
-    }
-    
-    function clearImage() {
-        currentImage = null;
-        document.getElementById('preview-wrap').style.display = 'none';
-        document.getElementById('file-input').value = '';
-    }
-    
-    // ============ ГОЛОС ============
-    function startVoice() {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            alert("Голосовой ввод не поддерживается");
-            return;
-        }
-        const recognition = new SpeechRecognition();
-        recognition.lang = 'ru-RU';
-        const micBtn = document.getElementById('mic-btn');
-        recognition.onstart = () => {
-            micBtn.style.color = '#ef4444';
-            micBtn.innerHTML = '🎙️';
-        };
-        recognition.onend = () => {
-            micBtn.style.color = 'white';
-            micBtn.innerHTML = '🎤';
-        };
-        recognition.onresult = (event) => {
-            const text = event.results[0][0].transcript;
-            document.getElementById('message-input').value = text;
-            setTimeout(() => sendMessage(), 100);
-        };
-        recognition.start();
-    }
-    
-    // ============ САЙДБАР ============
-    function openSidebar() {
-        document.getElementById('sidebar').classList.add('open');
-        document.getElementById('overlay').classList.add('show');
-    }
-    
-    function closeSidebar() {
-        document.getElementById('sidebar').classList.remove('open');
-        document.getElementById('overlay').classList.remove('show');
-    }
-    
-    // ============ АВТОРИЗАЦИЯ ============
-    function loginWithGoogle() {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        auth.signInWithPopup(provider)
-            .then(result => {
-                currentUser = result.user;
-                showApp();
-            })
-            .catch(error => {
-                alert("Ошибка: " + error.message);
+
+        // Функция отправки своих координат в сеть
+        function sendPos() {
+            pubnub.publish({
+                channel: 'tanks_online_global_room',
+                message: { type: 'update', id: myId, name: username, x: myTank.x, y: myTank.y, dir: myTank.dir, score: myTank.score }
             });
-    }
-    
-    function loginAsGuest() {
-        currentUser = { uid: 'guest_' + Date.now(), displayName: 'Гость', isGuest: true };
-        showApp();
-    }
-    
-    function showApp() {
-        document.getElementById('login-screen').style.display = 'none';
-        document.getElementById('app-container').style.display = 'flex';
-        loadChats();
-        if (chats.length === 0) {
-            createNewChat();
-        } else {
-            activeChatId = chats[0].id;
-            if (chats[0].mode) currentMode = chats[0].mode;
-            updateModeUI();
-            renderMessages();
-            document.getElementById('header-title').innerHTML = chats[0].title;
+            renderPlayers();
         }
-    }
-    
-    function logout() {
-        if (currentUser?.isGuest) {
-            currentUser = null;
-            localStorage.clear();
-            location.reload();
-        } else {
-            auth.signOut().then(() => location.reload());
+
+        // Движение танка кнопками
+        function move(direction) {
+            const step = 15;
+            myTank.dir = direction;
+            
+            if (direction === 'up' && myTank.y > 10) myTank.y -= step;
+            if (direction === 'down' && myTank.y < arena.clientHeight - 45) myTank.y += step;
+            if (direction === 'left' && myTank.x > 10) myTank.x -= step;
+            if (direction === 'right' && myTank.x < arena.clientWidth - 45) myTank.x += step;
+            
+            sendPos();
         }
-    }
-    
-    // ============ ИНИЦИАЛИЗАЦИЯ ============
-    document.addEventListener('DOMContentLoaded', () => {
-        // Auth
-        document.getElementById('google-login-btn').onclick = loginWithGoogle;
-        document.getElementById('guest-login-btn').onclick = loginAsGuest;
-        
-        // Sidebar
-        document.getElementById('menu-btn').onclick = openSidebar;
-        document.getElementById('close-sidebar-btn').onclick = closeSidebar;
-        document.getElementById('overlay').onclick = closeSidebar;
-        
-        // Mode
-        document.getElementById('code-mode-btn').onclick = () => {
-            currentMode = 'code';
-            updateModeUI();
-            closeSidebar();
-        };
-        document.getElementById('chat-mode-btn').onclick = () => {
-            currentMode = 'chat';
-            updateModeUI();
-            closeSidebar();
-        };
-        
-        // Actions
-        document.getElementById('global-chat-btn').onclick = switchToGlobal;
-        document.getElementById('new-chat-btn').onclick = () => { createNewChat(); closeSidebar(); };
-        document.getElementById('logout-btn').onclick = logout;
-        
-        // Input
-        document.getElementById('send-btn').onclick = sendMessage;
-        document.getElementById('mic-btn').onclick = startVoice;
-        document.getElementById('clear-image-btn').onclick = clearImage;
-        
-        const fileInput = document.getElementById('file-input');
-        fileInput.onchange = (e) => handleImage(e.target.files[0]);
-        
-        document.getElementById('message-input').onkeypress = (e) => {
-            if (e.key === 'Enter') sendMessage();
-        };
-        
-        // Auth state
-        auth.onAuthStateChanged(user => {
-            if (user && !currentUser) {
-                currentUser = user;
-                showApp();
+
+        // Стрельба
+        function shoot() {
+            // Спавним пулю у себя на экране
+            let bx = myTank.x + 12;
+            let by = myTank.y + 12;
+            
+            // Отправляем сигнал выстрела остальным онлайн
+            pubnub.publish({
+                channel: 'tanks_online_global_room',
+                message: { type: 'shoot', id: myId, x: bx, y: by, dir: myTank.dir }
+            });
+
+            createBullet(bx, by, myTank.dir, true, myId);
+        }
+
+        function spawnEnemyBullet(x, y, dir, ownerId) {
+            createBullet(x, y, dir, false, ownerId);
+        }
+
+        // Логика полета пули и фиксации попадания
+        function createBullet(x, y, dir, isMine, ownerId) {
+            const b = document.createElement('div');
+            b.className = 'bullet';
+            b.style.left = x + 'px';
+            b.style.top = y + 'px';
+            arena.appendChild(b);
+
+            let bulletInterval = setInterval(() => {
+                let bx = parseInt(b.style.left);
+                let by = parseInt(b.style.top);
+
+                if (dir === 'up') by -= 8;
+                if (dir === 'down') by += 8;
+                if (dir === 'left') bx -= 8;
+                if (dir === 'right') bx += 8;
+
+                b.style.left = bx + 'px';
+                b.style.top = by + 'px';
+
+                // Выход за границы карты
+                if (bx < 0 || bx > arena.clientWidth || by < 0 || by > arena.clientHeight) {
+                    clearInterval(bulletInterval);
+                    b.remove();
+                }
+
+                // Если пуля моя, проверяем попал ли я во врагов
+                if (isMine) {
+                    for (let id in players) {
+                        let p = players[id];
+                        if (bx >= p.x && bx <= p.x + 30 && by >= p.y && by <= p.y + 30) {
+                            clearInterval(bulletInterval);
+                            b.remove();
+                            
+                            // Засчитываем фраг
+                            myTank.score += 1;
+                            
+                            // Отправляем в сеть данные об убийстве
+                            pubnub.publish({
+                                channel: 'tanks_online_global_room',
+                                message: { type: 'kill', killerId: myId, killerScore: myTank.score, targetId: id }
+                            });
+                            break;
+                        }
+                    }
+                }
+            }, 30);
+        }
+
+        // Отрисовка всех танков и ТОП очков на экране
+        function renderPlayers() {
+            // Удаляем старые танки врагов, чтобы перерисовать
+            document.querySelectorAll('.tank').forEach(el => el.remove());
+
+            // Рисуем свой танк
+            drawTank(myTank, false);
+
+            // Собираем всех для таблицы лидеров
+            let list = [{ name: username, score: myTank.score }];
+
+            // Рисуем врагов
+            for (let id in players) {
+                let p = players[id];
+                // Если игрок не обновлялся больше 10 секунд — удаляем его (вышел из игры)
+                drawTank(p, true);
+                list.push({ name: p.name, score: p.score });
             }
-        });
-    });
-</script>
+
+            // Сортируем топ по очкам
+            list.sort((a, b) => b.score - a.score);
+            const leaderRows = document.getElementById('leader-rows');
+            leaderRows.innerHTML = '';
+            list.slice(0, 5).forEach((item, index) => {
+                leaderRows.innerHTML += `<div>${index+1}. ${item.name}: ${item.score}</div>`;
+            });
+        }
+
+        function drawTank(t, isEnemy) {
+            const el = document.createElement('div');
+            el.className = 'tank' + (isEnemy ? ' enemy' : '');
+            el.style.left = t.x + 'px';
+            el.style.top = t.y + 'px';
+            
+            // Поворот дула танка
+            let angle = 0;
+            if (t.dir === 'up') angle = 0;
+            if (t.dir === 'down') angle = 180;
+            if (t.dir === 'left') angle = 270;
+            if (t.dir === 'right') angle = 90;
+            el.style.transform = `rotate(${angle}deg)`;
+
+            const nameTag = document.createElement('div');
+            nameTag.className = 'tank-name';
+            nameTag.innerText = t.name + ` (${t.score})`;
+            // Отменяем поворот текста, чтобы он читался ровно
+            nameTag.style.transform = `rotate(${-angle}deg)`; 
+            el.appendChild(nameTag);
+
+            arena.appendChild(el);
+        }
+
+        // При старте отправляем первую позицию
+        setTimeout(() => { sendPos(); }, 500);
+    </script>
 </body>
-        </html>
+</html>
+

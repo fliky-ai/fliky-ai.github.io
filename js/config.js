@@ -1,4 +1,4 @@
-hereconst CONFIG = {
+const CONFIG = {
     SERVER_URL: "https://a38499-be46.m.jrnm.app",
     CREATOR_ID: "8771009385",
     CREATOR_USERNAME: "dauletbr",

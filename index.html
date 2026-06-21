@@ -2,173 +2,447 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Telegram TikTok Mini App</title>
-    
-    <script src="https://cdn.socket.io/4.7.5/socket-io.min.js"></script>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TikTok</title>
+    <script src="https://telegram.org/js/telegram-web-app.js?56"></script>
     <style>
-        /* Обнуляем отступы, чтобы приложение было на весь экран */
+        /* ====== Глобальные стили ====== */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
-        body, html {
-            width: 100%;
-            height: 100%;
-            background-color: #000;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            overflow: hidden; /* Отключаем стандартный скролл браузера */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #000;
+            color: #fff;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
         }
 
-        /* Главный контейнер для вертикальных свайпов (как в ТикТоке) */
-        .tiktok-container {
-            width: 100%;
-            height: 100%;
+        /* ====== Основной контейнер ====== */
+        #app {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: #000;
+        }
+
+        /* ====== Хедер ====== */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: linear-gradient(180deg, rgba(0,0,0,0.8) 0%, transparent 100%);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: 700;
+            background: linear-gradient(45deg, #ff0050, #ff6b00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-icons {
+            display: flex;
+            gap: 16px;
+            font-size: 22px;
+        }
+
+        .header-icons span {
+            cursor: pointer;
+        }
+
+        /* ====== Контейнер видео ====== */
+        .video-container {
+            flex: 1;
             overflow-y: scroll;
-            /* Включаем магический CSS скролл-снап, чтобы видео прилипали к экрану */
-            scroll-snap-type: y mandatory; 
-            scrollbar-width: none; /* Прячем полосу прокрутки */
-        }
-        .tiktok-container::-webkit-scrollbar {
-            display: none; /* Прячем полосу прокрутки для WebKit (Chrome/Safari) */
+            scroll-snap-type: y mandatory;
+            height: 100vh;
+            padding-top: 60px;
         }
 
-        /* Экран одного видео-поста (ровно на 100% видимого экрана смартфона) */
-        .video-post {
+        .video-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* ====== Карточка видео ====== */
+        .video-card {
+            height: calc(100vh - 60px);
+            scroll-snap-align: start;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 20px;
             position: relative;
+            background: #1a1a1a;
+            margin-bottom: 4px;
+        }
+
+        .video-card .video-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
-            scroll-snap-align: start; /* Видео фиксируется точно по верхней границе */
+            overflow: hidden;
+            background: #111;
+        }
+
+        .video-card video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* ====== Информация о видео ====== */
+        .video-info {
+            position: relative;
+            z-index: 10;
+            padding: 16px;
+            background: linear-gradient(0deg, rgba(0,0,0,0.7) 0%, transparent 100%);
+            border-radius: 12px;
+        }
+
+        .video-info .author {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .video-info .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #ff0050, #ff6b00);
             display: flex;
             align-items: center;
             justify-content: center;
+            font-weight: 700;
+            font-size: 18px;
         }
 
-        /* Само видео растягивается на весь задний фон */
-        .video-player {
-            width: 100%;
-            height: 100%;
-            object-fit: cover; /* Видео обрезается и заполняет экран без черных полос */
+        .video-info .username {
+            font-weight: 600;
+            font-size: 16px;
         }
 
-        /* Боковая панель справа (Лайк, Коммент) */
-        .side-bar {
+        .video-info .description {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-top: 4px;
+        }
+
+        /* ====== Кнопки действий ====== */
+        .video-actions {
             position: absolute;
-            right: 15px;
+            right: 16px;
             bottom: 120px;
+            z-index: 10;
             display: flex;
             flex-direction: column;
             gap: 20px;
             align-items: center;
-            z-index: 10;
         }
 
         .action-btn {
-            background: none;
-            border: none;
-            color: #fff;
             display: flex;
             flex-direction: column;
             align-items: center;
+            gap: 4px;
             cursor: pointer;
+            transition: transform 0.2s;
         }
 
-        /* Иконка лайка (сердечко) */
-        .icon-heart {
-            font-size: 35px;
-            transition: transform 0.1s ease;
-        }
-        .icon-heart.liked {
-            color: #ff3b5c; /* Красный цвет при лайке */
-            transform: scale(1.2);
+        .action-btn:active {
+            transform: scale(0.8);
         }
 
-        .btn-counter {
-            font-size: 13px;
-            margin-top: 5px;
-            font-weight: 600;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        .action-btn .icon {
+            font-size: 32px;
+            filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
         }
 
-        /* Нижняя панель с описанием видео */
-        .bottom-bar {
-            position: absolute;
-            left: 15px;
-            bottom: 30px;
+        .action-btn .count {
+            font-size: 12px;
+            font-weight: 500;
             color: #fff;
-            z-index: 10;
-            max-width: 75%;
-            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+            text-shadow: 0 1px 4px rgba(0,0,0,0.8);
         }
 
-        .author-name {
-            font-size: 16px;
-            font-weight: bold;
-            margin-bottom: 8px;
+        .action-btn.liked .icon {
+            color: #ff0050;
         }
 
-        .video-desc {
-            font-size: 14px;
-            line-height: 1.3;
+        /* ====== Статус загрузки ====== */
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+            gap: 20px;
+            background: #000;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #333;
+            border-top: 4px solid #ff0050;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* ====== Адаптив ====== */
+        @media (max-width: 480px) {
+            .header h1 { font-size: 17px; }
+            .video-actions { right: 12px; bottom: 100px; }
+            .action-btn .icon { font-size: 28px; }
+            .video-info { padding: 12px; }
         }
     </style>
 </head>
 <body>
 
-    <div class="tiktok-container" id="videoContainer">
-        <div class="video-post">
-            <video class="video-player" loop autoplay muted playsinline>
-                <source src="https://assets.mixkit.co/videos/preview/mixkit-tree-with-yellow-flowers-4653-large.mp4" type="video/mp4">
-            </video>
-            
-            <div class="side-bar">
-                <button class="action-btn" onclick="toggleLike(this)">
-                    <span class="icon-heart">❤️</span>
-                    <span class="btn-counter">105</span>
-                </button>
-                <button class="action-btn">
-                    <span style="font-size:32px;">💬</span>
-                    <span class="btn-counter">42</span>
-                </button>
+    <div id="app">
+        <!-- Хедер -->
+        <div class="header">
+            <h1>🎵 TikTok</h1>
+            <div class="header-icons">
+                <span>🔍</span>
+                <span>✉️</span>
             </div>
+        </div>
 
-            <div class="bottom-bar">
-                <div class="author-name">@dauletbr</div>
-                <div class="video-desc">Тестируем первый в мире Telegram TikTok Mini App! Свайпы работают на чистом CSS 🎬🔥</div>
-            </div>
+        <!-- Список видео -->
+        <div class="video-container" id="videoContainer">
+            <!-- Видео будут добавлены через JS -->
         </div>
     </div>
 
     <script>
-        // Подключаемся к твоему работающему WebSocket-серверу на хостинге justrun!
-        const socket = io("https://a38499-be46.m.jrnm.app");
+        // ============================================
+        // 1. ИНИЦИАЛИЗАЦИЯ TELEGRAM WEBAPP
+        // ============================================
+        const tg = window.Telegram?.WebApp;
+        if (tg) {
+            tg.ready();
+            tg.expand();
+            console.log('✅ Telegram WebApp инициализирован');
+        }
 
-        // Ловим приветственный сигнал от сервера
-        socket.on('welcome', (data) => {
-            console.log("Сервер ответил:", data.message);
-        });
+        // ============================================
+        // 2. ДАННЫЕ (имитация TikTok)
+        // ============================================
+        const videos = [
+            {
+                id: 1,
+                author: 'tiktok_star',
+                avatar: '⭐',
+                description: '🔥 Это просто невероятно! #тренд #viral',
+                likes: 15234,
+                comments: 1234,
+                shares: 567,
+                url: 'https://www.w3schools.com/html/mov_bbb.mp4' // Пример видео
+            },
+            {
+                id: 2,
+                author: 'funny_cat',
+                avatar: '🐱',
+                description: '😂 Мой кот сегодня... #коты #юмор',
+                likes: 8432,
+                comments: 892,
+                shares: 234,
+                url: 'https://www.w3schools.com/html/mov_bbb.mp4'
+            },
+            {
+                id: 3,
+                author: 'dance_queen',
+                avatar: '💃',
+                description: '💃 Новый танец! Попробуй повторить #dance #challenge',
+                likes: 23456,
+                comments: 3456,
+                shares: 1234,
+                url: 'https://www.w3schools.com/html/mov_bbb.mp4'
+            },
+            {
+                id: 4,
+                author: 'food_master',
+                avatar: '🍕',
+                description: '👨‍🍳 Рецепт идеальной пиццы за 5 минут! #еда #рецепт',
+                likes: 12345,
+                comments: 678,
+                shares: 890,
+                url: 'https://www.w3schools.com/html/mov_bbb.mp4'
+            },
+            {
+                id: 5,
+                author: 'travel_lover',
+                avatar: '✈️',
+                description: '🌍 Моё путешествие на Бали #travel #bali',
+                likes: 9876,
+                comments: 543,
+                shares: 321,
+                url: 'https://www.w3schools.com/html/mov_bbb.mp4'
+            }
+        ];
 
-        // Функция для переключения лайка на клиенте
-        function toggleLike(button) {
-            const heart = button.querySelector('.icon-heart');
-            const counter = button.querySelector('.btn-counter');
-            let currentLikes = parseInt(counter.innerText);
+        // Локальное хранилище лайков
+        let likedVideos = JSON.parse(localStorage.getItem('likedVideos') || '{}');
 
-            if (heart.classList.contains('liked')) {
-                heart.classList.remove('liked');
-                counter.innerText = currentLikes - 1;
+        // ============================================
+        // 3. РЕНДЕРИНГ ВИДЕО
+        // ============================================
+        function renderVideos() {
+            const container = document.getElementById('videoContainer');
+            container.innerHTML = '';
+
+            videos.forEach((video, index) => {
+                const isLiked = likedVideos[video.id] || false;
+
+                const card = document.createElement('div');
+                card.className = 'video-card';
+                card.setAttribute('data-id', video.id);
+
+                card.innerHTML = `
+                    <div class="video-wrapper">
+                        <video 
+                            src="${video.url}" 
+                            muted 
+                            loop 
+                            playsinline
+                            ${index === 0 ? 'autoplay' : ''}
+                        ></video>
+                    </div>
+
+                    <div class="video-actions">
+                        <div class="action-btn liked-btn ${isLiked ? 'liked' : ''}" data-id="${video.id}">
+                            <span class="icon">${isLiked ? '❤️' : '🤍'}</span>
+                            <span class="count">${formatNumber(video.likes + (isLiked ? 1 : 0))}</span>
+                        </div>
+                        <div class="action-btn">
+                            <span class="icon">💬</span>
+                            <span class="count">${formatNumber(video.comments)}</span>
+                        </div>
+                        <div class="action-btn">
+                            <span class="icon">↗️</span>
+                            <span class="count">${formatNumber(video.shares)}</span>
+                        </div>
+                    </div>
+
+                    <div class="video-info">
+                        <div class="author">
+                            <div class="avatar">${video.avatar}</div>
+                            <span class="username">@${video.author}</span>
+                        </div>
+                        <div class="description">${video.description}</div>
+                    </div>
+                `;
+
+                container.appendChild(card);
+
+                // Обработка автоплея при скролле
+                const videoEl = card.querySelector('video');
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            videoEl.play().catch(() => {});
+                        } else {
+                            videoEl.pause();
+                        }
+                    });
+                }, { threshold: 0.5 });
+
+                observer.observe(videoEl);
+            });
+
+            // Обработчики лайков
+            document.querySelectorAll('.liked-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const id = parseInt(this.dataset.id);
+                    toggleLike(id);
+                });
+            });
+        }
+
+        // ============================================
+        // 4. ФУНКЦИИ ЛАЙКОВ
+        // ============================================
+        function toggleLike(videoId) {
+            const video = videos.find(v => v.id === videoId);
+            if (!video) return;
+
+            const isLiked = likedVideos[videoId] || false;
+            
+            if (isLiked) {
+                delete likedVideos[videoId];
+                video.likes -= 1;
             } else {
-                heart.classList.add('liked');
-                counter.innerText = currentLikes + 1;
+                likedVideos[videoId] = true;
+                video.likes += 1;
+            }
+
+            localStorage.setItem('likedVideos', JSON.stringify(likedVideos));
+            
+            // Обновляем UI
+            const btn = document.querySelector(`.liked-btn[data-id="${videoId}"]`);
+            if (btn) {
+                const icon = btn.querySelector('.icon');
+                const count = btn.querySelector('.count');
+                const isNowLiked = likedVideos[videoId] || false;
                 
-                // Отправляем онлайн-сигнал на наш бэкэнд о том, что поставлен лайк
-                socket.emit('like_video', { video_id: "test_video_1" });
+                icon.textContent = isNowLiked ? '❤️' : '🤍';
+                btn.classList.toggle('liked', isNowLiked);
+                count.textContent = formatNumber(video.likes);
+
+                // Анимация
+                icon.style.transform = 'scale(1.5)';
+                setTimeout(() => { icon.style.transform = 'scale(1)'; }, 200);
+
+                // Уведомление в Telegram
+                if (tg) {
+                    tg.HapticFeedback.impactOccurred('light');
+                }
             }
         }
+
+        // ============================================
+        // 5. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+        // ============================================
+        function formatNumber(num) {
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+            return num.toString();
+        }
+
+        // ============================================
+        // 6. ЗАПУСК
+        // ============================================
+        renderVideos();
+
+        console.log('📱 TikTok приложение запущено!');
+        console.log(`👥 Всего видео: ${videos.length}`);
+        console.log(`❤️ Лайков сохранено: ${Object.keys(likedVideos).length}`);
+
+        // Скрываем загрузку если она была
+        document.querySelector('.loading')?.remove();
     </script>
 </body>
-</html>
-
+    </html>

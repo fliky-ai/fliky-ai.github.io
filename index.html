@@ -618,7 +618,6 @@
         let myTelegramId = null;
         let dynamicChats = {};
         let unreadCounts = {};
-        let chatListOrder = [];
 
         const tgUser = tg.initDataUnsafe?.user || {
             id: 123456789,
@@ -664,12 +663,10 @@
                                 };
                             }
                             createChatRow(partnerId, dynamicChats[partnerId].first_name, dynamicChats[partnerId].username);
-                            // Обновляем превью последним сообщением
                             if (chat.last_message) {
                                 const previewEl = document.getElementById(`preview-${partnerId}`);
                                 if (previewEl) previewEl.innerText = chat.last_message;
                             }
-                            // Устанавливаем счетчик непрочитанных
                             if (chat.unread_count > 0) {
                                 unreadCounts[partnerId] = chat.unread_count;
                                 updateUnreadBadge(partnerId, chat.unread_count);
@@ -702,7 +699,6 @@
                     });
                 }
 
-                // Если сообщение от другого пользователя и чат не открыт - увеличиваем счетчик
                 if (msg.sender_id !== myTelegramId && currentChatId !== chatPartner) {
                     unreadCounts[chatPartner] = (unreadCounts[chatPartner] || 0) + 1;
                     updateUnreadBadge(chatPartner, unreadCounts[chatPartner]);
@@ -715,7 +711,6 @@
             if (currentChatId === chatPartner) {
                 renderSingleMessage(msg);
                 scrollToBottom();
-                // Если чат открыт, сбрасываем счетчик для этого чата
                 if (msg.sender_id !== myTelegramId) {
                     unreadCounts[chatPartner] = 0;
                     updateUnreadBadge(chatPartner, 0);
@@ -795,7 +790,6 @@
         function openChat(chatId, chatName, isVerified = false) {
             currentChatId = chatId;
             
-            // Сбрасываем счетчик непрочитанных для этого чата
             unreadCounts[chatId] = 0;
             updateUnreadBadge(chatId, 0);
             
@@ -827,7 +821,6 @@
                 }
             });
 
-            // Отмечаем сообщения как прочитанные
             socket.emit('mark_as_read', { chat_id: chatId });
         }
 

@@ -62,6 +62,7 @@
             align-items: center;
             z-index: 9999;
             text-align: center;
+            padding: 20px;
         }
 
         #loading-screen .spinner {
@@ -74,16 +75,47 @@
             margin-bottom: 20px;
         }
 
-        #loading-screen .error-message {
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #5288c1, #2a9d8f);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .loading-status {
+            color: var(--tg-text-secondary);
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        .loading-error {
             color: #ff3b30;
             font-size: 14px;
             margin-top: 10px;
             display: none;
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .reconnect-btn {
+            background: var(--tg-accent-color);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 12px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .reconnect-btn:hover {
+            opacity: 0.9;
         }
 
         #app-container {
@@ -176,17 +208,6 @@
             color: #ffffff;
             flex-shrink: 0;
             position: relative;
-        }
-
-        .online-dot {
-            position: absolute;
-            bottom: 0;
-            right: 0;
-            width: 12px;
-            height: 12px;
-            background-color: #4cd964;
-            border-radius: 50%;
-            border: 2px solid var(--tg-surface-color);
         }
 
         .chat-details {
@@ -597,6 +618,8 @@
             gap: 8px;
             z-index: 2500;
             box-shadow: 0 4px 12px var(--tg-shadow);
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
         .message-actions.active {
@@ -630,21 +653,25 @@
             cursor: pointer;
         }
 
-        .reconnect-btn {
-            background: var(--tg-accent-color);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 12px;
-            font-size: 16px;
-            cursor: pointer;
-            margin-top: 15px;
-        }
-
         @media (max-width: 480px) {
             .profile-popup-content {
                 width: 95%;
                 padding: 20px;
+            }
+            
+            .search-input {
+                max-width: 120px;
+                font-size: 12px;
+            }
+            
+            .message-actions {
+                bottom: 70px;
+                padding: 6px;
+            }
+            
+            .message-action-btn {
+                padding: 6px 10px;
+                font-size: 12px;
             }
         }
     </style>
@@ -653,17 +680,17 @@
 
     <div id="loading-screen">
         <div class="spinner"></div>
-        <p style="font-weight: bold; font-size: 16px; margin-bottom: 6px;">DICEGRAM</p>
-        <p id="loading-status" style="color: var(--tg-text-secondary); font-size: 13px;">Подключение к серверу...</p>
-        <p id="loading-error" class="error-message">Не удалось подключиться к серверу</p>
-        <button id="reconnect-btn" class="reconnect-btn" style="display:none;" onclick="reconnect()">🔄 Переподключиться</button>
+        <div class="loading-title">DICEGRAM</div>
+        <p class="loading-status" id="loading-status">Подключение к серверу...</p>
+        <p class="loading-error" id="loading-error">❌ Не удалось подключиться к серверу</p>
+        <button class="reconnect-btn" id="reconnect-btn" onclick="reconnect()">🔄 Переподключиться</button>
     </div>
 
     <div id="app-container">
         <header id="main-header">
             <div class="header-content-left">
                 <span id="header-title" class="header-main-title">Чаты</span>
-                <span id="global-status" class="connection-status">Обновление...</span>
+                <span id="global-status" class="connection-status" style="display:none;">Соединение...</span>
             </div>
             <input type="text" id="global-search" class="search-input" placeholder="Поиск..." oninput="handleSearch(this.value)">
             <button class="theme-switch" onclick="toggleTheme()">🌙</button>
@@ -672,7 +699,9 @@
         <div id="search-results" class="search-results"></div>
 
         <div id="screen-chats" class="screen active">
-            <div id="chats-list"></div>
+            <div id="chats-list">
+                <!-- Чаты будут загружены из базы данных -->
+            </div>
         </div>
 
         <div id="chat-room">
@@ -701,14 +730,17 @@
         </div>
 
         <div id="screen-contacts" class="screen">
-            <div class="placeholder-screen">Список контактов пуст</div>
+            <div class="placeholder-screen">👥 Список контактов пуст</div>
         </div>
 
         <div id="screen-settings" class="screen">
             <div style="padding:20px;">
-                <h2>Настройки DICEGRAM</h2>
+                <h2>⚙️ Настройки DICEGRAM</h2>
                 <div style="margin-top:20px;">
-                    <button onclick="toggleTheme()" style="background:var(--tg-surface-color);color:var(--tg-text-color);border:1px solid var(--tg-border-color);padding:12px 20px;border-radius:12px;width:100%;font-size:16px;cursor:pointer;">Сменить тему</button>
+                    <button onclick="toggleTheme()" style="background:var(--tg-surface-color);color:var(--tg-text-color);border:1px solid var(--tg-border-color);padding:12px 20px;border-radius:12px;width:100%;font-size:16px;cursor:pointer;">🌓 Сменить тему</button>
+                </div>
+                <div style="margin-top:10px;">
+                    <button onclick="alert('Версия 1.0.0')" style="background:var(--tg-surface-color);color:var(--tg-text-color);border:1px solid var(--tg-border-color);padding:12px 20px;border-radius:12px;width:100%;font-size:16px;cursor:pointer;">ℹ️ О приложении</button>
                 </div>
             </div>
         </div>
@@ -724,15 +756,15 @@
                 <div style="background:var(--tg-surface-color);border-radius:12px;padding:12px;">
                     <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--tg-border-color);">
                         <span style="color:var(--tg-text-secondary);">Имя</span>
-                        <span id="profile-display-name" style="cursor:pointer;" onclick="editName()">Изменить</span>
+                        <span id="profile-display-name" style="cursor:pointer;color:var(--tg-accent-color);" onclick="editName()">Изменить</span>
                     </div>
                     <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--tg-border-color);">
                         <span style="color:var(--tg-text-secondary);">Username</span>
-                        <span id="profile-username-display">@username</span>
+                        <span id="profile-username-display" style="color:var(--tg-text-secondary);">@username</span>
                     </div>
                     <div style="display:flex;justify-content:space-between;padding:8px 0;">
                         <span style="color:var(--tg-text-secondary);">Язык</span>
-                        <span onclick="changeLanguage()" style="cursor:pointer;">Русский</span>
+                        <span onclick="changeLanguage()" style="cursor:pointer;color:var(--tg-accent-color);">Русский</span>
                     </div>
                 </div>
             </div>
@@ -773,8 +805,8 @@
                     <div id="popup-verified" style="color:var(--tg-verified);font-size:13px;margin-top:5px;"></div>
                 </div>
                 <div id="popup-actions" style="display:flex;flex-direction:column;gap:8px;">
-                    <button onclick="addContact()" style="background:var(--tg-accent-color);color:white;border:none;padding:12px;border-radius:12px;font-size:16px;cursor:pointer;">Добавить в контакты</button>
-                    <button onclick="blockUser()" style="background:#ff3b30;color:white;border:none;padding:12px;border-radius:12px;font-size:16px;cursor:pointer;">Заблокировать</button>
+                    <button onclick="addContact()" style="background:var(--tg-accent-color);color:white;border:none;padding:12px;border-radius:12px;font-size:16px;cursor:pointer;">➕ Добавить в контакты</button>
+                    <button onclick="blockUser()" style="background:#ff3b30;color:white;border:none;padding:12px;border-radius:12px;font-size:16px;cursor:pointer;">🚫 Заблокировать</button>
                 </div>
             </div>
         </div>
@@ -789,27 +821,32 @@
     </div>
 
     <script>
+        console.log('🚀 DICEGRAM загружается...');
+        
         const tg = window.Telegram.WebApp;
         tg.expand();
         tg.ready();
 
+        // ============ КОНФИГУРАЦИЯ ============
         const SERVER_URL = "https://a38499-be46.m.jrnm.app";
+        const CREATOR_ID = "8771009385";
+        const CREATOR_USERNAME = "dauletbr";
+        const MAX_RECONNECT_ATTEMPTS = 5;
+
+        // ============ ПЕРЕМЕННЫЕ ============
         let socket = null;
         let isConnected = false;
         let reconnectAttempts = 0;
-        const MAX_RECONNECT_ATTEMPTS = 5;
-
+        let isInitialLoad = true;
         let currentChatId = null;
         let myTelegramId = null;
         let dynamicChats = {};
         let unreadCounts = {};
         let selectedMessageId = null;
         let theme = 'dark';
-        let isInitialLoad = true;
+        let authTimeout = null;
 
-        const CREATOR_ID = "8771009385";
-        const CREATOR_USERNAME = "dauletbr";
-
+        // ============ ПОЛЬЗОВАТЕЛЬ ============
         const tgUser = tg.initDataUnsafe?.user || {
             id: 123456789,
             first_name: "Локальный",
@@ -819,57 +856,83 @@
         };
 
         myTelegramId = String(tgUser.id);
+        console.log('👤 Пользователь:', tgUser.first_name, '@' + tgUser.username, 'ID:', myTelegramId);
 
-        // Инициализация профиля
-        document.getElementById('user-name').innerText = `${tgUser.first_name} ${tgUser.last_name || ''}`.trim();
-        document.getElementById('user-username').innerText = tgUser.username ? `@${tgUser.username}` : '';
-        document.getElementById('profile-username-display').innerText = tgUser.username ? `@${tgUser.username}` : '';
-        document.getElementById('profile-display-name').innerText = `${tgUser.first_name} ${tgUser.last_name || ''}`.trim();
-        if (tgUser.photo_url) document.getElementById('user-avatar').src = tgUser.photo_url;
+        // ============ ИНИЦИАЛИЗАЦИЯ ПРОФИЛЯ ============
+        function initProfile() {
+            const fullName = `${tgUser.first_name} ${tgUser.last_name || ''}`.trim();
+            document.getElementById('user-name').innerText = fullName || 'Пользователь';
+            document.getElementById('user-username').innerText = tgUser.username ? `@${tgUser.username}` : '';
+            document.getElementById('profile-username-display').innerText = tgUser.username ? `@${tgUser.username}` : '';
+            document.getElementById('profile-display-name').innerText = fullName || 'Изменить';
+            if (tgUser.photo_url) {
+                document.getElementById('user-avatar').src = tgUser.photo_url;
+            }
+        }
+        initProfile();
 
-        // Функция подключения к сокету
+        // ============ УПРАВЛЕНИЕ СОЕДИНЕНИЕМ ============
         function connectSocket() {
             const loadingStatus = document.getElementById('loading-status');
             const loadingError = document.getElementById('loading-error');
             const reconnectBtn = document.getElementById('reconnect-btn');
             
             loadingStatus.textContent = 'Подключение к серверу...';
+            loadingStatus.style.display = 'block';
             loadingError.style.display = 'none';
             reconnectBtn.style.display = 'none';
 
+            console.log('🔌 Подключение к серверу:', SERVER_URL);
+
+            // Отключаем старый сокет
             if (socket) {
                 socket.disconnect();
                 socket = null;
             }
 
+            // Создаем новый сокет с правильными настройками
             socket = io(SERVER_URL, { 
-                transports: ["websocket"], 
+                transports: ["websocket", "polling"],
                 secure: true,
                 reconnection: true,
                 reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
                 reconnectionDelay: 1000,
-                reconnectionDelayMax: 5000
+                reconnectionDelayMax: 5000,
+                timeout: 10000
             });
 
+            // ============ ОБРАБОТЧИКИ СОБЫТИЙ ============
             socket.on('connect', () => {
-                console.log('✅ Socket.IO connected');
+                console.log('✅ Socket.IO подключен');
                 isConnected = true;
                 reconnectAttempts = 0;
                 
-                document.getElementById('global-status').style.display = 'none';
+                const statusEl = document.getElementById('global-status');
+                statusEl.style.display = 'none';
+                
                 loadingStatus.textContent = 'Авторизация...';
                 
+                // Отправляем авторизацию
                 socket.emit('auth', tgUser, (response) => {
+                    console.log('📨 Ответ авторизации:', response);
+                    
                     if (response && response.status === 'ok') {
-                        console.log('✅ Auth successful');
+                        console.log('✅ Авторизация успешна');
+                        loadingStatus.textContent = 'Загрузка...';
+                        
+                        // Показываем приложение
                         document.getElementById('loading-screen').style.display = 'none';
                         document.getElementById('app-container').style.display = 'flex';
                         
+                        // Загружаем чаты
                         if (isInitialLoad) {
-                            loadChatsAndMessages();
-                            isInitialLoad = false;
+                            setTimeout(() => {
+                                loadChatsAndMessages();
+                                isInitialLoad = false;
+                            }, 500);
                         }
                     } else {
+                        console.error('❌ Ошибка авторизации:', response);
                         loadingStatus.textContent = 'Ошибка авторизации';
                         loadingError.style.display = 'block';
                         reconnectBtn.style.display = 'block';
@@ -877,64 +940,79 @@
                 });
             });
 
-            socket.on('disconnect', () => {
-                console.log('❌ Socket.IO disconnected');
-                isConnected = false;
-                const statusEl = document.getElementById('global-status');
-                statusEl.style.display = 'block';
-                statusEl.innerText = "Соединение потеряно...";
-                statusEl.style.color = '#ff3b30';
-            });
-
             socket.on('connect_error', (error) => {
-                console.error('❌ Connection error:', error);
+                console.error('❌ Ошибка подключения:', error);
                 reconnectAttempts++;
-                loadingStatus.textContent = `Ошибка подключения (попытка ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`;
+                
+                loadingStatus.textContent = `Ошибка подключения (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`;
                 
                 if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
                     loadingError.style.display = 'block';
                     reconnectBtn.style.display = 'block';
+                    loadingStatus.textContent = 'Не удалось подключиться';
                 }
             });
 
+            socket.on('disconnect', (reason) => {
+                console.log('🔌 Отключение:', reason);
+                isConnected = false;
+                const statusEl = document.getElementById('global-status');
+                statusEl.style.display = 'block';
+                statusEl.innerText = 'Соединение потеряно';
+                statusEl.style.color = '#ff3b30';
+            });
+
+            socket.on('reconnect', () => {
+                console.log('🔄 Переподключено');
+                isConnected = true;
+                const statusEl = document.getElementById('global-status');
+                statusEl.style.display = 'none';
+                loadChatsAndMessages();
+            });
+
+            // ============ ОБРАБОТЧИКИ СООБЩЕНИЙ ============
             socket.on('new_message', (msg) => {
+                console.log('📩 Новое сообщение:', msg);
                 handleNewMessage(msg);
             });
 
-            // Остальные обработчики событий
-            setupSocketHandlers();
+            // Таймаут авторизации
+            if (authTimeout) clearTimeout(authTimeout);
+            authTimeout = setTimeout(() => {
+                if (!isConnected) {
+                    loadingStatus.textContent = 'Превышено время ожидания';
+                    loadingError.style.display = 'block';
+                    reconnectBtn.style.display = 'block';
+                }
+            }, 15000);
         }
 
-        function setupSocketHandlers() {
-            socket.on('connect', () => {
-                // Уже обработано выше
-            });
-
-            socket.on('disconnect', () => {
-                // Уже обработано выше
-            });
-
-            // Другие обработчики уже есть в коде
-        }
-
+        // ============ ПЕРЕПОДКЛЮЧЕНИЕ ============
         function reconnect() {
+            console.log('🔄 Ручное переподключение...');
             reconnectAttempts = 0;
             connectSocket();
         }
 
-        // Функция загрузки чатов
+        // ============ ЗАГРУЗКА ЧАТОВ ============
         function loadChatsAndMessages() {
             if (!socket || !isConnected) {
-                console.log('⏳ Waiting for connection...');
+                console.log('⏳ Ожидание соединения...');
                 setTimeout(loadChatsAndMessages, 1000);
                 return;
             }
 
+            console.log('📥 Загрузка чатов...');
             socket.emit('get_all_chats', {}, (chats) => {
+                console.log('📨 Получены чаты:', chats?.length || 0);
+                
+                const chatsList = document.getElementById('chats-list');
+                chatsList.innerHTML = '';
+                
                 if (chats && Array.isArray(chats)) {
                     chats.forEach(chat => {
                         const partnerId = chat.partner_id;
-                        if (partnerId !== myTelegramId) {
+                        if (partnerId && partnerId !== myTelegramId) {
                             if (!dynamicChats[partnerId]) {
                                 dynamicChats[partnerId] = {
                                     first_name: chat.partner_name || `User ${partnerId}`,
@@ -942,6 +1020,7 @@
                                 };
                             }
                             createChatRow(partnerId, dynamicChats[partnerId].first_name, dynamicChats[partnerId].username);
+                            
                             if (chat.last_message) {
                                 const previewEl = document.getElementById(`preview-${partnerId}`);
                                 if (previewEl) previewEl.innerText = chat.last_message;
@@ -953,28 +1032,32 @@
                         }
                     });
                 }
+                
+                if (chatsList.children.length === 0) {
+                    chatsList.innerHTML = `
+                        <div style="padding:40px 20px;text-align:center;color:var(--tg-text-secondary);">
+                            <div style="font-size:48px;margin-bottom:16px;">💬</div>
+                            <div style="font-size:16px;font-weight:500;">Нет чатов</div>
+                            <div style="font-size:13px;margin-top:4px;">Начните переписку с помощью поиска</div>
+                        </div>
+                    `;
+                }
             });
         }
 
-        // Функция обработки нового сообщения
+        // ============ ОБРАБОТКА НОВОГО СООБЩЕНИЯ ============
         function handleNewMessage(msg) {
             const chatPartner = msg.sender_id === myTelegramId ? msg.receiver_id : msg.sender_id;
 
-            if (chatPartner !== myTelegramId) {
+            if (chatPartner && chatPartner !== myTelegramId) {
                 if (!dynamicChats[chatPartner]) {
                     socket.emit('get_user_info', { user_id: chatPartner }, (userInfo) => {
                         if (userInfo && userInfo.status === 'found') {
                             dynamicChats[chatPartner] = {
-                                first_name: userInfo.user.first_name,
-                                username: userInfo.user.username
+                                first_name: userInfo.user.first_name || `User ${chatPartner}`,
+                                username: userInfo.user.username || `@user${chatPartner}`
                             };
-                            createChatRow(chatPartner, userInfo.user.first_name, userInfo.user.username);
-                        } else {
-                            dynamicChats[chatPartner] = {
-                                first_name: `User ${chatPartner}`,
-                                username: `@user${chatPartner}`
-                            };
-                            createChatRow(chatPartner, `User ${chatPartner}`, `@user${chatPartner}`);
+                            createChatRow(chatPartner, dynamicChats[chatPartner].first_name, dynamicChats[chatPartner].username);
                         }
                     });
                 }
@@ -986,7 +1069,7 @@
             }
 
             const previewEl = document.getElementById(`preview-${chatPartner}`);
-            if (previewEl) previewEl.innerText = msg.text;
+            if (previewEl) previewEl.innerText = msg.text || '';
 
             if (currentChatId === chatPartner) {
                 renderSingleMessage(msg);
@@ -998,17 +1081,14 @@
             }
         }
 
-        // Функция получения локального времени
-        function getLocalTime(timestamp) {
-            const date = new Date(timestamp);
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        }
-
-        // Функция создания строки чата
+        // ============ СОЗДАНИЕ СТРОКИ ЧАТА ============
         function createChatRow(tgId, firstName, username) {
+            if (!tgId) return;
+            
             if (!dynamicChats[tgId]) {
-                dynamicChats[tgId] = { first_name: firstName, username: username };
+                dynamicChats[tgId] = { first_name: firstName || `User ${tgId}`, username: username || '' };
             }
+            
             const chatsList = document.getElementById('chats-list');
             if (document.getElementById(`chat-item-${tgId}`)) return;
             
@@ -1017,15 +1097,18 @@
             const verifiedIcon = isVerified ? 
                 `<svg class="tg-verify-icon" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>` : '';
             
+            const displayName = firstName || `User ${tgId}`;
+            const avatarBg = isBotFather ? 'linear-gradient(135deg, #2a9d8f, #264653)' : 'linear-gradient(135deg, #5085b1, #366187)';
+            
             const rowHTML = `
-                <div class="chat-item" id="chat-item-${tgId}" onclick="openChat('${tgId}', '${firstName}', ${isVerified})">
-                    <div class="chat-avatar" style="background: ${isBotFather ? 'linear-gradient(135deg, #2a9d8f, #264653)' : 'linear-gradient(135deg, #5085b1, #366187)'}">
-                        ${firstName.substring(0,2).toUpperCase()}
+                <div class="chat-item" id="chat-item-${tgId}" onclick="openChat('${tgId}', '${displayName.replace(/'/g, "\\'")}', ${isVerified})">
+                    <div class="chat-avatar" style="background: ${avatarBg}">
+                        ${displayName.substring(0,2).toUpperCase()}
                         ${isVerified ? '<span style="position:absolute;bottom:-2px;right:-2px;font-size:12px;">✓</span>' : ''}
                     </div>
                     <div class="chat-details">
                         <div class="chat-title-row">
-                            <div class="chat-name">${firstName} ${verifiedIcon}</div>
+                            <div class="chat-name">${displayName} ${verifiedIcon}</div>
                             <div style="display:flex;align-items:center;gap:4px;">
                                 <span class="chat-time" id="time-${tgId}"></span>
                                 <span class="chat-unread-badge" id="unread-badge-${tgId}" style="display:none;">0</span>
@@ -1038,6 +1121,7 @@
             chatsList.insertAdjacentHTML('beforeend', rowHTML);
         }
 
+        // ============ ОБНОВЛЕНИЕ СЧЕТЧИКА ============
         function updateUnreadBadge(chatId, count) {
             const badge = document.getElementById(`unread-badge-${chatId}`);
             if (badge) {
@@ -1050,6 +1134,18 @@
             }
         }
 
+        // ============ ЛОКАЛЬНОЕ ВРЕМЯ ============
+        function getLocalTime(timestamp) {
+            try {
+                const date = new Date(timestamp);
+                if (isNaN(date.getTime())) return '--:--';
+                return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } catch (e) {
+                return '--:--';
+            }
+        }
+
+        // ============ ПОИСК ============
         function handleSearch(query) {
             const resultsContainer = document.getElementById('search-results');
             if (!query.trim()) {
@@ -1059,6 +1155,8 @@
             }
 
             if (!socket || !isConnected) {
+                resultsContainer.style.display = 'block';
+                resultsContainer.innerHTML = '<div style="padding:10px 14px;color:var(--tg-text-secondary);">Нет соединения с сервером</div>';
                 return;
             }
 
@@ -1076,22 +1174,22 @@
                         const isVerified = user.telegram_id === CREATOR_ID || user.is_verified;
                         const verifyBadge = isVerified ? `<span style="color:var(--tg-verified);font-size:12px;">✓</span>` : '';
                         item.innerHTML = `
-                            <div class="chat-avatar" style="width:36px;height:36px;font-size:12px;background:${isBotFather ? 'linear-gradient(135deg, #2a9d8f, #264653)' : 'linear-gradient(135deg, #5085b1, #366187)'}">${user.first_name.substring(0,2).toUpperCase()}</div>
+                            <div class="chat-avatar" style="width:36px;height:36px;font-size:12px;background:${isBotFather ? 'linear-gradient(135deg, #2a9d8f, #264653)' : 'linear-gradient(135deg, #5085b1, #366187)'}">${(user.first_name || 'U').substring(0,2).toUpperCase()}</div>
                             <div>
-                                <div style="display:flex;align-items:center;gap:4px;font-weight:600;">${user.first_name} ${verifiedIcon} ${verifyBadge}</div>
-                                <div style="font-size:12px;color:var(--tg-text-secondary);">@${user.username}</div>
+                                <div style="display:flex;align-items:center;gap:4px;font-weight:600;">${user.first_name || 'User'} ${verifiedIcon} ${verifyBadge}</div>
+                                <div style="font-size:12px;color:var(--tg-text-secondary);">@${user.username || ''}</div>
                             </div>
                         `;
                         item.onclick = () => {
                             if (user.telegram_id === myTelegramId) return;
                             if (!dynamicChats[user.telegram_id]) {
                                 dynamicChats[user.telegram_id] = {
-                                    first_name: user.first_name,
-                                    username: user.username
+                                    first_name: user.first_name || `User ${user.telegram_id}`,
+                                    username: user.username || ''
                                 };
-                                createChatRow(user.telegram_id, user.first_name, user.username);
+                                createChatRow(user.telegram_id, user.first_name || `User ${user.telegram_id}`, user.username || '');
                             }
-                            openChat(user.telegram_id, user.first_name, user.username === 'botfather' || user.telegram_id === CREATOR_ID);
+                            openChat(user.telegram_id, user.first_name || `User ${user.telegram_id}`, user.username === 'botfather' || user.telegram_id === CREATOR_ID);
                             resultsContainer.style.display = 'none';
                             document.getElementById('global-search').value = '';
                         };
@@ -1104,20 +1202,30 @@
             });
         }
 
+        // ============ ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК ============
         function switchTab(tabName, element) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-            document.getElementById(`screen-${tabName}`).classList.add('active');
+            const targetScreen = document.getElementById(`screen-${tabName}`);
+            if (targetScreen) targetScreen.classList.add('active');
             if (element) element.classList.add('active');
-            document.getElementById('header-title').innerText = tabName === 'chats' ? 'Чаты' : 
-                                                              tabName === 'contacts' ? 'Контакты' :
-                                                              tabName === 'settings' ? 'Настройки' : 'Профиль';
+            
+            const titles = {
+                chats: 'Чаты',
+                contacts: 'Контакты',
+                settings: 'Настройки',
+                profile: 'Профиль'
+            };
+            document.getElementById('header-title').innerText = titles[tabName] || 'Чаты';
             document.getElementById('search-results').style.display = 'none';
         }
 
+        // ============ ОТКРЫТИЕ ЧАТА ============
         function openChat(chatId, chatName, isVerified = false) {
-            if (!socket || !isConnected) {
-                alert('Нет соединения с сервером');
+            if (!chatId || !socket || !isConnected) {
+                if (!socket || !isConnected) {
+                    alert('Нет соединения с сервером');
+                }
                 return;
             }
 
@@ -1127,17 +1235,17 @@
             updateUnreadBadge(chatId, 0);
             
             const titleEl = document.getElementById('chat-room-title');
-            titleEl.innerText = chatName;
+            titleEl.innerText = chatName || 'Чат';
             if (isVerified) {
-                titleEl.innerHTML = `${chatName} <svg class="tg-verify-icon" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
+                titleEl.innerHTML = `${chatName || 'Чат'} <svg class="tg-verify-icon" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
             }
 
-            const avatarLetters = chatName.substring(0, 2).toUpperCase();
+            const avatarLetters = (chatName || 'Ч').substring(0, 2).toUpperCase();
             document.getElementById('room-header-avatar').innerText = avatarLetters;
             
             socket.emit('get_user_info', { user_id: chatId }, (userInfo) => {
                 if (userInfo && userInfo.status === 'found') {
-                    document.getElementById('chat-room-status').innerText = userInfo.user.is_online ? 'в сети' : 'был(а) недавно';
+                    document.getElementById('chat-room-status').innerText = userInfo.user.is_online ? '🟢 в сети' : 'был(а) недавно';
                 }
             });
 
@@ -1157,13 +1265,17 @@
             socket.emit('mark_as_read', { chat_id: chatId });
         }
 
+        // ============ ЗАКРЫТИЕ ЧАТА ============
         function closeChat() {
             document.getElementById('chat-room').style.display = 'none';
             document.getElementById('bottom-navigation').style.display = 'flex';
             currentChatId = null;
         }
 
+        // ============ ОТОБРАЖЕНИЕ СООБЩЕНИЯ ============
         function renderSingleMessage(msg) {
+            if (!msg || !msg.text) return;
+            
             const container = document.getElementById('chat-messages');
             
             const wrapper = document.createElement('div');
@@ -1207,6 +1319,7 @@
         }
 
         function formatMessageText(text) {
+            if (!text) return '';
             return text.replace(/(@[a-zA-Z0-9_]{3,32})/g, function(match) {
                 return `<span class="mention-link" onclick="handleMentionClick('${match}')">${match}</span>`;
             });
@@ -1224,21 +1337,22 @@
                     if (user.telegram_id === myTelegramId) return;
                     if (!dynamicChats[user.telegram_id]) {
                         dynamicChats[user.telegram_id] = {
-                            first_name: user.first_name,
-                            username: user.username
+                            first_name: user.first_name || `User ${user.telegram_id}`,
+                            username: user.username || ''
                         };
-                        createChatRow(user.telegram_id, user.first_name, user.username);
+                        createChatRow(user.telegram_id, user.first_name || `User ${user.telegram_id}`, user.username || '');
                     }
-                    openChat(user.telegram_id, user.first_name, user.telegram_id === CREATOR_ID);
+                    openChat(user.telegram_id, user.first_name || `User ${user.telegram_id}`, user.telegram_id === CREATOR_ID);
                 } else {
                     alert(`Пользователь ${username} не найден.`);
                 }
             });
         }
 
+        // ============ ОТПРАВКА СООБЩЕНИЯ ============
         function toggleSendButton(input) {
             const btn = document.getElementById('send-btn-icon');
-            if (input.value.trim().length > 0) {
+            if (input && input.value && input.value.trim().length > 0) {
                 btn.classList.add('active');
             } else {
                 btn.classList.remove('active');
@@ -1255,7 +1369,7 @@
                 return;
             }
 
-            if (currentChatId === 'botfather' || dynamicChats[currentChatId]?.username === 'botfather') {
+            if (currentChatId === 'botfather' || (dynamicChats[currentChatId] && dynamicChats[currentChatId].username === 'botfather')) {
                 handleBotCommand(text);
                 input.value = '';
                 document.getElementById('send-btn-icon').classList.remove('active');
@@ -1276,6 +1390,7 @@
             input.focus();
         }
 
+        // ============ БОТ КОМАНДЫ ============
         function handleBotCommand(text) {
             const botResponse = emulateBotFather(text);
             
@@ -1331,4 +1446,207 @@
                 if (!window.createdBots) window.createdBots = [];
                 window.createdBots.push(username);
                 window.botCreationStep = null;
-              
+                
+                const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+                return `Done! Congratulations on your new bot. You will find it at d.me/${username}. You can now add a description, about section and profile picture for your bot, see /help for a list of commands. By the way, when you've finished creating your cool bot, ping our Bot Support if you want a better username for it. Just make sure the bot is fully operational before you do this.\n\nUse this token to access the HTTP API:\n${token}\n\nKeep your token secure and store it safely, it can be used by anyone to control your bot.`;
+            }
+            
+            return `I don't understand that command. Please use /start, /newbot, or /mybots.`;
+        }
+
+        // ============ ДЕЙСТВИЯ С СООБЩЕНИЯМИ ============
+        function showMessageActions(messageId) {
+            const actions = document.getElementById('message-actions');
+            if (actions) {
+                actions.classList.toggle('active');
+                selectedMessageId = messageId;
+            }
+        }
+
+        function replyToMessage() {
+            alert('↩ Ответ на сообщение');
+            document.getElementById('message-actions').classList.remove('active');
+        }
+
+        function editMessage() {
+            alert('✏️ Редактирование сообщения');
+            document.getElementById('message-actions').classList.remove('active');
+        }
+
+        function forwardMessage() {
+            alert('📤 Пересылка сообщения');
+            document.getElementById('message-actions').classList.remove('active');
+        }
+
+        function deleteMessage() {
+            if (confirm('🗑 Удалить сообщение?')) {
+                alert('Сообщение удалено');
+                document.getElementById('message-actions').classList.remove('active');
+            }
+        }
+
+        function pinMessage() {
+            alert('📌 Сообщение закреплено');
+            document.getElementById('message-actions').classList.remove('active');
+        }
+
+        // ============ ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ ============
+        function showUserProfile(userId) {
+            if (!userId) return;
+            
+            if (!socket || !isConnected) {
+                alert('Нет соединения с сервером');
+                return;
+            }
+
+            socket.emit('get_user_info', { user_id: userId }, (userInfo) => {
+                if (userInfo && userInfo.status === 'found') {
+                    const user = userInfo.user;
+                    const popup = document.getElementById('profile-popup');
+                    document.getElementById('popup-user-name').innerText = user.first_name || 'Пользователь';
+                    document.getElementById('popup-avatar').innerText = (user.first_name || 'U').substring(0, 2).toUpperCase();
+                    document.getElementById('popup-name').innerText = user.first_name || 'Пользователь';
+                    document.getElementById('popup-username').innerText = `@${user.username || ''}`;
+                    document.getElementById('popup-status').innerText = user.is_online ? '🟢 В сети' : '⚪ Был(а) недавно';
+                    
+                    const isVerified = userId === CREATOR_ID || user.is_verified;
+                    document.getElementById('popup-verified').innerHTML = isVerified ? '✅ Верифицирован' : '';
+                    
+                    const actionsDiv = document.getElementById('popup-actions');
+                    if (myTelegramId === CREATOR_ID && userId !== CREATOR_ID) {
+                        actionsDiv.innerHTML = `
+                            <button onclick="verifyUser('${userId}')" style="background:var(--tg-verified);color:white;border:none;padding:12px;border-radius:12px;font-size:16px;cursor:pointer;">✅ Выдать верификацию</button>
+                            <button onclick="addContact()" style="background:var(--tg-accent-color);color:white;border:none;padding:12px;border-radius:12px;font-size:16px;cursor:pointer;">➕ Добавить в контакты</button>
+                            <button onclick="blockUser()" style="background:#ff3b30;color:white;border:none;padding:12px;border-radius:12px;font-size:16px;cursor:pointer;">🚫 Заблокировать</button>
+                        `;
+                    } else {
+                        actionsDiv.innerHTML = `
+                            <button onclick="addContact()" style="background:var(--tg-accent-color);color:white;border:none;padding:12px;border-radius:12px;font-size:16px;cursor:pointer;">➕ Добавить в контакты</button>
+                            <button onclick="blockUser()" style="background:#ff3b30;color:white;border:none;padding:12px;border-radius:12px;font-size:16px;cursor:pointer;">🚫 Заблокировать</button>
+                        `;
+                    }
+                    
+                    popup.classList.add('active');
+                }
+            });
+        }
+
+        function verifyUser(userId) {
+            if (myTelegramId !== CREATOR_ID) {
+                alert('❌ Только создатель может выдавать верификацию!');
+                return;
+            }
+            socket.emit('verify_user', { user_id: userId }, (response) => {
+                if (response && response.status === 'ok') {
+                    alert('✅ Пользователь верифицирован!');
+                    closeProfilePopup();
+                }
+            });
+        }
+
+        function closeProfilePopup() {
+            document.getElementById('profile-popup').classList.remove('active');
+        }
+
+        function addContact() {
+            alert('➕ Пользователь добавлен в контакты');
+        }
+
+        function blockUser() {
+            if (confirm('🚫 Заблокировать пользователя?')) {
+                alert('Пользователь заблокирован');
+                closeProfilePopup();
+            }
+        }
+
+        // ============ РЕДАКТИРОВАНИЕ ПРОФИЛЯ ============
+        function editName() {
+            const newName = prompt('Введите новое имя:', tgUser.first_name || '');
+            if (newName && newName.trim()) {
+                socket.emit('update_profile', { name: newName.trim() }, (response) => {
+                    if (response && response.status === 'ok') {
+                        document.getElementById('user-name').innerText = newName.trim();
+                        document.getElementById('profile-display-name').innerText = newName.trim();
+                        alert('✅ Имя обновлено!');
+                    }
+                });
+            }
+        }
+
+        function changeAvatar() {
+            const url = prompt('Введите URL фото профиля:');
+            if (url && url.trim()) {
+                document.getElementById('user-avatar').src = url.trim();
+                socket.emit('update_profile', { photo_url: url.trim() });
+            }
+        }
+
+        function changeLanguage() {
+            alert('🌐 Выбор языка будет доступен в следующей версии');
+        }
+
+        // ============ ТЕМА ============
+        function toggleTheme() {
+            const root = document.documentElement;
+            if (theme === 'dark') {
+                root.setAttribute('data-theme', 'light');
+                theme = 'light';
+                document.querySelector('.theme-switch').innerText = '☀️';
+            } else {
+                root.removeAttribute('data-theme');
+                theme = 'dark';
+                document.querySelector('.theme-switch').innerText = '🌙';
+            }
+        }
+
+        // ============ ПРОКРУТКА ============
+        function scrollToBottom() {
+            const container = document.getElementById('chat-messages');
+            if (container) {
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+
+        // ============ СОБЫТИЯ ============
+        document.getElementById('message-field').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        document.addEventListener('click', function(e) {
+            const searchInput = document.getElementById('global-search');
+            const results = document.getElementById('search-results');
+            if (searchInput && results) {
+                if (!searchInput.contains(e.target) && !results.contains(e.target)) {
+                    results.style.display = 'none';
+                }
+            }
+            const actions = document.getElementById('message-actions');
+            if (actions && !actions.contains(e.target)) {
+                actions.classList.remove('active');
+            }
+        });
+
+        document.getElementById('profile-popup').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeProfilePopup();
+            }
+        });
+
+        // ============ ЗАПУСК ============
+        window.botCreationStep = null;
+        window.botName = '';
+        window.createdBots = [];
+
+        console.log('🚀 Запуск DICEGRAM...');
+        connectSocket();
+
+        // ============ ВОССТАНОВЛЕНИЕ ПОСЛЕ ЗАКРЫТИЯ ============
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden && !isConnected) {
+                console.log('🔄 Восстановление соединения...');
+                connectSocket();
+            }
+        });
+    </script>
+</body>
+            </html>

@@ -2,719 +2,173 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Frog Case — фейк-бот для Telegram</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Telegram TikTok Mini App</title>
+    
+    <script src="https://cdn.socket.io/4.7.5/socket-io.min.js"></script>
+
     <style>
+        /* Обнуляем отступы, чтобы приложение было на весь экран */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            user-select: none; /* легкий имитационный эффект интерфейса */
         }
 
-        body {
-            background: #0f0f12;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 12px;
-        }
-
-        /* основной контейнер — как экран телефона, имитация Telegram */
-        .phone {
-            max-width: 400px;
+        body, html {
             width: 100%;
-            background: #171921;
-            border-radius: 32px;
-            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.05);
-            overflow: hidden;
+            height: 100%;
+            background-color: #000;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden; /* Отключаем стандартный скролл браузера */
+        }
+
+        /* Главный контейнер для вертикальных свайпов (как в ТикТоке) */
+        .tiktok-container {
+            width: 100%;
+            height: 100%;
+            overflow-y: scroll;
+            /* Включаем магический CSS скролл-снап, чтобы видео прилипали к экрану */
+            scroll-snap-type: y mandatory; 
+            scrollbar-width: none; /* Прячем полосу прокрутки */
+        }
+        .tiktok-container::-webkit-scrollbar {
+            display: none; /* Прячем полосу прокрутки для WebKit (Chrome/Safari) */
+        }
+
+        /* Экран одного видео-поста (ровно на 100% видимого экрана смартфона) */
+        .video-post {
             position: relative;
-        }
-
-        /* статус-бар и шапка */
-        .status-bar {
-            background: #171921;
-            padding: 12px 20px 6px 20px;
+            width: 100%;
+            height: 100%;
+            scroll-snap-align: start; /* Видео фиксируется точно по верхней границе */
             display: flex;
-            justify-content: space-between;
-            font-size: 15px;
-            font-weight: 590;
-            color: #eef3ff;
-            letter-spacing: 0.2px;
-            border-bottom: 1px solid #2a2c34;
+            align-items: center;
+            justify-content: center;
         }
 
-        /* основной скролл контент */
-        .content {
-            padding: 16px 16px 80px 16px;
+        /* Само видео растягивается на весь задний фон */
+        .video-player {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Видео обрезается и заполняет экран без черных полос */
+        }
+
+        /* Боковая панель справа (Лайк, Коммент) */
+        .side-bar {
+            position: absolute;
+            right: 15px;
+            bottom: 120px;
             display: flex;
             flex-direction: column;
-            gap: 24px;
-            max-height: 70vh;
-            overflow-y: auto;
-            scrollbar-width: thin;
-        }
-
-        .content::-webkit-scrollbar {
-            width: 4px;
-        }
-
-        /* карточка Frog Case (главный баланс) */
-        .frog-card {
-            background: #20222c;
-            border-radius: 28px;
-            padding: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            border: 1px solid #2d2f3a;
-        }
-
-        .frog-title {
-            font-size: 24px;
-            font-weight: 700;
-            color: #a3e635;
-            letter-spacing: -0.3px;
-            display: flex;
+            gap: 20px;
             align-items: center;
-            gap: 6px;
+            z-index: 10;
         }
 
-        .frog-title span {
-            background: #2a2e3e;
-            font-size: 14px;
-            padding: 2px 10px;
-            border-radius: 20px;
-            color: #b9e66f;
-            font-weight: 500;
-        }
-
-        .stars-big {
-            font-size: 44px;
-            font-weight: 800;
-            color: #ffdf7e;
-            margin-top: 8px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .stars-big small {
-            font-size: 18px;
-            font-weight: 500;
-            color: #9aa0b0;
-        }
-
-        .row-buttons {
-            display: flex;
-            gap: 14px;
-            margin-top: 18px;
-        }
-
-        .btn-primary {
-            background: #2f6b3c;
-            border: none;
-            padding: 12px 0;
-            flex: 1;
-            border-radius: 44px;
-            font-weight: 600;
-            font-size: 16px;
-            color: white;
-            text-align: center;
-            cursor: pointer;
-            transition: 0.2s;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-        }
-
-        .btn-primary:active { background: #1f512c; transform: scale(0.97);}
-        .btn-secondary {
-            background: #2a2c38;
-            border: none;
-            padding: 12px 0;
-            flex: 1;
-            border-radius: 44px;
-            font-weight: 600;
-            font-size: 16px;
-            color: #ddd;
-            text-align: center;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .btn-secondary:active { background: #3a3c48; transform: scale(0.97);}
-
-        /* задание стилей */
-        .task-card {
-            background: #20222c;
-            border-radius: 24px;
-            padding: 16px;
-            border: 1px solid #2e313c;
-        }
-        .task-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 12px;
-            font-weight: 600;
-        }
-        .reward-badge {
-            background: #2f3a28;
-            color: #b9f07a;
-            padding: 4px 12px;
-            border-radius: 30px;
-            font-size: 13px;
-            font-weight: 600;
-        }
-        .task-desc {
-            color: #cbd5e6;
-            font-size: 15px;
-            margin-bottom: 12px;
-        }
-        .invite-stats {
-            font-size: 13px;
-            color: #8f94a8;
-            margin-top: 6px;
-        }
-        .invite-btn {
-            background: #3b5c3e;
-            margin-top: 10px;
-            display: inline-block;
-            width: 100%;
-            text-align: center;
-            padding: 10px;
-            border-radius: 40px;
-            font-weight: 600;
-        }
-
-        /* Лидеры */
-        .leaders-section {
-            background: #20222c;
-            border-radius: 28px;
-            padding: 18px;
-        }
-        .countdown {
-            background: #13151e;
-            border-radius: 40px;
-            padding: 12px;
-            display: flex;
-            justify-content: space-between;
-            text-align: center;
-            margin: 15px 0;
-        }
-        .time-block {
-            flex: 1;
-        }
-        .time-num {
-            font-size: 24px;
-            font-weight: 800;
-            color: #ffd966;
-        }
-        .time-label {
-            font-size: 11px;
-            color: #8990a5;
-        }
-
-        .leader-list {
-            margin-top: 8px;
-        }
-        .leader-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 12px 0;
-            border-bottom: 1px solid #2c2f3a;
-            font-weight: 500;
-        }
-        .leader-name {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-        }
-        .rank {
-            color: #e5b83c;
-            font-weight: 700;
-            width: 32px;
-        }
-        .stars-leader {
-            color: #ffdf8c;
-        }
-
-        .prize-row {
-            display: flex;
-            justify-content: space-between;
-            background: #1b1d26;
-            padding: 12px;
-            border-radius: 20px;
-            margin-top: 12px;
-        }
-
-        /* магазин подарков */
-        .gift-shop {
-            background: #20222c;
-            border-radius: 28px;
-            padding: 18px;
-        }
-        .shop-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-            margin-top: 15px;
-        }
-        .gift-item {
-            background: #2a2d38;
-            border-radius: 20px;
-            padding: 12px 6px;
-            text-align: center;
-            font-weight: 700;
-            font-size: 15px;
-            color: #f5e2a8;
-        }
-
-        /* нижняя навигация */
-        .bottom-nav {
-            background: #12141c;
-            backdrop-filter: blur(10px);
-            border-top: 1px solid #282b34;
-            display: flex;
-            justify-content: space-around;
-            padding: 10px 16px 18px;
-            position: sticky;
-            bottom: 0;
-            width: 100%;
-        }
-        .nav-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 4px;
-            color: #9aa1b8;
-            font-size: 12px;
-            font-weight: 500;
-            transition: 0.1s;
-            cursor: pointer;
-        }
-        .nav-item.active {
-            color: #a3e635;
-        }
-        .nav-icon {
-            font-size: 22px;
-        }
-
-        .modal-toast {
-            position: fixed;
-            bottom: 90px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #1f212e;
-            color: white;
-            padding: 8px 20px;
-            border-radius: 60px;
-            font-size: 14px;
-            pointer-events: none;
-            z-index: 200;
-            transition: 0.2s;
-            opacity: 0;
-        }
-        button {
+        .action-btn {
             background: none;
             border: none;
-            font-family: inherit;
-        }
-        .inline-link {
-            color: #9ed45e;
-            font-weight: 600;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             cursor: pointer;
         }
-        h4 {
-            font-size: 18px;
+
+        /* Иконка лайка (сердечко) */
+        .icon-heart {
+            font-size: 35px;
+            transition: transform 0.1s ease;
+        }
+        .icon-heart.liked {
+            color: #ff3b5c; /* Красный цвет при лайке */
+            transform: scale(1.2);
+        }
+
+        .btn-counter {
+            font-size: 13px;
+            margin-top: 5px;
+            font-weight: 600;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        }
+
+        /* Нижняя панель с описанием видео */
+        .bottom-bar {
+            position: absolute;
+            left: 15px;
+            bottom: 30px;
+            color: #fff;
+            z-index: 10;
+            max-width: 75%;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+        }
+
+        .author-name {
+            font-size: 16px;
+            font-weight: bold;
             margin-bottom: 8px;
-            color: #edeff5;
+        }
+
+        .video-desc {
+            font-size: 14px;
+            line-height: 1.3;
         }
     </style>
 </head>
 <body>
-<div class="phone">
-    <div class="status-bar">
-        <span>Tele2</span>
-        <span>23:40</span>
-    </div>
-    <div class="content" id="mainContent">
-        <!-- динамический контент - по умолчанию профиль/главный блок Frog Case -->
-        <div id="dynamicPanel">
-            <!-- Frog Case карточка -->
-            <div class="frog-card">
-                <div class="frog-title">Frog Case <span>NFT</span></div>
-                <div class="stars-big">
-                    ★ <span id="starBalance">1.36</span> <small>звезд</small>
-                </div>
-                <div class="row-buttons">
-                    <button class="btn-primary" id="withdrawBtn">Вывести</button>
-                    <button class="btn-secondary" id="depositBtn">Пополнить</button>
-                </div>
+
+    <div class="tiktok-container" id="videoContainer">
+        <div class="video-post">
+            <video class="video-player" loop autoplay muted playsinline>
+                <source src="https://assets.mixkit.co/videos/preview/mixkit-tree-with-yellow-flowers-4653-large.mp4" type="video/mp4">
+            </video>
+            
+            <div class="side-bar">
+                <button class="action-btn" onclick="toggleLike(this)">
+                    <span class="icon-heart">❤️</span>
+                    <span class="btn-counter">105</span>
+                </button>
+                <button class="action-btn">
+                    <span style="font-size:32px;">💬</span>
+                    <span class="btn-counter">42</span>
+                </button>
             </div>
 
-            <!-- Пригласи друзей -->
-            <div class="task-card">
-                <div class="task-header">
-                    <span>👥 Пригласите друзей</span>
-                    <span class="reward-badge">+2 ★ за друга</span>
-                </div>
-                <div class="task-desc">И зарабатывайте звезды за каждого приглашенного, а так же 10% от их пополнений баланса!</div>
-                <button class="btn-primary invite-btn" id="inviteFriendBtn">Пригласить +2 ★</button>
-                <div class="invite-stats" id="inviteStats">Приглашено: 0 друзей | Бонус 10%: 0★</div>
-            </div>
-
-            <!-- Задание эмодзи-статус -->
-            <div class="task-card">
-                <div class="task-header">
-                    <span>😀 Эмодзи-статус</span>
-                    <span class="reward-badge">Награда: 0.4 ★</span>
-                </div>
-                <div class="task-desc">Установите эмодзи-статус в Telegram, подтвердите установку и нажмите «Проверить» (раз в 20 дней).</div>
-                <button class="btn-secondary" id="emojiStatusBtn">Установить</button>
-                <button class="btn-primary" id="checkEmojiBtn" style="margin-top: 10px; background:#3a475c;">Проверить</button>
-            </div>
-
-            <!-- Лидеры + Доп. призы (сокращённый вид) -->
-            <div class="leaders-section" id="leadersBlock">
-                <h4>🏆 Лидеры</h4>
-                <div>Каждую неделю топ-20 игроков по обороту получают подарки!</div>
-                <div class="countdown" id="countdownTimer">
-                    <div class="time-block"><span class="time-num" id="days">3</span><div class="time-label">дни</div></div>
-                    <div class="time-block"><span class="time-num" id="hours">5</span><div class="time-label">часы</div></div>
-                    <div class="time-block"><span class="time-num" id="minutes">19</span><div class="time-label">минуты</div></div>
-                    <div class="time-block"><span class="time-num" id="seconds">13</span><div class="time-label">секунды</div></div>
-                </div>
-                <div class="prize-row">
-                    <span>🎁 Доп. призы (топ 1000):</span>
-                    <span>⭐ 5 | 10 | 35 | 100+</span>
-                </div>
-                <div class="leader-list" id="leaderList">
-                    <!-- Динамические лидеры из базы (оригинальные имена но убраны лишние, теперь фейк топ) -->
-                </div>
-                <div class="invite-stats" style="text-align:center; margin-top:12px">⭐ Вы: <span id="userStarsInLeaders">1</span> ★</div>
-            </div>
-
-            <!-- Магазин подарков (NFT) -->
-            <div class="gift-shop" id="shopBlock">
-                <h4>🎁 Магазин подарков</h4>
-                <div>Тратьте звезды на NFT-подарки</div>
-                <div class="shop-grid" id="giftGrid">
-                    <!-- скрипт заполнит -->
-                </div>
+            <div class="bottom-bar">
+                <div class="author-name">@dauletbr</div>
+                <div class="video-desc">Тестируем первый в мире Telegram TikTok Mini App! Свайпы работают на чистом CSS 🎬🔥</div>
             </div>
         </div>
     </div>
 
-    <div class="bottom-nav">
-        <div class="nav-item" data-tab="games">🎮<span>Игры</span></div>
-        <div class="nav-item" data-tab="earn">💰<span>Заработок</span></div>
-        <div class="nav-item active" data-tab="leaders">🏅<span>Лидеры</span></div>
-        <div class="nav-item" data-tab="shop">🛍️<span>Магазин</span></div>
-        <div class="nav-item" data-tab="profile">👤<span>Профиль</span></div>
-    </div>
-</div>
-<div id="toastMsg" class="modal-toast">✨ Уведомление</div>
+    <script>
+        // Подключаемся к твоему работающему WebSocket-серверу на хостинге justrun!
+        const socket = io("https://a38499-be46.m.jrnm.app");
 
-<script>
-    // ========================== СИСТЕМА ДАННЫХ ==========================
-    // Имитация базы пользователей: сохраняем уникальное имя при первом входе
-    let currentUser = null;
-    // список лидеров (топ изначально из скриншотов + фейковые имена, убираем часть старых, но оставляем Sabina и др. + добавляем user)
-    let globalUsers = [
-        { name: "Sabina", stars: 576885 },
-        { name: "???", stars: 255414 },
-        { name: "???", stars: 231140 },
-        { name: "dizrell", stars: 192838 },
-        { name: "A", stars: 102995 },
-        { name: "Александр", stars: 89146 },
-        { name: "УЗНИК ВОСЬМОГО КЛАССА", stars: 81901 },
-        { name: "Никита", stars: 78944 },
-        { name: "Владимир", stars: 74906 },
-        { name: "G", stars: 62450 }
-    ];
-    
-    // инвайт система
-    let invitedFriendsCount = 0;
-    let commissionFromFriends = 0;   // накопительный бонус 10% от пополнений друзей (симулируем)
-    let userStars = 1.36;   // начальные звезды
-
-    // эмодзи-статус выполнен?
-    let emojiClaimAvailable = true;   // можно ли получить 0.4 звезды, раз в 20 дней (имитируем доступность)
-    let lastEmojiClaim = 0; // врем. метка не критична, просто флаг
-    
-    // функция обновления UI баланса
-    function updateBalanceUI() {
-        document.getElementById('starBalance').innerText = userStars.toFixed(2);
-        document.getElementById('userStarsInLeaders').innerText = Math.floor(userStars);
-        // также обновить в топе при необходимости (позже перерисовка лидеров)
-        renderLeadersList();
-    }
-
-    // сохранить в localStorage игрока (имя + звезды)
-    function saveUserData() {
-        if(currentUser) {
-            localStorage.setItem('frogcase_user', JSON.stringify({
-                name: currentUser,
-                stars: userStars,
-                invitedCount: invitedFriendsCount,
-                commission: commissionFromFriends,
-                emojiClaimed: !emojiClaimAvailable
-            }));
-        }
-    }
-    
-    function loadUserData() {
-        let stored = localStorage.getItem('frogcase_user');
-        if(stored) {
-            try {
-                let data = JSON.parse(stored);
-                currentUser = data.name;
-                userStars = data.stars;
-                invitedFriendsCount = data.invitedCount || 0;
-                commissionFromFriends = data.commission || 0;
-                emojiClaimAvailable = !(data.emojiClaimed || false);
-                updateBalanceUI();
-                updateInviteStats();
-                return;
-            } catch(e) {}
-        }
-        // первый запуск / новый пользователь
-        let generatedName = "Игрок" + Math.floor(Math.random()*1000);
-        currentUser = generatedName;
-        userStars = 1.36;
-        invitedFriendsCount = 0;
-        commissionFromFriends = 0;
-        emojiClaimAvailable = true;
-        updateBalanceUI();
-        updateInviteStats();
-        saveUserData();
-    }
-    
-    function updateInviteStats() {
-        document.getElementById('inviteStats').innerHTML = `Приглашено: ${invitedFriendsCount} друзей | Бонус 10%: ${commissionFromFriends.toFixed(2)}★`;
-    }
-    
-    // пригласить друга
-    function inviteFriend() {
-        // имитация приглашения: +2 звезды за друга, также в будущем 10% от депозитов друга — здесь симуляция единоразового бонуса
-        invitedFriendsCount++;
-        userStars += 2;
-        // дополнительная симуляция 10% от гипотетического пополнения: добавим случайный бонус 0.3-1.2 звезды как «пополнение друга»
-        let extra = 0.5 + Math.random() * 1.2;
-        commissionFromFriends += extra;
-        userStars += extra;
-        updateBalanceUI();
-        updateInviteStats();
-        showToast(`✨ +2★ за друга! +${extra.toFixed(2)}★ (10% от пополнения друга)`);
-        saveUserData();
-        renderLeadersList(); // обновить позицию в топе
-    }
-    
-    // эмодзи-статус установка
-    function installEmoji() {
-        showToast("📱 Эмодзи-статус установлен! Нажмите 'Проверить'");
-    }
-    function checkEmojiStatus() {
-        if(emojiClaimAvailable) {
-            userStars += 0.4;
-            updateBalanceUI();
-            emojiClaimAvailable = false;
-            showToast("✅ Награда 0.4★ получена! (следующая через 20 дней)");
-            saveUserData();
-        } else {
-            showToast("⏳ Вы уже получали награду! Доступ через 20 дней.");
-        }
-    }
-    
-    // показать уведомление
-    function showToast(msg) {
-        let toast = document.getElementById('toastMsg');
-        toast.innerText = msg;
-        toast.style.opacity = '1';
-        setTimeout(() => { toast.style.opacity = '0'; }, 2000);
-    }
-    
-    // рендер топа лидеров (глобальный + текущий юзер)
-    function renderLeadersList() {
-        // обновляем список: убедимся что текущий пользователь есть в globalUsers или добавим/обновим звезды
-        let existing = globalUsers.find(u => u.name === currentUser);
-        if(existing) {
-            existing.stars = userStars;
-        } else {
-            globalUsers.push({ name: currentUser, stars: userStars });
-        }
-        // сортировка по убыванию звезд
-        let sorted = [...globalUsers].sort((a,b) => b.stars - a.stars);
-        // ограничим показ 15 первыми + топ вырезать лишние дубли сохраняя оригинальных
-        let topList = sorted.slice(0, 12);
-        let container = document.getElementById('leaderList');
-        if(!container) return;
-        container.innerHTML = '';
-        topList.forEach((user, idx) => {
-            let rank = idx+1;
-            let starDisplay = user.stars.toFixed(0);
-            let isCurrent = (user.name === currentUser);
-            let rowDiv = document.createElement('div');
-            rowDiv.className = 'leader-item';
-            rowDiv.style.background = isCurrent ? '#2a362e' : 'transparent';
-            rowDiv.innerHTML = `
-                <div class="leader-name">
-                    <span class="rank">${rank}</span>
-                    <span>${user.name.length > 18 ? user.name.slice(0,16)+'..' : user.name}</span>
-                </div>
-                <div class="stars-leader">★ ${starDisplay}</div>
-            `;
-            container.appendChild(rowDiv);
+        // Ловим приветственный сигнал от сервера
+        socket.on('welcome', (data) => {
+            console.log("Сервер ответил:", data.message);
         });
-        // если текущего игрока нет в топ-12 но добавим отдельной строкой?
-        let meInTop = topList.some(u => u.name === currentUser);
-        if(!meInTop && globalUsers.some(u=> u.name === currentUser)) {
-            let myData = globalUsers.find(u => u.name === currentUser);
-            let myRank = sorted.findIndex(u => u.name === currentUser) + 1;
-            let extraRow = document.createElement('div');
-            extraRow.className = 'leader-item';
-            extraRow.style.background = '#2f3f32';
-            extraRow.innerHTML = `
-                <div class="leader-name">
-                    <span class="rank">${myRank}</span>
-                    <span>⭐ ${currentUser} (Вы)</span>
-                </div>
-                <div class="stars-leader">★ ${myData.stars.toFixed(2)}</div>
-            `;
-            container.appendChild(extraRow);
-        }
-    }
-    
-    // магазин подарков (рандомные цены на основе скриншотов)
-    function renderGiftShop() {
-        let giftPrices = [270, 271, 271, 271, 271, 272, 274, 275, 276, 284, 287, 292];
-        let grid = document.getElementById('giftGrid');
-        if(!grid) return;
-        grid.innerHTML = '';
-        giftPrices.forEach(price => {
-            let div = document.createElement('div');
-            div.className = 'gift-item';
-            div.innerHTML = `🎁<br>${price} ★`;
-            div.style.cursor = 'pointer';
-            div.addEventListener('click', () => {
-                if(userStars >= price) {
-                    userStars -= price;
-                    updateBalanceUI();
-                    showToast(`🎉 Вы купили NFT-подарок за ${price}★!`);
-                    saveUserData();
-                    renderLeadersList();
-                } else {
-                    showToast(`Недостаточно звёзд! Нужно ${price}★`);
-                }
-            });
-            grid.appendChild(div);
-        });
-    }
-    
-    // таймер обратного отсчета (3д 5ч 19м 13с обновление)
-    function updateCountdown() {
-        // устанавливаем цель: каждую неделю, но для демо просто статичный декремент от 3дней
-        let target = new Date();
-        target.setDate(target.getDate() + 3);
-        target.setHours(target.getHours() + 5);
-        target.setMinutes(target.getMinutes() + 19);
-        target.setSeconds(target.getSeconds() + 13);
-        function tick() {
-            let now = new Date();
-            let diff = target - now;
-            if(diff <= 0) {
-                document.getElementById('days').innerText = '0'; document.getElementById('hours').innerText = '0';
-                document.getElementById('minutes').innerText = '0'; document.getElementById('seconds').innerText = '0';
-                return;
-            }
-            let days = Math.floor(diff / (1000*60*60*24));
-            let hours = Math.floor((diff % (86400000))/(3600000));
-            let minutes = Math.floor((diff % 3600000)/60000);
-            let secs = Math.floor((diff % 60000)/1000);
-            document.getElementById('days').innerText = days;
-            document.getElementById('hours').innerText = hours;
-            document.getElementById('minutes').innerText = minutes;
-            document.getElementById('seconds').innerText = secs;
-        }
-        tick();
-        setInterval(tick, 1000);
-    }
-    
-    // навигация (табы) – для имитации переключения разделов в одном окне
-    function initNavigation() {
-        let panels = {
-            games: () => { showToast("🎮 Игры скоро: жди лягушачий раннер!"); },
-            earn: () => { showToast("💰 Выполняй задания, приглашай друзей и пополняй баланс!"); },
-            leaders: () => { document.getElementById('leadersBlock').scrollIntoView({behavior: 'smooth'}); showToast("🏆 Топ игроков обновляется еженедельно"); },
-            shop: () => { document.getElementById('shopBlock').scrollIntoView({behavior: 'smooth'}); },
-            profile: () => { showToast(`👤 ${currentUser} | Баланс: ${userStars.toFixed(2)}★ | Приглашений: ${invitedFriendsCount}`); }
-        };
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', (e) => {
-                let tab = item.getAttribute('data-tab');
-                if(panels[tab]) panels[tab]();
-                document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
-                item.classList.add('active');
-            });
-        });
-    }
 
-    // Псевдо-депозит/вывод (имитация)
-    function setupFinance() {
-        document.getElementById('withdrawBtn').addEventListener('click', () => {
-            if(userStars >= 0.5) {
-                let amount = parseFloat((Math.min(userStars, 5)).toFixed(2));
-                userStars -= amount;
-                updateBalanceUI();
-                showToast(`💰 Выведено ${amount}★ на внешний кошелек (демо)`);
-                saveUserData();
-                renderLeadersList();
+        // Функция для переключения лайка на клиенте
+        function toggleLike(button) {
+            const heart = button.querySelector('.icon-heart');
+            const counter = button.querySelector('.btn-counter');
+            let currentLikes = parseInt(counter.innerText);
+
+            if (heart.classList.contains('liked')) {
+                heart.classList.remove('liked');
+                counter.innerText = currentLikes - 1;
             } else {
-                showToast("❌ Недостаточно звёзд для вывода (мин 0.5★)");
+                heart.classList.add('liked');
+                counter.innerText = currentLikes + 1;
+                
+                // Отправляем онлайн-сигнал на наш бэкэнд о том, что поставлен лайк
+                socket.emit('like_video', { video_id: "test_video_1" });
             }
-        });
-        document.getElementById('depositBtn').addEventListener('click', () => {
-            let add = 2.5;
-            userStars += add;
-            updateBalanceUI();
-            showToast(`💳 Баланс пополнен на +${add}★ (тест)`);
-            saveUserData();
-            renderLeadersList();
-        });
-    }
-    
-    // инициализация всех привязок
-    function bindActions() {
-        document.getElementById('inviteFriendBtn').addEventListener('click', inviteFriend);
-        document.getElementById('emojiStatusBtn').addEventListener('click', installEmoji);
-        document.getElementById('checkEmojiBtn').addEventListener('click', checkEmojiStatus);
-        setupFinance();
-    }
-    
-    // имитация того, что бот запоминает пользователя при заходе (автоматически сохраняет)
-    function initUserFromTelegramFrog() {
-        // при загрузке генерируем или восстанавливаем пользователя, сохраняем имя в базу (localStorage)
-        loadUserData();
-        // также обновляем лидеров, добавляя/синхронизируя
-        renderLeadersList();
-        renderGiftShop();
-        updateBalanceUI();
-        updateInviteStats();
-    }
-    
-    // общий рендер
-    function fullRender() {
-        initUserFromTelegramFrog();
-        updateCountdown();
-        bindActions();
-        initNavigation();
-        // также повторная отрисовка магазина, лидеров при каждом обновлении
-        setInterval(() => {
-            renderLeadersList();
-            renderGiftShop();
-            updateBalanceUI();
-        }, 5000);
-    }
-    
-    fullRender();
-</script>
+        }
+    </script>
 </body>
 </html>
+

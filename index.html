@@ -114,10 +114,6 @@
             display: none;
         }
 
-        .reconnect-btn:hover {
-            opacity: 0.9;
-        }
-
         #app-container {
             display: none;
             flex-direction: column;
@@ -653,6 +649,16 @@
             cursor: pointer;
         }
 
+        .link {
+            color: var(--tg-accent-color);
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .link:hover {
+            text-decoration: underline;
+        }
+
         @media (max-width: 480px) {
             .profile-popup-content {
                 width: 95%;
@@ -699,9 +705,7 @@
         <div id="search-results" class="search-results"></div>
 
         <div id="screen-chats" class="screen active">
-            <div id="chats-list">
-                <!-- Чаты будут загружены из базы данных -->
-            </div>
+            <div id="chats-list"></div>
         </div>
 
         <div id="chat-room">
@@ -730,7 +734,7 @@
         </div>
 
         <div id="screen-contacts" class="screen">
-            <div class="placeholder-screen">👥 Список контактов пуст</div>
+            <div id="contacts-list"></div>
         </div>
 
         <div id="screen-settings" class="screen">
@@ -760,7 +764,11 @@
                     </div>
                     <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--tg-border-color);">
                         <span style="color:var(--tg-text-secondary);">Username</span>
-                        <span id="profile-username-display" style="color:var(--tg-text-secondary);">@username</span>
+                        <span id="profile-username-display" style="cursor:pointer;color:var(--tg-accent-color);" onclick="editUsername()">@username</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--tg-border-color);">
+                        <span style="color:var(--tg-text-secondary);">Bio</span>
+                        <span id="profile-bio-display" style="cursor:pointer;color:var(--tg-accent-color);" onclick="editBio()">Добавить описание</span>
                     </div>
                     <div style="display:flex;justify-content:space-between;padding:8px 0;">
                         <span style="color:var(--tg-text-secondary);">Язык</span>
@@ -801,8 +809,10 @@
                     <div id="popup-avatar" style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg, #5085b1, #366187);margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:32px;color:#fff;"></div>
                     <div id="popup-name" style="font-size:18px;font-weight:600;margin-top:10px;"></div>
                     <div id="popup-username" style="color:var(--tg-text-secondary);font-size:14px;"></div>
+                    <div id="popup-bio" style="color:var(--tg-text-secondary);font-size:13px;margin-top:5px;"></div>
                     <div id="popup-status" style="color:var(--tg-status-online);font-size:13px;margin-top:5px;"></div>
                     <div id="popup-verified" style="color:var(--tg-verified);font-size:13px;margin-top:5px;"></div>
+                    <div id="popup-created" style="color:var(--tg-text-secondary);font-size:12px;margin-top:5px;"></div>
                 </div>
                 <div id="popup-actions" style="display:flex;flex-direction:column;gap:8px;">
                     <button onclick="addContact()" style="background:var(--tg-accent-color);color:white;border:none;padding:12px;border-radius:12px;font-size:16px;cursor:pointer;">➕ Добавить в контакты</button>
@@ -814,8 +824,9 @@
 
     <div id="message-actions" class="message-actions">
         <button class="message-action-btn" onclick="replyToMessage()">↩ Ответить</button>
-        <button class="message-action-btn" onclick="editMessage()">✏️ Редактировать</button>
         <button class="message-action-btn" onclick="forwardMessage()">📤 Переслать</button>
+        <button class="message-action-btn" onclick="copyMessage()">📋 Копировать</button>
+        <button class="message-action-btn" onclick="editMessage()">✏️ Изменить</button>
         <button class="message-action-btn danger" onclick="deleteMessage()">🗑 Удалить</button>
         <button class="message-action-btn" onclick="pinMessage()">📌 Закрепить</button>
     </div>
@@ -840,11 +851,13 @@
         let isInitialLoad = true;
         let currentChatId = null;
         let myTelegramId = null;
+        let myUsername = '';
         let dynamicChats = {};
         let unreadCounts = {};
         let selectedMessageId = null;
         let theme = 'dark';
         let authTimeout = null;
+        let currentUserData = null;
 
         // ============ ПОЛЬЗОВАТЕЛЬ ============
         const tgUser = tg.initDataUnsafe?.user || {
@@ -856,20 +869,32 @@
         };
 
         myTelegramId = String(tgUser.id);
-        console.log('👤 Пользователь:', tgUser.first_name, '@' + tgUser.username, 'ID:', myTelegramId);
+        myUsername = tgUser.username || '';
+        console.log('👤 Пользователь:', tgUser.first_name, '@' + myUsername, 'ID:', myTelegramId);
 
         // ============ ИНИЦИАЛИЗАЦИЯ ПРОФИЛЯ ============
         function initProfile() {
             const fullName = `${tgUser.first_name} ${tgUser.last_name || ''}`.trim();
             document.getElementById('user-name').innerText = fullName || 'Пользователь';
-            document.getElementById('user-username').innerText = tgUser.username ? `@${tgUser.username}` : '';
-            document.getElementById('profile-username-display').innerText = tgUser.username ? `@${tgUser.username}` : '';
+            document.getElementById('user-username').innerText = myUsername ? `@${myUsername}` : '';
+            document.getElementById('profile-username-display').innerText = myUsername ? `@${myUsername}` : '';
             document.getElementById('profile-display-name').innerText = fullName || 'Изменить';
             if (tgUser.photo_url) {
                 document.getElementById('user-avatar').src = tgUser.photo_url;
             }
         }
         initProfile();
+
+        // ============ ЛОКАЛЬНОЕ ВРЕМЯ ============
+        function getLocalTime(timestamp) {
+            try {
+                const date = new Date(timestamp);
+                if (isNaN(date.getTime())) return '--:--';
+                return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } catch (e) {
+                return '--:--';
+            }
+        }
 
         // ============ УПРАВЛЕНИЕ СОЕДИНЕНИЕМ ============
         function connectSocket() {
@@ -884,13 +909,11 @@
 
             console.log('🔌 Подключение к серверу:', SERVER_URL);
 
-            // Отключаем старый сокет
             if (socket) {
                 socket.disconnect();
                 socket = null;
             }
 
-            // Создаем новый сокет с правильными настройками
             socket = io(SERVER_URL, { 
                 transports: ["websocket", "polling"],
                 secure: true,
@@ -901,7 +924,6 @@
                 timeout: 10000
             });
 
-            // ============ ОБРАБОТЧИКИ СОБЫТИЙ ============
             socket.on('connect', () => {
                 console.log('✅ Socket.IO подключен');
                 isConnected = true;
@@ -912,7 +934,6 @@
                 
                 loadingStatus.textContent = 'Авторизация...';
                 
-                // Отправляем авторизацию
                 socket.emit('auth', tgUser, (response) => {
                     console.log('📨 Ответ авторизации:', response);
                     
@@ -920,14 +941,22 @@
                         console.log('✅ Авторизация успешна');
                         loadingStatus.textContent = 'Загрузка...';
                         
-                        // Показываем приложение
                         document.getElementById('loading-screen').style.display = 'none';
                         document.getElementById('app-container').style.display = 'flex';
                         
-                        // Загружаем чаты
+                        // Загружаем данные пользователя
+                        socket.emit('get_user_info', { user_id: myTelegramId }, (userInfo) => {
+                            if (userInfo && userInfo.status === 'found') {
+                                currentUserData = userInfo.user;
+                                myUsername = currentUserData.username || myUsername;
+                                initProfile();
+                            }
+                        });
+                        
                         if (isInitialLoad) {
                             setTimeout(() => {
                                 loadChatsAndMessages();
+                                loadContacts();
                                 isInitialLoad = false;
                             }, 500);
                         }
@@ -968,15 +997,26 @@
                 const statusEl = document.getElementById('global-status');
                 statusEl.style.display = 'none';
                 loadChatsAndMessages();
+                loadContacts();
             });
 
-            // ============ ОБРАБОТЧИКИ СООБЩЕНИЙ ============
             socket.on('new_message', (msg) => {
                 console.log('📩 Новое сообщение:', msg);
                 handleNewMessage(msg);
             });
 
-            // Таймаут авторизации
+            socket.on('user_updated', (data) => {
+                console.log('🔄 Обновление пользователя:', data);
+                if (data.user_id === myTelegramId) {
+                    if (data.username) {
+                        myUsername = data.username;
+                        initProfile();
+                    }
+                }
+                // Обновляем чаты если нужно
+                loadChatsAndMessages();
+            });
+
             if (authTimeout) clearTimeout(authTimeout);
             authTimeout = setTimeout(() => {
                 if (!isConnected) {
@@ -987,7 +1027,6 @@
             }, 15000);
         }
 
-        // ============ ПЕРЕПОДКЛЮЧЕНИЕ ============
         function reconnect() {
             console.log('🔄 Ручное переподключение...');
             reconnectAttempts = 0;
@@ -1045,6 +1084,53 @@
             });
         }
 
+        // ============ ЗАГРУЗКА КОНТАКТОВ ============
+        function loadContacts() {
+            if (!socket || !isConnected) return;
+            
+            socket.emit('get_contacts', {}, (contacts) => {
+                const contactsList = document.getElementById('contacts-list');
+                contactsList.innerHTML = '';
+                
+                if (contacts && contacts.length > 0) {
+                    contacts.forEach(contact => {
+                        const div = document.createElement('div');
+                        div.className = 'chat-item';
+                        div.innerHTML = `
+                            <div class="chat-avatar" style="background:linear-gradient(135deg, #5085b1, #366187);">
+                                ${(contact.first_name || 'U').substring(0,2).toUpperCase()}
+                            </div>
+                            <div class="chat-details">
+                                <div class="chat-title-row">
+                                    <div class="chat-name">${contact.first_name || 'User'} ${contact.is_verified ? '✅' : ''}</div>
+                                </div>
+                                <div class="chat-preview">@${contact.username || ''}</div>
+                            </div>
+                        `;
+                        div.onclick = () => {
+                            if (!dynamicChats[contact.telegram_id]) {
+                                dynamicChats[contact.telegram_id] = {
+                                    first_name: contact.first_name || `User ${contact.telegram_id}`,
+                                    username: contact.username || ''
+                                };
+                                createChatRow(contact.telegram_id, contact.first_name || `User ${contact.telegram_id}`, contact.username || '');
+                            }
+                            openChat(contact.telegram_id, contact.first_name || `User ${contact.telegram_id}`, contact.is_verified);
+                        };
+                        contactsList.appendChild(div);
+                    });
+                } else {
+                    contactsList.innerHTML = `
+                        <div style="padding:40px 20px;text-align:center;color:var(--tg-text-secondary);">
+                            <div style="font-size:48px;margin-bottom:16px;">👥</div>
+                            <div style="font-size:16px;font-weight:500;">Нет контактов</div>
+                            <div style="font-size:13px;margin-top:4px;">Добавьте пользователей в контакты</div>
+                        </div>
+                    `;
+                }
+            });
+        }
+
         // ============ ОБРАБОТКА НОВОГО СООБЩЕНИЯ ============
         function handleNewMessage(msg) {
             const chatPartner = msg.sender_id === myTelegramId ? msg.receiver_id : msg.sender_id;
@@ -1093,12 +1179,15 @@
             if (document.getElementById(`chat-item-${tgId}`)) return;
             
             const isBotFather = username === 'botfather';
+            const isSupport = tgId === '0';
             const isVerified = tgId === CREATOR_ID || username === 'botfather';
             const verifiedIcon = isVerified ? 
                 `<svg class="tg-verify-icon" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>` : '';
             
             const displayName = firstName || `User ${tgId}`;
-            const avatarBg = isBotFather ? 'linear-gradient(135deg, #2a9d8f, #264653)' : 'linear-gradient(135deg, #5085b1, #366187)';
+            let avatarBg = 'linear-gradient(135deg, #5085b1, #366187)';
+            if (isBotFather) avatarBg = 'linear-gradient(135deg, #2a9d8f, #264653)';
+            else if (isSupport) avatarBg = 'linear-gradient(135deg, #5288c1, #1a3a5c)';
             
             const rowHTML = `
                 <div class="chat-item" id="chat-item-${tgId}" onclick="openChat('${tgId}', '${displayName.replace(/'/g, "\\'")}', ${isVerified})">
@@ -1121,7 +1210,6 @@
             chatsList.insertAdjacentHTML('beforeend', rowHTML);
         }
 
-        // ============ ОБНОВЛЕНИЕ СЧЕТЧИКА ============
         function updateUnreadBadge(chatId, count) {
             const badge = document.getElementById(`unread-badge-${chatId}`);
             if (badge) {
@@ -1131,17 +1219,6 @@
                 } else {
                     badge.style.display = 'none';
                 }
-            }
-        }
-
-        // ============ ЛОКАЛЬНОЕ ВРЕМЯ ============
-        function getLocalTime(timestamp) {
-            try {
-                const date = new Date(timestamp);
-                if (isNaN(date.getTime())) return '--:--';
-                return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            } catch (e) {
-                return '--:--';
             }
         }
 
@@ -1218,6 +1295,10 @@
             };
             document.getElementById('header-title').innerText = titles[tabName] || 'Чаты';
             document.getElementById('search-results').style.display = 'none';
+            
+            if (tabName === 'contacts') {
+                loadContacts();
+            }
         }
 
         // ============ ОТКРЫТИЕ ЧАТА ============
@@ -1255,6 +1336,17 @@
             const messagesContainer = document.getElementById('chat-messages');
             messagesContainer.innerHTML = '';
 
+            // Приветственное сообщение для поддержки
+            if (chatId === '0') {
+                const welcomeMsg = {
+                    sender_id: '0',
+                    receiver_id: myTelegramId,
+                    text: `👋 Добро пожаловать в DICEGRAM!\n\n🆔 Ваш ID: ${myTelegramId}\n👤 Имя: ${tgUser.first_name} ${tgUser.last_name || ''}\n🏷️ Username: @${myUsername || 'не установлен'}\n\n📱 DICEGRAM — точная копия Telegram. Все данные сохраняются в базе данных.\n\n💬 Напишите нам, если у вас есть вопросы или предложения.`,
+                    timestamp: new Date().toISOString()
+                };
+                renderSingleMessage(welcomeMsg);
+            }
+
             socket.emit('get_chat_history', { with_id: chatId }, (history) => {
                 if (history && Array.isArray(history)) {
                     history.forEach(msg => renderSingleMessage(msg));
@@ -1265,7 +1357,6 @@
             socket.emit('mark_as_read', { chat_id: chatId });
         }
 
-        // ============ ЗАКРЫТИЕ ЧАТА ============
         function closeChat() {
             document.getElementById('chat-room').style.display = 'none';
             document.getElementById('bottom-navigation').style.display = 'flex';
@@ -1297,22 +1388,39 @@
                 msgEl.classList.add('received');
             }
 
+            // Преобразуем ссылки в кликабельные
+            let formattedText = formatMessageText(msg.text);
+            // Ссылки вида d.me/username
+            formattedText = formattedText.replace(/(d\.me\/[a-zA-Z0-9_]+)/g, function(match) {
+                return `<a href="#" class="link" onclick="handleLinkClick('${match}')">${match}</a>`;
+            });
+
             msgEl.innerHTML = `
-                <span>${formatMessageText(msg.text)}</span>
+                <span>${formattedText}</span>
                 <div class="message-meta">
                     <span class="message-time">${timeStr}</span>
                     ${ticksHtml}
                 </div>
             `;
 
-            msgEl.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                showMessageActions(msgEl.dataset.messageId);
+            // Долгое нажатие для меню
+            let longPressTimer = null;
+            msgEl.addEventListener('mousedown', () => {
+                longPressTimer = setTimeout(() => {
+                    showMessageActions(msgEl.dataset.messageId);
+                }, 500);
             });
-
-            msgEl.addEventListener('click', () => {
-                showMessageActions(msgEl.dataset.messageId);
+            msgEl.addEventListener('mouseup', () => clearTimeout(longPressTimer));
+            msgEl.addEventListener('mouseleave', () => clearTimeout(longPressTimer));
+            
+            // Touch события для мобильных
+            msgEl.addEventListener('touchstart', () => {
+                longPressTimer = setTimeout(() => {
+                    showMessageActions(msgEl.dataset.messageId);
+                }, 500);
             });
+            msgEl.addEventListener('touchend', () => clearTimeout(longPressTimer));
+            msgEl.addEventListener('touchmove', () => clearTimeout(longPressTimer));
 
             wrapper.appendChild(msgEl);
             container.appendChild(wrapper);
@@ -1323,6 +1431,11 @@
             return text.replace(/(@[a-zA-Z0-9_]{3,32})/g, function(match) {
                 return `<span class="mention-link" onclick="handleMentionClick('${match}')">${match}</span>`;
             });
+        }
+
+        function handleLinkClick(link) {
+            const username = link.replace('d.me/', '');
+            handleMentionClick('@' + username);
         }
 
         function handleMentionClick(username) {
@@ -1464,29 +1577,86 @@
         }
 
         function replyToMessage() {
-            alert('↩ Ответ на сообщение');
-            document.getElementById('message-actions').classList.remove('active');
-        }
-
-        function editMessage() {
-            alert('✏️ Редактирование сообщения');
+            const text = prompt('Введите ответ:');
+            if (text && text.trim()) {
+                socket.emit('send_message', { 
+                    receiver_id: currentChatId, 
+                    text: text.trim(),
+                    reply_to_id: selectedMessageId
+                }, (response) => {
+                    if (response && response.status === 'ok') {
+                        renderSingleMessage(response.message);
+                        scrollToBottom();
+                    }
+                });
+            }
             document.getElementById('message-actions').classList.remove('active');
         }
 
         function forwardMessage() {
-            alert('📤 Пересылка сообщения');
+            const chatId = prompt('Введите ID пользователя для пересылки:');
+            if (chatId && chatId.trim()) {
+                socket.emit('forward_message', { 
+                    message_id: selectedMessageId,
+                    to_id: chatId.trim()
+                }, (response) => {
+                    if (response && response.status === 'ok') {
+                        alert('✅ Сообщение переслано');
+                    }
+                });
+            }
+            document.getElementById('message-actions').classList.remove('active');
+        }
+
+        function copyMessage() {
+            const msgEl = document.querySelector(`[data-message-id="${selectedMessageId}"]`);
+            if (msgEl) {
+                const text = msgEl.querySelector('span').innerText;
+                navigator.clipboard.writeText(text).then(() => {
+                    alert('📋 Сообщение скопировано');
+                });
+            }
+            document.getElementById('message-actions').classList.remove('active');
+        }
+
+        function editMessage() {
+            const newText = prompt('Введите новый текст:');
+            if (newText && newText.trim()) {
+                socket.emit('edit_message', { 
+                    message_id: selectedMessageId,
+                    text: newText.trim()
+                }, (response) => {
+                    if (response && response.status === 'ok') {
+                        const msgEl = document.querySelector(`[data-message-id="${selectedMessageId}"]`);
+                        if (msgEl) {
+                            msgEl.querySelector('span').innerHTML = formatMessageText(newText.trim());
+                        }
+                    }
+                });
+            }
             document.getElementById('message-actions').classList.remove('active');
         }
 
         function deleteMessage() {
             if (confirm('🗑 Удалить сообщение?')) {
-                alert('Сообщение удалено');
-                document.getElementById('message-actions').classList.remove('active');
+                socket.emit('delete_message', { message_id: selectedMessageId }, (response) => {
+                    if (response && response.status === 'ok') {
+                        const msgEl = document.querySelector(`[data-message-id="${selectedMessageId}"]`);
+                        if (msgEl) {
+                            msgEl.closest('.message-wrapper').remove();
+                        }
+                    }
+                });
             }
+            document.getElementById('message-actions').classList.remove('active');
         }
 
         function pinMessage() {
-            alert('📌 Сообщение закреплено');
+            socket.emit('pin_message', { message_id: selectedMessageId }, (response) => {
+                if (response && response.status === 'ok') {
+                    alert('📌 Сообщение закреплено');
+                }
+            });
             document.getElementById('message-actions').classList.remove('active');
         }
 
@@ -1507,15 +1677,20 @@
                     document.getElementById('popup-avatar').innerText = (user.first_name || 'U').substring(0, 2).toUpperCase();
                     document.getElementById('popup-name').innerText = user.first_name || 'Пользователь';
                     document.getElementById('popup-username').innerText = `@${user.username || ''}`;
+                    document.getElementById('popup-bio').innerText = user.bio || 'Нет описания';
                     document.getElementById('popup-status').innerText = user.is_online ? '🟢 В сети' : '⚪ Был(а) недавно';
                     
                     const isVerified = userId === CREATOR_ID || user.is_verified;
                     document.getElementById('popup-verified').innerHTML = isVerified ? '✅ Верифицирован' : '';
                     
+                    const createdDate = user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Неизвестно';
+                    document.getElementById('popup-created').innerText = `📅 Зарегистрирован: ${createdDate}`;
+                    
                     const actionsDiv = document.getElementById('popup-actions');
                     if (myTelegramId === CREATOR_ID && userId !== CREATOR_ID) {
+                        const verifyBtnText = user.is_verified ? '❌ Снять верификацию' : '✅ Выдать верификацию';
                         actionsDiv.innerHTML = `
-                            <button onclick="verifyUser('${userId}')" style="background:var(--tg-verified);color:white;border:none;padding:12px;border-radius:12px;font-size:16px;cursor:pointer;">✅ Выдать верификацию</button>
+                            <button onclick="toggleVerification('${userId}', ${!user.is_verified})" style="background:var(--tg-verified);color:white;border:none;padding:12px;border-radius:12px;font-size:16px;cursor:pointer;">${verifyBtnText}</button>
                             <button onclick="addContact()" style="background:var(--tg-accent-color);color:white;border:none;padding:12px;border-radius:12px;font-size:16px;cursor:pointer;">➕ Добавить в контакты</button>
                             <button onclick="blockUser()" style="background:#ff3b30;color:white;border:none;padding:12px;border-radius:12px;font-size:16px;cursor:pointer;">🚫 Заблокировать</button>
                         `;
@@ -1531,15 +1706,16 @@
             });
         }
 
-        function verifyUser(userId) {
+        function toggleVerification(userId, verify) {
             if (myTelegramId !== CREATOR_ID) {
-                alert('❌ Только создатель может выдавать верификацию!');
+                alert('❌ Только создатель может управлять верификацией!');
                 return;
             }
-            socket.emit('verify_user', { user_id: userId }, (response) => {
+            socket.emit('verify_user', { user_id: userId, verify: verify }, (response) => {
                 if (response && response.status === 'ok') {
-                    alert('✅ Пользователь верифицирован!');
+                    alert(verify ? '✅ Пользователь верифицирован!' : '❌ Верификация снята');
                     closeProfilePopup();
+                    loadChatsAndMessages();
                 }
             });
         }
@@ -1549,13 +1725,23 @@
         }
 
         function addContact() {
-            alert('➕ Пользователь добавлен в контакты');
+            if (!currentUserData) return;
+            socket.emit('add_contact', { contact_id: currentUserData.telegram_id }, (response) => {
+                if (response && response.status === 'ok') {
+                    alert('➕ Пользователь добавлен в контакты');
+                    loadContacts();
+                }
+            });
         }
 
         function blockUser() {
             if (confirm('🚫 Заблокировать пользователя?')) {
-                alert('Пользователь заблокирован');
-                closeProfilePopup();
+                socket.emit('block_user', { block_id: currentUserData.telegram_id }, (response) => {
+                    if (response && response.status === 'ok') {
+                        alert('Пользователь заблокирован');
+                        closeProfilePopup();
+                    }
+                });
             }
         }
 
@@ -1568,6 +1754,52 @@
                         document.getElementById('user-name').innerText = newName.trim();
                         document.getElementById('profile-display-name').innerText = newName.trim();
                         alert('✅ Имя обновлено!');
+                    }
+                });
+            }
+        }
+
+        function editUsername() {
+            const isCreator = myTelegramId === CREATOR_ID;
+            const newUsername = prompt('Введите новый username:', myUsername || '');
+            
+            if (newUsername && newUsername.trim()) {
+                const username = newUsername.trim().replace('@', '');
+                
+                // Проверка на занятость
+                socket.emit('check_username', { username: username }, (response) => {
+                    if (response && response.status === 'taken' && !isCreator) {
+                        alert('❌ Этот username уже занят');
+                        return;
+                    }
+                    
+                    socket.emit('update_profile', { username: username }, (response) => {
+                        if (response && response.status === 'ok') {
+                            myUsername = username;
+                            initProfile();
+                            alert('✅ Username обновлен!');
+                            // Обновляем данные пользователя
+                            socket.emit('get_user_info', { user_id: myTelegramId }, (userInfo) => {
+                                if (userInfo && userInfo.status === 'found') {
+                                    currentUserData = userInfo.user;
+                                }
+                            });
+                        } else if (response && response.message) {
+                            alert('❌ ' + response.message);
+                        }
+                    });
+                });
+            }
+        }
+
+        function editBio() {
+            const newBio = prompt('Введите описание (Bio):', currentUserData?.bio || '');
+            if (newBio !== null) {
+                socket.emit('update_profile', { bio: newBio.trim() }, (response) => {
+                    if (response && response.status === 'ok') {
+                        document.getElementById('profile-bio-display').innerText = newBio.trim() || 'Добавить описание';
+                        alert('✅ Bio обновлен!');
+                        if (currentUserData) currentUserData.bio = newBio.trim();
                     }
                 });
             }
@@ -1599,7 +1831,6 @@
             }
         }
 
-        // ============ ПРОКРУТКА ============
         function scrollToBottom() {
             const container = document.getElementById('chat-messages');
             if (container) {
@@ -1640,7 +1871,6 @@
         console.log('🚀 Запуск DICEGRAM...');
         connectSocket();
 
-        // ============ ВОССТАНОВЛЕНИЕ ПОСЛЕ ЗАКРЫТИЯ ============
         document.addEventListener('visibilitychange', function() {
             if (!document.hidden && !isConnected) {
                 console.log('🔄 Восстановление соединения...');
@@ -1649,4 +1879,4 @@
         });
     </script>
 </body>
-            </html>
+    </html>

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>DICEGRAM</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="loading-screen">
+        <div class="spinner"></div>
+        <div class="loading-title">DICEGRAM</div>
+        <p class="loading-status" id="loading-status">Подключение к серверу...</p>
+        <p class="loading-error" id="loading-error">❌ Не удалось подключиться к серверу</p>
+        <button class="reconnect-btn" id="reconnect-btn" onclick="reconnect()">🔄 Переподключиться</button>
+    </div>
+
+    <div id="app-container">
+        <header id="main-header">
+            <div class="header-content-left">
+                <span id="header-title" class="header-main-title">Чаты</span>
+                <span id="global-status" class="connection-status" style="display:none;">Соединение...</span>
+            </div>
+            <input type="text" id="global-search" class="search-input" placeholder="Поиск..." oninput="handleSearch(this.value)">
+            <button class="theme-switch" onclick="toggleTheme()">🌙</button>
+        </header>
+
+        <div id="search-results" class="search-results"></div>
+
+        <div id="screen-chats" class="screen active">
+            <div id="chats-list"></div>
+        </div>
+
+        <div id="screen-contacts" class="screen">
+            <div id="contacts-list"></div>
+        </div>
+
+        <div id="screen-settings" class="screen">
+            <div style="padding:20px;">
+                <h2>⚙️ Настройки DICEGRAM</h2>
+                <div style="margin-top:20px;">
+                    <button onclick="toggleTheme()" class="settings-btn">🌓 Сменить тему</button>
+                </div>
+                <div style="margin-top:10px;">
+                    <button onclick="alert('Версия 1.0.0')" class="settings-btn">ℹ️ О приложении</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="screen-profile" class="screen">
+            <div class="profile-container">
+                <img id="user-avatar" class="profile-avatar" src="https://via.placeholder.com/100/17212b/ffffff?text=U" alt="Avatar" onclick="changeAvatar()">
+                <div id="user-name" class="profile-name">Имя Фамилия</div>
+                <div id="user-username" class="profile-username">@username</div>
+                <div class="profile-status">Был(а) в сети недавно</div>
+            </div>
+            <div class="profile-settings">
+                <div class="profile-setting">
+                    <span>Имя</span>
+                    <span id="profile-display-name" onclick="editName()">Изменить</span>
+                </div>
+                <div class="profile-setting">
+                    <span>Username</span>
+                    <span id="profile-username-display" onclick="editUsername()">@username</span>
+                </div>
+                <div class="profile-setting">
+                    <span>Bio</span>
+                    <span id="profile-bio-display" onclick="editBio()">Добавить описание</span>
+                </div>
+                <div class="profile-setting">
+                    <span>Язык</span>
+                    <span onclick="changeLanguage()">Русский</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="chat-room">
+            <div class="chat-header">
+                <button class="back-btn" onclick="closeChat()">❮ Назад</button>
+                <div class="header-user-info" onclick="showUserProfile(currentChatId)">
+                    <div class="header-avatar" id="room-header-avatar">DS</div>
+                    <div class="header-text-container">
+                        <span id="chat-room-title" class="header-chat-title">Чат</span>
+                        <span id="chat-room-status" class="header-chat-status">в сети</span>
+                    </div>
+                </div>
+            </div>
+            <div id="chat-messages"></div>
+            <div class="chat-input-area">
+                <input type="text" id="message-field" class="chat-input" placeholder="Сообщение..." autocomplete="off" oninput="toggleSendButton(this)">
+                <button id="send-btn-icon" class="send-btn" onclick="sendMessage()">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <nav id="bottom-navigation">
+            <div class="nav-item active" onclick="switchTab('chats', this)">
+                <div style="font-size:22px;">💬</div>
+                <div>Чаты</div>
+            </div>
+            <div class="nav-item" onclick="switchTab('contacts', this)">
+                <div style="font-size:22px;">👥</div>
+                <div>Контакты</div>
+            </div>
+            <div class="nav-item" onclick="switchTab('settings', this)">
+                <div style="font-size:22px;">⚙️</div>
+                <div>Настройки</div>
+            </div>
+            <div class="nav-item" onclick="switchTab('profile', this)">
+                <div style="font-size:22px;">👤</div>
+                <div>Профиль</div>
+            </div>
+        </nav>
+    </div>
+
+    <div id="profile-popup" class="profile-popup">
+        <div class="profile-popup-content">
+            <div class="profile-popup-header">
+                <h2 id="popup-user-name">Пользователь</h2>
+                <button class="profile-popup-close" onclick="closeProfilePopup()">✕</button>
+            </div>
+            <div id="popup-user-info">
+                <div style="text-align:center;margin-bottom:20px;">
+                    <div id="popup-avatar" class="popup-avatar"></div>
+                    <div id="popup-name" class="popup-name"></div>
+                    <div id="popup-username" class="popup-username"></div>
+                    <div id="popup-bio" class="popup-bio"></div>
+                    <div id="popup-status" class="popup-status"></div>
+                    <div id="popup-verified" class="popup-verified"></div>
+                    <div id="popup-created" class="popup-created"></div>
+                </div>
+                <div id="popup-actions" class="popup-actions"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="message-actions" class="message-actions">
+        <button class="message-action-btn" onclick="replyToMessage()">↩ Ответить</button>
+        <button class="message-action-btn" onclick="forwardMessage()">📤 Переслать</button>
+        <button class="message-action-btn" onclick="copyMessage()">📋 Копировать</button>
+        <button class="message-action-btn" onclick="editMessage()">✏️ Изменить</button>
+        <button class="message-action-btn danger" onclick="deleteMessage()">🗑 Удалить</button>
+        <button class="message-action-btn" onclick="pinMessage()">📌 Закрепить</button>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/socket.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/chat.js"></script>
+    <script src="js/contacts.js"></script>
+    <script src="js/profile.js"></script>
+    <script src="js/app.js"></script>
+</body>
+  </html>

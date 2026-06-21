@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>DICEGRAM Mini App</title>
+    <title>DICEGRAM</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js"></script>
     <style>
@@ -19,6 +19,18 @@
             --tg-verified: #2f8cc9;
             --tg-status-online: #5288c1;
             --tg-unread-badge: #5288c1;
+            --tg-shadow: rgba(0,0,0,0.3);
+        }
+
+        [data-theme="light"] {
+            --tg-bg-color: #ffffff;
+            --tg-surface-color: #f0f0f0;
+            --tg-text-color: #000000;
+            --tg-text-secondary: #707579;
+            --tg-border-color: #d5d5d5;
+            --tg-msg-out: #e1ffc7;
+            --tg-msg-in: #f0f0f0;
+            --tg-shadow: rgba(0,0,0,0.1);
         }
 
         * {
@@ -136,6 +148,7 @@
             cursor: pointer;
             background-color: var(--tg-surface-color);
             position: relative;
+            transition: background-color 0.2s;
         }
 
         .chat-item:active {
@@ -155,6 +168,18 @@
             font-size: 16px;
             color: #ffffff;
             flex-shrink: 0;
+            position: relative;
+        }
+
+        .online-dot {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 12px;
+            height: 12px;
+            background-color: #4cd964;
+            border-radius: 50%;
+            border: 2px solid var(--tg-surface-color);
         }
 
         .chat-details {
@@ -247,6 +272,7 @@
             gap: 10px;
             min-width: 0;
             flex: 1;
+            cursor: pointer;
         }
 
         .header-avatar {
@@ -261,6 +287,7 @@
             font-size: 14px;
             color: #ffffff;
             flex-shrink: 0;
+            position: relative;
         }
 
         .header-text-container {
@@ -302,7 +329,14 @@
             display: flex;
             width: 100%;
             margin-bottom: 2px;
+            animation: fadeIn 0.3s ease;
         }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         .message-wrapper.sent { justify-content: flex-end; }
         .message-wrapper.received { justify-content: flex-start; }
 
@@ -314,21 +348,27 @@
             font-size: 14.5px;
             line-height: 1.4;
             position: relative;
-            box-shadow: 0 1px 1px rgba(0,0,0,0.2);
+            box-shadow: 0 1px 1px var(--tg-shadow);
             display: flex;
             flex-direction: column;
             word-break: break-word;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .message:active {
+            transform: scale(0.98);
         }
 
         .message.sent {
             background-color: var(--tg-msg-out);
-            color: #ffffff;
+            color: var(--tg-text-color);
             border-bottom-right-radius: 4px;
         }
 
         .message.received {
             background-color: var(--tg-msg-in);
-            color: #f5f5f5;
+            color: var(--tg-text-color);
             border-bottom-left-radius: 4px;
         }
 
@@ -344,10 +384,6 @@
 
         .message-time {
             font-size: 10.5px;
-            color: rgba(255, 255, 255, 0.5);
-        }
-        
-        .message.received .message-time {
             color: var(--tg-text-secondary);
         }
 
@@ -446,6 +482,7 @@
             background-color: var(--tg-border-color);
             margin-bottom: 12px;
             object-fit: cover;
+            cursor: pointer;
         }
 
         .profile-name {
@@ -486,6 +523,7 @@
             cursor: pointer;
             height: 100%;
             gap: 2px;
+            transition: color 0.2s;
         }
 
         .nav-item.active {
@@ -518,24 +556,132 @@
             color: var(--tg-text-secondary);
             white-space: nowrap;
         }
+
+        /* Profile popup */
+        .profile-popup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            z-index: 3000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .profile-popup.active {
+            display: flex;
+        }
+
+        .profile-popup-content {
+            background-color: var(--tg-surface-color);
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 400px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .profile-popup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .profile-popup-close {
+            background: none;
+            border: none;
+            color: var(--tg-text-secondary);
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        /* Message actions */
+        .message-actions {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--tg-surface-color);
+            border-radius: 12px;
+            padding: 8px;
+            display: none;
+            gap: 8px;
+            z-index: 2500;
+            box-shadow: 0 4px 12px var(--tg-shadow);
+        }
+
+        .message-actions.active {
+            display: flex;
+        }
+
+        .message-action-btn {
+            background: none;
+            border: none;
+            color: var(--tg-text-color);
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+
+        .message-action-btn:hover {
+            background-color: var(--tg-border-color);
+        }
+
+        .message-action-btn.danger {
+            color: #ff3b30;
+        }
+
+        /* Themes */
+        .theme-switch {
+            position: fixed;
+            top: 60px;
+            right: 16px;
+            z-index: 100;
+            background: none;
+            border: none;
+            color: var(--tg-text-color);
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        /* Verified badge for creator */
+        .verified-badge {
+            color: var(--tg-verified);
+            margin-left: 4px;
+        }
+
+        @media (max-width: 480px) {
+            .profile-popup-content {
+                width: 95%;
+                padding: 20px;
+            }
+        }
     </style>
 </head>
 <body>
 
     <div id="loading-screen">
         <div class="spinner"></div>
-        <p style="font-weight: bold; font-size: 16px; margin-bottom: 6px;">Соединение с сервером...</p>
-        <p style="color: var(--tg-text-secondary); font-size: 13px;">Идет авторизация в сети DICEGRAM.</p>
+        <p style="font-weight: bold; font-size: 16px; margin-bottom: 6px;">DICEGRAM</p>
+        <p style="color: var(--tg-text-secondary); font-size: 13px;">Подключение к серверу...</p>
     </div>
 
     <div id="app-container">
-        
         <header id="main-header">
             <div class="header-content-left">
                 <span id="header-title" class="header-main-title">Чаты</span>
                 <span id="global-status" class="connection-status">Обновление...</span>
             </div>
-            <input type="text" id="global-search" class="search-input" placeholder="Поиск по username..." oninput="handleSearch(this.value)">
+            <input type="text" id="global-search" class="search-input" placeholder="Поиск..." oninput="handleSearch(this.value)">
+            <button class="theme-switch" onclick="toggleTheme()">🌙</button>
         </header>
 
         <div id="search-results" class="search-results"></div>
@@ -547,7 +693,7 @@
         <div id="chat-room">
             <div class="chat-header">
                 <button class="back-btn" onclick="closeChat()">❮ Назад</button>
-                <div class="header-user-info">
+                <div class="header-user-info" onclick="showUserProfile(currentChatId)">
                     <div class="header-avatar" id="room-header-avatar">DS</div>
                     <div class="header-text-container">
                         <span id="chat-room-title" class="header-chat-title">Чат</span>
@@ -574,14 +720,36 @@
         </div>
 
         <div id="screen-settings" class="screen">
-            <div class="placeholder-screen">Настройки DICEGRAM v1.3.0</div>
+            <div style="padding:20px;">
+                <h2>Настройки DICEGRAM</h2>
+                <div style="margin-top:20px;">
+                    <button onclick="toggleTheme()" style="background:var(--tg-surface-color);color:var(--tg-text-color);border:1px solid var(--tg-border-color);padding:12px 20px;border-radius:12px;width:100%;font-size:16px;cursor:pointer;">Сменить тему</button>
+                </div>
+            </div>
         </div>
 
         <div id="screen-profile" class="screen">
             <div class="profile-container">
-                <img id="user-avatar" class="profile-avatar" src="https://via.placeholder.com/100/17212b/ffffff?text=U" alt="Avatar">
+                <img id="user-avatar" class="profile-avatar" src="https://via.placeholder.com/100/17212b/ffffff?text=U" alt="Avatar" onclick="changeAvatar()">
                 <div id="user-name" class="profile-name">Имя Фамилия</div>
                 <div id="user-username" class="profile-username">@username</div>
+                <div style="margin-top:10px;color:var(--tg-text-secondary);font-size:13px;">Был(а) в сети недавно</div>
+            </div>
+            <div style="padding:16px;">
+                <div style="background:var(--tg-surface-color);border-radius:12px;padding:12px;">
+                    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--tg-border-color);">
+                        <span style="color:var(--tg-text-secondary);">Имя</span>
+                        <span id="profile-display-name" style="cursor:pointer;" onclick="editName()">Изменить</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--tg-border-color);">
+                        <span style="color:var(--tg-text-secondary);">Username</span>
+                        <span id="profile-username-display">@username</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:8px 0;">
+                        <span style="color:var(--tg-text-secondary);">Язык</span>
+                        <span onclick="changeLanguage()" style="cursor:pointer;">Русский</span>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -603,7 +771,29 @@
                 <div>Профиль</div>
             </div>
         </nav>
+    </div>
 
+    <!-- Profile Popup -->
+    <div id="profile-popup" class="profile-popup">
+        <div class="profile-popup-content">
+            <div class="profile-popup-header">
+                <h2 id="popup-user-name">Пользователь</h2>
+                <button class="profile-popup-close" onclick="closeProfilePopup()">✕</button>
+            </div>
+            <div id="popup-user-info">
+                <div style="text-align:center;margin-bottom:20px;">
+                    <div id="popup-avatar" style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg, #5085b1, #366187);margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:32px;color:#fff;"></div>
+                    <div id="popup-name" style="font-size:18px;font-weight:600;margin-top:10px;"></div>
+                    <div id="popup-username" style="color:var(--tg-text-secondary);font-size:14px;"></div>
+                    <div id="popup-status" style="color:var(--tg-status-online);font-size:13px;margin-top:5px;"></div>
+                    <div id="popup-verified" style="color:var(--tg-verified);font-size:13px;margin-top:5px;"></div>
+                </div>
+                <div id="popup-actions" style="display:flex;flex-direction:column;gap:8px;">
+                    <button onclick="addContact()" style="background:var(--tg-accent-color);color:white;border:none;padding:12px;border-radius:12px;font-size:16px;cursor:pointer;">Добавить в контакты</button>
+                    <button onclick="blockUser()" style="background:#ff3b30;color:white;border:none;padding:12px;border-radius:12px;font-size:16px;cursor:pointer;">Заблокировать</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -618,6 +808,11 @@
         let myTelegramId = null;
         let dynamicChats = {};
         let unreadCounts = {};
+        let selectedMessageId = null;
+        let theme = 'dark';
+
+        const CREATOR_ID = "8771009385";
+        const CREATOR_USERNAME = "dauletbr";
 
         const tgUser = tg.initDataUnsafe?.user || {
             id: 123456789,
@@ -631,6 +826,8 @@
 
         document.getElementById('user-name').innerText = `${tgUser.first_name} ${tgUser.last_name || ''}`.trim();
         document.getElementById('user-username').innerText = tgUser.username ? `@${tgUser.username}` : '';
+        document.getElementById('profile-username-display').innerText = tgUser.username ? `@${tgUser.username}` : '';
+        document.getElementById('profile-display-name').innerText = `${tgUser.first_name} ${tgUser.last_name || ''}`.trim();
         if (tgUser.photo_url) document.getElementById('user-avatar').src = tgUser.photo_url;
 
         socket.on('connect', () => {
@@ -730,6 +927,11 @@
             }
         }
 
+        function getLocalTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
         function handleSearch(query) {
             const resultsContainer = document.getElementById('search-results');
             if (!query.trim()) {
@@ -749,10 +951,12 @@
                         const isBotFather = user.username === 'botfather';
                         const verifiedIcon = isBotFather ? 
                             `<svg class="tg-verify-icon" viewBox="0 0 24 24" style="width:16px;height:16px;"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>` : '';
+                        const isVerified = user.telegram_id === CREATOR_ID || user.is_verified;
+                        const verifyBadge = isVerified ? `<span style="color:var(--tg-verified);font-size:12px;">✓</span>` : '';
                         item.innerHTML = `
                             <div class="chat-avatar" style="width:36px;height:36px;font-size:12px;background:${isBotFather ? 'linear-gradient(135deg, #2a9d8f, #264653)' : 'linear-gradient(135deg, #5085b1, #366187)'}">${user.first_name.substring(0,2).toUpperCase()}</div>
                             <div>
-                                <div style="display:flex;align-items:center;gap:4px;font-weight:600;">${user.first_name} ${verifiedIcon}</div>
+                                <div style="display:flex;align-items:center;gap:4px;font-weight:600;">${user.first_name} ${verifiedIcon} ${verifyBadge}</div>
                                 <div style="font-size:12px;color:var(--tg-text-secondary);">@${user.username}</div>
                             </div>
                         `;
@@ -765,7 +969,7 @@
                                 };
                                 createChatRow(user.telegram_id, user.first_name, user.username);
                             }
-                            openChat(user.telegram_id, user.first_name, user.username === 'botfather');
+                            openChat(user.telegram_id, user.first_name, user.username === 'botfather' || user.telegram_id === CREATOR_ID);
                             resultsContainer.style.display = 'none';
                             document.getElementById('global-search').value = '';
                         };
@@ -782,8 +986,10 @@
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             document.getElementById(`screen-${tabName}`).classList.add('active');
-            element.classList.add('active');
-            document.getElementById('header-title').innerText = element.innerText.split('\n')[0];
+            if (element) element.classList.add('active');
+            document.getElementById('header-title').innerText = tabName === 'chats' ? 'Чаты' : 
+                                                              tabName === 'contacts' ? 'Контакты' :
+                                                              tabName === 'settings' ? 'Настройки' : 'Профиль';
             document.getElementById('search-results').style.display = 'none';
         }
 
@@ -801,7 +1007,13 @@
 
             const avatarLetters = chatName.substring(0, 2).toUpperCase();
             document.getElementById('room-header-avatar').innerText = avatarLetters;
-            document.getElementById('chat-room-status').innerText = chatId === "0" ? "сервис" : "в сети";
+            
+            // Get user status
+            socket.emit('get_user_info', { user_id: chatId }, (userInfo) => {
+                if (userInfo && userInfo.status === 'found') {
+                    document.getElementById('chat-room-status').innerText = userInfo.user.is_online ? 'в сети' : 'был(а) недавно';
+                }
+            });
 
             document.getElementById('bottom-navigation').style.display = 'none';
             document.getElementById('chat-room').style.display = 'flex';
@@ -834,7 +1046,7 @@
             const container = document.getElementById('chat-messages');
             const welcomeEl = document.createElement('div');
             welcomeEl.classList.add('message', 'system-welcome');
-            welcomeEl.innerText = `🤖 Вы успешно зарегистрировали аккаунт в DICEGRAM!\n\n👤 Ваш никнейм: ${tgUser.first_name} ${tgUser.last_name || ''}\n🏷️ Ваш юзернейм: @${tgUser.username || 'тест_юзер'}\n🆔 Ваш ID: ${myTelegramId}`;
+            welcomeEl.innerText = `🤖 Добро пожаловать в DICEGRAM!\n\n👤 ${tgUser.first_name} ${tgUser.last_name || ''}\n🏷️ @${tgUser.username || 'тест_юзер'}\n🆔 ID: ${myTelegramId}`;
             container.appendChild(welcomeEl);
         }
 
@@ -846,9 +1058,9 @@
 
             const msgEl = document.createElement('div');
             msgEl.classList.add('message');
+            msgEl.dataset.messageId = msg.id || Date.now();
 
-            const dateObj = msg.timestamp ? new Date(msg.timestamp) : new Date();
-            const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const timeStr = getLocalTime(msg.timestamp);
 
             let ticksHtml = '';
             if (msg.sender_id === myTelegramId) {
@@ -867,6 +1079,15 @@
                     ${ticksHtml}
                 </div>
             `;
+
+            msgEl.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                showMessageActions(msgEl.dataset.messageId);
+            });
+
+            msgEl.addEventListener('click', () => {
+                showMessageActions(msgEl.dataset.messageId);
+            });
 
             wrapper.appendChild(msgEl);
             container.appendChild(wrapper);
@@ -890,9 +1111,9 @@
                         };
                         createChatRow(user.telegram_id, user.first_name, user.username);
                     }
-                    openChat(user.telegram_id, user.first_name, false);
+                    openChat(user.telegram_id, user.first_name, user.telegram_id === CREATOR_ID);
                 } else {
-                    alert(`Пользователь ${username} не найден в базе.`);
+                    alert(`Пользователь ${username} не найден.`);
                 }
             });
         }
@@ -905,12 +1126,16 @@
             if (document.getElementById(`chat-item-${tgId}`)) return;
             
             const isBotFather = username === 'botfather';
-            const verifiedIcon = isBotFather ? 
+            const isVerified = tgId === CREATOR_ID || username === 'botfather';
+            const verifiedIcon = isVerified ? 
                 `<svg class="tg-verify-icon" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>` : '';
             
             const rowHTML = `
-                <div class="chat-item" id="chat-item-${tgId}" onclick="openChat('${tgId}', '${firstName}', ${isBotFather})">
-                    <div class="chat-avatar" style="background: ${isBotFather ? 'linear-gradient(135deg, #2a9d8f, #264653)' : 'linear-gradient(135deg, #5085b1, #366187)'}">${firstName.substring(0,2).toUpperCase()}</div>
+                <div class="chat-item" id="chat-item-${tgId}" onclick="openChat('${tgId}', '${firstName}', ${isVerified})">
+                    <div class="chat-avatar" style="background: ${isBotFather ? 'linear-gradient(135deg, #2a9d8f, #264653)' : 'linear-gradient(135deg, #5085b1, #366187)'}">
+                        ${firstName.substring(0,2).toUpperCase()}
+                        ${isVerified ? '<span style="position:absolute;bottom:-2px;right:-2px;font-size:12px;">✓</span>' : ''}
+                    </div>
                     <div class="chat-details">
                         <div class="chat-title-row">
                             <div class="chat-name">${firstName} ${verifiedIcon}</div>
@@ -1024,26 +1249,58 @@
             return `I don't understand that command. Please use /start, /newbot, or /mybots.`;
         }
 
-        function scrollToBottom() {
-            const container = document.getElementById('chat-messages');
-            container.scrollTop = container.scrollHeight;
+        function showMessageActions(messageId) {
+            const actions = document.getElementById('message-actions');
+            if (!actions) {
+                const div = document.createElement('div');
+                div.id = 'message-actions';
+                div.className = 'message-actions';
+                div.innerHTML = `
+                    <button class="message-action-btn" onclick="replyToMessage()">↩ Ответить</button>
+                    <button class="message-action-btn" onclick="editMessage()">✏️ Редактировать</button>
+                    <button class="message-action-btn" onclick="forwardMessage()">📤 Переслать</button>
+                    <button class="message-action-btn danger" onclick="deleteMessage()">🗑 Удалить</button>
+                    <button class="message-action-btn" onclick="pinMessage()">📌 Закрепить</button>
+                `;
+                document.body.appendChild(div);
+            }
+            actions.classList.toggle('active');
+            selectedMessageId = messageId;
         }
 
-        document.getElementById('message-field').addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') sendMessage();
-        });
+        function replyToMessage() {
+            alert('Ответ на сообщение');
+            document.getElementById('message-actions').classList.remove('active');
+        }
 
-        document.addEventListener('click', function(e) {
-            const searchInput = document.getElementById('global-search');
-            const results = document.getElementById('search-results');
-            if (!searchInput.contains(e.target) && !results.contains(e.target)) {
-                results.style.display = 'none';
+        function editMessage() {
+            alert('Редактирование сообщения');
+            document.getElementById('message-actions').classList.remove('active');
+        }
+
+        function forwardMessage() {
+            alert('Пересылка сообщения');
+            document.getElementById('message-actions').classList.remove('active');
+        }
+
+        function deleteMessage() {
+            if (confirm('Удалить сообщение?')) {
+                alert('Сообщение удалено');
+                document.getElementById('message-actions').classList.remove('active');
             }
-        });
+        }
 
-        window.botCreationStep = null;
-        window.botName = '';
-        window.createdBots = [];
-    </script>
-</body>
-    </html>
+        function pinMessage() {
+            alert('Сообщение закреплено');
+            document.getElementById('message-actions').classList.remove('active');
+        }
+
+        function showUserProfile(userId) {
+            if (!userId) return;
+            
+            socket.emit('get_user_info', { user_id: userId }, (userInfo) => {
+                if (userInfo && userInfo.status === 'found') {
+                    const user = userInfo.user;
+                    const popup = document.getElementById('profile-popup');
+                    document.getElementById('popup-user-name').innerText = user.first_name;
+                    document.getElementById('popup-avatar').innerText = user.

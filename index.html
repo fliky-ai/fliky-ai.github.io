@@ -64,7 +64,7 @@
             text-align: center;
         }
 
-        .spinner {
+        #loading-screen .spinner {
             width: 44px;
             height: 44px;
             border: 3.5px solid rgba(127, 145, 164, 0.2);
@@ -72,6 +72,13 @@
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
             margin-bottom: 20px;
+        }
+
+        #loading-screen .error-message {
+            color: #ff3b30;
+            font-size: 14px;
+            margin-top: 10px;
+            display: none;
         }
 
         @keyframes spin {
@@ -321,8 +328,6 @@
             display: flex;
             flex-direction: column;
             gap: 6px;
-            background-image: radial-gradient(rgba(23, 33, 43, 0.25) 15%, transparent 16%);
-            background-size: 16px 16px;
         }
 
         .message-wrapper {
@@ -397,26 +402,6 @@
             width: 13px;
             height: 13px;
             fill: currentColor;
-        }
-
-        .message.system-welcome {
-            background-color: rgba(24, 37, 51, 0.85);
-            border: 1px solid rgba(82, 136, 193, 0.1);
-            max-width: 85%;
-            align-self: center;
-            border-radius: 12px;
-            color: #e2e8f0;
-            white-space: pre-line;
-            font-size: 13.5px;
-            padding: 10px 12px;
-            box-shadow: none;
-        }
-
-        .mention-link {
-            color: #6fb1e4;
-            text-decoration: none;
-            cursor: pointer;
-            font-weight: 500;
         }
 
         .chat-input-area {
@@ -557,7 +542,6 @@
             white-space: nowrap;
         }
 
-        /* Profile popup */
         .profile-popup {
             position: fixed;
             top: 0;
@@ -601,7 +585,6 @@
             cursor: pointer;
         }
 
-        /* Message actions */
         .message-actions {
             position: fixed;
             bottom: 80px;
@@ -639,12 +622,7 @@
             color: #ff3b30;
         }
 
-        /* Themes */
         .theme-switch {
-            position: fixed;
-            top: 60px;
-            right: 16px;
-            z-index: 100;
             background: none;
             border: none;
             color: var(--tg-text-color);
@@ -652,10 +630,15 @@
             cursor: pointer;
         }
 
-        /* Verified badge for creator */
-        .verified-badge {
-            color: var(--tg-verified);
-            margin-left: 4px;
+        .reconnect-btn {
+            background: var(--tg-accent-color);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 15px;
         }
 
         @media (max-width: 480px) {
@@ -671,7 +654,9 @@
     <div id="loading-screen">
         <div class="spinner"></div>
         <p style="font-weight: bold; font-size: 16px; margin-bottom: 6px;">DICEGRAM</p>
-        <p style="color: var(--tg-text-secondary); font-size: 13px;">Подключение к серверу...</p>
+        <p id="loading-status" style="color: var(--tg-text-secondary); font-size: 13px;">Подключение к серверу...</p>
+        <p id="loading-error" class="error-message">Не удалось подключиться к серверу</p>
+        <button id="reconnect-btn" class="reconnect-btn" style="display:none;" onclick="reconnect()">🔄 Переподключиться</button>
     </div>
 
     <div id="app-container">
@@ -773,7 +758,6 @@
         </nav>
     </div>
 
-    <!-- Profile Popup -->
     <div id="profile-popup" class="profile-popup">
         <div class="profile-popup-content">
             <div class="profile-popup-header">
@@ -796,13 +780,24 @@
         </div>
     </div>
 
+    <div id="message-actions" class="message-actions">
+        <button class="message-action-btn" onclick="replyToMessage()">↩ Ответить</button>
+        <button class="message-action-btn" onclick="editMessage()">✏️ Редактировать</button>
+        <button class="message-action-btn" onclick="forwardMessage()">📤 Переслать</button>
+        <button class="message-action-btn danger" onclick="deleteMessage()">🗑 Удалить</button>
+        <button class="message-action-btn" onclick="pinMessage()">📌 Закрепить</button>
+    </div>
+
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
         tg.ready();
 
         const SERVER_URL = "https://a38499-be46.m.jrnm.app";
-        const socket = io(SERVER_URL, { transports: ["websocket"], secure: true });
+        let socket = null;
+        let isConnected = false;
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT_ATTEMPTS = 5;
 
         let currentChatId = null;
         let myTelegramId = null;
@@ -810,6 +805,7 @@
         let unreadCounts = {};
         let selectedMessageId = null;
         let theme = 'dark';
+        let isInitialLoad = true;
 
         const CREATOR_ID = "8771009385";
         const CREATOR_USERNAME = "dauletbr";
@@ -824,30 +820,116 @@
 
         myTelegramId = String(tgUser.id);
 
+        // Инициализация профиля
         document.getElementById('user-name').innerText = `${tgUser.first_name} ${tgUser.last_name || ''}`.trim();
         document.getElementById('user-username').innerText = tgUser.username ? `@${tgUser.username}` : '';
         document.getElementById('profile-username-display').innerText = tgUser.username ? `@${tgUser.username}` : '';
         document.getElementById('profile-display-name').innerText = `${tgUser.first_name} ${tgUser.last_name || ''}`.trim();
         if (tgUser.photo_url) document.getElementById('user-avatar').src = tgUser.photo_url;
 
-        socket.on('connect', () => {
-            document.getElementById('global-status').style.display = 'none';
-            socket.emit('auth', tgUser, (response) => {
-                if (response && response.status === 'ok') {
-                    document.getElementById('loading-screen').style.display = 'none';
-                    document.getElementById('app-container').style.display = 'flex';
-                    loadChatsAndMessages();
+        // Функция подключения к сокету
+        function connectSocket() {
+            const loadingStatus = document.getElementById('loading-status');
+            const loadingError = document.getElementById('loading-error');
+            const reconnectBtn = document.getElementById('reconnect-btn');
+            
+            loadingStatus.textContent = 'Подключение к серверу...';
+            loadingError.style.display = 'none';
+            reconnectBtn.style.display = 'none';
+
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+
+            socket = io(SERVER_URL, { 
+                transports: ["websocket"], 
+                secure: true,
+                reconnection: true,
+                reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
+                reconnectionDelay: 1000,
+                reconnectionDelayMax: 5000
+            });
+
+            socket.on('connect', () => {
+                console.log('✅ Socket.IO connected');
+                isConnected = true;
+                reconnectAttempts = 0;
+                
+                document.getElementById('global-status').style.display = 'none';
+                loadingStatus.textContent = 'Авторизация...';
+                
+                socket.emit('auth', tgUser, (response) => {
+                    if (response && response.status === 'ok') {
+                        console.log('✅ Auth successful');
+                        document.getElementById('loading-screen').style.display = 'none';
+                        document.getElementById('app-container').style.display = 'flex';
+                        
+                        if (isInitialLoad) {
+                            loadChatsAndMessages();
+                            isInitialLoad = false;
+                        }
+                    } else {
+                        loadingStatus.textContent = 'Ошибка авторизации';
+                        loadingError.style.display = 'block';
+                        reconnectBtn.style.display = 'block';
+                    }
+                });
+            });
+
+            socket.on('disconnect', () => {
+                console.log('❌ Socket.IO disconnected');
+                isConnected = false;
+                const statusEl = document.getElementById('global-status');
+                statusEl.style.display = 'block';
+                statusEl.innerText = "Соединение потеряно...";
+                statusEl.style.color = '#ff3b30';
+            });
+
+            socket.on('connect_error', (error) => {
+                console.error('❌ Connection error:', error);
+                reconnectAttempts++;
+                loadingStatus.textContent = `Ошибка подключения (попытка ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`;
+                
+                if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+                    loadingError.style.display = 'block';
+                    reconnectBtn.style.display = 'block';
                 }
             });
-        });
 
-        socket.on('disconnect', () => {
-            const statusEl = document.getElementById('global-status');
-            statusEl.style.display = 'block';
-            statusEl.innerText = "Соединение...";
-        });
+            socket.on('new_message', (msg) => {
+                handleNewMessage(msg);
+            });
 
+            // Остальные обработчики событий
+            setupSocketHandlers();
+        }
+
+        function setupSocketHandlers() {
+            socket.on('connect', () => {
+                // Уже обработано выше
+            });
+
+            socket.on('disconnect', () => {
+                // Уже обработано выше
+            });
+
+            // Другие обработчики уже есть в коде
+        }
+
+        function reconnect() {
+            reconnectAttempts = 0;
+            connectSocket();
+        }
+
+        // Функция загрузки чатов
         function loadChatsAndMessages() {
+            if (!socket || !isConnected) {
+                console.log('⏳ Waiting for connection...');
+                setTimeout(loadChatsAndMessages, 1000);
+                return;
+            }
+
             socket.emit('get_all_chats', {}, (chats) => {
                 if (chats && Array.isArray(chats)) {
                     chats.forEach(chat => {
@@ -874,7 +956,8 @@
             });
         }
 
-        socket.on('new_message', (msg) => {
+        // Функция обработки нового сообщения
+        function handleNewMessage(msg) {
             const chatPartner = msg.sender_id === myTelegramId ? msg.receiver_id : msg.sender_id;
 
             if (chatPartner !== myTelegramId) {
@@ -913,7 +996,47 @@
                     updateUnreadBadge(chatPartner, 0);
                 }
             }
-        });
+        }
+
+        // Функция получения локального времени
+        function getLocalTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        // Функция создания строки чата
+        function createChatRow(tgId, firstName, username) {
+            if (!dynamicChats[tgId]) {
+                dynamicChats[tgId] = { first_name: firstName, username: username };
+            }
+            const chatsList = document.getElementById('chats-list');
+            if (document.getElementById(`chat-item-${tgId}`)) return;
+            
+            const isBotFather = username === 'botfather';
+            const isVerified = tgId === CREATOR_ID || username === 'botfather';
+            const verifiedIcon = isVerified ? 
+                `<svg class="tg-verify-icon" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>` : '';
+            
+            const rowHTML = `
+                <div class="chat-item" id="chat-item-${tgId}" onclick="openChat('${tgId}', '${firstName}', ${isVerified})">
+                    <div class="chat-avatar" style="background: ${isBotFather ? 'linear-gradient(135deg, #2a9d8f, #264653)' : 'linear-gradient(135deg, #5085b1, #366187)'}">
+                        ${firstName.substring(0,2).toUpperCase()}
+                        ${isVerified ? '<span style="position:absolute;bottom:-2px;right:-2px;font-size:12px;">✓</span>' : ''}
+                    </div>
+                    <div class="chat-details">
+                        <div class="chat-title-row">
+                            <div class="chat-name">${firstName} ${verifiedIcon}</div>
+                            <div style="display:flex;align-items:center;gap:4px;">
+                                <span class="chat-time" id="time-${tgId}"></span>
+                                <span class="chat-unread-badge" id="unread-badge-${tgId}" style="display:none;">0</span>
+                            </div>
+                        </div>
+                        <div class="chat-preview" id="preview-${tgId}">Нет сообщений</div>
+                    </div>
+                </div>
+            `;
+            chatsList.insertAdjacentHTML('beforeend', rowHTML);
+        }
 
         function updateUnreadBadge(chatId, count) {
             const badge = document.getElementById(`unread-badge-${chatId}`);
@@ -927,16 +1050,15 @@
             }
         }
 
-        function getLocalTime(timestamp) {
-            const date = new Date(timestamp);
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        }
-
         function handleSearch(query) {
             const resultsContainer = document.getElementById('search-results');
             if (!query.trim()) {
                 resultsContainer.style.display = 'none';
                 resultsContainer.innerHTML = '';
+                return;
+            }
+
+            if (!socket || !isConnected) {
                 return;
             }
 
@@ -994,6 +1116,11 @@
         }
 
         function openChat(chatId, chatName, isVerified = false) {
+            if (!socket || !isConnected) {
+                alert('Нет соединения с сервером');
+                return;
+            }
+
             currentChatId = chatId;
             
             unreadCounts[chatId] = 0;
@@ -1008,7 +1135,6 @@
             const avatarLetters = chatName.substring(0, 2).toUpperCase();
             document.getElementById('room-header-avatar').innerText = avatarLetters;
             
-            // Get user status
             socket.emit('get_user_info', { user_id: chatId }, (userInfo) => {
                 if (userInfo && userInfo.status === 'found') {
                     document.getElementById('chat-room-status').innerText = userInfo.user.is_online ? 'в сети' : 'был(а) недавно';
@@ -1020,11 +1146,6 @@
             
             const messagesContainer = document.getElementById('chat-messages');
             messagesContainer.innerHTML = '';
-
-            if (chatId === "0" && !localStorage.getItem(`welcome_shown_${myTelegramId}`)) {
-                renderSystemWelcomeMessage();
-                localStorage.setItem(`welcome_shown_${myTelegramId}`, "true");
-            }
 
             socket.emit('get_chat_history', { with_id: chatId }, (history) => {
                 if (history && Array.isArray(history)) {
@@ -1040,14 +1161,6 @@
             document.getElementById('chat-room').style.display = 'none';
             document.getElementById('bottom-navigation').style.display = 'flex';
             currentChatId = null;
-        }
-
-        function renderSystemWelcomeMessage() {
-            const container = document.getElementById('chat-messages');
-            const welcomeEl = document.createElement('div');
-            welcomeEl.classList.add('message', 'system-welcome');
-            welcomeEl.innerText = `🤖 Добро пожаловать в DICEGRAM!\n\n👤 ${tgUser.first_name} ${tgUser.last_name || ''}\n🏷️ @${tgUser.username || 'тест_юзер'}\n🆔 ID: ${myTelegramId}`;
-            container.appendChild(welcomeEl);
         }
 
         function renderSingleMessage(msg) {
@@ -1100,6 +1213,11 @@
         }
 
         function handleMentionClick(username) {
+            if (!socket || !isConnected) {
+                alert('Нет соединения с сервером');
+                return;
+            }
+
             socket.emit('find_user', { username: username }, (response) => {
                 if (response && response.status === 'found') {
                     const user = response.user;
@@ -1118,39 +1236,6 @@
             });
         }
 
-        function createChatRow(tgId, firstName, username) {
-            if (!dynamicChats[tgId]) {
-                dynamicChats[tgId] = { first_name: firstName, username: username };
-            }
-            const chatsList = document.getElementById('chats-list');
-            if (document.getElementById(`chat-item-${tgId}`)) return;
-            
-            const isBotFather = username === 'botfather';
-            const isVerified = tgId === CREATOR_ID || username === 'botfather';
-            const verifiedIcon = isVerified ? 
-                `<svg class="tg-verify-icon" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>` : '';
-            
-            const rowHTML = `
-                <div class="chat-item" id="chat-item-${tgId}" onclick="openChat('${tgId}', '${firstName}', ${isVerified})">
-                    <div class="chat-avatar" style="background: ${isBotFather ? 'linear-gradient(135deg, #2a9d8f, #264653)' : 'linear-gradient(135deg, #5085b1, #366187)'}">
-                        ${firstName.substring(0,2).toUpperCase()}
-                        ${isVerified ? '<span style="position:absolute;bottom:-2px;right:-2px;font-size:12px;">✓</span>' : ''}
-                    </div>
-                    <div class="chat-details">
-                        <div class="chat-title-row">
-                            <div class="chat-name">${firstName} ${verifiedIcon}</div>
-                            <div style="display:flex;align-items:center;gap:4px;">
-                                <span class="chat-time" id="time-${tgId}"></span>
-                                <span class="chat-unread-badge" id="unread-badge-${tgId}" style="display:none;">0</span>
-                            </div>
-                        </div>
-                        <div class="chat-preview" id="preview-${tgId}">Нет сообщений</div>
-                    </div>
-                </div>
-            `;
-            chatsList.insertAdjacentHTML('beforeend', rowHTML);
-        }
-
         function toggleSendButton(input) {
             const btn = document.getElementById('send-btn-icon');
             if (input.value.trim().length > 0) {
@@ -1164,6 +1249,11 @@
             const input = document.getElementById('message-field');
             const text = input.value.trim();
             if (!text || !currentChatId) return;
+
+            if (!socket || !isConnected) {
+                alert('Нет соединения с сервером');
+                return;
+            }
 
             if (currentChatId === 'botfather' || dynamicChats[currentChatId]?.username === 'botfather') {
                 handleBotCommand(text);
@@ -1241,66 +1331,4 @@
                 if (!window.createdBots) window.createdBots = [];
                 window.createdBots.push(username);
                 window.botCreationStep = null;
-                
-                const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-                return `Done! Congratulations on your new bot. You will find it at d.me/${username}. You can now add a description, about section and profile picture for your bot, see /help for a list of commands. By the way, when you've finished creating your cool bot, ping our Bot Support if you want a better username for it. Just make sure the bot is fully operational before you do this.\n\nUse this token to access the HTTP API:\n${token}\n\nKeep your token secure and store it safely, it can be used by anyone to control your bot.`;
-            }
-            
-            return `I don't understand that command. Please use /start, /newbot, or /mybots.`;
-        }
-
-        function showMessageActions(messageId) {
-            const actions = document.getElementById('message-actions');
-            if (!actions) {
-                const div = document.createElement('div');
-                div.id = 'message-actions';
-                div.className = 'message-actions';
-                div.innerHTML = `
-                    <button class="message-action-btn" onclick="replyToMessage()">↩ Ответить</button>
-                    <button class="message-action-btn" onclick="editMessage()">✏️ Редактировать</button>
-                    <button class="message-action-btn" onclick="forwardMessage()">📤 Переслать</button>
-                    <button class="message-action-btn danger" onclick="deleteMessage()">🗑 Удалить</button>
-                    <button class="message-action-btn" onclick="pinMessage()">📌 Закрепить</button>
-                `;
-                document.body.appendChild(div);
-            }
-            actions.classList.toggle('active');
-            selectedMessageId = messageId;
-        }
-
-        function replyToMessage() {
-            alert('Ответ на сообщение');
-            document.getElementById('message-actions').classList.remove('active');
-        }
-
-        function editMessage() {
-            alert('Редактирование сообщения');
-            document.getElementById('message-actions').classList.remove('active');
-        }
-
-        function forwardMessage() {
-            alert('Пересылка сообщения');
-            document.getElementById('message-actions').classList.remove('active');
-        }
-
-        function deleteMessage() {
-            if (confirm('Удалить сообщение?')) {
-                alert('Сообщение удалено');
-                document.getElementById('message-actions').classList.remove('active');
-            }
-        }
-
-        function pinMessage() {
-            alert('Сообщение закреплено');
-            document.getElementById('message-actions').classList.remove('active');
-        }
-
-        function showUserProfile(userId) {
-            if (!userId) return;
-            
-            socket.emit('get_user_info', { user_id: userId }, (userInfo) => {
-                if (userInfo && userInfo.status === 'found') {
-                    const user = userInfo.user;
-                    const popup = document.getElementById('profile-popup');
-                    document.getElementById('popup-user-name').innerText = user.first_name;
-                    document.getElementById('popup-avatar').innerText = user.
+              

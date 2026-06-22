@@ -65,8 +65,17 @@ function updateAvatar(elementId, name, photoUrl) {
     }
 }
 
+// ============ ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ ============
 function showUserProfile(userId) {
     if (!userId) return;
+    
+    // Проверяем, является ли чат группой или каналом
+    if (dynamicChats[userId] && (dynamicChats[userId].chat_type === 'group' || dynamicChats[userId].chat_type === 'channel')) {
+        if (window.showGroupInfo) {
+            window.showGroupInfo(userId);
+        }
+        return;
+    }
     
     if (!socket || !isConnected) {
         alert('Нет соединения с сервером');
@@ -135,6 +144,7 @@ function showUserProfile(userId) {
             }
             
             document.getElementById('popup-bio').innerText = user.bio || (isBot ? 'Бот создан в DICEGRAM' : 'Нет описания');
+            document.getElementById('popup-bio').style.display = 'block';
             
             const createdDate = user.created_at ? new Date(user.created_at).toLocaleDateString('ru-RU', {
                 day: '2-digit',
@@ -142,6 +152,7 @@ function showUserProfile(userId) {
                 year: 'numeric'
             }) : 'Неизвестно';
             document.getElementById('popup-created').innerText = `📅 Зарегистрирован: ${createdDate}`;
+            document.getElementById('popup-created').style.display = 'block';
             
             const verifiedEl = document.getElementById('popup-verified');
             if (isVerified) {
@@ -179,9 +190,16 @@ function showUserProfile(userId) {
             shareBtn.innerText = '🔗 Поделиться ссылкой';
             shareBtn.onclick = () => {
                 const shareUrl = `https://t.me/${user.username || userId}`;
-                navigator.clipboard.writeText(shareUrl).then(() => {
-                    alert('🔗 Ссылка скопирована!');
-                });
+                if (navigator.share) {
+                    navigator.share({
+                        title: displayName,
+                        url: shareUrl
+                    }).catch(() => {});
+                } else {
+                    navigator.clipboard.writeText(shareUrl).then(() => {
+                        alert('🔗 Ссылка скопирована!');
+                    });
+                }
             };
             actionsDiv.appendChild(shareBtn);
             
@@ -207,6 +225,126 @@ function showUserProfile(userId) {
     });
 }
 
+// ============ ИНФОРМАЦИЯ О ГРУППЕ ============
+function showGroupInfo(chatId) {
+    if (!chatId) return;
+    
+    socket.emit('get_group_info', { chat_id: chatId }, (info) => {
+        if (info && info.status === 'found') {
+            const chat = info.chat;
+            socket.emit('get_group_members', { chat_id: chatId }, (members) => {
+                showGroupProfile(chat, members);
+            });
+        } else {
+            showUserProfile(chatId);
+        }
+    });
+}
+
+function showGroupProfile(chat, members) {
+    const popup = document.getElementById('profile-popup');
+    
+    document.getElementById('popup-user-name').innerText = chat.name || 'Чат';
+    
+    const avatarEl = document.getElementById('popup-avatar');
+    avatarEl.style.background = 'linear-gradient(135deg, #e76f51, #f4a261)';
+    avatarEl.innerText = (chat.name || 'Ч').substring(0, 2).toUpperCase();
+    
+    document.getElementById('popup-name').innerText = chat.name || 'Чат';
+    document.getElementById('popup-name').style.display = 'block';
+    
+    const typeLabel = chat.type === 'group' ? '👥 Группа' : '📢 Канал';
+    document.getElementById('popup-username').innerText = `${typeLabel} • ${members ? members.length : 0} участников`;
+    
+    const inviteLink = `dicegram.me/${chat.invite_link}`;
+    document.getElementById('popup-bio').innerHTML = `
+        <div style="margin-top:8px;padding:8px 12px;background:rgba(82,136,193,0.1);border-radius:8px;border:1px solid rgba(82,136,193,0.2);">
+            <div style="font-size:12px;color:var(--tg-text-secondary);">🔗 Инвайт-ссылка</div>
+            <div style="font-size:14px;color:var(--tg-accent-color);cursor:pointer;word-break:break-all;" onclick="copyInviteLink('${chat.invite_link}')">
+                ${inviteLink}
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('popup-status').innerText = `Создан: ${new Date(chat.created_at).toLocaleDateString()}`;
+    document.getElementById('popup-status').style.display = 'block';
+    document.getElementById('popup-verified').innerHTML = '';
+    document.getElementById('popup-created').innerHTML = '';
+    
+    let membersHtml = `
+        <div style="margin-top:12px;border-top:1px solid var(--tg-border-color);padding-top:12px;">
+            <div style="font-weight:600;margin-bottom:8px;font-size:15px;">👥 Участники (${members ? members.length : 0})</div>
+    `;
+    
+    if (members && members.length > 0) {
+        members.forEach(m => {
+            const isOwner = m.role === 'owner';
+            membersHtml += `
+                <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--tg-border-color);cursor:pointer;" onclick="showUserProfile('${m.telegram_id}')">
+                    <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg, #5085b1, #366187);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:12px;">${m.first_name.substring(0,2).toUpperCase()}</div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:14px;font-weight:500;display:flex;align-items:center;gap:4px;">
+                            ${m.first_name} ${m.is_verified ? '✅' : ''}
+                        </div>
+                        <div style="font-size:11px;color:var(--tg-text-secondary);">
+                            ${isOwner ? '👑 Владелец' : 'Участник'}
+                            ${m.username ? ` • @${m.username}` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+    }
+    membersHtml += '</div>';
+    
+    const actionsDiv = document.getElementById('popup-actions');
+    actionsDiv.innerHTML = `
+        <button class="btn-chat" onclick="copyInviteLink('${chat.invite_link}')">🔗 Скопировать ссылку</button>
+        <button class="btn-share" onclick="shareInviteLink('${chat.invite_link}')">📤 Поделиться</button>
+        <button class="btn-block" onclick="leaveGroup('${chat.chat_id}')">🚪 Покинуть ${chat.type === 'group' ? 'группу' : 'канал'}</button>
+        ${membersHtml}
+    `;
+    
+    popup.classList.add('active');
+}
+
+function copyInviteLink(link) {
+    const fullLink = `dicegram.me/${link}`;
+    navigator.clipboard.writeText(fullLink).then(() => {
+        alert('🔗 Ссылка скопирована в буфер обмена!');
+    });
+}
+
+function shareInviteLink(link) {
+    const fullLink = `dicegram.me/${link}`;
+    if (navigator.share) {
+        navigator.share({
+            title: 'Приглашение в DICEGRAM',
+            text: 'Присоединяйся к чату в DICEGRAM!',
+            url: `https://${fullLink}`
+        }).catch(() => {});
+    } else {
+        copyInviteLink(link);
+    }
+}
+
+function leaveGroup(chatId) {
+    if (confirm('Вы уверены, что хотите покинуть этот чат?')) {
+        socket.emit('leave_group', { chat_id: chatId }, (response) => {
+            if (response && response.status === 'ok') {
+                alert('✅ Вы покинули чат');
+                closeProfilePopup();
+                const chatItem = document.getElementById(`chat-item-${chatId}`);
+                if (chatItem) chatItem.remove();
+                delete dynamicChats[chatId];
+                loadChatsAndMessages();
+            } else {
+                alert(`❌ Ошибка: ${response?.message || 'Не удалось покинуть чат'}`);
+            }
+        });
+    }
+}
+
 function closeProfilePopup() {
     document.getElementById('profile-popup').classList.remove('active');
 }
@@ -222,16 +360,6 @@ function toggleVerification(userId, verify) {
             closeProfilePopup();
             loadChatsAndMessages();
             initProfile();
-        }
-    });
-}
-
-function addContact() {
-    if (!currentUserData) return;
-    socket.emit('add_contact', { contact_id: currentUserData.telegram_id }, (response) => {
-        if (response && response.status === 'ok') {
-            alert('➕ Пользователь добавлен в контакты');
-            loadContacts();
         }
     });
 }

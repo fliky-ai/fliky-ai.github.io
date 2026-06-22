@@ -2,42 +2,81 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 30px 16px 24px;
-    background-color: var(--tg-surface-color);
-    border-bottom: 1px solid var(--tg-border-color);
+    padding: 24px 16px 20px;
+    background-color: transparent; /* Убираем лишний фон, если нужно слить с подложкой */
     position: relative;
 }
 
 .profile-avatar {
-    width: 100px;
-    height: 100px;
+    width: 110px;
+    height: 110px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #5085b1, #366187);
-    margin-bottom: 12px;
+    margin-bottom: 16px;
     object-fit: cover;
-    cursor: pointer;
-    border: 3px solid var(--tg-surface-color);
-    box-shadow: 0 2px 8px var(--tg-shadow);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 16px var(--tg-shadow);
     transition: transform var(--tg-transition);
 }
 
 .profile-avatar:hover {
-    transform: scale(1.02);
+    transform: scale(1.03);
 }
 
 .profile-name {
-    font-size: 20px;
+    font-size: 24px;
     font-weight: 700;
-    margin-bottom: 2px;
+    margin-bottom: 4px;
+    letter-spacing: -0.3px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .profile-username {
-    font-size: 14px;
+    font-size: 15px;
     color: var(--tg-text-secondary);
+    font-weight: 400;
+    margin-bottom: 6px;
 }
 
 .profile-status {
-    margin-top: 8px;
     color: var(--tg-text-secondary);
-    font-size: 13px;
+    font-size: 14px;
+    font-weight: 400;
+}
+
+/* Стилизация контейнера со списками настроек (как на скриншоте) */
+.profile-settings-list {
+    padding: 0 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* Отступы между плашками */
+    margin-top: 12px;
+}
+
+.profile-item-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background-color: var(--tg-surface-color);
+    border-radius: var(--tg-radius);
+    border: 1px solid rgba(255, 255, 255, 0.03); /* Едва заметный контур для объема */
+}
+
+.profile-item-card .label {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--tg-text-color);
+}
+
+.profile-item-card .value {
+    font-size: 16px;
+    font-weight: 400;
+    color: var(--tg-text-secondary);
+    max-width: 65%;
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }

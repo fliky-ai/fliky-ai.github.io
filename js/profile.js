@@ -1,6 +1,9 @@
 // ============ ПРОФИЛЬ ============
 let currentUserData = null;
 
+// Красивый SVG верификации (вместо убогого текстового смайлика)
+const verifiedIconSvg = `<span class="verified-check" style="display: inline-flex; align-self: center; margin-left: 6px; vertical-align: middle;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>`;
+
 function initProfile() {
     if (socket && isConnected) {
         socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
@@ -13,7 +16,7 @@ function initProfile() {
                 
                 const nameEl = document.getElementById('user-name');
                 if (currentUserData.is_verified) {
-                    nameEl.innerHTML = `${displayName} <span class="verified-check"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>`;
+                    nameEl.innerHTML = `${displayName} ${verifiedIconSvg}`;
                 } else {
                     nameEl.innerText = displayName;
                 }
@@ -109,7 +112,7 @@ function showUserProfile(userId) {
             const nameEl = document.getElementById('popup-name');
             const isVerified = userId === CONFIG.CREATOR_ID || userId === CONFIG.SUPPORT_ID || user.is_verified;
             if (isVerified) {
-                nameEl.innerHTML = `${displayName} <span class="verified-check"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>`;
+                nameEl.innerHTML = `${displayName} ${verifiedIconSvg}`;
             } else {
                 nameEl.innerText = displayName;
             }
@@ -157,9 +160,9 @@ function showUserProfile(userId) {
             const verifiedEl = document.getElementById('popup-verified');
             if (isVerified) {
                 verifiedEl.innerHTML = `
-                    <div class="verified-box">
-                        <span class="icon"><svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
-                        <span>This account is verified as official by the representatives of Dicegram</span>
+                    <div class="verified-box" style="display: flex; align-items: center; gap: 10px; background: rgba(47, 140, 201, 0.1); padding: 12px; border-radius: 10px; margin-top: 10px;">
+                        <span class="icon">${verifiedIconSvg}</span>
+                        <span style="font-size: 13px; text-align: left; color: var(--tg-text-color);">This account is verified as official by the representatives of Dicegram</span>
                     </div>
                 `;
             } else {
@@ -225,126 +228,6 @@ function showUserProfile(userId) {
     });
 }
 
-// ============ ИНФОРМАЦИЯ О ГРУППЕ ============
-function showGroupInfo(chatId) {
-    if (!chatId) return;
-    
-    socket.emit('get_group_info', { chat_id: chatId }, (info) => {
-        if (info && info.status === 'found') {
-            const chat = info.chat;
-            socket.emit('get_group_members', { chat_id: chatId }, (members) => {
-                showGroupProfile(chat, members);
-            });
-        } else {
-            showUserProfile(chatId);
-        }
-    });
-}
-
-function showGroupProfile(chat, members) {
-    const popup = document.getElementById('profile-popup');
-    
-    document.getElementById('popup-user-name').innerText = chat.name || 'Чат';
-    
-    const avatarEl = document.getElementById('popup-avatar');
-    avatarEl.style.background = 'linear-gradient(135deg, #e76f51, #f4a261)';
-    avatarEl.innerText = (chat.name || 'Ч').substring(0, 2).toUpperCase();
-    
-    document.getElementById('popup-name').innerText = chat.name || 'Чат';
-    document.getElementById('popup-name').style.display = 'block';
-    
-    const typeLabel = chat.type === 'group' ? '👥 Группа' : '📢 Канал';
-    document.getElementById('popup-username').innerText = `${typeLabel} • ${members ? members.length : 0} участников`;
-    
-    const inviteLink = `dicegram.me/${chat.invite_link}`;
-    document.getElementById('popup-bio').innerHTML = `
-        <div style="margin-top:8px;padding:8px 12px;background:rgba(82,136,193,0.1);border-radius:8px;border:1px solid rgba(82,136,193,0.2);">
-            <div style="font-size:12px;color:var(--tg-text-secondary);">🔗 Инвайт-ссылка</div>
-            <div style="font-size:14px;color:var(--tg-accent-color);cursor:pointer;word-break:break-all;" onclick="copyInviteLink('${chat.invite_link}')">
-                ${inviteLink}
-            </div>
-        </div>
-    `;
-    
-    document.getElementById('popup-status').innerText = `Создан: ${new Date(chat.created_at).toLocaleDateString()}`;
-    document.getElementById('popup-status').style.display = 'block';
-    document.getElementById('popup-verified').innerHTML = '';
-    document.getElementById('popup-created').innerHTML = '';
-    
-    let membersHtml = `
-        <div style="margin-top:12px;border-top:1px solid var(--tg-border-color);padding-top:12px;">
-            <div style="font-weight:600;margin-bottom:8px;font-size:15px;">👥 Участники (${members ? members.length : 0})</div>
-    `;
-    
-    if (members && members.length > 0) {
-        members.forEach(m => {
-            const isOwner = m.role === 'owner';
-            membersHtml += `
-                <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--tg-border-color);cursor:pointer;" onclick="showUserProfile('${m.telegram_id}')">
-                    <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg, #5085b1, #366187);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:12px;">${m.first_name.substring(0,2).toUpperCase()}</div>
-                    <div style="flex:1;min-width:0;">
-                        <div style="font-size:14px;font-weight:500;display:flex;align-items:center;gap:4px;">
-                            ${m.first_name} ${m.is_verified ? '✅' : ''}
-                        </div>
-                        <div style="font-size:11px;color:var(--tg-text-secondary);">
-                            ${isOwner ? '👑 Владелец' : 'Участник'}
-                            ${m.username ? ` • @${m.username}` : ''}
-                        </div>
-                    </div>
-                </div>
-            `;
-        });
-    }
-    membersHtml += '</div>';
-    
-    const actionsDiv = document.getElementById('popup-actions');
-    actionsDiv.innerHTML = `
-        <button class="btn-chat" onclick="copyInviteLink('${chat.invite_link}')">🔗 Скопировать ссылку</button>
-        <button class="btn-share" onclick="shareInviteLink('${chat.invite_link}')">📤 Поделиться</button>
-        <button class="btn-block" onclick="leaveGroup('${chat.chat_id}')">🚪 Покинуть ${chat.type === 'group' ? 'группу' : 'канал'}</button>
-        ${membersHtml}
-    `;
-    
-    popup.classList.add('active');
-}
-
-function copyInviteLink(link) {
-    const fullLink = `dicegram.me/${link}`;
-    navigator.clipboard.writeText(fullLink).then(() => {
-        alert('🔗 Ссылка скопирована в буфер обмена!');
-    });
-}
-
-function shareInviteLink(link) {
-    const fullLink = `dicegram.me/${link}`;
-    if (navigator.share) {
-        navigator.share({
-            title: 'Приглашение в DICEGRAM',
-            text: 'Присоединяйся к чату в DICEGRAM!',
-            url: `https://${fullLink}`
-        }).catch(() => {});
-    } else {
-        copyInviteLink(link);
-    }
-}
-
-function leaveGroup(chatId) {
-    if (confirm('Вы уверены, что хотите покинуть этот чат?')) {
-        socket.emit('leave_group', { chat_id: chatId }, (response) => {
-            if (response && response.status === 'ok') {
-                alert('✅ Вы покинули чат');
-                closeProfilePopup();
-                const chatItem = document.getElementById(`chat-item-${chatId}`);
-                if (chatItem) chatItem.remove();
-                delete dynamicChats[chatId];
-                loadChatsAndMessages();
-            } else {
-                alert(`❌ Ошибка: ${response?.message || 'Не удалось покинуть чат'}`);
-            }
-        });
-    }
-}
-
 function closeProfilePopup() {
     document.getElementById('profile-popup').classList.remove('active');
 }
@@ -366,7 +249,7 @@ function toggleVerification(userId, verify) {
 
 function blockUser() {
     if (confirm('🚫 Заблокировать пользователя?')) {
-        socket.emit('block_user', { block_id: currentUserData.telegram_id }, (response) => {
+        socket.emit('block_user', { block_id: window.currentUserData.telegram_id }, (response) => {
             if (response && response.status === 'ok') {
                 alert('Пользователь заблокирован');
                 closeProfilePopup();
@@ -376,14 +259,17 @@ function blockUser() {
 }
 
 function editName() {
-    const currentName = document.getElementById('user-name').innerText.replace(' ✅', '').replace('⭐', '');
+    // Получаем чистое имя без остатков HTML-верстки тега SVG
+    const nameContainer = document.getElementById('profile-display-name');
+    const currentName = nameContainer.innerText.trim();
     const newName = prompt('Введите новое имя:', currentName || tgUser.first_name || '');
+    
     if (newName && newName.trim()) {
         socket.emit('update_profile', { name: newName.trim() }, (response) => {
             if (response && response.status === 'ok') {
                 const nameEl = document.getElementById('user-name');
                 if (currentUserData && currentUserData.is_verified) {
-                    nameEl.innerHTML = `${newName.trim()} <span class="verified-check"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>`;
+                    nameEl.innerHTML = `${newName.trim()} ${verifiedIconSvg}`;
                 } else {
                     nameEl.innerText = newName.trim();
                 }

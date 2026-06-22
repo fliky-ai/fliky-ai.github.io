@@ -1,0 +1,55 @@
+/* ============ РЕАКЦИИ ============ */
+.reaction-picker {
+    position: fixed;
+    background: var(--tg-surface-color);
+    border-radius: 24px;
+    padding: 8px 12px;
+    display: none;
+    gap: 8px;
+    z-index: 3000;
+    box-shadow: 0 4px 20px var(--tg-shadow);
+    border: 1px solid var(--tg-border-color);
+    animation: slideUp 0.2s ease;
+}
+
+.reaction-picker.active {
+    display: flex;
+}
+
+.reaction-emoji {
+    font-size: 28px;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 50%;
+    transition: transform 0.2s ease, background 0.2s ease;
+    user-select: none;
+}
+
+.reaction-emoji:hover {
+    transform: scale(1.3);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.reaction-emoji:active {
+    transform: scale(0.9);
+}
+
+/* Реакции под сообщением */
+.reactions {
+    display: flex;
+    gap: 4px;
+    margin-top: 4px;
+    flex-wrap: wrap;
+}
+
+.reaction-item {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 13px;
+    cursor: default;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    border: 1px solid var(--tg-border-color);
+}

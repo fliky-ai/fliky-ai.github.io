@@ -1,146 +1,98 @@
-/* ==========================================================================
-   DICEGRAM - DYNAMIC MODAL PROFILE STYLES
-   ========================================================================== */
+// ==========================================================================
+// DICEGRAM - PROFILE POPUP ENGINE
+// ==========================================================================
 
-:root {
-    --bg-dark: #0e1621;
-    --bg-item: #17212b;
-    --text-main: #ffffff;
-    --text-muted: #7f91a4;
-    --accent-blue: #2f8cc9;
+// Инициализация структуры модального окна в DOM
+function initProfileModal() {
+    if (document.getElementById("profile-modal-root")) return;
+
+    const modal = document.createElement("div");
+    modal.id = "profile-modal-root";
+    modal.className = "profile-modal";
+
+    modal.innerHTML = `
+        <div class="profile-modal-header">
+            <button class="profile-back-btn" id="close-profile-modal">✕</button>
+            <h2 class="profile-modal-title">Профиль</h2>
+            <div style="font-size: 20px; cursor: pointer;">🌙</div>
+        </div>
+        <div class="profile-main-card">
+            <div class="profile-avatar-wrapper">
+                <img id="p-modal-avatar" src="" alt="Avatar">
+            </div>
+            <div class="profile-name-row">
+                <span id="p-modal-name"></span>
+                <span id="p-modal-verified" style="display:none;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="#2f8cc9" style="vertical-align: middle;">
+                        <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                </span>
+            </div>
+            <div class="profile-user-tag" id="p-modal-username"></div>
+            <div class="profile-online-status" id="p-modal-status">Был(а) в сети недавно</div>
+        </div>
+        <div class="profile-details-container">
+            <div class="profile-info-row">
+                <span class="profile-info-label">Имя</span>
+                <span class="profile-info-value" id="p-row-name"></span>
+            </div>
+            <div class="profile-info-row">
+                <span class="profile-info-label">Username</span>
+                <span class="profile-info-value" id="p-row-username"></span>
+            </div>
+            <div class="profile-info-row">
+                <span class="profile-info-label">О себе</span>
+                <span class="profile-info-value" id="p-row-bio"></span>
+            </div>
+            <div class="profile-info-row">
+                <span class="profile-info-label">Язык</span>
+                <span class="profile-info-value" id="p-row-lang"></span>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Вешаем событие закрытия на крестик
+    document.getElementById("close-profile-modal").addEventListener("click", () => {
+        modal.classList.remove("active");
+    });
 }
 
-/* Окно профиля теперь является полноэкранным попапом */
-.profile-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: var(--bg-dark);
-    z-index: 9999; /* Поверх чатов и всего остального */
-    display: none; /* Скрыт по умолчанию */
-    flex-direction: column;
-    overflow-y: auto;
-    box-sizing: border-box;
+/**
+ * Глобальная функция для открытия профиля любого пользователя
+ * @param {Object} user - Объект с данными пользователя
+ */
+function openUserProfile(user) {
+    // Проверяем, создана ли разметка модалки
+    initProfileModal();
+
+    const modal = document.getElementById("profile-modal-root");
+
+    // Подставляем динамические данные в макет из image_9.png
+    document.getElementById("p-modal-avatar").src = user.avatarUrl || "https://p16-va.tiktokcdn.com/img/musically-maliva-obj/1651478144018438~c5_1080x1080.jpeg";
+    document.getElementById("p-modal-name").textContent = user.name || "owner dicegram";
+    document.getElementById("p-modal-username").textContent = user.username || "@owner";
+    document.getElementById("p-modal-status").textContent = user.status || "Был(а) в сети недавно";
+
+    // Строки данных
+    document.getElementById("p-row-name").textContent = user.name || "owner dicegram";
+    document.getElementById("p-row-username").textContent = user.username || "@owner";
+    document.getElementById("p-row-bio").textContent = user.bio || "I m owner";
+    document.getElementById("p-row-lang").textContent = user.language || "Русский";
+
+    // Управляем галочкой верификации
+    const verifiedBadge = document.getElementById("p-modal-verified");
+    if (user.isVerified) {
+        verifiedBadge.style.display = "inline-flex";
+    } else {
+        verifiedBadge.style.display = "none";
+    }
+
+    // Открываем модалку (показываем её)
+    modal.classList.add("active");
 }
 
-/* Класс, который JS добавит при клике на имя */
-.profile-modal.active {
-    display: flex;
-}
+// Инициализируем при загрузке документа
+document.addEventListener("DOMContentLoaded", initProfileModal);
 
-/* Верхняя панель управления внутри модалки */
-.profile-modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px 20px;
-    background-color: var(--bg-dark);
-}
-
-.profile-back-btn {
-    background: none;
-    border: none;
-    color: var(--text-main);
-    font-size: 24px;
-    cursor: pointer;
-    padding: 0;
-    display: flex;
-    align-items: center;
-}
-
-.profile-modal-title {
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--text-main);
-    margin: 0;
-    flex-grow: 1;
-    margin-left: 20px;
-}
-
-/* Блок Аватара и Юзера (Центрированный) */
-.profile-main-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    padding: 24px 20px;
-}
-
-.profile-avatar-wrapper {
-    width: 110px;
-    height: 110px;
-    border-radius: 50%;
-    margin-bottom: 16px;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #24313f;
-}
-
-.profile-avatar-wrapper img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.profile-name-row {
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--text-main);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    margin: 0;
-}
-
-.profile-user-tag {
-    font-size: 15px;
-    color: var(--text-muted);
-    margin: 4px 0 2px 0;
-}
-
-.profile-online-status {
-    font-size: 14px;
-    color: var(--text-muted);
-    margin: 2px 0 0 0;
-}
-
-/* Контейнер красивых плашек */
-.profile-details-container {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 0 16px;
-    margin-top: 8px;
-    margin-bottom: 40px;
-}
-
-.profile-info-row {
-    background-color: var(--bg-item);
-    border-radius: 12px;
-    padding: 16px 20px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-sizing: border-box;
-    width: 100%;
-}
-
-.profile-info-label {
-    font-size: 16px;
-    color: var(--text-main);
-}
-
-.profile-info-value {
-    font-size: 16px;
-    color: var(--text-main);
-    text-align: right;
-    max-width: 60%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}

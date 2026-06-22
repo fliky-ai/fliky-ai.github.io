@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+    <!-- Loading Screen -->
     <div id="loading-screen">
         <div class="spinner"></div>
         <div class="loading-title">DICEGRAM</div>
@@ -17,6 +18,7 @@
         <button class="reconnect-btn" id="reconnect-btn" onclick="reconnect()">🔄 Переподключиться</button>
     </div>
 
+    <!-- App Container -->
     <div id="app-container">
         <header id="main-header">
             <div class="header-content-left">
@@ -29,6 +31,7 @@
 
         <div id="search-results" class="search-results"></div>
 
+        <!-- Screens -->
         <div id="screen-chats" class="screen active">
             <div id="chats-list"></div>
         </div>
@@ -56,27 +59,27 @@
                 <div id="user-username" class="profile-username">@username</div>
                 <div class="profile-status">Был(а) в сети недавно</div>
             </div>
-            
-            <div class="profile-settings-list">
-                <div class="profile-item-card" onclick="editName()">
-                    <span class="label">Имя</span>
-                    <span id="profile-display-name" class="value">Изменить</span>
+            <div class="profile-settings">
+                <div class="profile-setting">
+                    <span>Имя</span>
+                    <span id="profile-display-name" onclick="editName()">Изменить</span>
                 </div>
-                <div class="profile-item-card" onclick="editUsername()">
-                    <span class="label">Username</span>
-                    <span id="profile-username-display" class="value">@username</span>
+                <div class="profile-setting">
+                    <span>Username</span>
+                    <span id="profile-username-display" onclick="editUsername()">@username</span>
                 </div>
-                <div class="profile-item-card" onclick="editBio()">
-                    <span class="label">О себе</span>
-                    <span id="profile-bio-display" class="value">Добавить описание</span>
+                <div class="profile-setting">
+                    <span>О себе</span>
+                    <span id="profile-bio-display" onclick="editBio()">Добавить описание</span>
                 </div>
-                <div class="profile-item-card" onclick="changeLanguage()">
-                    <span class="label">Язык</span>
-                    <span class="value">Русский</span>
+                <div class="profile-setting">
+                    <span>Язык</span>
+                    <span onclick="changeLanguage()">Русский</span>
                 </div>
             </div>
         </div>
 
+        <!-- Chat Room -->
         <div id="chat-room">
             <div class="chat-header">
                 <button class="back-btn" onclick="closeChat()">❮ Назад</button>
@@ -100,6 +103,7 @@
             </div>
         </div>
 
+        <!-- Bottom Navigation -->
         <nav id="bottom-navigation">
             <div class="nav-item active" onclick="switchTab('chats', this)">
                 <div style="font-size:22px;">💬</div>
@@ -120,6 +124,7 @@
         </nav>
     </div>
 
+    <!-- Profile Popup -->
     <div id="profile-popup" class="profile-popup">
         <div class="profile-popup-content">
             <div class="profile-popup-header">
@@ -141,6 +146,7 @@
         </div>
     </div>
 
+    <!-- Message Actions -->
     <div id="message-actions" class="message-actions">
         <button class="message-action-btn" onclick="replyToMessage()">↩ Ответить</button>
         <button class="message-action-btn" onclick="forwardMessage()">📤 Переслать</button>
@@ -150,8 +156,10 @@
         <button class="message-action-btn" onclick="pinMessage()">📌 Закрепить</button>
     </div>
 
+    <!-- Reaction Picker -->
     <div id="reaction-picker" class="reaction-picker"></div>
 
+    <!-- JavaScript -->
     <script src="js/config.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/socket.js"></script>

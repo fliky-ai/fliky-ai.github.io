@@ -285,7 +285,9 @@ function confirmCreate(type) {
                 };
             }
             
-            createChatRow(chatId, chatName, '', true);
+            if (typeof createChatRow === 'function') {
+                createChatRow(chatId, chatName, '', true, type);
+            }
             openChat(chatId, chatName, true);
             
             setTimeout(() => {
@@ -318,7 +320,9 @@ function joinByInvite(link) {
                                 chat_type: chat.type,
                                 invite_link: chat.invite_link
                             };
-                            createChatRow(chat.chat_id, chat.name, '', chat.type === 'channel');
+                            if (typeof createChatRow === 'function') {
+                                createChatRow(chat.chat_id, chat.name, '', chat.type === 'channel', chat.type);
+                            }
                         }
                         openChat(chat.chat_id, chat.name, chat.type === 'channel');
                     }
@@ -330,7 +334,7 @@ function joinByInvite(link) {
                 openTargetChat();
             } else {
                 alert('✅ Вы присоединились к чату!');
-                loadChatsAndMessages();
+                if (typeof loadChatsAndMessages === 'function') loadChatsAndMessages();
                 openTargetChat();
             }
         } else {
@@ -384,7 +388,6 @@ function showGroupProfile(chat, members) {
     document.getElementById('popup-verified').innerHTML = '';
     document.getElementById('popup-created').innerHTML = '';
     
-    // Внедряем SVG-иконку в генерацию списка участников
     const memberSvg = `<span class="verified-check" style="display: inline-flex; align-self: center; margin-left: 4px; vertical-align: middle;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>`;
     
     let membersHtml = `
@@ -461,29 +464,36 @@ function leaveGroup(chatId) {
     }
 }
 
-// ============ ОБНОВЛЕНИЕ ОТОБРАЖЕНИЯ ГРУПП/КАНАЛОВ ============
+// ============ ОБНОВЛЕНИЕ ОТОБРАЖЕНИЯ ГРУПП/КАНАЛОВ И СИНЯЯ ГАЛОЧКА ============
 function updateChatDisplay(chat) {
+    if (!chat) return;
+    
     const chatId = chat.chat_id || chat.partner_id;
     const name = chat.name || chat.partner_name;
     const isChannel = chat.type === 'channel';
     const isGroup = chat.type === 'group';
-    const isVerified = chat.is_verified || false;
+    const isVerified = chat.is_verified || (chatId === CONFIG.CREATOR_ID || chatId === CONFIG.SUPPORT_ID);
+    
+    // Красивый синий нативный SVG для списков чатов
+    const listSvg = `<span class="verified-check" style="display: inline-flex; align-self: center; margin-left: 5px; vertical-align: middle;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>`;
     
     const existing = document.getElementById(`chat-item-${chatId}`);
     if (existing) {
         const nameEl = existing.querySelector('.chat-name');
         if (nameEl) {
-            const listSvg = `<span class="verified-check" style="display: inline-flex; align-self: center; margin-left: 4px; vertical-align: middle;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>`;
-            nameEl.innerHTML = `${name} ${isVerified ? listSvg : ''} ${isChannel ? '📢' : isGroup ? '👥' : ''}`;
+            // Формируем имя с иконкой верификации и типом чата
+            nameEl.innerHTML = `${name}${isVerified ? listSvg : ''} ${isChannel ? '📢' : isGroup ? '👥' : ''}`;
         }
         const previewEl = existing.querySelector('.chat-preview');
         if (previewEl && chat.last_message) {
             previewEl.innerText = chat.last_message;
         }
-        return;
+    } else {
+        // Если элемента нет, безопасно вызываем создание строки чата, предотвращая исчезновение списков
+        if (typeof createChatRow === 'function') {
+            createChatRow(chatId, name, chat.username || '', isVerified, isChannel ? 'channel' : isGroup ? 'group' : 'private');
+        }
     }
-    
-    createChatRow(chatId, name, chat.username || '', isVerified, isChannel ? 'channel' : isGroup ? 'group' : 'private');
 }
 
 // ============ ИНИЦИАЛИЗАЦИЯ ============

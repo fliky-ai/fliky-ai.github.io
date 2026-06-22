@@ -1,4 +1,4 @@
-here// ============ ПРОФИЛЬ ============
+// ============ ПРОФИЛЬ ============
 let currentUserData = null;
 
 function initProfile() {
@@ -12,24 +12,60 @@ function initProfile() {
                 const fullName = currentUserData.first_name || tgUser.first_name || 'Пользователь';
                 const displayName = currentUserData.last_name ? `${fullName} ${currentUserData.last_name}` : fullName;
                 
-                document.getElementById('user-name').innerText = displayName;
+                // Обновляем имя
+                const nameEl = document.getElementById('user-name');
+                if (currentUserData.is_verified) {
+                    nameEl.innerHTML = displayName + ' ✅';
+                } else {
+                    nameEl.innerText = displayName;
+                }
+                
+                // Обновляем username
                 document.getElementById('user-username').innerText = MY_USERNAME ? `@${MY_USERNAME}` : '';
                 document.getElementById('profile-username-display').innerText = MY_USERNAME ? `@${MY_USERNAME}` : '';
                 document.getElementById('profile-display-name').innerText = displayName;
                 
-                if (currentUserData.photo_url) {
+                // Обновляем аватар
+                if (currentUserData.photo_url && currentUserData.photo_url.startsWith('http')) {
                     document.getElementById('user-avatar').src = currentUserData.photo_url;
-                }
-                if (currentUserData.bio) {
-                    document.getElementById('profile-bio-display').innerText = currentUserData.bio;
+                } else {
+                    // Если нет фото, показываем инициалы
+                    const avatarEl = document.getElementById('user-avatar');
+                    const initials = displayName.substring(0, 2).toUpperCase();
+                    avatarEl.style.background = 'linear-gradient(135deg, #5085b1, #366187)';
+                    avatarEl.style.display = 'flex';
+                    avatarEl.style.alignItems = 'center';
+                    avatarEl.style.justifyContent = 'center';
+                    avatarEl.style.color = '#fff';
+                    avatarEl.style.fontSize = '32px';
+                    avatarEl.style.fontWeight = '600';
+                    avatarEl.src = '';
+                    avatarEl.alt = initials;
+                    // Создаем canvas для аватарки
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 100;
+                    canvas.height = 100;
+                    const ctx = canvas.getContext('2d');
+                    const gradient = ctx.createLinearGradient(0, 0, 100, 100);
+                    gradient.addColorStop(0, '#5085b1');
+                    gradient.addColorStop(1, '#366187');
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(50, 50, 50, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 40px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(initials, 50, 52);
+                    avatarEl.src = canvas.toDataURL();
                 }
                 
-                // Показываем верификацию в профиле как в Telegram
-                if (currentUserData.is_verified) {
-                    const nameEl = document.getElementById('user-name');
-                    if (!nameEl.innerHTML.includes('✅')) {
-                        nameEl.innerHTML = displayName + ' ✅';
-                    }
+                // Обновляем bio
+                if (currentUserData.bio) {
+                    document.getElementById('profile-bio-display').innerText = currentUserData.bio;
+                } else {
+                    document.getElementById('profile-bio-display').innerText = 'Добавить описание';
                 }
             }
         });
@@ -58,7 +94,16 @@ function showUserProfile(userId) {
             
             // Аватар
             const avatarEl = document.getElementById('popup-avatar');
-            avatarEl.innerText = (user.first_name || 'U').substring(0, 2).toUpperCase();
+            if (user.photo_url && user.photo_url.startsWith('http')) {
+                avatarEl.style.backgroundImage = `url(${user.photo_url})`;
+                avatarEl.style.backgroundSize = 'cover';
+                avatarEl.style.backgroundPosition = 'center';
+                avatarEl.innerText = '';
+            } else {
+                avatarEl.style.background = 'linear-gradient(135deg, #5085b1, #366187)';
+                avatarEl.style.backgroundSize = 'cover';
+                avatarEl.innerText = (user.first_name || 'U').substring(0, 2).toUpperCase();
+            }
             
             // Имя с галочкой как в Telegram
             const nameEl = document.getElementById('popup-name');
@@ -112,11 +157,9 @@ function showUserProfile(userId) {
             const verifiedEl = document.getElementById('popup-verified');
             if (isVerified) {
                 verifiedEl.innerHTML = `
-                    <div style="background:rgba(47, 140, 201, 0.1);padding:12px 16px;border-radius:12px;margin-top:8px;border:1px solid rgba(47, 140, 201, 0.2);">
-                        <div style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--tg-verified);">
-                            <span style="font-size:18px;">✅</span>
-                            <span>This account is verified as official by the representatives of Dicegram</span>
-                        </div>
+                    <div class="verified-box">
+                        <span class="icon">✅</span>
+                        <span>This account is verified as official by the representatives of Dicegram</span>
                     </div>
                 `;
             } else {
@@ -128,27 +171,22 @@ function showUserProfile(userId) {
             if (MY_ID === CONFIG.CREATOR_ID && userId !== CONFIG.CREATOR_ID && userId !== CONFIG.SUPPORT_ID) {
                 const verifyBtnText = user.is_verified ? '❌ Снять верификацию' : '✅ Выдать верификацию';
                 actionsDiv.innerHTML = `
-                    <button onclick="toggleVerification('${userId}', ${!user.is_verified})" 
-                            style="background:var(--tg-verified);color:white;border:none;padding:14px 20px;border-radius:12px;font-size:16px;cursor:pointer;width:100%;">
+                    <button class="btn-verify" onclick="toggleVerification('${userId}', ${!user.is_verified})">
                         ${verifyBtnText}
                     </button>
-                    <button onclick="addContact()" 
-                            style="background:var(--tg-accent-color);color:white;border:none;padding:14px 20px;border-radius:12px;font-size:16px;cursor:pointer;width:100%;">
+                    <button class="btn-contact" onclick="addContact()">
                         ➕ Добавить в контакты
                     </button>
-                    <button onclick="blockUser()" 
-                            style="background:#ff3b30;color:white;border:none;padding:14px 20px;border-radius:12px;font-size:16px;cursor:pointer;width:100%;">
+                    <button class="btn-block" onclick="blockUser()">
                         🚫 Заблокировать
                     </button>
                 `;
             } else {
                 actionsDiv.innerHTML = `
-                    <button onclick="addContact()" 
-                            style="background:var(--tg-accent-color);color:white;border:none;padding:14px 20px;border-radius:12px;font-size:16px;cursor:pointer;width:100%;">
+                    <button class="btn-contact" onclick="addContact()">
                         ➕ Добавить в контакты
                     </button>
-                    <button onclick="blockUser()" 
-                            style="background:#ff3b30;color:white;border:none;padding:14px 20px;border-radius:12px;font-size:16px;cursor:pointer;width:100%;">
+                    <button class="btn-block" onclick="blockUser()">
                         🚫 Заблокировать
                     </button>
                 `;
@@ -200,12 +238,21 @@ function blockUser() {
 }
 
 function editName() {
-    const newName = prompt('Введите новое имя:', tgUser.first_name || '');
+    const currentName = document.getElementById('user-name').innerText.replace(' ✅', '');
+    const newName = prompt('Введите новое имя:', currentName || tgUser.first_name || '');
     if (newName && newName.trim()) {
         socket.emit('update_profile', { name: newName.trim() }, (response) => {
             if (response && response.status === 'ok') {
-                document.getElementById('user-name').innerText = newName.trim();
+                // Обновляем локально
+                const nameEl = document.getElementById('user-name');
+                if (currentUserData && currentUserData.is_verified) {
+                    nameEl.innerHTML = newName.trim() + ' ✅';
+                } else {
+                    nameEl.innerText = newName.trim();
+                }
                 document.getElementById('profile-display-name').innerText = newName.trim();
+                
+                // Обновляем данные с сервера
                 socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
                     if (userInfo && userInfo.status === 'found') {
                         currentUserData = userInfo.user;
@@ -222,11 +269,13 @@ function editName() {
 
 function editUsername() {
     const isCreator = MY_ID === CONFIG.CREATOR_ID;
-    const newUsername = prompt('Введите новый username:', MY_USERNAME || '');
+    const currentUsername = MY_USERNAME || '';
+    const newUsername = prompt('Введите новый username:', currentUsername);
     
     if (newUsername && newUsername.trim()) {
         const username = newUsername.trim().replace('@', '');
         
+        // Проверяем занятость
         socket.emit('check_username', { username: username }, (response) => {
             if (response && response.status === 'taken' && !isCreator) {
                 alert('❌ Этот username уже занят');
@@ -236,11 +285,18 @@ function editUsername() {
             socket.emit('update_profile', { username: username }, (response) => {
                 if (response && response.status === 'ok') {
                     MY_USERNAME = username;
-                    initProfile();
+                    // Обновляем UI
+                    document.getElementById('user-username').innerText = `@${username}`;
+                    document.getElementById('profile-username-display').innerText = `@${username}`;
                     alert('✅ Username обновлен!');
+                    
+                    // Обновляем данные с сервера
                     socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
                         if (userInfo && userInfo.status === 'found') {
                             currentUserData = userInfo.user;
+                            MY_USERNAME = currentUserData.username || MY_USERNAME;
+                            document.getElementById('user-username').innerText = MY_USERNAME ? `@${MY_USERNAME}` : '';
+                            document.getElementById('profile-username-display').innerText = MY_USERNAME ? `@${MY_USERNAME}` : '';
                         }
                     });
                 } else if (response && response.message) {
@@ -252,16 +308,22 @@ function editUsername() {
 }
 
 function editBio() {
-    const newBio = prompt('Введите описание (О себе):', currentUserData?.bio || '');
+    const currentBio = currentUserData?.bio || '';
+    const newBio = prompt('Введите описание (О себе):', currentBio);
     if (newBio !== null) {
         socket.emit('update_profile', { bio: newBio.trim() }, (response) => {
             if (response && response.status === 'ok') {
-                document.getElementById('profile-bio-display').innerText = newBio.trim() || 'Добавить описание';
+                const bioEl = document.getElementById('profile-bio-display');
+                bioEl.innerText = newBio.trim() || 'Добавить описание';
                 alert('✅ О себе обновлено!');
-                if (currentUserData) currentUserData.bio = newBio.trim();
+                
+                // Обновляем данные с сервера
                 socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
                     if (userInfo && userInfo.status === 'found') {
                         currentUserData = userInfo.user;
+                        if (currentUserData.bio) {
+                            document.getElementById('profile-bio-display').innerText = currentUserData.bio;
+                        }
                     }
                 });
             }
@@ -273,10 +335,23 @@ function changeAvatar() {
     const url = prompt('Введите URL фото профиля:');
     if (url && url.trim()) {
         document.getElementById('user-avatar').src = url.trim();
-        socket.emit('update_profile', { photo_url: url.trim() });
+        socket.emit('update_profile', { photo_url: url.trim() }, (response) => {
+            if (response && response.status === 'ok') {
+                alert('✅ Аватар обновлен!');
+                socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
+                    if (userInfo && userInfo.status === 'found') {
+                        currentUserData = userInfo.user;
+                        initProfile();
+                    }
+                });
+            }
+        });
     }
 }
 
 function changeLanguage() {
     alert('🌐 Выбор языка будет доступен в следующей версии');
-            }
+}
+
+// Инициализация профиля при загрузке
+setTimeout(initProfile, 1000);

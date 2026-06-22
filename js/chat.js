@@ -288,10 +288,21 @@ function closeChat() {
 
 // ============ ОБРАБОТКА НОВОГО СООБЩЕНИЯ ============
 function handleNewMessage(msg) {
+    console.log('📩 Новое сообщение:', msg);
+    
     const chatPartner = msg.sender_id === MY_ID ? msg.receiver_id : msg.sender_id;
+    
+    // Если сообщение системное
+    if (msg.sender_id === 'system') {
+        renderSingleMessage(msg);
+        scrollToBottom();
+        return;
+    }
 
+    // Проверяем, есть ли такой чат в списке
     if (chatPartner && chatPartner !== MY_ID) {
         if (!dynamicChats[chatPartner]) {
+            // Запрашиваем информацию о пользователе или группе
             socket.emit('get_user_info', { user_id: chatPartner }, (userInfo) => {
                 if (userInfo && userInfo.status === 'found') {
                     dynamicChats[chatPartner] = {
@@ -300,16 +311,32 @@ function handleNewMessage(msg) {
                     };
                     const isVerified = userInfo.user.is_verified || chatPartner === CONFIG.SUPPORT_ID;
                     createChatRow(chatPartner, dynamicChats[chatPartner].first_name, dynamicChats[chatPartner].username, isVerified);
+                } else {
+                    // Возможно это группа
+                    socket.emit('get_group_info', { chat_id: chatPartner }, (groupInfo) => {
+                        if (groupInfo && groupInfo.status === 'found') {
+                            const chat = groupInfo.chat;
+                            dynamicChats[chatPartner] = {
+                                first_name: chat.name || 'Чат',
+                                username: '',
+                                chat_type: chat.type,
+                                invite_link: chat.invite_link
+                            };
+                            createChatRow(chatPartner, chat.name || 'Чат', '', chat.type === 'channel');
+                        }
+                    });
                 }
             });
         }
 
+        // Увеличиваем счетчик непрочитанных
         if (msg.sender_id !== MY_ID && currentChatId !== chatPartner) {
             unreadCounts[chatPartner] = (unreadCounts[chatPartner] || 0) + 1;
             updateUnreadBadge(chatPartner, unreadCounts[chatPartner]);
         }
     }
 
+    // Обновляем превью в списке чатов
     const previewEl = document.getElementById(`preview-${chatPartner}`);
     if (previewEl) {
         let previewText = msg.text || '';
@@ -321,6 +348,7 @@ function handleNewMessage(msg) {
         previewEl.innerText = previewText;
     }
 
+    // Если чат открыт, показываем сообщение
     if (currentChatId === chatPartner) {
         renderSingleMessage(msg);
         scrollToBottom();
@@ -423,10 +451,11 @@ function handleSearch(query) {
     }
 
     // Проверяем, может это инвайт-ссылка
-    if (query.includes('dicegram.me/')) {
-        const link = query.replace('https://', '').replace('dicegram.me/', '').trim();
-        if (link) {
-            joinByInvite(link);
+    const inviteMatch = query.match(/dicegram\.me\/([a-zA-Z0-9_]+)/);
+    if (inviteMatch) {
+        const code = inviteMatch[1];
+        if (window.joinByInvite) {
+            window.joinByInvite(code);
             document.getElementById('global-search').value = '';
             resultsContainer.style.display = 'none';
             return;
@@ -512,7 +541,6 @@ function sendMessage() {
                     alert('📢 Только владелец канала может отправлять сообщения');
                     return;
                 }
-                // Владелец может писать
                 sendMessageToServer(text);
             } else {
                 alert('Ошибка проверки прав');
@@ -521,7 +549,6 @@ function sendMessage() {
         return;
     }
 
-    // Обычный чат или группа
     if (currentChatId === CONFIG.BOTFATHER_ID || (dynamicChats[currentChatId] && dynamicChats[currentChatId].username === 'botfather')) {
         handleBotCommand(text);
         input.value = '';
@@ -643,83 +670,6 @@ function emulateBotFather(text) {
     }
     
     return `I don't understand that command. Please use /start, /newbot, or /mybots.`;
-}
-
-// ============ ОБРАБОТКА УПОМИНАНИЙ ============
-function handleMentionClick(username) {
-    if (!socket || !isConnected) {
-        alert('Нет соединения с сервером');
-        return;
-    }
-
-    socket.emit('find_user', { username: username }, (response) => {
-        if (response && response.status === 'found') {
-            const user = response.user;
-            if (user.telegram_id === MY_ID) return;
-            if (!dynamicChats[user.telegram_id]) {
-                dynamicChats[user.telegram_id] = {
-                    first_name: user.first_name || `User ${user.telegram_id}`,
-                    username: user.username || ''
-                };
-                const isVerified = user.is_verified || user.telegram_id === CONFIG.SUPPORT_ID;
-                createChatRow(user.telegram_id, user.first_name || `User ${user.telegram_id}`, user.username || '', isVerified);
-            }
-            openChat(user.telegram_id, user.first_name || `User ${user.telegram_id}`, user.telegram_id === CONFIG.CREATOR_ID || user.is_verified);
-        } else {
-            alert(`Пользователь ${username} не найден.`);
-        }
-    });
-}
-
-// ============ ПРИСОЕДИНЕНИЕ ПО ССЫЛКЕ ============
-function joinByInvite(link) {
-    if (!socket || !isConnected) {
-        alert('Нет соединения с сервером');
-        return;
-    }
-    
-    socket.emit('join_by_invite', { link: link }, (response) => {
-        if (response && response.status === 'ok') {
-            if (response.already_member) {
-                alert('Вы уже состоите в этом чате!');
-                socket.emit('get_group_info', { chat_id: response.chat_id }, (info) => {
-                    if (info && info.status === 'found') {
-                        const chat = info.chat;
-                        if (!dynamicChats[chat.chat_id]) {
-                            dynamicChats[chat.chat_id] = {
-                                first_name: chat.name,
-                                username: '',
-                                chat_type: chat.type,
-                                invite_link: chat.invite_link
-                            };
-                            createChatRow(chat.chat_id, chat.name, '', chat.type === 'channel');
-                        }
-                        openChat(chat.chat_id, chat.name, chat.type === 'channel');
-                    }
-                });
-            } else {
-                alert('✅ Вы присоединились к чату!');
-                loadChatsAndMessages();
-                socket.emit('get_group_info', { chat_id: response.chat_id }, (info) => {
-                    if (info && info.status === 'found') {
-                        const chat = info.chat;
-                        if (!dynamicChats[chat.chat_id]) {
-                            dynamicChats[chat.chat_id] = {
-                                first_name: chat.name,
-                                username: '',
-                                chat_type: chat.type,
-                                invite_link: chat.invite_link
-                            };
-                            createChatRow(chat.chat_id, chat.name, '', chat.type === 'channel');
-                        }
-                        openChat(chat.chat_id, chat.name, chat.type === 'channel');
-                    }
-                });
-            }
-        } else {
-            alert(`❌ Ошибка: ${response?.message || 'Не удалось присоединиться'}`);
-        }
-    });
 }
 
 // ============ ДЕЙСТВИЯ С СООБЩЕНИЯМИ ============
@@ -909,6 +859,57 @@ function updateReactionDisplay(messageId) {
             });
             
             msgEl.appendChild(container);
+        }
+    });
+}
+
+// ============ ПРИСОЕДИНЕНИЕ ПО ССЫЛКЕ ============
+function joinByInvite(link) {
+    if (!socket || !isConnected) {
+        alert('Нет соединения с сервером');
+        return;
+    }
+    
+    socket.emit('join_by_invite', { link: link }, (response) => {
+        if (response && response.status === 'ok') {
+            if (response.already_member) {
+                alert('Вы уже состоите в этом чате!');
+                socket.emit('get_group_info', { chat_id: response.chat_id }, (info) => {
+                    if (info && info.status === 'found') {
+                        const chat = info.chat;
+                        if (!dynamicChats[chat.chat_id]) {
+                            dynamicChats[chat.chat_id] = {
+                                first_name: chat.name,
+                                username: '',
+                                chat_type: chat.type,
+                                invite_link: chat.invite_link
+                            };
+                            createChatRow(chat.chat_id, chat.name, '', chat.type === 'channel');
+                        }
+                        openChat(chat.chat_id, chat.name, chat.type === 'channel');
+                    }
+                });
+            } else {
+                alert('✅ Вы присоединились к чату!');
+                loadChatsAndMessages();
+                socket.emit('get_group_info', { chat_id: response.chat_id }, (info) => {
+                    if (info && info.status === 'found') {
+                        const chat = info.chat;
+                        if (!dynamicChats[chat.chat_id]) {
+                            dynamicChats[chat.chat_id] = {
+                                first_name: chat.name,
+                                username: '',
+                                chat_type: chat.type,
+                                invite_link: chat.invite_link
+                            };
+                            createChatRow(chat.chat_id, chat.name, '', chat.type === 'channel');
+                        }
+                        openChat(chat.chat_id, chat.name, chat.type === 'channel');
+                    }
+                });
+            }
+        } else {
+            alert(`❌ Ошибка: ${response?.message || 'Не удалось присоединиться'}`);
         }
     });
 }

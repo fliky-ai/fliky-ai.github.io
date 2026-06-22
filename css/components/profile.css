@@ -1,70 +1,43 @@
 /* ==========================================================================
-   PROFILE STYLES (Based on image_8.png)
+   DICEGRAM - PROFILE STYLES (Full Fix)
    ========================================================================== */
 
 :root {
-    --bg-dark-profile: #0e1621;         /* Глубокий темный фон */
-    --bg-item-profile: #17212b;         /* Фон для плашек меню */
-    --text-main-profile: #ffffff;       /* Основной белый текст */
-    --text-muted-profile: #7f91a4;      /* Серый текст для подписей */
-    --accent-blue-profile: #2f8cc9;     /* Синий цвет для активных иконок */
+    --bg-dark: #0e1621;         /* Глубокий темный фон всей страницы */
+    --bg-item: #17212b;         /* Фон скруглённых плашек */
+    --text-main: #ffffff;       /* Белый текст */
+    --text-muted: #7f91a4;      /* Серый текст для юзернейма и подписей */
+    --accent-blue: #2f8cc9;     /* Синий цвет для ссылок/иконок */
 }
 
 body {
-    background-color: var(--bg-dark-profile);
-    color: var(--text-main-profile);
+    background-color: var(--bg-dark);
+    color: var(--text-main);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     margin: 0;
     padding: 0;
+    box-sizing: border-box;
 }
 
-/* --- Верхний бар (Профиль ... Луна) --- */
-.profile-header-bar {
+/* Контейнер всего раздела профиля */
+.profile-section {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px 20px;
-    background-color: var(--bg-dark-profile);
+    flex-direction: column;
+    width: 100%;
+    min-height: 100vh;
+    background-color: var(--bg-dark);
 }
 
-.profile-header-title {
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--text-main-profile);
-}
-
-.profile-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
-.profile-search-mock {
-    background: #101b26;
-    border-radius: 20px;
-    padding: 6px 16px;
-    font-size: 13px;
-    color: var(--text-muted-profile);
-    border: none;
-    width: 80px;
-    text-align: left;
-}
-
-.theme-toggle-icon {
-    font-size: 20px;
-    cursor: pointer;
-}
-
-/* --- Блок главной информации (Аватар, Имя) --- */
-.profile-main-info {
+/* --- Главный блок: Аватар, Имя, Статус --- */
+.profile-main-card {
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
-    padding: 20px 20px 24px 20px;
+    padding: 24px 20px;
 }
 
-.profile-avatar-container {
+.profile-avatar-wrapper {
     width: 110px;
     height: 110px;
     border-radius: 50%;
@@ -73,19 +46,19 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 2px solid transparent;
+    background: #24313f; /* Фолбэк фон, если нет картинки */
 }
 
-.profile-avatar-container img {
+.profile-avatar-wrapper img {
     width: 100%;
     height: 100%;
     object-fit: cover;
 }
 
-.profile-user-fullname {
+.profile-name-row {
     font-size: 22px;
     font-weight: 700;
-    color: var(--text-main-profile);
+    color: var(--text-main);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -93,55 +66,56 @@ body {
     margin: 0;
 }
 
-.profile-user-username {
+/* Синяя или зеленая галочка верификации */
+.profile-verified-badge {
+    display: inline-flex;
+    align-items: center;
+    width: 18px;
+    height: 18px;
+}
+
+.profile-user-tag {
     font-size: 15px;
-    color: var(--text-muted-profile);
+    color: var(--text-muted);
     margin: 4px 0 2px 0;
 }
 
-.profile-user-status {
+.profile-online-status {
     font-size: 14px;
-    color: var(--text-muted-profile);
-    margin: 0;
+    color: var(--text-muted);
+    margin: 2px 0 0 0;
 }
 
-/* --- Список настроек (Плашки как на фото) --- */
-.profile-options-list {
+/* --- Список настроек / параметров (Красивые плашки) --- */
+.profile-details-container {
     display: flex;
     flex-direction: column;
     gap: 8px;
     padding: 0 16px;
-    margin-bottom: 100px; /* Отступ снизу для навигации */
+    margin-top: 8px;
+    margin-bottom: 100px; /* Чтобы нижнее меню не перекрывало контент */
 }
 
-.profile-option-item {
-    background-color: var(--bg-item-profile);
+.profile-info-row {
+    background-color: var(--bg-item);
     border-radius: 12px;
     padding: 16px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    cursor: pointer;
-    transition: background 0.2s ease;
-    border: none;
-    width: 100%;
     box-sizing: border-box;
-    text-align: left;
+    width: 100%;
 }
 
-.profile-option-item:active {
-    background-color: #1c2a38;
-}
-
-.profile-option-label {
+.profile-info-label {
     font-size: 16px;
-    color: var(--text-main-profile);
+    color: var(--text-main);
     font-weight: 400;
 }
 
-.profile-option-value {
+.profile-info-value {
     font-size: 16px;
-    color: var(--text-main-profile);
+    color: var(--text-main);
     font-weight: 400;
     text-align: right;
     max-width: 60%;
@@ -150,24 +124,3 @@ body {
     white-space: nowrap;
 }
 
-/* Синяя галочка верификации */
-.verified-check svg {
-    vertical-align: middle;
-}
-
-/* --- Попап профиля (если вызывается из чата) --- */
-.profile-popup {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: var(--bg-dark-profile);
-    z-index: 9999;
-    display: none;
-    flex-direction: column;
-}
-
-.profile-popup.active {
-    display: flex;
-}

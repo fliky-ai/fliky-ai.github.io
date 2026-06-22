@@ -611,3 +611,107 @@ function pinMessage() {
     });
     document.getElementById('message-actions').classList.remove('active');
                                                   }
+
+// ============ РЕАКЦИИ ============
+let selectedReaction = null;
+let currentMessageId = null;
+
+const REACTIONS = ['👍', '❤️', '😂', '😢', '😡', '🔥', '🎉', '😎'];
+
+function showReactionPicker(messageId) {
+    currentMessageId = messageId;
+    const picker = document.getElementById('reaction-picker');
+    if (!picker) {
+        const div = document.createElement('div');
+        div.id = 'reaction-picker';
+        div.className = 'reaction-picker';
+        div.innerHTML = REACTIONS.map(r => 
+            `<span class="reaction-emoji" onclick="addReaction('${r}')">${r}</span>`
+        ).join('');
+        document.body.appendChild(div);
+    }
+    
+    const rect = document.querySelector(`[data-message-id="${messageId}"]`)?.getBoundingClientRect();
+    if (rect) {
+        const pickerEl = document.getElementById('reaction-picker');
+        pickerEl.style.top = `${rect.top - 50}px`;
+        pickerEl.style.left = `${rect.left + rect.width / 2 - 100}px`;
+        pickerEl.classList.toggle('active');
+    }
+}
+
+function addReaction(emoji) {
+    if (!currentMessageId || !socket || !isConnected) return;
+    
+    socket.emit('add_reaction', { 
+        message_id: currentMessageId, 
+        reaction: emoji 
+    }, (response) => {
+        if (response && response.status === 'ok') {
+            updateReactionDisplay(currentMessageId);
+        }
+    });
+    
+    document.getElementById('reaction-picker').classList.remove('active');
+}
+
+function updateReactionDisplay(messageId) {
+    socket.emit('get_reactions', { message_id: messageId }, (reactions) => {
+        const msgEl = document.querySelector(`[data-message-id="${messageId}"]`);
+        if (!msgEl) return;
+        
+        // Удаляем старые реакции
+        const oldReactions = msgEl.querySelector('.reactions');
+        if (oldReactions) oldReactions.remove();
+        
+        if (reactions && reactions.length > 0) {
+            const container = document.createElement('div');
+            container.className = 'reactions';
+            
+            // Группируем реакции
+            const grouped = {};
+            reactions.forEach(r => {
+                if (!grouped[r.reaction]) grouped[r.reaction] = [];
+                grouped[r.reaction].push(r.user_id);
+            });
+            
+            Object.entries(grouped).forEach(([emoji, users]) => {
+                const span = document.createElement('span');
+                span.className = 'reaction-item';
+                span.innerText = `${emoji} ${users.length}`;
+                span.title = users.map(id => `User ${id}`).join(', ');
+                container.appendChild(span);
+            });
+            
+            msgEl.appendChild(container);
+        }
+    });
+}
+
+// Модифицируем showMessageActions для добавления реакции
+const originalShowMessageActions = window.showMessageActions || function() {};
+window.showMessageActions = function(messageId) {
+    originalShowMessageActions(messageId);
+    
+    // Добавляем кнопку реакции в меню
+    const actions = document.getElementById('message-actions');
+    if (actions) {
+        const reactionBtn = document.createElement('button');
+        reactionBtn.className = 'message-action-btn';
+        reactionBtn.innerText = '😊 Реакция';
+        reactionBtn.onclick = () => {
+            showReactionPicker(messageId);
+            actions.classList.remove('active');
+        };
+        actions.appendChild(reactionBtn);
+    }
+};
+
+// Обновляем renderSingleMessage для отображения реакций
+const originalRenderSingleMessage = window.renderSingleMessage || function() {};
+window.renderSingleMessage = function(msg) {
+    originalRenderSingleMessage(msg);
+    if (msg.id) {
+        setTimeout(() => updateReactionDisplay(msg.id), 100);
+    }
+};

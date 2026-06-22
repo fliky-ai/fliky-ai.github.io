@@ -3,7 +3,9 @@ const CONFIG = {
     CREATOR_ID: "8771009385",
     CREATOR_USERNAME: "dauletbr",
     MAX_RECONNECT_ATTEMPTS: 5,
-    VERSION: "1.0.0"
+    VERSION: "1.0.0",
+    SUPPORT_ID: "0",
+    BOTFATHER_ID: "botfather"
 };
 
 const tg = window.Telegram.WebApp;

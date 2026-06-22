@@ -1,0 +1,98 @@
+/* ============ АДАПТИВ ============ */
+@media (min-width: 768px) {
+    .profile-popup {
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .profile-popup-content {
+        border-radius: var(--tg-radius-large);
+        max-width: 420px;
+        width: 92%;
+        max-height: 85vh;
+        animation: fadeIn 0.3s ease;
+    }
+}
+
+@media (max-width: 480px) {
+    .create-chat-btn {
+        bottom: 72px;
+        right: 12px;
+        width: 50px;
+        height: 50px;
+    }
+    
+    .create-chat-btn svg {
+        width: 22px;
+        height: 22px;
+    }
+    
+    .name-input-content {
+        width: 95%;
+        padding: 16px;
+    }
+    
+    .search-input {
+        max-width: 120px;
+        font-size: 12px;
+    }
+    
+    .message-actions {
+        bottom: 70px;
+        padding: 4px;
+        gap: 2px;
+    }
+    
+    .message-action-btn {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+    
+    .popup-avatar-large {
+        width: 80px;
+        height: 80px;
+        font-size: 32px;
+    }
+    
+    .profile-avatar {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .popup-actions button {
+        padding: 12px 16px;
+        font-size: 15px;
+    }
+    
+    .chat-avatar {
+        width: 42px;
+        height: 42px;
+        font-size: 15px;
+    }
+    
+    .message {
+        max-width: 85%;
+        font-size: 14px;
+        padding: 5px 10px 6px 10px;
+    }
+}
+
+@media (max-width: 380px) {
+    .header-main-title {
+        font-size: 15px;
+    }
+    
+    .search-input {
+        max-width: 80px;
+        font-size: 11px;
+        padding: 4px 10px;
+    }
+    
+    .chat-name {
+        font-size: 14px;
+    }
+    
+    .chat-preview {
+        font-size: 12px;
+    }
+}

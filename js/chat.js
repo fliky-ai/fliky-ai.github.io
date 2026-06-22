@@ -1,4 +1,4 @@
-here// ============ ЛОГИКА ЧАТОВ ============
+// ============ ЛОГИКА ЧАТОВ ============
 let currentChatId = null;
 let dynamicChats = {};
 let unreadCounts = {};
@@ -19,7 +19,6 @@ function loadChatsAndMessages() {
 
     console.log('📥 Загрузка чатов...');
     
-    // Всегда создаем чат с DICEGRAM SUPPORT (с верификацией)
     if (!dynamicChats[CONFIG.SUPPORT_ID]) {
         dynamicChats[CONFIG.SUPPORT_ID] = {
             first_name: 'DICEGRAM SUPPORT',
@@ -28,7 +27,6 @@ function loadChatsAndMessages() {
         createChatRow(CONFIG.SUPPORT_ID, 'DICEGRAM SUPPORT', 'dicegram_support', true);
     }
     
-    // Всегда создаем чат с BotFather (без верификации)
     if (!dynamicChats[CONFIG.BOTFATHER_ID]) {
         dynamicChats[CONFIG.BOTFATHER_ID] = {
             first_name: 'BotFather',
@@ -43,7 +41,6 @@ function loadChatsAndMessages() {
         const chatsList = document.getElementById('chats-list');
         chatsList.innerHTML = '';
         
-        // Сначала добавляем SUPPORT и BotFather
         if (dynamicChats[CONFIG.SUPPORT_ID]) {
             createChatRow(CONFIG.SUPPORT_ID, 'DICEGRAM SUPPORT', 'dicegram_support', true);
         }
@@ -63,7 +60,6 @@ function loadChatsAndMessages() {
                             username: chat.partner_username || `@user${partnerId}`
                         };
                     }
-                    // Проверяем верификацию
                     socket.emit('get_user_info', { user_id: partnerId }, (userInfo) => {
                         const isVerified = userInfo && userInfo.status === 'found' && userInfo.user.is_verified;
                         createChatRow(partnerId, dynamicChats[partnerId].first_name, dynamicChats[partnerId].username, isVerified);
@@ -182,7 +178,6 @@ function openChat(chatId, chatName, isVerified = false) {
     const messagesContainer = document.getElementById('chat-messages');
     messagesContainer.innerHTML = '';
 
-    // Приветственное сообщение для поддержки
     if (chatId === CONFIG.SUPPORT_ID) {
         const welcomeMsg = {
             id: Date.now(),
@@ -269,7 +264,6 @@ function renderSingleMessage(msg) {
         wrapper.classList.add('sent');
         msgEl.classList.add('sent');
         
-        // Статус прочтения как в Telegram
         if (msg.is_read) {
             ticksHtml = `<span class="status-ticks read"><svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4zm-4.24 0L12.35 5.59 6 11.94l1.41 1.41z"/><path d="M0 0h24v24H0z" fill="none"/></svg></span>`;
         } else if (msg.delivered) {
@@ -290,7 +284,6 @@ function renderSingleMessage(msg) {
         </div>
     `;
 
-    // Долгое нажатие для меню
     let longPressTimer = null;
     msgEl.addEventListener('mousedown', () => {
         longPressTimer = setTimeout(() => {
@@ -311,7 +304,6 @@ function renderSingleMessage(msg) {
     wrapper.appendChild(msgEl);
     container.appendChild(wrapper);
     
-    // Загружаем реакции
     if (msg.id) {
         setTimeout(() => updateReactionDisplay(msg.id), 200);
     }
@@ -417,7 +409,6 @@ function sendMessage() {
 
     socket.emit('send_message', { receiver_id: currentChatId, text: text }, (response) => {
         if (response && response.status === 'ok') {
-            // Обновляем временное сообщение
             const msgEl = document.querySelector(`[data-message-id="${tempId}"]`);
             if (msgEl) {
                 const ticks = msgEl.querySelector('.status-ticks');
@@ -542,7 +533,6 @@ function showMessageActions(messageId) {
     const actions = document.getElementById('message-actions');
     
     if (!isSent) {
-        // Чужое сообщение
         actions.innerHTML = `
             <button class="message-action-btn" onclick="replyToMessage()">↩ Ответить</button>
             <button class="message-action-btn" onclick="forwardMessage()">📤 Переслать</button>
@@ -550,7 +540,6 @@ function showMessageActions(messageId) {
             <button class="message-action-btn" onclick="showReactionPicker('${messageId}')">😊 Реакция</button>
         `;
     } else {
-        // Свое сообщение
         actions.innerHTML = `
             <button class="message-action-btn" onclick="replyToMessage()">↩ Ответить</button>
             <button class="message-action-btn" onclick="forwardMessage()">📤 Переслать</button>
@@ -725,21 +714,21 @@ function updateReactionDisplay(messageId) {
 }
 
 // ============ СОБЫТИЯ СОКЕТА ============
-socket.on('message_read', (data) => {
-    const msgEl = document.querySelector(`[data-message-id="${data.message_id}"]`);
-    if (msgEl) {
-        const ticks = msgEl.querySelector('.status-ticks');
-        if (ticks) {
-            ticks.className = 'status-ticks read';
-            ticks.innerHTML = `<svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4zm-4.24 0L12.35 5.59 6 11.94l1.41 1.41z"/><path d="M0 0h24v24H0z" fill="none"/></svg>`;
+if (socket) {
+    socket.on('message_read', (data) => {
+        const msgEl = document.querySelector(`[data-message-id="${data.message_id}"]`);
+        if (msgEl) {
+            const ticks = msgEl.querySelector('.status-ticks');
+            if (ticks) {
+                ticks.className = 'status-ticks read';
+                ticks.innerHTML = `<svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4zm-4.24 0L12.35 5.59 6 11.94l1.41 1.41z"/><path d="M0 0h24v24H0z" fill="none"/></svg>`;
+            }
         }
-    }
-});
+    });
 
-socket.on('reaction_updated', (data) => {
-    updateReactionDisplay(data.message_id);
-});
+    socket.on('reaction_updated', (data) => {
+        updateReactionDisplay(data.message_id);
+    });
+}
 
-// ============ ИНИЦИАЛИЗАЦИЯ ============
-// Убираем дублирование, так как функции уже определены выше
 console.log('✅ Chat module loaded');

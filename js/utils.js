@@ -35,11 +35,12 @@ function formatMessageText(text) {
     return formatted;
 }
 
-// ============ ОБРАБОТКА ССЫЛОК DICEGRAM ============
+// ============ ОБРАБОТКА ССЫЛОК DICEGRAM (ОБНОВЛЕННАЯ) ============
 function handleDicegramLink(link) {
     const code = link.replace('dicegram.me/', '').trim();
     if (!code) return;
     
+    // Проверяем, является ли ссылка группой или каналом
     if (window.joinByInvite) {
         window.joinByInvite(code);
     } else {

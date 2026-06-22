@@ -125,9 +125,9 @@
                 <h2 id="popup-user-name">Пользователь</h2>
                 <button class="profile-popup-close" onclick="closeProfilePopup()">✕</button>
             </div>
-            <div id="popup-user-info">
+            <div id="popup-user-info" class="popup-user-info">
                 <div style="text-align:center;margin-bottom:20px;">
-                    <div id="popup-avatar" class="popup-avatar"></div>
+                    <div id="popup-avatar" class="popup-avatar-large"></div>
                     <div id="popup-name" class="popup-name"></div>
                     <div id="popup-username" class="popup-username"></div>
                     <div id="popup-bio" class="popup-bio"></div>
@@ -149,6 +149,9 @@
         <button class="message-action-btn" onclick="pinMessage()">📌 Закрепить</button>
     </div>
 
+    <!-- Reaction Picker -->
+    <div id="reaction-picker" class="reaction-picker"></div>
+
     <script src="js/config.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/socket.js"></script>
@@ -158,4 +161,4 @@
     <script src="js/profile.js"></script>
     <script src="js/app.js"></script>
 </body>
-  </html>
+</html>

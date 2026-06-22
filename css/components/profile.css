@@ -1,8 +1,15 @@
 /* ==========================================================================
-   ФУЛЛ РАБОЧИЙ CSS ДЛЯ ЭКРАНА ПРОФИЛЯ (ПОД СТАРЫЙ HTML)
+   ФУЛЛ РАБОЧИЙ CSS ДЛЯ ЭКРАНА ПРОФИЛЯ (ПОД ТВОЙ HTML С image_8.png)
    ========================================================================== */
 
-/* Сброс шрифтов для всего экрана профиля, чтобы не было системных засечек */
+/* Сброс и база для всего экрана профиля */
+#screen-profile {
+    background-color: #0b141c !important; /* Глубокий черный фон как на скрине */
+    min-height: 100vh;
+    color: #ffffff !important;
+    padding-bottom: 80px; /* Чтобы нижний навбар не перекрывал */
+}
+
 #screen-profile * {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     -webkit-font-smoothing: antialiased;
@@ -15,93 +22,109 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 24px 16px 20px;
-    background-color: transparent;
+    padding: 30px 16px 24px !important;
+    background-color: transparent !important;
+    text-align: center;
+}
+
+/* Стилизация круглого аватара с текстом "Avatar" как на макете */
+.profile-avatar {
+    width: 110px !important;
+    height: 110px !important;
+    border-radius: 50% !important;
+    margin-bottom: 16px !important;
+    border: 2px solid rgba(255, 255, 255, 0.1) !important;
+    background: linear-gradient(135deg, #182533, #0b141c) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 16px !important;
+    color: #8596a5 !important;
+    font-weight: 500 !important;
+    text-transform: capitalize;
+}
+
+/* Имя пользователя (Имя Фамилия) */
+.profile-name {
+    font-size: 22px !important;
+    font-weight: 700 !important;
+    margin: 0 0 4px 0 !important;
+    color: #ffffff !important;
+}
+
+/* Юзернейм (@username) */
+.profile-username {
+    font-size: 15px !important;
+    color: #8596a5 !important;
+    font-weight: 400 !important;
+    margin-bottom: 4px !important;
+}
+
+/* Статус (Был(а) в сети недавно) */
+.profile-status {
+    color: #8596a5 !important;
+    opacity: 0.8;
+    font-size: 13px !important;
+    font-weight: 400 !important;
+}
+
+/* Общий контейнер для списка (Делаем сплошным списком, без зазоров) */
+.profile-settings {
+    padding: 0 !important; /* Убираем боковые отступы, список на всю ширину */
+    display: flex !important;
+    flex-direction: column !important;
+    margin-top: 10px !important;
+    background-color: transparent !important;
+    width: 100% !important;
+}
+
+/* Сама строка настроек (Переделываем во флекс-блок для отображения "друг под другом") */
+.profile-setting {
+    display: flex !important;
+    flex-direction: column !important; /* Текст встает в две строки как на image_8.png */
+    align-items: flex-start !important; /* Выравнивание по левому краю */
+    justify-content: center !important;
+    padding: 12px 20px !important;
+    background-color: transparent !important; /* Прозрачный фон, элементы лежат на подложке */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03) !important; /* Тонкий разделитель */
+    cursor: pointer;
+    transition: background-color 0.2s ease;
     position: relative;
 }
 
-.profile-avatar {
-    width: 110px;
-    height: 110px;
-    border-radius: 50%;
-    margin-bottom: 16px;
-    object-fit: cover;
-    border: 2px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 4px 16px var(--tg-shadow);
-    transition: transform var(--tg-transition, 0.2s ease);
-}
-
-.profile-avatar:hover {
-    transform: scale(1.03);
-}
-
-.profile-name {
-    font-size: 24px;
-    font-weight: 700;
-    margin-bottom: 4px;
-    letter-spacing: -0.3px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--tg-text-color, #ffffff);
-}
-
-.profile-username {
-    font-size: 15px;
-    color: var(--tg-text-secondary, #708499);
-    font-weight: 400;
-    margin-bottom: 6px;
-}
-
-.profile-status {
-    color: var(--tg-text-secondary, #708499);
-    font-size: 14px;
-    font-weight: 400;
-}
-
-/* Общий контейнер для плашек (Берем оригинальный класс из твоего HTML) */
-.profile-settings {
-    padding: 0 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;          /* Отступы между плашками как на первом фото */
-    margin-top: 12px;
-    width: 100%;
-}
-
-/* Сама плашка (Оригинальный класс из твоего HTML) */
-.profile-setting {
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    padding: 16px 20px !important;
-    background-color: var(--tg-surface-color, #17212b) !important; /* Цвет темы ТГ */
-    border-radius: 12px !important;                               /* Закругление углов */
-    border: 1px solid rgba(255, 255, 255, 0.03) !important;       /* Легкий контур */
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-}
-
+/* Эффект при нажатии на элемент меню */
 .profile-setting:active {
-    background-color: rgba(255, 255, 255, 0.05) !important;       /* Эффект при нажатии */
+    background-color: rgba(255, 255, 255, 0.05) !important;
 }
 
-/* Левая часть плашки (Имя, Username, О себе, Язык) */
+/* Убираем нижнюю линию у последнего элемента */
+.profile-setting:last-child {
+    border-bottom: none !important;
+}
+
+/* Первая строка: Название параметра (Имя, Username, О себе, Язык) */
 .profile-setting > span:first-child {
     font-size: 16px !important;
-    font-weight: 500 !important;
-    color: var(--tg-text-color, #ffffff) !important;
+    font-weight: 400 !important;
+    color: #ffffff !important;
+    margin-bottom: 2px !important;
     text-align: left !important;
 }
 
-/* Правая часть плашки (owner dicegram, @owner, Русский) */
+/* Вторая строка: Значение параметра (Изменить, @username, Добавить описание, Русский) */
 .profile-setting > span:last-child {
-    font-size: 16px !important;
+    font-size: 13px !important;
     font-weight: 400 !important;
-    color: var(--tg-text-secondary, #708499) !important;
-    max-width: 65% !important;
-    text-align: right !important;
+    color: #2f8cc9 !important; /* Приятный синий ТГ-цвет для изменяемых полей */
+    text-align: left !important;
+    width: 100% !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+}
+
+/* Серый цвет для плейсхолдера "Добавить описание", если оно пустое */
+.profile-setting[onclick*="Bio"] > span:last-child,
+.profile-setting[onclick*="bio"] > span:last-child {
+    color: #8596a5 !important;
 }

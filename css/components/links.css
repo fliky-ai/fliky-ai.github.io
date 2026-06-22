@@ -1,0 +1,21 @@
+/* ============ ССЫЛКИ ============ */
+.link {
+    color: var(--tg-accent-color);
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.link:hover {
+    text-decoration: underline;
+}
+
+.mention-link {
+    color: #6fb1e4;
+    text-decoration: none;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.mention-link:hover {
+    text-decoration: underline;
+}

@@ -2,16 +2,36 @@
 let currentUserData = null;
 
 function initProfile() {
-    const fullName = `${tgUser.first_name} ${tgUser.last_name || ''}`.trim();
-    document.getElementById('user-name').innerText = fullName || 'Пользователь';
-    document.getElementById('user-username').innerText = MY_USERNAME ? `@${MY_USERNAME}` : '';
-    document.getElementById('profile-username-display').innerText = MY_USERNAME ? `@${MY_USERNAME}` : '';
-    document.getElementById('profile-display-name').innerText = fullName || 'Изменить';
-    if (tgUser.photo_url) {
-        document.getElementById('user-avatar').src = tgUser.photo_url;
-    }
-    if (currentUserData && currentUserData.bio) {
-        document.getElementById('profile-bio-display').innerText = currentUserData.bio;
+    // Загружаем данные пользователя с сервера
+    if (socket && isConnected) {
+        socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
+            if (userInfo && userInfo.status === 'found') {
+                currentUserData = userInfo.user;
+                MY_USERNAME = currentUserData.username || MY_USERNAME;
+                
+                const fullName = currentUserData.first_name || tgUser.first_name || 'Пользователь';
+                if (currentUserData.last_name) {
+                    document.getElementById('user-name').innerText = `${fullName} ${currentUserData.last_name}`;
+                } else {
+                    document.getElementById('user-name').innerText = fullName;
+                }
+                document.getElementById('user-username').innerText = MY_USERNAME ? `@${MY_USERNAME}` : '';
+                document.getElementById('profile-username-display').innerText = MY_USERNAME ? `@${MY_USERNAME}` : '';
+                document.getElementById('profile-display-name').innerText = document.getElementById('user-name').innerText;
+                
+                if (currentUserData.photo_url) {
+                    document.getElementById('user-avatar').src = currentUserData.photo_url;
+                }
+                if (currentUserData.bio) {
+                    document.getElementById('profile-bio-display').innerText = currentUserData.bio;
+                }
+                
+                // Показываем верификацию в профиле
+                if (currentUserData.is_verified) {
+                    document.getElementById('user-name').innerHTML = document.getElementById('user-name').innerText + ' ✅';
+                }
+            }
+        });
     }
 }
 
@@ -29,21 +49,27 @@ function showUserProfile(userId) {
             window.currentUserData = user;
             
             const popup = document.getElementById('profile-popup');
-            document.getElementById('popup-user-name').innerText = user.first_name || 'Пользователь';
+            const fullName = user.first_name || 'Пользователь';
+            document.getElementById('popup-user-name').innerText = fullName + (user.last_name ? ' ' + user.last_name : '');
             document.getElementById('popup-avatar').innerText = (user.first_name || 'U').substring(0, 2).toUpperCase();
-            document.getElementById('popup-name').innerText = user.first_name || 'Пользователь';
+            document.getElementById('popup-name').innerText = fullName + (user.last_name ? ' ' + user.last_name : '');
             document.getElementById('popup-username').innerText = `@${user.username || ''}`;
             document.getElementById('popup-bio').innerText = user.bio || 'Нет описания';
             document.getElementById('popup-status').innerText = user.is_online ? '🟢 В сети' : '⚪ Был(а) недавно';
             
-            const isVerified = userId === CONFIG.CREATOR_ID || user.is_verified;
-            document.getElementById('popup-verified').innerHTML = isVerified ? '✅ Верифицирован' : '';
+            const isVerified = userId === CONFIG.CREATOR_ID || userId === '0' || user.is_verified;
+            if (isVerified) {
+                document.getElementById('popup-verified').innerHTML = '✅ Верифицирован\n\nThis account is verified as official by the representatives of Dicegram';
+                document.getElementById('popup-name').innerHTML = (fullName + (user.last_name ? ' ' + user.last_name : '')) + ' ✅';
+            } else {
+                document.getElementById('popup-verified').innerHTML = '';
+            }
             
             const createdDate = user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Неизвестно';
             document.getElementById('popup-created').innerText = `📅 Зарегистрирован: ${createdDate}`;
             
             const actionsDiv = document.getElementById('popup-actions');
-            if (MY_ID === CONFIG.CREATOR_ID && userId !== CONFIG.CREATOR_ID) {
+            if (MY_ID === CONFIG.CREATOR_ID && userId !== CONFIG.CREATOR_ID && userId !== '0') {
                 const verifyBtnText = user.is_verified ? '❌ Снять верификацию' : '✅ Выдать верификацию';
                 actionsDiv.innerHTML = `
                     <button onclick="toggleVerification('${userId}', ${!user.is_verified})" style="background:var(--tg-verified);color:white;border:none;padding:12px;border-radius:12px;font-size:16px;cursor:pointer;">${verifyBtnText}</button>
@@ -76,6 +102,7 @@ function toggleVerification(userId, verify) {
             alert(verify ? '✅ Пользователь верифицирован!' : '❌ Верификация снята');
             closeProfilePopup();
             loadChatsAndMessages();
+            initProfile();
         }
     });
 }
@@ -108,6 +135,15 @@ function editName() {
             if (response && response.status === 'ok') {
                 document.getElementById('user-name').innerText = newName.trim();
                 document.getElementById('profile-display-name').innerText = newName.trim();
+                // Обновляем данные пользователя
+                socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
+                    if (userInfo && userInfo.status === 'found') {
+                        currentUserData = userInfo.user;
+                        if (currentUserData.is_verified) {
+                            document.getElementById('user-name').innerHTML = newName.trim() + ' ✅';
+                        }
+                    }
+                });
                 alert('✅ Имя обновлено!');
             }
         });
@@ -146,13 +182,19 @@ function editUsername() {
 }
 
 function editBio() {
-    const newBio = prompt('Введите описание (Bio):', currentUserData?.bio || '');
+    const newBio = prompt('Введите описание (О себе):', currentUserData?.bio || '');
     if (newBio !== null) {
         socket.emit('update_profile', { bio: newBio.trim() }, (response) => {
             if (response && response.status === 'ok') {
                 document.getElementById('profile-bio-display').innerText = newBio.trim() || 'Добавить описание';
-                alert('✅ Bio обновлен!');
+                alert('✅ О себе обновлено!');
                 if (currentUserData) currentUserData.bio = newBio.trim();
+                // Сохраняем в базу
+                socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
+                    if (userInfo && userInfo.status === 'found') {
+                        currentUserData = userInfo.user;
+                    }
+                });
             }
         });
     }
@@ -168,4 +210,4 @@ function changeAvatar() {
 
 function changeLanguage() {
     alert('🌐 Выбор языка будет доступен в следующей версии');
-}
+                                      }

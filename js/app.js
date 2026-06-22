@@ -8,8 +8,11 @@ window.botCreationStep = null;
 window.botName = '';
 window.createdBots = [];
 
-// Запуск
-initProfile();
+// Запуск с загрузкой данных
+setTimeout(() => {
+    initProfile();
+}, 500);
+
 connectSocket();
 
 // События
@@ -44,3 +47,21 @@ document.addEventListener('visibilitychange', function() {
         connectSocket();
     }
 });
+
+// Периодическое обновление данных
+setInterval(() => {
+    if (isConnected) {
+        socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
+            if (userInfo && userInfo.status === 'found') {
+                currentUserData = userInfo.user;
+                // Обновляем верификацию в UI
+                if (currentUserData.is_verified) {
+                    const nameEl = document.getElementById('user-name');
+                    if (!nameEl.innerHTML.includes('✅')) {
+                        nameEl.innerHTML = nameEl.innerText + ' ✅';
+                    }
+                }
+            }
+        });
+    }
+}, 30000);

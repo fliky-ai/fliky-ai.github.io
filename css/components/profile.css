@@ -1,0 +1,43 @@
+.profile-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 30px 16px 24px;
+    background-color: var(--tg-surface-color);
+    border-bottom: 1px solid var(--tg-border-color);
+    position: relative;
+}
+
+.profile-avatar {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #5085b1, #366187);
+    margin-bottom: 12px;
+    object-fit: cover;
+    cursor: pointer;
+    border: 3px solid var(--tg-surface-color);
+    box-shadow: 0 2px 8px var(--tg-shadow);
+    transition: transform var(--tg-transition);
+}
+
+.profile-avatar:hover {
+    transform: scale(1.02);
+}
+
+.profile-name {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+
+.profile-username {
+    font-size: 14px;
+    color: var(--tg-text-secondary);
+}
+
+.profile-status {
+    margin-top: 8px;
+    color: var(--tg-text-secondary);
+    font-size: 13px;
+}

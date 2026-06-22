@@ -1,0 +1,99 @@
+.chat-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--tg-border-color);
+    cursor: pointer;
+    background-color: var(--tg-surface-color);
+    position: relative;
+    transition: background-color var(--tg-transition);
+}
+
+.chat-item:hover {
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+.chat-item:active {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+.chat-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #5085b1, #366187);
+    margin-right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 18px;
+    color: #ffffff;
+    flex-shrink: 0;
+    position: relative;
+    user-select: none;
+}
+
+.chat-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.chat-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2px;
+}
+
+.chat-name {
+    font-weight: 600;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.chat-preview {
+    font-size: 13.5px;
+    color: var(--tg-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chat-unread-badge {
+    background-color: var(--tg-unread-badge);
+    color: white;
+    border-radius: 50%;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    min-width: 20px;
+    text-align: center;
+    margin-left: 8px;
+    flex-shrink: 0;
+}
+
+.chat-time {
+    font-size: 11px;
+    color: var(--tg-text-secondary);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.chat-item .chat-type-badge {
+    font-size: 10px;
+    background: rgba(255,255,255,0.1);
+    padding: 1px 8px;
+    border-radius: 10px;
+    color: var(--tg-text-secondary);
+    margin-left: 6px;
+}
+
+.chat-item .chat-members-count {
+    font-size: 11px;
+    color: var(--tg-text-secondary);
+}

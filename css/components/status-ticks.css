@@ -1,0 +1,25 @@
+.status-ticks {
+    display: inline-flex;
+    align-items: center;
+    color: #4cd964;
+}
+
+.status-ticks svg {
+    width: 13px;
+    height: 13px;
+    fill: currentColor;
+}
+
+.status-ticks.sent {
+    color: var(--tg-text-secondary);
+    opacity: 0.5;
+}
+
+.status-ticks.delivered {
+    color: var(--tg-text-secondary);
+    opacity: 0.7;
+}
+
+.status-ticks.read {
+    color: #4cd964;
+}

@@ -1,358 +1,118 @@
-// ============ ПРОФИЛЬ ============
-let currentUserData = null;
+/* ==========================================================================
+   ФУЛЛ РАБОЧИЙ CSS ДЛЯ ЭКРАНА ПРОФИЛЯ ПОД image_8.png
+   ========================================================================== */
 
-// Красивый SVG верификации (вместо убогого текстового смайлика)
-const verifiedIconSvg = `<span class="verified-check" style="display: inline-flex; align-self: center; margin-left: 6px; vertical-align: middle;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>`;
-
-function initProfile() {
-    if (socket && isConnected) {
-        socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
-            if (userInfo && userInfo.status === 'found') {
-                currentUserData = userInfo.user;
-                MY_USERNAME = currentUserData.username || MY_USERNAME;
-                
-                const fullName = currentUserData.first_name || tgUser.first_name || 'Пользователь';
-                const displayName = currentUserData.last_name ? `${fullName} ${currentUserData.last_name}` : fullName;
-                
-                const nameEl = document.getElementById('user-name');
-                if (currentUserData.is_verified) {
-                    nameEl.innerHTML = `${displayName} ${verifiedIconSvg}`;
-                } else {
-                    nameEl.innerText = displayName;
-                }
-                
-                document.getElementById('user-username').innerText = MY_USERNAME ? `@${MY_USERNAME}` : '';
-                document.getElementById('profile-username-display').innerText = MY_USERNAME ? `@${MY_USERNAME}` : '';
-                document.getElementById('profile-display-name').innerText = displayName;
-                
-                updateAvatar('user-avatar', displayName, currentUserData.photo_url);
-                
-                if (currentUserData.bio) {
-                    document.getElementById('profile-bio-display').innerText = currentUserData.bio;
-                } else {
-                    document.getElementById('profile-bio-display').innerText = 'Добавить описание';
-                }
-            }
-        });
-    }
+/* Главный контейнер экрана */
+#screen-profile {
+    background-color: #0e1621 !important; /* Глубокий темный фон из ТГ */
+    min-height: 100vh;
+    width: 100%;
+    color: #ffffff !important;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 90px; /* Чтобы нижнее меню не перекрывало нижнюю плашку */
+    box-sizing: border-box;
 }
 
-function updateAvatar(elementId, name, photoUrl) {
-    const avatarEl = document.getElementById(elementId);
-    const initials = name.substring(0, 2).toUpperCase();
-    
-    if (photoUrl && photoUrl.startsWith('http')) {
-        avatarEl.src = photoUrl;
-        avatarEl.style.display = 'block';
-        avatarEl.style.background = 'none';
-    } else {
-        const canvas = document.createElement('canvas');
-        canvas.width = 100;
-        canvas.height = 100;
-        const ctx = canvas.getContext('2d');
-        const gradient = ctx.createLinearGradient(0, 0, 100, 100);
-        gradient.addColorStop(0, '#5085b1');
-        gradient.addColorStop(1, '#366187');
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(50, 50, 50, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 40px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(initials, 50, 52);
-        avatarEl.src = canvas.toDataURL();
-        avatarEl.style.display = 'block';
-        avatarEl.style.background = 'none';
-    }
+#screen-profile * {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    -webkit-font-smoothing: antialiased;
+    box-sizing: border-box;
 }
 
-// ============ ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ ============
-function showUserProfile(userId) {
-    if (!userId) return;
-    
-    // Проверяем, является ли чат группой или каналом
-    if (dynamicChats[userId] && (dynamicChats[userId].chat_type === 'group' || dynamicChats[userId].chat_type === 'channel')) {
-        if (window.showGroupInfo) {
-            window.showGroupInfo(userId);
-        }
-        return;
-    }
-    
-    if (!socket || !isConnected) {
-        alert('Нет соединения с сервером');
-        return;
-    }
-
-    socket.emit('get_user_info', { user_id: userId }, (userInfo) => {
-        if (userInfo && userInfo.status === 'found') {
-            const user = userInfo.user;
-            window.currentUserData = user;
-            
-            const popup = document.getElementById('profile-popup');
-            const fullName = user.first_name || 'Пользователь';
-            const displayName = user.last_name ? `${fullName} ${user.last_name}` : fullName;
-            const isBot = user.is_bot === 1 || userId === CONFIG.BOTFATHER_ID;
-            
-            document.getElementById('popup-user-name').innerText = displayName;
-            
-            const avatarEl = document.getElementById('popup-avatar');
-            if (user.photo_url && user.photo_url.startsWith('http')) {
-                avatarEl.style.backgroundImage = `url(${user.photo_url})`;
-                avatarEl.style.backgroundSize = 'cover';
-                avatarEl.style.backgroundPosition = 'center';
-                avatarEl.innerText = '';
-            } else {
-                avatarEl.style.background = 'linear-gradient(135deg, #5085b1, #366187)';
-                avatarEl.style.backgroundSize = 'cover';
-                avatarEl.innerText = (user.first_name || 'U').substring(0, 2).toUpperCase();
-            }
-            
-            const nameEl = document.getElementById('popup-name');
-            const isVerified = userId === CONFIG.CREATOR_ID || userId === CONFIG.SUPPORT_ID || user.is_verified;
-            if (isVerified) {
-                nameEl.innerHTML = `${displayName} ${verifiedIconSvg}`;
-            } else {
-                nameEl.innerText = displayName;
-            }
-            
-            document.getElementById('popup-username').innerText = user.username ? `@${user.username}` : '';
-            
-            const statusEl = document.getElementById('popup-status');
-            if (isBot) {
-                statusEl.innerText = '🤖 Бот';
-                statusEl.style.color = 'var(--tg-text-secondary)';
-            } else if (user.is_online) {
-                statusEl.innerText = '🟢 В сети';
-                statusEl.style.color = 'var(--tg-status-online)';
-            } else {
-                const lastSeen = user.last_seen ? new Date(user.last_seen) : new Date();
-                const now = new Date();
-                const diff = Math.floor((now - lastSeen) / 1000);
-                
-                if (diff < 60) {
-                    statusEl.innerText = '⚪ Был(а) только что';
-                } else if (diff < 3600) {
-                    const minutes = Math.floor(diff / 60);
-                    statusEl.innerText = `⚪ Был(а) ${minutes} мин. назад`;
-                } else if (diff < 86400) {
-                    const hours = Math.floor(diff / 3600);
-                    statusEl.innerText = `⚪ Был(а) ${hours} ч. назад`;
-                } else {
-                    const days = Math.floor(diff / 86400);
-                    statusEl.innerText = `⚪ Был(а) ${days} дн. назад`;
-                }
-                statusEl.style.color = 'var(--tg-text-secondary)';
-            }
-            
-            document.getElementById('popup-bio').innerText = user.bio || (isBot ? 'Бот создан в DICEGRAM' : 'Нет описания');
-            document.getElementById('popup-bio').style.display = 'block';
-            
-            const createdDate = user.created_at ? new Date(user.created_at).toLocaleDateString('ru-RU', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric'
-            }) : 'Неизвестно';
-            document.getElementById('popup-created').innerText = `📅 Зарегистрирован: ${createdDate}`;
-            document.getElementById('popup-created').style.display = 'block';
-            
-            const verifiedEl = document.getElementById('popup-verified');
-            if (isVerified) {
-                verifiedEl.innerHTML = `
-                    <div class="verified-box" style="display: flex; align-items: center; gap: 10px; background: rgba(47, 140, 201, 0.1); padding: 12px; border-radius: 10px; margin-top: 10px;">
-                        <span class="icon">${verifiedIconSvg}</span>
-                        <span style="font-size: 13px; text-align: left; color: var(--tg-text-color);">This account is verified as official by the representatives of Dicegram</span>
-                    </div>
-                `;
-            } else {
-                verifiedEl.innerHTML = '';
-            }
-            
-            const actionsDiv = document.getElementById('popup-actions');
-            actionsDiv.innerHTML = '';
-            
-            const chatBtn = document.createElement('button');
-            chatBtn.className = 'btn-chat';
-            chatBtn.innerText = '💬 Написать';
-            chatBtn.onclick = () => {
-                if (!dynamicChats[userId]) {
-                    dynamicChats[userId] = {
-                        first_name: displayName,
-                        username: user.username || ''
-                    };
-                    createChatRow(userId, displayName, user.username || '', isVerified);
-                }
-                openChat(userId, displayName, isVerified);
-                closeProfilePopup();
-            };
-            actionsDiv.appendChild(chatBtn);
-            
-            const shareBtn = document.createElement('button');
-            shareBtn.className = 'btn-share';
-            shareBtn.innerText = '🔗 Поделиться ссылкой';
-            shareBtn.onclick = () => {
-                const shareUrl = `https://t.me/${user.username || userId}`;
-                if (navigator.share) {
-                    navigator.share({
-                        title: displayName,
-                        url: shareUrl
-                    }).catch(() => {});
-                } else {
-                    navigator.clipboard.writeText(shareUrl).then(() => {
-                        alert('🔗 Ссылка скопирована!');
-                    });
-                }
-            };
-            actionsDiv.appendChild(shareBtn);
-            
-            if (MY_ID === CONFIG.CREATOR_ID && userId !== CONFIG.CREATOR_ID && userId !== CONFIG.SUPPORT_ID) {
-                const verifyBtnText = user.is_verified ? '❌ Снять верификацию' : '✅ Выдать верификацию';
-                const verifyBtn = document.createElement('button');
-                verifyBtn.className = 'btn-verify';
-                verifyBtn.innerText = verifyBtnText;
-                verifyBtn.onclick = () => toggleVerification(userId, !user.is_verified);
-                actionsDiv.appendChild(verifyBtn);
-            }
-            
-            if (userId !== MY_ID && userId !== CONFIG.SUPPORT_ID) {
-                const blockBtn = document.createElement('button');
-                blockBtn.className = 'btn-block';
-                blockBtn.innerText = '🚫 Заблокировать';
-                blockBtn.onclick = blockUser;
-                actionsDiv.appendChild(blockBtn);
-            }
-            
-            popup.classList.add('active');
-        }
-    });
+/* Блок профиля (Аватар, Имя, Статус) */
+.profile-container {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 35px 16px 20px !important;
+    text-align: center;
+    width: 100%;
 }
 
-function closeProfilePopup() {
-    document.getElementById('profile-popup').classList.remove('active');
+/* Круглая аватарка */
+.profile-avatar {
+    width: 115px !important;
+    height: 115px !important;
+    border-radius: 50% !important;
+    margin-bottom: 16px !important;
+    object-fit: cover !important;
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
 }
 
-function toggleVerification(userId, verify) {
-    if (MY_ID !== CONFIG.CREATOR_ID) {
-        alert('❌ Только создатель может управлять верификацией!');
-        return;
-    }
-    socket.emit('verify_user', { user_id: userId, verify: verify }, (response) => {
-        if (response && response.status === 'ok') {
-            alert(verify ? '✅ Пользователь верифицирован!' : '❌ Верификация снята');
-            closeProfilePopup();
-            loadChatsAndMessages();
-            initProfile();
-        }
-    });
+/* Блок с именем */
+.profile-name {
+    font-size: 24px !important;
+    font-weight: 700 !important;
+    margin: 0 0 4px 0 !important;
+    color: #ffffff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 
-function blockUser() {
-    if (confirm('🚫 Заблокировать пользователя?')) {
-        socket.emit('block_user', { block_id: window.currentUserData.telegram_id }, (response) => {
-            if (response && response.status === 'ok') {
-                alert('Пользователь заблокирован');
-                closeProfilePopup();
-            }
-        });
-    }
+/* Текст юзернейма */
+.profile-username {
+    font-size: 15px !important;
+    color: #708499 !important;
+    font-weight: 400 !important;
+    margin-bottom: 4px !important;
 }
 
-function editName() {
-    // Получаем чистое имя без остатков HTML-верстки тега SVG
-    const nameContainer = document.getElementById('profile-display-name');
-    const currentName = nameContainer.innerText.trim();
-    const newName = prompt('Введите новое имя:', currentName || tgUser.first_name || '');
-    
-    if (newName && newName.trim()) {
-        socket.emit('update_profile', { name: newName.trim() }, (response) => {
-            if (response && response.status === 'ok') {
-                const nameEl = document.getElementById('user-name');
-                if (currentUserData && currentUserData.is_verified) {
-                    nameEl.innerHTML = `${newName.trim()} ${verifiedIconSvg}`;
-                } else {
-                    nameEl.innerText = newName.trim();
-                }
-                document.getElementById('profile-display-name').innerText = newName.trim();
-                alert('✅ Имя обновлено!');
-                socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
-                    if (userInfo && userInfo.status === 'found') {
-                        currentUserData = userInfo.user;
-                    }
-                });
-            }
-        });
-    }
+/* Статус */
+.profile-status {
+    color: #708499 !important;
+    font-size: 14px !important;
+    font-weight: 400 !important;
 }
 
-function editUsername() {
-    const isCreator = MY_ID === CONFIG.CREATOR_ID;
-    const currentUsername = MY_USERNAME || '';
-    const newUsername = prompt('Введите новый username:', currentUsername);
-    
-    if (newUsername && newUsername.trim()) {
-        const username = newUsername.trim().replace('@', '');
-        socket.emit('check_username', { username: username }, (response) => {
-            if (response && response.status === 'taken' && !isCreator) {
-                alert('❌ Этот username уже занят');
-                return;
-            }
-            socket.emit('update_profile', { username: username }, (response) => {
-                if (response && response.status === 'ok') {
-                    MY_USERNAME = username;
-                    document.getElementById('user-username').innerText = `@${username}`;
-                    document.getElementById('profile-username-display').innerText = `@${username}`;
-                    alert('✅ Username обновлен!');
-                    socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
-                        if (userInfo && userInfo.status === 'found') {
-                            currentUserData = userInfo.user;
-                        }
-                    });
-                }
-            });
-        });
-    }
+/* Контейнер списка меню */
+.profile-settings {
+    padding: 0 16px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important; /* Четкий зазор между кнопками */
+    width: 100% !important;
 }
 
-function editBio() {
-    const currentBio = currentUserData?.bio || '';
-    const newBio = prompt('Введите описание (О себе):', currentBio);
-    if (newBio !== null) {
-        socket.emit('update_profile', { bio: newBio.trim() }, (response) => {
-            if (response && response.status === 'ok') {
-                document.getElementById('profile-bio-display').innerText = newBio.trim() || 'Добавить описание';
-                alert('✅ О себе обновлено!');
-                socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
-                    if (userInfo && userInfo.status === 'found') {
-                        currentUserData = userInfo.user;
-                    }
-                });
-            }
-        });
-    }
+/* Стилизация каждой отдельной плашки */
+.profile-setting {
+    display: flex !important;
+    flex-direction: row !important; /* Элементы строго в линию */
+    justify-content: space-between !important; /* Разносит название влево, а значение вправо */
+    align-items: center !important;
+    padding: 16px 20px !important;
+    background-color: #17212b !important; /* Светло-темный цвет плашки */
+    border-radius: 12px !important; /* Закругления краев */
+    border: 1px solid rgba(255, 255, 255, 0.02) !important;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    width: 100% !important;
 }
 
-function changeAvatar() {
-    const url = prompt('Введите URL фото профиля:');
-    if (url && url.trim()) {
-        const avatarEl = document.getElementById('user-avatar');
-        avatarEl.src = url.trim();
-        socket.emit('update_profile', { photo_url: url.trim() }, (response) => {
-            if (response && response.status === 'ok') {
-                alert('✅ Аватар обновлен!');
-                socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
-                    if (userInfo && userInfo.status === 'found') {
-                        currentUserData = userInfo.user;
-                    }
-                });
-            }
-        });
-    }
+/* Эффект при нажатии на плашку */
+.profile-setting:active {
+    background-color: #202b36 !important;
 }
 
-function changeLanguage() {
-    alert('🌐 Выбор языка будет доступен в следующей версии');
+/* Левый текст в плашке (Имя, Username, О себе...) */
+.profile-setting > span:first-child {
+    font-size: 16px !important;
+    font-weight: 400 !important;
+    color: #ffffff !important;
+    text-align: left !important;
 }
 
-setTimeout(initProfile, 1000);
+/* Правый текст в плашке (Значения) */
+.profile-setting > span:last-child {
+    font-size: 16px !important;
+    font-weight: 400 !important;
+    color: #f5f5f5 !important;
+    max-width: 65% !important;
+    text-align: right !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
 

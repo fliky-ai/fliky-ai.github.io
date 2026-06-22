@@ -2,10 +2,29 @@
 let theme = 'dark';
 
 function switchTab(tabName, element) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    // Скрываем абсолютно все экраны
+    document.querySelectorAll('.screen').forEach(s => {
+        s.classList.remove('active');
+        s.style.display = 'none'; // Полностью убираем старый экран из видимости
+    });
+    
+    // Убираем активный класс у кнопок нижнего меню
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    
+    // Находим целевой экран
     const targetScreen = document.getElementById(`screen-${tabName}`);
-    if (targetScreen) targetScreen.classList.add('active');
+    if (targetScreen) {
+        targetScreen.classList.add('active');
+        
+        // Специальная проверка для экрана профиля, чтобы он вставал ровно и красиво
+        if (tabName === 'profile') {
+            targetScreen.style.setProperty('display', 'flex', 'important');
+        } else {
+            targetScreen.style.display = 'block';
+        }
+    }
+    
+    // Подсвечиваем активную кнопку в нижнем меню
     if (element) element.classList.add('active');
     
     const titles = {
@@ -14,8 +33,12 @@ function switchTab(tabName, element) {
         settings: 'Настройки',
         profile: 'Профиль'
     };
-    document.getElementById('header-title').innerText = titles[tabName] || 'Чаты';
-    document.getElementById('search-results').style.display = 'none';
+    
+    const headerTitle = document.getElementById('header-title');
+    if (headerTitle) headerTitle.innerText = titles[tabName] || 'Чаты';
+    
+    const searchResults = document.getElementById('search-results');
+    if (searchResults) searchResults.style.display = 'none';
     
     if (tabName === 'contacts') {
         loadContacts();
@@ -27,11 +50,13 @@ function toggleTheme() {
     if (theme === 'dark') {
         root.setAttribute('data-theme', 'light');
         theme = 'light';
-        document.querySelector('.theme-switch').innerText = '☀️';
+        const themeSwitch = document.querySelector('.theme-switch');
+        if (themeSwitch) themeSwitch.innerText = '☀️';
     } else {
         root.removeAttribute('data-theme');
         theme = 'dark';
-        document.querySelector('.theme-switch').innerText = '🌙';
+        const themeSwitch = document.querySelector('.theme-switch');
+        if (themeSwitch) themeSwitch.innerText = '🌙';
     }
 }
 
@@ -57,7 +82,8 @@ function replyToMessage() {
             }
         });
     }
-    document.getElementById('message-actions').classList.remove('active');
+    const actions = document.getElementById('message-actions');
+    if (actions) actions.classList.remove('active');
 }
 
 function forwardMessage() {
@@ -72,18 +98,21 @@ function forwardMessage() {
             }
         });
     }
-    document.getElementById('message-actions').classList.remove('active');
+    const actions = document.getElementById('message-actions');
+    if (actions) actions.classList.remove('active');
 }
 
 function copyMessage() {
     const msgEl = document.querySelector(`[data-message-id="${selectedMessageId}"]`);
     if (msgEl) {
-        const text = msgEl.querySelector('span').innerText;
+        const textSpan = msgEl.querySelector('span');
+        const text = textSpan ? textSpan.innerText : '';
         navigator.clipboard.writeText(text).then(() => {
             alert('📋 Сообщение скопировано');
         });
     }
-    document.getElementById('message-actions').classList.remove('active');
+    const actions = document.getElementById('message-actions');
+    if (actions) actions.classList.remove('active');
 }
 
 function editMessage() {
@@ -96,12 +125,14 @@ function editMessage() {
             if (response && response.status === 'ok') {
                 const msgEl = document.querySelector(`[data-message-id="${selectedMessageId}"]`);
                 if (msgEl) {
-                    msgEl.querySelector('span').innerHTML = formatMessageText(newText.trim());
+                    const textSpan = msgEl.querySelector('span');
+                    if (textSpan) textSpan.innerHTML = formatMessageText(newText.trim());
                 }
             }
         });
     }
-    document.getElementById('message-actions').classList.remove('active');
+    const actions = document.getElementById('message-actions');
+    if (actions) actions.classList.remove('active');
 }
 
 function deleteMessage() {
@@ -110,12 +141,14 @@ function deleteMessage() {
             if (response && response.status === 'ok') {
                 const msgEl = document.querySelector(`[data-message-id="${selectedMessageId}"]`);
                 if (msgEl) {
-                    msgEl.closest('.message-wrapper').remove();
+                    const wrapper = msgEl.closest('.message-wrapper');
+                    if (wrapper) wrapper.remove();
                 }
             }
         });
     }
-    document.getElementById('message-actions').classList.remove('active');
+    const actions = document.getElementById('message-actions');
+    if (actions) actions.classList.remove('active');
 }
 
 function pinMessage() {
@@ -124,7 +157,8 @@ function pinMessage() {
             alert('📌 Сообщение закреплено');
         }
     });
-    document.getElementById('message-actions').classList.remove('active');
+    const actions = document.getElementById('message-actions');
+    if (actions) actions.classList.remove('active');
 }
 
 // ============ КНОПКА СОЗДАНИЯ ЧАТА ============
@@ -132,6 +166,8 @@ function addCreateButton() {
     if (document.getElementById('create-chat-btn')) return;
     
     const chatsScreen = document.getElementById('screen-chats');
+    if (!chatsScreen) return;
+    
     const button = document.createElement('button');
     button.id = 'create-chat-btn';
     button.className = 'create-chat-btn';
@@ -239,11 +275,13 @@ function showNameInput(type) {
     document.body.appendChild(overlay);
     
     const input = document.getElementById('chat-name-input');
-    input.addEventListener('input', function() {
-        const btn = document.getElementById('create-confirm-btn');
-        btn.disabled = !this.value.trim();
-    });
-    setTimeout(() => input.focus(), 100);
+    if (input) {
+        input.addEventListener('input', function() {
+            const btn = document.getElementById('create-confirm-btn');
+            if (btn) btn.disabled = !this.value.trim();
+        });
+        setTimeout(() => input.focus(), 100);
+    }
 }
 
 function closeNameInput() {
@@ -253,6 +291,7 @@ function closeNameInput() {
 
 function confirmCreate(type) {
     const input = document.getElementById('chat-name-input');
+    if (!input) return;
     const name = input.value.trim();
     if (!name) return;
     
@@ -274,7 +313,7 @@ function confirmCreate(type) {
             const chatId = response.chat_id;
             const chatName = response.name;
             
-            if (!dynamicChats[chatId]) {
+            if (typeof dynamicChats !== 'undefined' && !dynamicChats[chatId]) {
                 dynamicChats[chatId] = {
                     first_name: chatName,
                     username: '',
@@ -288,7 +327,9 @@ function confirmCreate(type) {
             if (typeof createChatRow === 'function') {
                 createChatRow(chatId, chatName, '', true, type);
             }
-            openChat(chatId, chatName, true);
+            if (typeof openChat === 'function') {
+                openChat(chatId, chatName, true);
+            }
             
             setTimeout(() => {
                 alert(`✅ ${type === 'group' ? 'Группа' : 'Канал'} "${chatName}" создан!\n\n🔗 Инвайт-ссылка: dicegram.me/${response.invite_link}`);
@@ -313,7 +354,7 @@ function joinByInvite(link) {
                 socket.emit('get_group_info', { chat_id: response.chat_id }, (info) => {
                     if (info && info.status === 'found') {
                         const chat = info.chat;
-                        if (!dynamicChats[chat.chat_id]) {
+                        if (typeof dynamicChats !== 'undefined' && !dynamicChats[chat.chat_id]) {
                             dynamicChats[chat.chat_id] = {
                                 first_name: chat.name,
                                 username: '',
@@ -324,7 +365,9 @@ function joinByInvite(link) {
                                 createChatRow(chat.chat_id, chat.name, '', chat.type === 'channel', chat.type);
                             }
                         }
-                        openChat(chat.chat_id, chat.name, chat.type === 'channel');
+                        if (typeof openChat === 'function') {
+                            openChat(chat.chat_id, chat.name, chat.type === 'channel');
+                        }
                     }
                 });
             };
@@ -361,32 +404,50 @@ function showGroupInfo(chatId) {
 
 function showGroupProfile(chat, members) {
     const popup = document.getElementById('profile-popup');
-    document.getElementById('popup-user-name').innerText = chat.name || 'Чат';
+    if (!popup) return;
+    
+    const popupUserName = document.getElementById('popup-user-name');
+    if (popupUserName) popupUserName.innerText = chat.name || 'Чат';
     
     const avatarEl = document.getElementById('popup-avatar');
-    avatarEl.style.background = 'linear-gradient(135deg, #e76f51, #f4a261)';
-    avatarEl.innerText = (chat.name || 'Ч').substring(0, 2).toUpperCase();
+    if (avatarEl) {
+        avatarEl.style.background = 'linear-gradient(135deg, #e76f51, #f4a261)';
+        avatarEl.innerText = (chat.name || 'Ч').substring(0, 2).toUpperCase();
+    }
     
-    document.getElementById('popup-name').innerText = chat.name || 'Чат';
-    document.getElementById('popup-name').style.display = 'block';
+    const popupName = document.getElementById('popup-name');
+    if (popupName) {
+        popupName.innerText = chat.name || 'Чат';
+        popupName.style.display = 'block';
+    }
     
     const typeLabel = chat.type === 'group' ? '👥 Группа' : '📢 Канал';
-    document.getElementById('popup-username').innerText = `${typeLabel} • ${members ? members.length : 0} участников`;
+    const popupUsername = document.getElementById('popup-username');
+    if (popupUsername) popupUsername.innerText = `${typeLabel} • ${members ? members.length : 0} участников`;
     
     const inviteLink = `dicegram.me/${chat.invite_link}`;
-    document.getElementById('popup-bio').innerHTML = `
-        <div style="margin-top:8px;padding:8px 12px;background:rgba(82,136,193,0.1);border-radius:8px;border:1px solid rgba(82,136,193,0.2);">
-            <div style="font-size:12px;color:var(--tg-text-secondary);">🔗 Инвайт-ссылка</div>
-            <div style="font-size:14px;color:var(--tg-accent-color);cursor:pointer;word-break:break-all;" onclick="copyInviteLink('${chat.invite_link}')">
-                ${inviteLink}
+    const popupBio = document.getElementById('popup-bio');
+    if (popupBio) {
+        popupBio.innerHTML = `
+            <div style="margin-top:8px;padding:8px 12px;background:rgba(82,136,193,0.1);border-radius:8px;border:1px solid rgba(82,136,193,0.2);">
+                <div style="font-size:12px;color:var(--tg-text-secondary);">🔗 Инвайт-ссылка</div>
+                <div style="font-size:14px;color:var(--tg-accent-color);cursor:pointer;word-break:break-all;" onclick="copyInviteLink('${chat.invite_link}')">
+                    ${inviteLink}
+                </div>
             </div>
-        </div>
-    `;
+        `;
+    }
     
-    document.getElementById('popup-status').innerText = `Создан: ${new Date(chat.created_at).toLocaleDateString()}`;
-    document.getElementById('popup-status').style.display = 'block';
-    document.getElementById('popup-verified').innerHTML = '';
-    document.getElementById('popup-created').innerHTML = '';
+    const popupStatus = document.getElementById('popup-status');
+    if (popupStatus) {
+        popupStatus.innerText = `Создан: ${new Date(chat.created_at).toLocaleDateString()}`;
+        popupStatus.style.display = 'block';
+    }
+    
+    const popupVerified = document.getElementById('popup-verified');
+    if (popupVerified) popupVerified.innerHTML = '';
+    const popupCreated = document.getElementById('popup-created');
+    if (popupCreated) popupCreated.innerHTML = '';
     
     const memberSvg = `<span class="verified-check" style="display: inline-flex; align-self: center; margin-left: 4px; vertical-align: middle;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>`;
     
@@ -399,7 +460,7 @@ function showGroupProfile(chat, members) {
         members.forEach(m => {
             const isOwner = m.role === 'owner';
             membersHtml += `
-                <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--tg-border-color);cursor:pointer;" onclick="closeProfilePopup(); setTimeout(() => { showUserProfile('${m.telegram_id}') }, 200);">
+                <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--tg-border-color);cursor:pointer;" onclick="if(typeof closeProfilePopup === 'function') closeProfilePopup(); setTimeout(() => { if(window.showUserProfile) window.showUserProfile('${m.telegram_id}') }, 200);">
                     <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg, #5085b1, #366187);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:12px;">${(m.first_name || 'U').substring(0,2).toUpperCase()}</div>
                     <div style="flex:1;min-width:0;text-align:left;">
                         <div style="font-size:14px;font-weight:500;display:flex;align-items:center;gap:4px;">
@@ -417,12 +478,14 @@ function showGroupProfile(chat, members) {
     membersHtml += '</div>';
     
     const actionsDiv = document.getElementById('popup-actions');
-    actionsDiv.innerHTML = `
-        <button class="btn-chat" onclick="copyInviteLink('${chat.invite_link}')">🔗 Скопировать ссылку</button>
-        <button class="btn-share" onclick="shareInviteLink('${chat.invite_link}')">📤 Поделиться</button>
-        <button class="btn-block" onclick="leaveGroup('${chat.chat_id}')">🚪 Покинуть ${chat.type === 'group' ? 'группу' : 'канал'}</button>
-        ${membersHtml}
-    `;
+    if (actionsDiv) {
+        actionsDiv.innerHTML = `
+            <button class="btn-chat" onclick="copyInviteLink('${chat.invite_link}')">🔗 Скопировать ссылку</button>
+            <button class="btn-share" onclick="shareInviteLink('${chat.invite_link}')">📤 Поделиться</button>
+            <button class="btn-block" onclick="leaveGroup('${chat.chat_id}')">🚪 Покинуть ${chat.type === 'group' ? 'группу' : 'канал'}</button>
+            ${membersHtml}
+        `;
+    }
     
     popup.classList.add('active');
 }
@@ -452,10 +515,10 @@ function leaveGroup(chatId) {
         socket.emit('leave_group', { chat_id: chatId }, (response) => {
             if (response && response.status === 'ok') {
                 alert('✅ Вы покинули чат');
-                closeProfilePopup();
+                if (typeof closeProfilePopup === 'function') closeProfilePopup();
                 const chatItem = document.getElementById(`chat-item-${chatId}`);
                 if (chatItem) chatItem.remove();
-                delete dynamicChats[chatId];
+                if (typeof dynamicChats !== 'undefined') delete dynamicChats[chatId];
                 if (typeof loadChatsAndMessages === 'function') loadChatsAndMessages();
             } else {
                 alert(`❌ Ошибка: ${response?.message || 'Не удалось покинуть чат'}`);
@@ -472,16 +535,18 @@ function updateChatDisplay(chat) {
     const name = chat.name || chat.partner_name;
     const isChannel = chat.type === 'channel';
     const isGroup = chat.type === 'group';
-    const isVerified = chat.is_verified || (chatId === CONFIG.CREATOR_ID || chatId === CONFIG.SUPPORT_ID);
     
-    // Красивый синий нативный SVG для списков чатов
+    let isVerified = chat.is_verified;
+    if (typeof CONFIG !== 'undefined') {
+        isVerified = isVerified || (chatId === CONFIG.CREATOR_ID || chatId === CONFIG.SUPPORT_ID);
+    }
+    
     const listSvg = `<span class="verified-check" style="display: inline-flex; align-self: center; margin-left: 5px; vertical-align: middle;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>`;
     
     const existing = document.getElementById(`chat-item-${chatId}`);
     if (existing) {
         const nameEl = existing.querySelector('.chat-name');
         if (nameEl) {
-            // Формируем имя с иконкой верификации и типом чата
             nameEl.innerHTML = `${name}${isVerified ? listSvg : ''} ${isChannel ? '📢' : isGroup ? '👥' : ''}`;
         }
         const previewEl = existing.querySelector('.chat-preview');
@@ -489,7 +554,6 @@ function updateChatDisplay(chat) {
             previewEl.innerText = chat.last_message;
         }
     } else {
-        // Если элемента нет, безопасно вызываем создание строки чата, предотвращая исчезновение списков
         if (typeof createChatRow === 'function') {
             createChatRow(chatId, name, chat.username || '', isVerified, isChannel ? 'channel' : isGroup ? 'group' : 'private');
         }
@@ -508,7 +572,8 @@ document.addEventListener('keydown', function(e) {
             if (link) {
                 joinByInvite(link);
                 e.target.value = '';
-                document.getElementById('search-results').style.display = 'none';
+                const searchResults = document.getElementById('search-results');
+                if (searchResults) searchResults.style.display = 'none';
             }
         }
     }

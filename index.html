@@ -56,22 +56,23 @@
                 <div id="user-username" class="profile-username">@username</div>
                 <div class="profile-status">Был(а) в сети недавно</div>
             </div>
-            <div class="profile-settings">
-                <div class="profile-setting">
-                    <span>Имя</span>
-                    <span id="profile-display-name" onclick="editName()">Изменить</span>
+            
+            <div class="profile-settings-list">
+                <div class="profile-item-card" onclick="editName()">
+                    <span class="label">Имя</span>
+                    <span id="profile-display-name" class="value">Изменить</span>
                 </div>
-                <div class="profile-setting">
-                    <span>Username</span>
-                    <span id="profile-username-display" onclick="editUsername()">@username</span>
+                <div class="profile-item-card" onclick="editUsername()">
+                    <span class="label">Username</span>
+                    <span id="profile-username-display" class="value">@username</span>
                 </div>
-                <div class="profile-setting">
-                    <span>О себе</span>
-                    <span id="profile-bio-display" onclick="editBio()">Добавить описание</span>
+                <div class="profile-item-card" onclick="editBio()">
+                    <span class="label">О себе</span>
+                    <span id="profile-bio-display" class="value">Добавить описание</span>
                 </div>
-                <div class="profile-setting">
-                    <span>Язык</span>
-                    <span onclick="changeLanguage()">Русский</span>
+                <div class="profile-item-card" onclick="changeLanguage()">
+                    <span class="label">Язык</span>
+                    <span class="value">Русский</span>
                 </div>
             </div>
         </div>
@@ -149,7 +150,6 @@
         <button class="message-action-btn" onclick="pinMessage()">📌 Закрепить</button>
     </div>
 
-    <!-- Reaction Picker -->
     <div id="reaction-picker" class="reaction-picker"></div>
 
     <script src="js/config.js"></script>

@@ -5,6 +5,9 @@ let unreadCounts = {};
 let selectedMessageId = null;
 let isInitialLoad = true;
 
+// Красивый синий нативный SVG для галочки верификации
+const verifiedIconSvg = `<span class="verified-check" style="display: inline-flex; align-self: center; margin-left: 5px; vertical-align: middle;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>`;
+
 // ============ РЕАКЦИИ ============
 let currentMessageId = null;
 const REACTIONS = ['👍', '❤️', '😂', '😢', '😡', '🔥', '🎉', '😎'];
@@ -100,7 +103,7 @@ function loadChatsAndMessages() {
     });
 }
 
-// ============ СОЗДАНИЕ СТРОКИ ЧАТА ============
+// ============ СОЗДАНИЕ СТРОКИ ЧАТА (ИСПРАВЛЕНО) ============
 function createChatRow(tgId, firstName, username, isVerified = false, chatType = 'private') {
     if (!tgId) return;
     
@@ -118,10 +121,9 @@ function createChatRow(tgId, firstName, username, isVerified = false, chatType =
     const isBotFather = username === 'botfather';
     const isSupport = tgId === CONFIG.SUPPORT_ID;
     const verified = isSupport || tgId === CONFIG.CREATOR_ID || isVerified;
-    const verifiedIcon = verified ? 
-        `<svg class="tg-verify-icon" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>` : '';
     
-    const displayName = firstName || `User ${tgId}`;
+    // Вырезаем текстовые галочки, если они пролезли в имя
+    const displayName = (firstName || `User ${tgId}`).replace(/✅/g, '').trim();
     let avatarBg = 'linear-gradient(135deg, #5085b1, #366187)';
     let typeIcon = '';
     
@@ -141,13 +143,14 @@ function createChatRow(tgId, firstName, username, isVerified = false, chatType =
         <div class="chat-item" id="chat-item-${tgId}" onclick="openChat('${tgId}', '${displayName.replace(/'/g, "\\'")}', ${verified})">
             <div class="chat-avatar" style="background: ${avatarBg}">
                 ${displayName.substring(0,2).toUpperCase()}
-                ${verified ? '<span class="verified-badge">✅</span>' : ''}
                 ${chatType === 'group' ? '<span style="position:absolute;bottom:-2px;left:-2px;font-size:10px;">👥</span>' : ''}
                 ${chatType === 'channel' ? '<span style="position:absolute;bottom:-2px;left:-2px;font-size:10px;">📢</span>' : ''}
             </div>
             <div class="chat-details">
                 <div class="chat-title-row">
-                    <div class="chat-name">${typeIcon}${displayName} ${verifiedIcon}</div>
+                    <div class="chat-name" style="display:flex; align-items:center; gap:2px;">
+                        ${typeIcon}${displayName}${verified ? verifiedIconSvg : ''}
+                    </div>
                     <div style="display:flex;align-items:center;gap:4px;">
                         <span class="chat-time" id="time-${tgId}"></span>
                         <span class="chat-unread-badge" id="unread-badge-${tgId}" style="display:none;">0</span>
@@ -173,7 +176,7 @@ function updateUnreadBadge(chatId, count) {
     }
 }
 
-// ============ ОТКРЫТИЕ ЧАТА ============
+// ============ ОТКРЫТИЕ ЧАТА (ИСПРАВЛЕНО) ============
 function openChat(chatId, chatName, isVerified = false) {
     if (!chatId || !socket || !isConnected) {
         if (!socket || !isConnected) {
@@ -188,27 +191,28 @@ function openChat(chatId, chatName, isVerified = false) {
     updateUnreadBadge(chatId, 0);
     
     const titleEl = document.getElementById('chat-room-title');
-    titleEl.innerText = chatName || 'Чат';
     
-    // Проверяем тип чата
+    // Чистим имя от старых текстовых галочек
+    let cleanName = (chatName || 'Чат').replace(/✅/g, '').trim();
+    
+    // Проверяем тип чата для префикса названия
     const chatInfo = dynamicChats[chatId];
     if (chatInfo) {
         if (chatInfo.chat_type === 'group') {
-            titleEl.innerText = '👥 ' + (chatName || 'Группа');
+            cleanName = '👥 ' + cleanName;
         } else if (chatInfo.chat_type === 'channel') {
-            titleEl.innerText = '📢 ' + (chatName || 'Канал');
+            cleanName = '📢 ' + cleanName;
         }
     }
+    
+    titleEl.innerHTML = `${cleanName}${isVerified ? verifiedIconSvg : ''}`;
     
     socket.emit('get_user_info', { user_id: chatId }, (userInfo) => {
         if (userInfo && userInfo.status === 'found') {
             const isVerifiedUser = userInfo.user.is_verified || chatId === CONFIG.SUPPORT_ID || chatId === CONFIG.CREATOR_ID;
-            if (isVerifiedUser) {
-                titleEl.innerHTML = `${titleEl.innerText} <span class="verified-check">✅</span>`;
-            }
+            titleEl.innerHTML = `${cleanName}${isVerifiedUser ? verifiedIconSvg : ''}`;
             document.getElementById('chat-room-status').innerText = userInfo.user.is_online ? '🟢 в сети' : 'был(а) недавно';
         } else {
-            // Если это группа или канал
             if (chatInfo && (chatInfo.chat_type === 'group' || chatInfo.chat_type === 'channel')) {
                 document.getElementById('chat-room-status').innerText = `${chatInfo.members_count || 0} участников`;
             }
@@ -242,7 +246,6 @@ function openChat(chatId, chatName, isVerified = false) {
 
     socket.emit('mark_as_read', { chat_id: chatId });
     
-    // Проверяем права в канале
     if (chatInfo && chatInfo.chat_type === 'channel') {
         checkChannelPermission(chatId);
     }
@@ -277,7 +280,6 @@ function closeChat() {
     document.getElementById('bottom-navigation').style.display = 'flex';
     currentChatId = null;
     
-    // Восстанавливаем поле ввода
     const input = document.getElementById('message-field');
     const sendBtn = document.getElementById('send-btn-icon');
     input.disabled = false;
@@ -292,17 +294,14 @@ function handleNewMessage(msg) {
     
     const chatPartner = msg.sender_id === MY_ID ? msg.receiver_id : msg.sender_id;
     
-    // Если сообщение системное
     if (msg.sender_id === 'system') {
         renderSingleMessage(msg);
         scrollToBottom();
         return;
     }
 
-    // Проверяем, есть ли такой чат в списке
     if (chatPartner && chatPartner !== MY_ID) {
         if (!dynamicChats[chatPartner]) {
-            // Запрашиваем информацию о пользователе или группе
             socket.emit('get_user_info', { user_id: chatPartner }, (userInfo) => {
                 if (userInfo && userInfo.status === 'found') {
                     dynamicChats[chatPartner] = {
@@ -312,7 +311,6 @@ function handleNewMessage(msg) {
                     const isVerified = userInfo.user.is_verified || chatPartner === CONFIG.SUPPORT_ID;
                     createChatRow(chatPartner, dynamicChats[chatPartner].first_name, dynamicChats[chatPartner].username, isVerified);
                 } else {
-                    // Возможно это группа
                     socket.emit('get_group_info', { chat_id: chatPartner }, (groupInfo) => {
                         if (groupInfo && groupInfo.status === 'found') {
                             const chat = groupInfo.chat;
@@ -329,14 +327,12 @@ function handleNewMessage(msg) {
             });
         }
 
-        // Увеличиваем счетчик непрочитанных
         if (msg.sender_id !== MY_ID && currentChatId !== chatPartner) {
             unreadCounts[chatPartner] = (unreadCounts[chatPartner] || 0) + 1;
             updateUnreadBadge(chatPartner, unreadCounts[chatPartner]);
         }
     }
 
-    // Обновляем превью в списке чатов
     const previewEl = document.getElementById(`preview-${chatPartner}`);
     if (previewEl) {
         let previewText = msg.text || '';
@@ -348,7 +344,6 @@ function handleNewMessage(msg) {
         previewEl.innerText = previewText;
     }
 
-    // Если чат открыт, показываем сообщение
     if (currentChatId === chatPartner) {
         renderSingleMessage(msg);
         scrollToBottom();
@@ -374,7 +369,6 @@ function renderSingleMessage(msg) {
 
     const timeStr = getLocalTime(msg.timestamp);
 
-    // Проверяем системное сообщение
     if (msg.sender_id === 'system') {
         msgEl.classList.add('system-message');
         msgEl.innerHTML = `
@@ -450,7 +444,6 @@ function handleSearch(query) {
         return;
     }
 
-    // Проверяем, может это инвайт-ссылка
     const inviteMatch = query.match(/dicegram\.me\/([a-zA-Z0-9_]+)/);
     if (inviteMatch) {
         const code = inviteMatch[1];
@@ -478,14 +471,15 @@ function handleSearch(query) {
                 item.className = 'search-result-item';
                 const isBotFather = user.username === 'botfather';
                 const isVerified = user.telegram_id === CONFIG.CREATOR_ID || user.is_verified || user.telegram_id === CONFIG.SUPPORT_ID;
-                const verifyBadge = isVerified ? `<span class="verified-check">✅</span>` : '';
+                
                 item.innerHTML = `
                     <div class="chat-avatar" style="width:36px;height:36px;font-size:12px;background:${isBotFather ? 'linear-gradient(135deg, #2a9d8f, #264653)' : 'linear-gradient(135deg, #5085b1, #366187)'}">
                         ${(user.first_name || 'U').substring(0,2).toUpperCase()}
-                        ${isVerified ? '<span class="verified-badge" style="font-size:10px;">✅</span>' : ''}
                     </div>
                     <div>
-                        <div style="display:flex;align-items:center;gap:4px;font-weight:600;">${user.first_name || 'User'} ${verifyBadge}</div>
+                        <div style="display:flex;align-items:center;gap:2px;font-weight:600;">
+                            ${user.first_name || 'User'}${isVerified ? verifiedIconSvg : ''}
+                        </div>
                         <div style="font-size:12px;color:var(--tg-text-secondary);">@${user.username || ''}</div>
                     </div>
                 `;
@@ -531,10 +525,8 @@ function sendMessage() {
         return;
     }
 
-    // Проверка на канал
     const chatInfo = dynamicChats[currentChatId];
     if (chatInfo && chatInfo.chat_type === 'channel') {
-        // Проверяем права через сервер
         socket.emit('check_channel_permission', { chat_id: currentChatId }, (response) => {
             if (response && response.status === 'ok') {
                 if (!response.can_write) {

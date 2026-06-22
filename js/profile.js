@@ -1,109 +1,146 @@
-// ==========================================================================
-// DICEGRAM - PROFILE GENERATOR
-// ==========================================================================
+/* ==========================================================================
+   DICEGRAM - DYNAMIC MODAL PROFILE STYLES
+   ========================================================================== */
 
-function renderUserProfile() {
-    // 1. Инициализируем или получаем данные (можешь заменить на свои переменные)
-    const userData = {
-        name: "owner dicegram",
-        username: "@owner",
-        bio: "I m owner",
-        language: "Русский",
-        avatarUrl: "https://p16-va.tiktokcdn.com/img/musically-maliva-obj/1651478144018438~c5_1080x1080.jpeg", // Ссылка на твой аватар со скелетом
-        isVerified: true // Отображать ли галочку
-    };
-
-    // Находим корневой элемент, куда вставляется профиль (например, <div id="profile-page"></div>)
-    const profileContainer = document.getElementById("profile-page");
-    if (!profileContainer) return;
-
-    // Очищаем контейнер перед рендером
-    profileContainer.innerHTML = "";
-
-    // Создаем главную секцию профиля
-    const profileSection = document.createElement("div");
-    profileSection.className = "profile-section";
-
-    // 2. Рендерим верхнюю карточку (Аватар + Имя + Юзернейм + Статус)
-    const mainCard = document.createElement("div");
-    mainCard.className = "profile-main-card";
-
-    // Блок аватара
-    const avatarWrapper = document.createElement("div");
-    avatarWrapper.className = "profile-avatar-wrapper";
-    const avatarImg = document.createElement("img");
-    avatarImg.src = userData.avatarUrl || "assets/default-avatar.png";
-    avatarImg.alt = "User Avatar";
-    avatarWrapper.appendChild(avatarImg);
-
-    // Блок имени и галочки
-    const nameRow = document.createElement("div");
-    nameRow.className = "profile-name-row";
-    nameRow.textContent = userData.name;
-
-    if (userData.isVerified) {
-        const verifiedBadge = document.createElement("span");
-        verifiedBadge.className = "profile-verified-badge";
-        // SVG иконка верифицированной галочки (синяя/зеленая как в ТГ)
-        verifiedBadge.innerHTML = `
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="#2f8cc9">
-                <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-        `;
-        nameRow.appendChild(verifiedBadge);
-    }
-
-    // Юзернейм
-    const userTag = document.createElement("div");
-    userTag.className = "profile-user-tag";
-    userTag.textContent = userData.username;
-
-    // Статус сети
-    const onlineStatus = document.createElement("div");
-    onlineStatus.className = "profile-online-status";
-    onlineStatus.textContent = "Был(а) в сети недавно";
-
-    // Собираем карточку вместе
-    mainCard.appendChild(avatarWrapper);
-    mainCard.appendChild(nameRow);
-    mainCard.appendChild(userTag);
-    mainCard.appendChild(onlineStatus);
-    profileSection.appendChild(mainCard);
-
-    // 3. Рендерим нижний блок с плашками (Имя, Юзернейм, О себе, Язык)
-    const detailsContainer = document.createElement("div");
-    detailsContainer.className = "profile-details-container";
-
-    // Данные для красивых строк
-    const rowsData = [
-        { label: "Имя", value: userData.name },
-        { label: "Username", value: userData.username },
-        { label: "О себе", value: userData.bio },
-        { label: "Язык", value: userData.language }
-    ];
-
-    // Циклом создаем плашки для каждого пункта
-    rowsData.forEach(item => {
-        const infoRow = document.createElement("div");
-        infoRow.className = "profile-info-row";
-
-        const labelSpan = document.createElement("span");
-        labelSpan.className = "profile-info-label";
-        labelSpan.textContent = item.label;
-
-        const valueSpan = document.createElement("span");
-        valueSpan.className = "profile-info-value";
-        valueSpan.textContent = item.value;
-
-        infoRow.appendChild(labelSpan);
-        infoRow.appendChild(valueSpan);
-        detailsContainer.appendChild(infoRow);
-    });
-
-    profileSection.appendChild(detailsContainer);
-    profileContainer.appendChild(profileSection);
+:root {
+    --bg-dark: #0e1621;
+    --bg-item: #17212b;
+    --text-main: #ffffff;
+    --text-muted: #7f91a4;
+    --accent-blue: #2f8cc9;
 }
 
-// Запуск функции при загрузке страницы скрипта
-document.addEventListener("DOMContentLoaded", renderUserProfile);
+/* Окно профиля теперь является полноэкранным попапом */
+.profile-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--bg-dark);
+    z-index: 9999; /* Поверх чатов и всего остального */
+    display: none; /* Скрыт по умолчанию */
+    flex-direction: column;
+    overflow-y: auto;
+    box-sizing: border-box;
+}
 
+/* Класс, который JS добавит при клике на имя */
+.profile-modal.active {
+    display: flex;
+}
+
+/* Верхняя панель управления внутри модалки */
+.profile-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background-color: var(--bg-dark);
+}
+
+.profile-back-btn {
+    background: none;
+    border: none;
+    color: var(--text-main);
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+}
+
+.profile-modal-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+    flex-grow: 1;
+    margin-left: 20px;
+}
+
+/* Блок Аватара и Юзера (Центрированный) */
+.profile-main-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 24px 20px;
+}
+
+.profile-avatar-wrapper {
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    margin-bottom: 16px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #24313f;
+}
+
+.profile-avatar-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.profile-name-row {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin: 0;
+}
+
+.profile-user-tag {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 4px 0 2px 0;
+}
+
+.profile-online-status {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin: 2px 0 0 0;
+}
+
+/* Контейнер красивых плашек */
+.profile-details-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0 16px;
+    margin-top: 8px;
+    margin-bottom: 40px;
+}
+
+.profile-info-row {
+    background-color: var(--bg-item);
+    border-radius: 12px;
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.profile-info-label {
+    font-size: 16px;
+    color: var(--text-main);
+}
+
+.profile-info-value {
+    font-size: 16px;
+    color: var(--text-main);
+    text-align: right;
+    max-width: 60%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

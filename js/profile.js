@@ -11,23 +11,19 @@ function initProfile() {
                 const fullName = currentUserData.first_name || tgUser.first_name || 'Пользователь';
                 const displayName = currentUserData.last_name ? `${fullName} ${currentUserData.last_name}` : fullName;
                 
-                // Обновляем имя
                 const nameEl = document.getElementById('user-name');
                 if (currentUserData.is_verified) {
-                    nameEl.innerHTML = displayName + ' ✅';
+                    nameEl.innerHTML = `${displayName} <span class="verified-check"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>`;
                 } else {
                     nameEl.innerText = displayName;
                 }
                 
-                // Обновляем username
                 document.getElementById('user-username').innerText = MY_USERNAME ? `@${MY_USERNAME}` : '';
                 document.getElementById('profile-username-display').innerText = MY_USERNAME ? `@${MY_USERNAME}` : '';
                 document.getElementById('profile-display-name').innerText = displayName;
                 
-                // Обновляем аватар
                 updateAvatar('user-avatar', displayName, currentUserData.photo_url);
                 
-                // Обновляем bio
                 if (currentUserData.bio) {
                     document.getElementById('profile-bio-display').innerText = currentUserData.bio;
                 } else {
@@ -47,7 +43,6 @@ function updateAvatar(elementId, name, photoUrl) {
         avatarEl.style.display = 'block';
         avatarEl.style.background = 'none';
     } else {
-        // Создаем canvas для аватарки
         const canvas = document.createElement('canvas');
         canvas.width = 100;
         canvas.height = 100;
@@ -88,10 +83,8 @@ function showUserProfile(userId) {
             const displayName = user.last_name ? `${fullName} ${user.last_name}` : fullName;
             const isBot = user.is_bot === 1 || userId === CONFIG.BOTFATHER_ID;
             
-            // Заголовок
             document.getElementById('popup-user-name').innerText = displayName;
             
-            // Аватар
             const avatarEl = document.getElementById('popup-avatar');
             if (user.photo_url && user.photo_url.startsWith('http')) {
                 avatarEl.style.backgroundImage = `url(${user.photo_url})`;
@@ -104,19 +97,16 @@ function showUserProfile(userId) {
                 avatarEl.innerText = (user.first_name || 'U').substring(0, 2).toUpperCase();
             }
             
-            // Имя с галочкой
             const nameEl = document.getElementById('popup-name');
             const isVerified = userId === CONFIG.CREATOR_ID || userId === CONFIG.SUPPORT_ID || user.is_verified;
             if (isVerified) {
-                nameEl.innerHTML = `${displayName} <span class="verified-check">✅</span>`;
+                nameEl.innerHTML = `${displayName} <span class="verified-check"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>`;
             } else {
                 nameEl.innerText = displayName;
             }
             
-            // Username
             document.getElementById('popup-username').innerText = user.username ? `@${user.username}` : '';
             
-            // Статус
             const statusEl = document.getElementById('popup-status');
             if (isBot) {
                 statusEl.innerText = '🤖 Бот';
@@ -144,10 +134,8 @@ function showUserProfile(userId) {
                 statusEl.style.color = 'var(--tg-text-secondary)';
             }
             
-            // Bio
             document.getElementById('popup-bio').innerText = user.bio || (isBot ? 'Бот создан в DICEGRAM' : 'Нет описания');
             
-            // Дата регистрации
             const createdDate = user.created_at ? new Date(user.created_at).toLocaleDateString('ru-RU', {
                 day: '2-digit',
                 month: '2-digit',
@@ -155,12 +143,11 @@ function showUserProfile(userId) {
             }) : 'Неизвестно';
             document.getElementById('popup-created').innerText = `📅 Зарегистрирован: ${createdDate}`;
             
-            // Верификация
             const verifiedEl = document.getElementById('popup-verified');
             if (isVerified) {
                 verifiedEl.innerHTML = `
                     <div class="verified-box">
-                        <span class="icon">✅</span>
+                        <span class="icon"><svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
                         <span>This account is verified as official by the representatives of Dicegram</span>
                     </div>
                 `;
@@ -168,11 +155,9 @@ function showUserProfile(userId) {
                 verifiedEl.innerHTML = '';
             }
             
-            // Кнопки действий
             const actionsDiv = document.getElementById('popup-actions');
             actionsDiv.innerHTML = '';
             
-            // Кнопка чата
             const chatBtn = document.createElement('button');
             chatBtn.className = 'btn-chat';
             chatBtn.innerText = '💬 Написать';
@@ -189,7 +174,6 @@ function showUserProfile(userId) {
             };
             actionsDiv.appendChild(chatBtn);
             
-            // Кнопка поделиться
             const shareBtn = document.createElement('button');
             shareBtn.className = 'btn-share';
             shareBtn.innerText = '🔗 Поделиться ссылкой';
@@ -201,7 +185,6 @@ function showUserProfile(userId) {
             };
             actionsDiv.appendChild(shareBtn);
             
-            // Кнопки для создателя
             if (MY_ID === CONFIG.CREATOR_ID && userId !== CONFIG.CREATOR_ID && userId !== CONFIG.SUPPORT_ID) {
                 const verifyBtnText = user.is_verified ? '❌ Снять верификацию' : '✅ Выдать верификацию';
                 const verifyBtn = document.createElement('button');
@@ -211,7 +194,6 @@ function showUserProfile(userId) {
                 actionsDiv.appendChild(verifyBtn);
             }
             
-            // Кнопка блокировки
             if (userId !== MY_ID && userId !== CONFIG.SUPPORT_ID) {
                 const blockBtn = document.createElement('button');
                 blockBtn.className = 'btn-block';
@@ -266,14 +248,14 @@ function blockUser() {
 }
 
 function editName() {
-    const currentName = document.getElementById('user-name').innerText.replace(' ✅', '');
+    const currentName = document.getElementById('user-name').innerText.replace(' ✅', '').replace('⭐', '');
     const newName = prompt('Введите новое имя:', currentName || tgUser.first_name || '');
     if (newName && newName.trim()) {
         socket.emit('update_profile', { name: newName.trim() }, (response) => {
             if (response && response.status === 'ok') {
                 const nameEl = document.getElementById('user-name');
                 if (currentUserData && currentUserData.is_verified) {
-                    nameEl.innerHTML = newName.trim() + ' ✅';
+                    nameEl.innerHTML = `${newName.trim()} <span class="verified-check"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>`;
                 } else {
                     nameEl.innerText = newName.trim();
                 }

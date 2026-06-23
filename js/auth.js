@@ -15,7 +15,6 @@ function hideLoginScreen() {
 // Проверяем, нужно ли показывать вход (если нет tgUser)
 function checkLoginRequired() {
     const tg = window.Telegram?.WebApp;
-    // Если нет данных пользователя Telegram (или мы принудительно хотим показать вход)
     if (!tg || !tg.initDataUnsafe?.user?.id) {
         showLoginScreen();
         return true;
@@ -47,13 +46,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Кнопка "Далее"
     nextBtn.addEventListener('click', function() {
-        const phone = phoneInput.value.replace(/\s/g, '');
+        const phone = phoneInput.value.replace(/\s/g, ''); // "8888771009385"
         if (phone.length < 9) {
             errorEl.textContent = 'Введите полный номер (9 цифр)';
             return;
         }
         errorEl.textContent = '';
-        currentPhone = '+888' + phone;
+        // ✅ ИСПРАВЛЕНО: добавляем только "+", без дублирования 888
+        currentPhone = '+' + phone; // "+8888771009385"
         
         // Переключаем на ввод кода
         loginStep = 'code';
@@ -64,7 +64,6 @@ document.addEventListener('DOMContentLoaded', function() {
         backBtn.style.display = 'block';
         codeInput.focus();
         
-        // Показываем подсказку
         errorEl.textContent = 'Код отправлен в Telegram бот. Используйте /getcode';
     });
 
@@ -91,15 +90,12 @@ document.addEventListener('DOMContentLoaded', function() {
         errorEl.textContent = 'Проверка...';
         confirmBtn.disabled = true;
         
-        // Отправляем запрос на сервер
         if (socket && isConnected) {
             socket.emit('auth_phone', { phone: currentPhone, code: code }, function(response) {
                 confirmBtn.disabled = false;
                 if (response.status === 'ok') {
                     errorEl.textContent = '✅ Вход выполнен!';
-                    // Сохраняем данные пользователя
                     if (response.user) {
-                        // Обновляем глобальные переменные
                         MY_ID = response.telegram_id;
                         MY_USERNAME = response.user.username || '';
                         tgUser = {
@@ -109,9 +105,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             photo_url: response.user.photo_url || ''
                         };
                     }
-                    // Скрываем экран входа и показываем приложение
                     hideLoginScreen();
-                    // Инициализируем профиль и загружаем чаты
                     setTimeout(() => {
                         if (window.initProfile) window.initProfile();
                         if (window.loadChatsAndMessages) window.loadChatsAndMessages();
@@ -128,7 +122,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Экспортируем функции в глобальную область
+// Экспортируем в глобальную область
 window.showLoginScreen = showLoginScreen;
 window.hideLoginScreen = hideLoginScreen;
 window.checkLoginRequired = checkLoginRequired;

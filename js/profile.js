@@ -1,0 +1,469 @@
+// ============ ПРОФИЛЬ ============
+let currentUserData = null;
+
+function initProfile() {
+    if (socket && isConnected) {
+        socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
+            if (userInfo && userInfo.status === 'found') {
+                currentUserData = userInfo.user;
+                MY_USERNAME = currentUserData.username || MY_USERNAME;
+                
+                const fullName = currentUserData.first_name || tgUser.first_name || 'Пользователь';
+                const displayName = currentUserData.last_name ? `${fullName} ${currentUserData.last_name}` : fullName;
+                
+                const nameEl = document.getElementById('user-name');
+                if (currentUserData.is_verified) {
+                    nameEl.innerHTML = `${displayName} <span class="verified-check"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>`;
+                } else {
+                    nameEl.innerText = displayName;
+                }
+                
+                document.getElementById('user-username').innerText = MY_USERNAME ? `@${MY_USERNAME}` : '';
+                document.getElementById('profile-username-display').innerText = MY_USERNAME ? `@${MY_USERNAME}` : '';
+                document.getElementById('profile-display-name').innerText = displayName;
+                
+                updateAvatar('user-avatar', displayName, currentUserData.photo_url);
+                
+                if (currentUserData.bio) {
+                    document.getElementById('profile-bio-display').innerText = currentUserData.bio;
+                } else {
+                    document.getElementById('profile-bio-display').innerText = 'Добавить описание';
+                }
+            }
+        });
+    }
+}
+
+function updateAvatar(elementId, name, photoUrl) {
+    const avatarEl = document.getElementById(elementId);
+    const initials = name.substring(0, 2).toUpperCase();
+    
+    if (photoUrl && photoUrl.startsWith('http')) {
+        avatarEl.src = photoUrl;
+        avatarEl.style.display = 'block';
+        avatarEl.style.background = 'none';
+    } else {
+        const canvas = document.createElement('canvas');
+        canvas.width = 100;
+        canvas.height = 100;
+        const ctx = canvas.getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 100, 100);
+        gradient.addColorStop(0, '#5085b1');
+        gradient.addColorStop(1, '#366187');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(50, 50, 50, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 40px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(initials, 50, 52);
+        avatarEl.src = canvas.toDataURL();
+        avatarEl.style.display = 'block';
+        avatarEl.style.background = 'none';
+    }
+}
+
+function showUserProfile(userId) {
+    if (!userId) return;
+    
+    if (dynamicChats[userId] && (dynamicChats[userId].chat_type === 'group' || dynamicChats[userId].chat_type === 'channel')) {
+        if (window.showGroupInfo) {
+            window.showGroupInfo(userId);
+        }
+        return;
+    }
+    
+    if (!socket || !isConnected) {
+        alert('Нет соединения с сервером');
+        return;
+    }
+
+    socket.emit('get_user_info', { user_id: userId }, (userInfo) => {
+        if (userInfo && userInfo.status === 'found') {
+            const user = userInfo.user;
+            window.currentUserData = user;
+            
+            const popup = document.getElementById('profile-popup');
+            const fullName = user.first_name || 'Пользователь';
+            const displayName = user.last_name ? `${fullName} ${user.last_name}` : fullName;
+            const isBot = user.is_bot === 1 || userId === CONFIG.BOTFATHER_ID;
+            
+            document.getElementById('popup-user-name').innerText = displayName;
+            
+            const avatarEl = document.getElementById('popup-avatar');
+            if (user.photo_url && user.photo_url.startsWith('http')) {
+                avatarEl.style.backgroundImage = `url(${user.photo_url})`;
+                avatarEl.style.backgroundSize = 'cover';
+                avatarEl.style.backgroundPosition = 'center';
+                avatarEl.innerText = '';
+            } else {
+                avatarEl.style.background = 'linear-gradient(135deg, #5085b1, #366187)';
+                avatarEl.style.backgroundSize = 'cover';
+                avatarEl.innerText = (user.first_name || 'U').substring(0, 2).toUpperCase();
+            }
+            
+            const nameEl = document.getElementById('popup-name');
+            const isVerified = userId === CONFIG.CREATOR_ID || userId === CONFIG.SUPPORT_ID || user.is_verified;
+            if (isVerified) {
+                nameEl.innerHTML = `${displayName} <span class="verified-check"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>`;
+            } else {
+                nameEl.innerText = displayName;
+            }
+            
+            document.getElementById('popup-username').innerText = user.username ? `@${user.username}` : '';
+            
+            const statusEl = document.getElementById('popup-status');
+            if (isBot) {
+                statusEl.innerText = '🤖 Бот';
+                statusEl.style.color = 'var(--tg-text-secondary)';
+            } else if (user.is_online) {
+                statusEl.innerText = '🟢 В сети';
+                statusEl.style.color = 'var(--tg-status-online)';
+            } else {
+                const lastSeen = user.last_seen ? new Date(user.last_seen) : new Date();
+                const now = new Date();
+                const diff = Math.floor((now - lastSeen) / 1000);
+                
+                if (diff < 60) {
+                    statusEl.innerText = '⚪ Был(а) только что';
+                } else if (diff < 3600) {
+                    const minutes = Math.floor(diff / 60);
+                    statusEl.innerText = `⚪ Был(а) ${minutes} мин. назад`;
+                } else if (diff < 86400) {
+                    const hours = Math.floor(diff / 3600);
+                    statusEl.innerText = `⚪ Был(а) ${hours} ч. назад`;
+                } else {
+                    const days = Math.floor(diff / 86400);
+                    statusEl.innerText = `⚪ Был(а) ${days} дн. назад`;
+                }
+                statusEl.style.color = 'var(--tg-text-secondary)';
+            }
+            
+            document.getElementById('popup-bio').innerText = user.bio || (isBot ? 'Бот создан в DICEGRAM' : 'Нет описания');
+            document.getElementById('popup-bio').style.display = 'block';
+            
+            const createdDate = user.created_at ? new Date(user.created_at).toLocaleDateString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            }) : 'Неизвестно';
+            document.getElementById('popup-created').innerText = `📅 Зарегистрирован: ${createdDate}`;
+            document.getElementById('popup-created').style.display = 'block';
+            
+            const verifiedEl = document.getElementById('popup-verified');
+            if (isVerified) {
+                verifiedEl.innerHTML = `
+                    <div class="verified-box">
+                        <span class="icon"><svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
+                        <span>This account is verified as official by the representatives of Dicegram</span>
+                    </div>
+                `;
+            } else {
+                verifiedEl.innerHTML = '';
+            }
+            
+            const actionsDiv = document.getElementById('popup-actions');
+            actionsDiv.innerHTML = '';
+            
+            const chatBtn = document.createElement('button');
+            chatBtn.className = 'btn-chat';
+            chatBtn.innerText = '💬 Написать';
+            chatBtn.onclick = () => {
+                if (!dynamicChats[userId]) {
+                    dynamicChats[userId] = {
+                        first_name: displayName,
+                        username: user.username || ''
+                    };
+                    createChatRow(userId, displayName, user.username || '', isVerified);
+                }
+                openChat(userId, displayName, isVerified);
+                closeProfilePopup();
+            };
+            actionsDiv.appendChild(chatBtn);
+            
+            const shareBtn = document.createElement('button');
+            shareBtn.className = 'btn-share';
+            shareBtn.innerText = '🔗 Поделиться ссылкой';
+            shareBtn.onclick = () => {
+                const shareUrl = `https://t.me/${user.username || userId}`;
+                if (navigator.share) {
+                    navigator.share({
+                        title: displayName,
+                        url: shareUrl
+                    }).catch(() => {});
+                } else {
+                    navigator.clipboard.writeText(shareUrl).then(() => {
+                        alert('🔗 Ссылка скопирована!');
+                    });
+                }
+            };
+            actionsDiv.appendChild(shareBtn);
+            
+            if (MY_ID === CONFIG.CREATOR_ID && userId !== CONFIG.CREATOR_ID && userId !== CONFIG.SUPPORT_ID) {
+                const verifyBtnText = user.is_verified ? '❌ Снять верификацию' : '✅ Выдать верификацию';
+                const verifyBtn = document.createElement('button');
+                verifyBtn.className = 'btn-verify';
+                verifyBtn.innerText = verifyBtnText;
+                verifyBtn.onclick = () => toggleVerification(userId, !user.is_verified);
+                actionsDiv.appendChild(verifyBtn);
+            }
+            
+            if (userId !== MY_ID && userId !== CONFIG.SUPPORT_ID) {
+                const blockBtn = document.createElement('button');
+                blockBtn.className = 'btn-block';
+                blockBtn.innerText = '🚫 Заблокировать';
+                blockBtn.onclick = blockUser;
+                actionsDiv.appendChild(blockBtn);
+            }
+            
+            popup.classList.add('active');
+        }
+    });
+}
+
+// ============ ИНФОРМАЦИЯ О ГРУППЕ ============
+function showGroupInfo(chatId) {
+    if (!chatId) return;
+    
+    socket.emit('get_group_info', { chat_id: chatId }, (info) => {
+        if (info && info.status === 'found') {
+            const chat = info.chat;
+            socket.emit('get_group_members', { chat_id: chatId }, (members) => {
+                showGroupProfile(chat, members);
+            });
+        } else {
+            showUserProfile(chatId);
+        }
+    });
+}
+
+function showGroupProfile(chat, members) {
+    const popup = document.getElementById('profile-popup');
+    
+    document.getElementById('popup-user-name').innerText = chat.name || 'Чат';
+    
+    const avatarEl = document.getElementById('popup-avatar');
+    avatarEl.style.background = 'linear-gradient(135deg, #e76f51, #f4a261)';
+    avatarEl.innerText = (chat.name || 'Ч').substring(0, 2).toUpperCase();
+    
+    document.getElementById('popup-name').innerText = chat.name || 'Чат';
+    document.getElementById('popup-name').style.display = 'block';
+    
+    const typeLabel = chat.type === 'group' ? '👥 Группа' : '📢 Канал';
+    document.getElementById('popup-username').innerText = `${typeLabel} • ${members ? members.length : 0} участников`;
+    
+    const inviteLink = `dicegram.me/${chat.invite_link}`;
+    document.getElementById('popup-bio').innerHTML = `
+        <div style="margin-top:8px;padding:8px 12px;background:rgba(82,136,193,0.1);border-radius:8px;border:1px solid rgba(82,136,193,0.2);">
+            <div style="font-size:12px;color:var(--tg-text-secondary);">🔗 Инвайт-ссылка</div>
+            <div style="font-size:14px;color:var(--tg-accent-color);cursor:pointer;word-break:break-all;" onclick="copyInviteLink('${chat.invite_link}')">
+                ${inviteLink}
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('popup-status').innerText = `Создан: ${new Date(chat.created_at).toLocaleDateString()}`;
+    document.getElementById('popup-status').style.display = 'block';
+    document.getElementById('popup-verified').innerHTML = '';
+    document.getElementById('popup-created').innerHTML = '';
+    
+    let membersHtml = `
+        <div style="margin-top:12px;border-top:1px solid var(--tg-border-color);padding-top:12px;">
+            <div style="font-weight:600;margin-bottom:8px;font-size:15px;">👥 Участники (${members ? members.length : 0})</div>
+    `;
+    
+    if (members && members.length > 0) {
+        members.forEach(m => {
+            const isOwner = m.role === 'owner';
+            membersHtml += `
+                <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--tg-border-color);cursor:pointer;" onclick="showUserProfile('${m.telegram_id}')">
+                    <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg, #5085b1, #366187);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:12px;">${m.first_name.substring(0,2).toUpperCase()}</div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:14px;font-weight:500;display:flex;align-items:center;gap:4px;">
+                            ${m.first_name} ${m.is_verified ? '✅' : ''}
+                        </div>
+                        <div style="font-size:11px;color:var(--tg-text-secondary);">
+                            ${isOwner ? '👑 Владелец' : 'Участник'}
+                            ${m.username ? ` • @${m.username}` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+    }
+    membersHtml += '</div>';
+    
+    const actionsDiv = document.getElementById('popup-actions');
+    actionsDiv.innerHTML = `
+        <button class="btn-chat" onclick="copyInviteLink('${chat.invite_link}')">🔗 Скопировать ссылку</button>
+        <button class="btn-share" onclick="shareInviteLink('${chat.invite_link}')">📤 Поделиться</button>
+        <button class="btn-block" onclick="leaveGroup('${chat.chat_id}')">🚪 Покинуть ${chat.type === 'group' ? 'группу' : 'канал'}</button>
+        ${membersHtml}
+    `;
+    
+    popup.classList.add('active');
+}
+
+function copyInviteLink(link) {
+    const fullLink = `dicegram.me/${link}`;
+    navigator.clipboard.writeText(fullLink).then(() => {
+        alert('🔗 Ссылка скопирована в буфер обмена!');
+    });
+}
+
+function shareInviteLink(link) {
+    const fullLink = `dicegram.me/${link}`;
+    if (navigator.share) {
+        navigator.share({
+            title: 'Приглашение в DICEGRAM',
+            text: 'Присоединяйся к чату в DICEGRAM!',
+            url: `https://${fullLink}`
+        }).catch(() => {});
+    } else {
+        copyInviteLink(link);
+    }
+}
+
+function leaveGroup(chatId) {
+    if (confirm('Вы уверены, что хотите покинуть этот чат?')) {
+        socket.emit('leave_group', { chat_id: chatId }, (response) => {
+            if (response && response.status === 'ok') {
+                alert('✅ Вы покинули чат');
+                closeProfilePopup();
+                const chatItem = document.getElementById(`chat-item-${chatId}`);
+                if (chatItem) chatItem.remove();
+                delete dynamicChats[chatId];
+                loadChatsAndMessages();
+            } else {
+                alert(`❌ Ошибка: ${response?.message || 'Не удалось покинуть чат'}`);
+            }
+        });
+    }
+}
+
+function closeProfilePopup() {
+    document.getElementById('profile-popup').classList.remove('active');
+}
+
+function toggleVerification(userId, verify) {
+    if (MY_ID !== CONFIG.CREATOR_ID) {
+        alert('❌ Только создатель может управлять верификацией!');
+        return;
+    }
+    socket.emit('verify_user', { user_id: userId, verify: verify }, (response) => {
+        if (response && response.status === 'ok') {
+            alert(verify ? '✅ Пользователь верифицирован!' : '❌ Верификация снята');
+            closeProfilePopup();
+            loadChatsAndMessages();
+            initProfile();
+        }
+    });
+}
+
+function blockUser() {
+    if (confirm('🚫 Заблокировать пользователя?')) {
+        socket.emit('block_user', { block_id: currentUserData.telegram_id }, (response) => {
+            if (response && response.status === 'ok') {
+                alert('Пользователь заблокирован');
+                closeProfilePopup();
+            }
+        });
+    }
+}
+
+function editName() {
+    const currentName = document.getElementById('user-name').innerText.replace(' ✅', '').replace('⭐', '');
+    const newName = prompt('Введите новое имя:', currentName || tgUser.first_name || '');
+    if (newName && newName.trim()) {
+        socket.emit('update_profile', { name: newName.trim() }, (response) => {
+            if (response && response.status === 'ok') {
+                const nameEl = document.getElementById('user-name');
+                if (currentUserData && currentUserData.is_verified) {
+                    nameEl.innerHTML = `${newName.trim()} <span class="verified-check"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>`;
+                } else {
+                    nameEl.innerText = newName.trim();
+                }
+                document.getElementById('profile-display-name').innerText = newName.trim();
+                alert('✅ Имя обновлено!');
+                socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
+                    if (userInfo && userInfo.status === 'found') {
+                        currentUserData = userInfo.user;
+                    }
+                });
+            }
+        });
+    }
+}
+
+function editUsername() {
+    const isCreator = MY_ID === CONFIG.CREATOR_ID;
+    const currentUsername = MY_USERNAME || '';
+    const newUsername = prompt('Введите новый username:', currentUsername);
+    
+    if (newUsername && newUsername.trim()) {
+        const username = newUsername.trim().replace('@', '');
+        socket.emit('check_username', { username: username }, (response) => {
+            if (response && response.status === 'taken' && !isCreator) {
+                alert('❌ Этот username уже занят');
+                return;
+            }
+            socket.emit('update_profile', { username: username }, (response) => {
+                if (response && response.status === 'ok') {
+                    MY_USERNAME = username;
+                    document.getElementById('user-username').innerText = `@${username}`;
+                    document.getElementById('profile-username-display').innerText = `@${username}`;
+                    alert('✅ Username обновлен!');
+                    socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
+                        if (userInfo && userInfo.status === 'found') {
+                            currentUserData = userInfo.user;
+                        }
+                    });
+                }
+            });
+        });
+    }
+}
+
+function editBio() {
+    const currentBio = currentUserData?.bio || '';
+    const newBio = prompt('Введите описание (О себе):', currentBio);
+    if (newBio !== null) {
+        socket.emit('update_profile', { bio: newBio.trim() }, (response) => {
+            if (response && response.status === 'ok') {
+                document.getElementById('profile-bio-display').innerText = newBio.trim() || 'Добавить описание';
+                alert('✅ О себе обновлено!');
+                socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
+                    if (userInfo && userInfo.status === 'found') {
+                        currentUserData = userInfo.user;
+                    }
+                });
+            }
+        });
+    }
+}
+
+function changeAvatar() {
+    const url = prompt('Введите URL фото профиля:');
+    if (url && url.trim()) {
+        const avatarEl = document.getElementById('user-avatar');
+        avatarEl.src = url.trim();
+        socket.emit('update_profile', { photo_url: url.trim() }, (response) => {
+            if (response && response.status === 'ok') {
+                alert('✅ Аватар обновлен!');
+                socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
+                    if (userInfo && userInfo.status === 'found') {
+                        currentUserData = userInfo.user;
+                    }
+                });
+            }
+        });
+    }
+}
+
+function changeLanguage() {
+    alert('🌐 Выбор языка будет доступен в следующей версии');
+}
+
+setTimeout(initProfile, 1000);

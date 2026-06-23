@@ -1,4 +1,4 @@
-// ============ АВТОРИЗАЦИЯ ПО НОМЕРУ (ФИНАЛ БЕЗ ПЕРЕЗАГРУЗКИ) ============
+// ============ АВТОРИЗАЦИЯ ПО НОМЕРУ (ФИНАЛ) ============
 let loginStep = 'phone';
 let currentPhone = '';
 
@@ -18,13 +18,11 @@ function hideLoginScreen() {
 }
 
 function checkLoginRequired() {
-    // Проверяем localStorage
     const savedUser = localStorage.getItem('dicegram_user');
     if (savedUser) {
         try {
             const user = JSON.parse(savedUser);
             if (user && user.id) {
-                // Восстанавливаем глобальные переменные
                 window.tgUser = {
                     id: user.id,
                     first_name: user.first_name || 'User',
@@ -33,9 +31,8 @@ function checkLoginRequired() {
                 };
                 MY_ID = user.id;
                 MY_USERNAME = user.username || '';
-                console.log('👤 Восстановлен пользователь из localStorage:', MY_ID);
+                console.log('Восстановлен пользователь из localStorage:', MY_ID);
                 
-                // Скрываем экран входа и показываем приложение
                 hideLoginScreen();
                 const appContainer = document.getElementById('app-container');
                 if (appContainer) {
@@ -45,20 +42,18 @@ function checkLoginRequired() {
                 }
                 document.getElementById('loading-screen').style.display = 'none';
                 
-                // Загружаем данные
                 setTimeout(() => {
                     if (window.initProfile) window.initProfile();
                     if (window.loadChatsAndMessages) window.loadChatsAndMessages();
                     if (window.loadContacts) window.loadContacts();
                 }, 300);
-                return false; // вход не нужен
+                return false;
             }
         } catch (e) {
             localStorage.removeItem('dicegram_user');
         }
     }
 
-    // Если нет сохранённого пользователя, проверяем Telegram WebApp
     const tg = window.Telegram?.WebApp;
     if (!tg || !tg.initDataUnsafe?.user?.id) {
         showLoginScreen();
@@ -67,9 +62,7 @@ function checkLoginRequired() {
     return false;
 }
 
-// При загрузке страницы проверяем
 document.addEventListener('DOMContentLoaded', function() {
-    // Если пользователь уже есть в localStorage, вход не показываем
     if (localStorage.getItem('dicegram_user')) {
         return;
     }
@@ -83,7 +76,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const errorEl = document.getElementById('login-error');
 
     if (!phoneInput || !nextBtn) {
-        console.error('❌ Элементы входа не найдены!');
+        console.error('Элементы входа не найдены!');
         return;
     }
 
@@ -141,10 +134,9 @@ document.addEventListener('DOMContentLoaded', function() {
             socket.emit('auth_phone', { phone: currentPhone, code: code }, function(response) {
                 confirmBtn.disabled = false;
                 if (response.status === 'ok') {
-                    errorEl.textContent = '✅ Вход выполнен!';
-                    console.log('✅ Вход выполнен, сохраняем данные и открываем интерфейс...');
+                    errorEl.textContent = 'Вход выполнен!';
+                    console.log('Вход выполнен, открываем интерфейс...');
 
-                    // Сохраняем пользователя в localStorage
                     if (response.user) {
                         const userData = {
                             id: response.telegram_id,
@@ -153,9 +145,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             photo_url: response.user.photo_url || ''
                         };
                         localStorage.setItem('dicegram_user', JSON.stringify(userData));
-                        console.log('✅ Пользователь сохранён в localStorage');
+                        console.log('Пользователь сохранён в localStorage');
 
-                        // Обновляем глобальные переменные
                         window.tgUser = {
                             id: response.telegram_id,
                             first_name: response.user.first_name,
@@ -166,11 +157,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         MY_USERNAME = response.user.username || '';
                     }
 
-                    // Скрываем экран входа и загрузочный экран
-                    hideLoginScreen();
+                    // ПРИНУДИТЕЛЬНО ПОКАЗЫВАЕМ ИНТЕРФЕЙС
+                    document.getElementById('login-screen').style.display = 'none';
+                    document.getElementById('login-screen').classList.remove('active');
                     document.getElementById('loading-screen').style.display = 'none';
-
-                    // Показываем основной интерфейс
+                    
                     const appContainer = document.getElementById('app-container');
                     if (appContainer) {
                         appContainer.style.display = 'flex';
@@ -179,45 +170,41 @@ document.addEventListener('DOMContentLoaded', function() {
                         console.log('app-container показан');
                     }
 
-                    // Переключаем вкладку на "Чаты"
-                    const navItems = document.querySelectorAll('.nav-item');
-                    navItems.forEach(item => item.classList.remove('active'));
+                    // Переключаем вкладку "Чаты"
+                    document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+                    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+                    
                     const chatsNav = document.querySelector('.nav-item[onclick*="chats"]');
-                    if (chatsNav) {
-                        chatsNav.classList.add('active');
-                        const screenChats = document.getElementById('screen-chats');
-                        if (screenChats) {
-                            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-                            screenChats.classList.add('active');
-                        }
-                    }
+                    if (chatsNav) chatsNav.classList.add('active');
+                    
+                    const screenChats = document.getElementById('screen-chats');
+                    if (screenChats) screenChats.classList.add('active');
+                    
                     document.getElementById('header-title').innerText = 'Чаты';
 
-                    // Загружаем данные через 300ms
-                    setTimeout(() => {
+                    setTimeout(function() {
                         try {
                             if (window.initProfile) window.initProfile();
                             if (window.loadChatsAndMessages) window.loadChatsAndMessages();
                             if (window.loadContacts) window.loadContacts();
-                            console.log('✅ Все данные загружены');
+                            console.log('Все данные загружены');
                         } catch (e) {
                             console.error('Ошибка загрузки:', e);
                         }
                     }, 300);
 
                 } else {
-                    errorEl.textContent = '❌ ' + (response.message || 'Ошибка');
+                    errorEl.textContent = 'Ошибка: ' + (response.message || 'Неизвестная ошибка');
                     console.error('Ошибка входа:', response);
                 }
             });
         } else {
-            errorEl.textContent = '❌ Нет соединения с сервером';
+            errorEl.textContent = 'Нет соединения с сервером';
             confirmBtn.disabled = false;
         }
     });
 });
 
-// Функция выхода (очистка localStorage и перезагрузка)
 function logout() {
     localStorage.removeItem('dicegram_user');
     window.location.reload();

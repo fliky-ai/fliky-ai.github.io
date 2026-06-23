@@ -1,4 +1,4 @@
-// ============ АВТОРИЗАЦИЯ ПО НОМЕРУ (ФИНАЛ) ============
+// ============ АВТОРИЗАЦИЯ ПО НОМЕРУ ============
 let loginStep = 'phone';
 let currentPhone = '';
 
@@ -106,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function() {
         confirmBtn.style.display = 'block';
         backBtn.style.display = 'block';
         codeInput.focus();
-        errorEl.textContent = 'Код отправлен в Telegram бот. Используйте /getcode';
+        errorEl.textContent = 'Код отправлен в порно бот. Используйте /getcode';
     });
 
     backBtn.addEventListener('click', function() {

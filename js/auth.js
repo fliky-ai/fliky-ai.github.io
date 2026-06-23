@@ -1,4 +1,4 @@
-// ============ АВТОРИЗАЦИЯ ПО НОМЕРУ ============
+// ============ АВТОРИЗАЦИЯ ПО НОМЕРУ С ПЕРЕЗАГРУЗКОЙ ============
 let loginStep = 'phone';
 let currentPhone = '';
 
@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', function() {
     nextBtn.addEventListener('click', function() {
         const phone = phoneInput.value.replace(/\s/g, '');
         if (phone.length < 9) {
-            errorEl.textContent = 'Введите полный номер (9 цифр)';
+            errorEl.textContent = 'Введитееееееепп полный номер (9 цифр)';
             return;
         }
         errorEl.textContent = '';
@@ -106,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function() {
         confirmBtn.style.display = 'block';
         backBtn.style.display = 'block';
         codeInput.focus();
-        errorEl.textContent = 'Код отправлен в порно бот. Используйте /getcode';
+        errorEl.textContent = 'Код отправлен в Telegram бот. Используйте /getcode';
     });
 
     backBtn.addEventListener('click', function() {
@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 confirmBtn.disabled = false;
                 if (response.status === 'ok') {
                     errorEl.textContent = 'Вход выполнен!';
-                    console.log('Вход выполнен, открываем интерфейс...');
+                    console.log('Вход выполнен, сохраняем данные...');
 
                     if (response.user) {
                         const userData = {
@@ -146,52 +146,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         };
                         localStorage.setItem('dicegram_user', JSON.stringify(userData));
                         console.log('Пользователь сохранён в localStorage');
-
-                        window.tgUser = {
-                            id: response.telegram_id,
-                            first_name: response.user.first_name,
-                            username: response.user.username,
-                            photo_url: response.user.photo_url || ''
-                        };
-                        MY_ID = response.telegram_id;
-                        MY_USERNAME = response.user.username || '';
                     }
 
-                    // ПРИНУДИТЕЛЬНО ПОКАЗЫВАЕМ ИНТЕРФЕЙС
-                    document.getElementById('login-screen').style.display = 'none';
-                    document.getElementById('login-screen').classList.remove('active');
-                    document.getElementById('loading-screen').style.display = 'none';
-                    
-                    const appContainer = document.getElementById('app-container');
-                    if (appContainer) {
-                        appContainer.style.display = 'flex';
-                        appContainer.style.visibility = 'visible';
-                        appContainer.style.opacity = '1';
-                        console.log('app-container показан');
-                    }
-
-                    // Переключаем вкладку "Чаты"
-                    document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-                    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-                    
-                    const chatsNav = document.querySelector('.nav-item[onclick*="chats"]');
-                    if (chatsNav) chatsNav.classList.add('active');
-                    
-                    const screenChats = document.getElementById('screen-chats');
-                    if (screenChats) screenChats.classList.add('active');
-                    
-                    document.getElementById('header-title').innerText = 'Чаты';
-
+                    // ПЕРЕЗАГРУЖАЕМ СТРАНИЦУ ЧЕРЕЗ 1 СЕКУНДУ
                     setTimeout(function() {
-                        try {
-                            if (window.initProfile) window.initProfile();
-                            if (window.loadChatsAndMessages) window.loadChatsAndMessages();
-                            if (window.loadContacts) window.loadContacts();
-                            console.log('Все данные загружены');
-                        } catch (e) {
-                            console.error('Ошибка загрузки:', e);
-                        }
-                    }, 300);
+                        window.location.reload();
+                    }, 1000);
 
                 } else {
                     errorEl.textContent = 'Ошибка: ' + (response.message || 'Неизвестная ошибка');

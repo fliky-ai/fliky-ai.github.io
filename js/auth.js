@@ -52,7 +52,6 @@ function autoLogin() {
         console.log('📨 Ответ auto_auth:', response);
         
         if (response && response.status === 'ok') {
-            // Сохраняем пользователя
             const user = response.user;
             const userData = {
                 id: user.telegram_id,
@@ -73,7 +72,6 @@ function autoLogin() {
             
             console.log('✅ Пользователь создан:', MY_ID);
             
-            // Показываем интерфейс
             document.getElementById('loading-screen').style.display = 'none';
             const appContainer = document.getElementById('app-container');
             if (appContainer) {
@@ -90,6 +88,12 @@ function autoLogin() {
         } else {
             console.error('❌ Ошибка автоматического входа:', response);
             document.getElementById('loading-status').textContent = 'Ошибка входа';
+            // Показываем сообщение об ошибке
+            const errorEl = document.getElementById('loading-error');
+            if (errorEl) {
+                errorEl.style.display = 'block';
+                errorEl.textContent = '❌ Ошибка подключения к серверу';
+            }
         }
     });
 }

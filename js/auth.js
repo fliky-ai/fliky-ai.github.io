@@ -1,4 +1,4 @@
-// ============ АВТОРИЗАЦИЯ ПО НОМЕРУ С ПЕРЕЗАГРУЗКОЙ ============
+// ============ АВТОРИЗАЦИЯ ПО НОМЕРУ ============
 let loginStep = 'phone';
 let currentPhone = '';
 
@@ -18,6 +18,7 @@ function hideLoginScreen() {
 }
 
 function checkLoginRequired() {
+    // ПРОВЕРЯЕМ localStorage и ЕСЛИ ЕСТЬ - НЕ ПОКАЗЫВАЕМ ВХОД
     const savedUser = localStorage.getItem('dicegram_user');
     if (savedUser) {
         try {
@@ -33,14 +34,21 @@ function checkLoginRequired() {
                 MY_USERNAME = user.username || '';
                 console.log('Восстановлен пользователь из localStorage:', MY_ID);
                 
-                hideLoginScreen();
+                // ПРИНУДИТЕЛЬНО СКРЫВАЕМ ВХОД
+                const loginScreen = document.getElementById('login-screen');
+                if (loginScreen) {
+                    loginScreen.classList.remove('active');
+                    loginScreen.style.display = 'none';
+                }
+                document.getElementById('loading-screen').style.display = 'none';
+                
+                // ПОКАЗЫВАЕМ ИНТЕРФЕЙС
                 const appContainer = document.getElementById('app-container');
                 if (appContainer) {
                     appContainer.style.display = 'flex';
                     appContainer.style.visibility = 'visible';
                     appContainer.style.opacity = '1';
                 }
-                document.getElementById('loading-screen').style.display = 'none';
                 
                 setTimeout(() => {
                     if (window.initProfile) window.initProfile();
@@ -63,6 +71,7 @@ function checkLoginRequired() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    // ЕСЛИ ЕСТЬ LOCALSTORAGE - ВЫХОДИМ
     if (localStorage.getItem('dicegram_user')) {
         return;
     }
@@ -94,7 +103,7 @@ document.addEventListener('DOMContentLoaded', function() {
     nextBtn.addEventListener('click', function() {
         const phone = phoneInput.value.replace(/\s/g, '');
         if (phone.length < 9) {
-            errorEl.textContent = 'Введитееееееепп полный номер (9 цифр)';
+            errorEl.textContent = 'Ввввведите полный номер (9 цифр)';
             return;
         }
         errorEl.textContent = '';
@@ -148,10 +157,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         console.log('Пользователь сохранён в localStorage');
                     }
 
-                    // ПЕРЕЗАГРУЖАЕМ СТРАНИЦУ ЧЕРЕЗ 1 СЕКУНДУ
+                    // ПЕРЕЗАГРУЖАЕМ СТРАНИЦУ
                     setTimeout(function() {
                         window.location.reload();
-                    }, 1000);
+                    }, 500);
 
                 } else {
                     errorEl.textContent = 'Ошибка: ' + (response.message || 'Неизвестная ошибка');

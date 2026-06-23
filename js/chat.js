@@ -1,4 +1,4 @@
-here// ============ ЛОГИКА ЧАТОВ ============
+// ============ ЛОГИКА ЧАТОВ ============
 let currentChatId = null;
 let dynamicChats = {};
 let unreadCounts = {};
@@ -9,7 +9,7 @@ let isInitialLoad = true;
 let currentMessageId = null;
 const REACTIONS = ['👍', '❤️', '😂', '😢', '😡', '🔥', '🎉', '😎'];
 
-// ============ СИНИЙ ЗНАЧОК ВЕРИФИКАЦИИ ============
+// Синий значок верификации для точности интерфейса Telegram
 const BLUE_VERIFY_SVG = `<svg class="tg-verify-icon" style="width:16px;height:16px;fill:#2f8cc9;vertical-align:middle;margin-left:4px;" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
 
 // ============ КЭШ СООБЩЕНИЙ ДЛЯ ОТСЛЕЖИВАНИЯ ДУБЛИКАТОВ ============
@@ -25,6 +25,7 @@ function loadChatsAndMessages() {
 
     console.log('📥 Загрузка чатов...');
     
+    // Предварительная локальная посадка DICEGRAM SUPPORT
     if (!dynamicChats[CONFIG.SUPPORT_ID]) {
         dynamicChats[CONFIG.SUPPORT_ID] = {
             first_name: 'DICEGRAM SUPPORT',
@@ -49,14 +50,14 @@ function loadChatsAndMessages() {
         const chatsList = document.getElementById('chats-list');
         chatsList.innerHTML = '';
         
-        // Всегда показываем SUPPORT
+        // Выводим Саппорт на самый верх при загрузке
         createChatRow(CONFIG.SUPPORT_ID, 'DICEGRAM SUPPORT', 'dicegram_support', true);
         const supportPreview = document.getElementById(`preview-${CONFIG.SUPPORT_ID}`);
         if (supportPreview) {
             supportPreview.innerText = '👋 Добро пожаловать в DICEGRAM!';
         }
         
-        // Всегда показываем BotFather
+        // Следом BotFather
         createChatRow(CONFIG.BOTFATHER_ID, 'BotFather', 'botfather', false);
         
         if (chats && Array.isArray(chats)) {
@@ -96,6 +97,12 @@ function loadChatsAndMessages() {
                         unreadCounts[partnerId] = chat.unread_count;
                         updateUnreadBadge(partnerId, chat.unread_count);
                     }
+                }
+
+                // Корректируем счетчик непрочитанных для саппорта, если они пришли с сервера
+                if (partnerId === CONFIG.SUPPORT_ID && chat.unread_count > 0) {
+                    unreadCounts[CONFIG.SUPPORT_ID] = chat.unread_count;
+                    updateUnreadBadge(CONFIG.SUPPORT_ID, chat.unread_count);
                 }
             });
         }
@@ -216,19 +223,12 @@ function openChat(chatId) {
     const titleEl = document.getElementById('chat-room-title');
     titleEl.innerText = chatName || 'Чат';
     
-    // Показываем тип чата
     if (chatInfo) {
         if (chatInfo.chat_type === 'group') {
             titleEl.innerText = '👥 ' + (chatName || 'Группа');
         } else if (chatInfo.chat_type === 'channel') {
             titleEl.innerText = '📢 ' + (chatName || 'Канал');
         }
-    }
-    
-    // Для SUPPORT всегда показываем галочку
-    if (chatId === CONFIG.SUPPORT_ID) {
-        titleEl.innerHTML = `DICEGRAM SUPPORT ${BLUE_VERIFY_SVG}`;
-        document.getElementById('chat-room-status').innerText = 'официальный аккаунт';
     }
     
     const messagesContainer = document.getElementById('chat-messages');
@@ -245,8 +245,11 @@ function openChat(chatId) {
         });
     }
 
-    // ============ ПРИВЕТСТВИЕ ДЛЯ SUPPORT ============
+    // Логика приветствия DICEGRAM SUPPORT
     if (chatId === CONFIG.SUPPORT_ID) {
+        titleEl.innerHTML = `DICEGRAM SUPPORT ${BLUE_VERIFY_SVG}`;
+        document.getElementById('chat-room-status').innerText = 'официальный аккаунт';
+
         const tgUserData = window.Telegram?.WebApp?.initDataUnsafe?.user;
         const finalName = tgUserData?.first_name || tgUser.first_name || 'Пользователь';
         const finalUsername = tgUserData?.username || tgUser.username || 'не установлен';
@@ -263,7 +266,6 @@ function openChat(chatId) {
         renderSingleMessageWithCheck(welcomeMsg);
     }
 
-    // Получаем информацию о пользователе
     socket.emit('get_user_info', { user_id: chatId }, (userInfo) => {
         if (userInfo && userInfo.status === 'found') {
             const isVerifiedUser = userInfo.user.is_verified || chatId === CONFIG.SUPPORT_ID || chatId === CONFIG.CREATOR_ID;
@@ -283,12 +285,11 @@ function openChat(chatId) {
     document.getElementById('bottom-navigation').style.display = 'none';
     document.getElementById('chat-room').style.display = 'flex';
 
-    // Загружаем историю
     socket.emit('get_chat_history', { with_id: chatId }, (history) => {
         console.log('📨 История чата:', history?.length || 0);
         if (history && Array.isArray(history)) {
             history.forEach(msg => {
-                // Пропускаем дубли приветствия для SUPPORT
+                // Исключаем повторный вывод дефолтного приветствия, если оно подгрузилось из бэкенда
                 if (chatId === CONFIG.SUPPORT_ID && msg.text && msg.text.includes("Добро пожаловать в DICEGRAM!")) {
                     return; 
                 }
@@ -365,6 +366,7 @@ function renderSingleMessageWithCheck(msg) {
         msgEl.classList.add('received');
     }
 
+    // Форматируем текст с ссылками и упоминаниями
     const formattedText = formatMessageText(msg.text);
 
     msgEl.innerHTML = `
@@ -402,7 +404,90 @@ function renderSingleMessageWithCheck(msg) {
     }
 }
 
+// ============ ПРОВЕРКА ПРАВ В КАНАЛЕ ============
+function checkChannelPermission(chatId) {
+    socket.emit('check_channel_permission', { chat_id: chatId }, (response) => {
+        if (response && response.status === 'ok') {
+            const input = document.getElementById('message-field');
+            const sendBtn = document.getElementById('send-btn-icon');
+            
+            if (response.chat_type === 'channel' && !response.can_write) {
+                input.disabled = true;
+                input.placeholder = '📢 Канал доступен только для чтения';
+                sendBtn.style.opacity = '0.3';
+                sendBtn.style.cursor = 'not-allowed';
+            } else {
+                input.disabled = false;
+                input.placeholder = 'Сообщение...';
+                sendBtn.style.opacity = '1';
+                sendBtn.style.cursor = 'pointer';
+            }
+        }
+    });
+}
+
+// ============ ЗАКРЫТИЕ ЧАТА ============
+function closeChat() {
+    document.getElementById('chat-room').style.display = 'none';
+    document.getElementById('bottom-navigation').style.display = 'flex';
+    currentChatId = null;
+    
+    const input = document.getElementById('message-field');
+    const sendBtn = document.getElementById('send-btn-icon');
+    input.disabled = false;
+    input.placeholder = 'Сообщение...';
+    sendBtn.style.opacity = '1';
+    sendBtn.style.cursor = 'pointer';
+}
+
+// ============ ОБРАБОТКА НОВОГО СООБЩЕНИЯ ============
+function handleNewMessage(msg) {
+    console.log('📩 Новое сообщение:', msg);
+    
+    // ============ ИСПОЛЬЗУЕМ РЕНДЕР С ПРОВЕРКОЙ ============
+    renderSingleMessageWithCheck(msg);
+    
+    const chatPartner = msg.sender_id === MY_ID ? msg.receiver_id : msg.sender_id;
+    
+    if (msg.sender_id === 'system') {
+        scrollToBottom();
+        return;
+    }
+
+    if (chatPartner && chatPartner !== MY_ID) {
+        if (!dynamicChats[chatPartner]) {
+            // Если чат не был инициализирован, запрашиваем список заново
+            loadChatsAndMessages();
+        } else {
+            // Если чат открыт прямо сейчас — рендерим сообщение в реальном времени
+            if (currentChatId === chatPartner) {
+                scrollToBottom();
+                socket.emit('mark_as_read', { chat_id: chatPartner });
+            } else {
+                // Иначе инкрементируем счетчик непрочитанных
+                unreadCounts[chatPartner] = (unreadCounts[chatPartner] || 0) + 1;
+                updateUnreadBadge(chatPartner, unreadCounts[chatPartner]);
+            }
+            
+            // Обновляем текст последнего сообщения в списке
+            const previewEl = document.getElementById(`preview-${chatPartner}`);
+            if (previewEl) {
+                previewEl.innerText = msg.text;
+            }
+        }
+    }
+}
+
 // ============ ОТПРАВКА СООБЩЕНИЯ ============
+function toggleSendButton(input) {
+    const btn = document.getElementById('send-btn-icon');
+    if (input && input.value && input.value.trim().length > 0) {
+        btn.classList.add('active');
+    } else {
+        btn.classList.remove('active');
+    }
+}
+
 function sendMessage() {
     const input = document.getElementById('message-field');
     const text = input.value.trim();
@@ -441,16 +526,19 @@ function sendMessage() {
     sendMessageToServer(text);
 }
 
+// ============ ОТПРАВКА НА СЕРВЕР (БЕЗ РУЧНОЙ ОТРИСОВКИ) ============
 function sendMessageToServer(text) {
     const input = document.getElementById('message-field');
     
-    // Отправляем сообщение на сервер
+    // ============ НЕ ДЕЛАЕМ РУЧНУЮ ОТРИСОВКУ ============
+    // Бэкенд вернёт сообщение через 'new_message', и оно отрисуется там
+    
     socket.emit('send_message', { 
         receiver_id: currentChatId, 
         text: text 
     }, (response) => {
         if (response && response.status === 'ok') {
-            // Сообщение будет отрисовано через 'new_message'
+            // Сообщение уже будет отрисовано через 'new_message'
             // Обновляем превью в списке чатов
             const previewEl = document.getElementById(`preview-${currentChatId}`);
             if (previewEl) {
@@ -470,150 +558,72 @@ function sendMessageToServer(text) {
     input.focus();
 }
 
-// ============ ОБРАБОТКА НОВОГО СООБЩЕНИЯ ============
-function handleNewMessage(msg) {
-    console.log('📩 Новое сообщение:', msg);
+// ============ ОБРАБОТКА КОМАНД BOTFATHER ============
+function handleBotCommand(text) {
+    const botResponse = emulateBotFather(text);
     
-    // Рендерим сообщение с проверкой дубликатов
-    renderSingleMessageWithCheck(msg);
+    const userMsg = {
+        id: Date.now().toString(),
+        sender_id: MY_ID,
+        receiver_id: CONFIG.BOTFATHER_ID,
+        text: text,
+        timestamp: new Date().toISOString(),
+        is_read: true
+    };
+    renderSingleMessageWithCheck(userMsg);
     
-    const chatPartner = msg.sender_id === MY_ID ? msg.receiver_id : msg.sender_id;
-    
-    if (msg.sender_id === 'system') {
+    setTimeout(() => {
+        const botMsg = {
+            id: (Date.now() + 1).toString(),
+            sender_id: CONFIG.BOTFATHER_ID,
+            receiver_id: MY_ID,
+            text: botResponse,
+            timestamp: new Date().toISOString(),
+            is_read: true
+        };
+        renderSingleMessageWithCheck(botMsg);
         scrollToBottom();
-        return;
-    }
+    }, 500);
+}
 
-    if (chatPartner && chatPartner !== MY_ID) {
-        if (!dynamicChats[chatPartner]) {
-            loadChatsAndMessages();
-        } else {
-            // Если чат не открыт, увеличиваем счетчик непрочитанных
-            if (currentChatId !== chatPartner) {
-                unreadCounts[chatPartner] = (unreadCounts[chatPartner] || 0) + 1;
-                updateUnreadBadge(chatPartner, unreadCounts[chatPartner]);
-            }
-            
-            // Обновляем превью
-            const previewEl = document.getElementById(`preview-${chatPartner}`);
-            if (previewEl) {
-                previewEl.innerText = msg.text;
-            }
-        }
+function emulateBotFather(text) {
+    const lower = text.toLowerCase().trim();
+    
+    if (lower === '/start') {
+        return `I can help you create and manage Telegram bots. If you're new to the Bot API, please see the manual.\n\nYou can control me by sending these commands:\n\n/newbot - create a new bot\n/mybots - edit your bots`;
     }
     
-    // Если чат открыт, скроллим вниз
-    if (currentChatId === chatPartner || currentChatId === msg.receiver_id) {
-        scrollToBottom();
-        if (msg.sender_id !== MY_ID) {
-            socket.emit('mark_as_read', { chat_id: chatPartner });
-        }
+    if (lower === '/newbot') {
+        return `Alright, a new bot. How are we going to call it? Please choose a name for your bot.`;
     }
-}
-
-// ============ ЗАКРЫТИЕ ЧАТА ============
-function closeChat() {
-    document.getElementById('chat-room').style.display = 'none';
-    document.getElementById('bottom-navigation').style.display = 'flex';
-    currentChatId = null;
     
-    const input = document.getElementById('message-field');
-    const sendBtn = document.getElementById('send-btn-icon');
-    input.disabled = false;
-    input.placeholder = 'Сообщение...';
-    sendBtn.style.opacity = '1';
-    sendBtn.style.cursor = 'pointer';
-}
-
-// ============ ПРОВЕРКА ПРАВ В КАНАЛЕ ============
-function checkChannelPermission(chatId) {
-    socket.emit('check_channel_permission', { chat_id: chatId }, (response) => {
-        if (response && response.status === 'ok') {
-            const input = document.getElementById('message-field');
-            const sendBtn = document.getElementById('send-btn-icon');
-            
-            if (response.chat_type === 'channel' && !response.can_write) {
-                input.disabled = true;
-                input.placeholder = '📢 Канал доступен только для чтения';
-                sendBtn.style.opacity = '0.3';
-                sendBtn.style.cursor = 'not-allowed';
-            } else {
-                input.disabled = false;
-                input.placeholder = 'Сообщение...';
-                sendBtn.style.opacity = '1';
-                sendBtn.style.cursor = 'pointer';
-            }
+    if (!window.botCreationStep) {
+        window.botCreationStep = 'name';
+        window.botName = text;
+        return `Good. Now let's choose a username for your bot. It must end in \`bot\`. Like this, for example: TetrisBot or tetris_bot.`;
+    } else if (window.botCreationStep === 'name') {
+        window.botName = text;
+        window.botCreationStep = 'username';
+        return `Good. Now let's choose a username for your bot. It must end in \`bot\`. Like this, for example: TetrisBot or tetris_bot.`;
+    } else if (window.botCreationStep === 'username') {
+        const username = text.trim();
+        if (!username.endsWith('bot')) {
+            return `Sorry, the username must end with 'bot'. Please try again.`;
         }
-    });
-}
-
-// ============ ПОИСК ПОЛЬЗОВАТЕЛЕЙ ============
-function handleSearch(query) {
-    const resultsContainer = document.getElementById('search-results');
-    if (!query.trim()) {
-        resultsContainer.style.display = 'none';
-        resultsContainer.innerHTML = '';
-        return;
-    }
-
-    const inviteMatch = query.match(/dicegram\.me\/([a-zA-Z0-9_]+)/);
-    if (inviteMatch) {
-        const code = inviteMatch[1];
-        if (window.joinByInvite) {
-            window.joinByInvite(code);
-            document.getElementById('global-search').value = '';
-            resultsContainer.style.display = 'none';
-            return;
+        
+        if (window.createdBots && window.createdBots.includes(username)) {
+            return `Sorry, this username is invalid.`;
         }
+        
+        if (!window.createdBots) window.createdBots = [];
+        window.createdBots.push(username);
+        window.botCreationStep = null;
+        
+        const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        return `Done! Congratulations on your new bot. You will find it at d.me/${username}. You can now add a description, about section and profile picture for your bot, see /help for a list of commands. By the way, when you've finished creating your cool bot, ping our Bot Support if you want a better username for it. Just make sure the bot is fully operational before you do this.\n\nUse this token to access the HTTP API:\n${token}\n\nKeep your token secure and store it safely, it can be used by anyone to control your bot.`;
     }
-
-    if (!socket || !isConnected) {
-        resultsContainer.style.display = 'block';
-        resultsContainer.innerHTML = '<div style="padding:10px 14px;color:var(--tg-text-secondary);">Нет соединения с сервером</div>';
-        return;
-    }
-
-    socket.emit('search_users', { query: query.trim() }, (results) => {
-        resultsContainer.innerHTML = '';
-        if (results && results.length > 0) {
-            resultsContainer.style.display = 'block';
-            results.forEach(user => {
-                if (user.telegram_id === MY_ID) return;
-                const item = document.createElement('div');
-                item.className = 'search-result-item';
-                const isBotFather = user.username === 'botfather';
-                const isVerified = user.telegram_id === CONFIG.CREATOR_ID || user.is_verified || user.telegram_id === CONFIG.SUPPORT_ID;
-                const verifyBadge = isVerified ? `<span class="verified-check">✅</span>` : '';
-                item.innerHTML = `
-                    <div class="chat-avatar" style="width:36px;height:36px;font-size:12px;background:${isBotFather ? 'linear-gradient(135deg, #2a9d8f, #264653)' : 'linear-gradient(135deg, #5085b1, #366187)'}">
-                        ${(user.first_name || 'U').substring(0,2).toUpperCase()}
-                        ${isVerified ? '<span class="verified-badge" style="font-size:10px;">✅</span>' : ''}
-                    </div>
-                    <div>
-                        <div style="display:flex;align-items:center;gap:4px;font-weight:600;">${user.first_name || 'User'} ${verifyBadge}</div>
-                        <div style="font-size:12px;color:var(--tg-text-secondary);">@${user.username || ''}</div>
-                    </div>
-                `;
-                item.onclick = () => {
-                    if (user.telegram_id === MY_ID) return;
-                    if (!dynamicChats[user.telegram_id]) {
-                        dynamicChats[user.telegram_id] = {
-                            first_name: user.first_name || `User ${user.telegram_id}`,
-                            username: user.username || ''
-                        };
-                        createChatRow(user.telegram_id, user.first_name || `User ${user.telegram_id}`, user.username || '', isVerified);
-                    }
-                    openChat(user.telegram_id);
-                    resultsContainer.style.display = 'none';
-                    document.getElementById('global-search').value = '';
-                };
-                resultsContainer.appendChild(item);
-            });
-        } else {
-            resultsContainer.style.display = 'block';
-            resultsContainer.innerHTML = '<div style="padding:10px 14px;color:var(--tg-text-secondary);">Пользователи не найдены</div>';
-        }
-    });
+    
+    return `I don't understand that command. Please use /start, /newbot, or /mybots.`;
 }
 
 // ============ РЕАКЦИИ ============
@@ -750,72 +760,91 @@ function joinByInvite(link) {
     });
 }
 
-// ============ ОБРАБОТКА КОМАНД BOTFATHER ============
-function handleBotCommand(text) {
-    const botResponse = emulateBotFather(text);
-    
-    const userMsg = {
-        id: Date.now().toString(),
-        sender_id: MY_ID,
-        receiver_id: CONFIG.BOTFATHER_ID,
-        text: text,
-        timestamp: new Date().toISOString(),
-        is_read: true
-    };
-    renderSingleMessageWithCheck(userMsg);
-    
-    setTimeout(() => {
-        const botMsg = {
-            id: (Date.now() + 1).toString(),
-            sender_id: CONFIG.BOTFATHER_ID,
-            receiver_id: MY_ID,
-            text: botResponse,
-            timestamp: new Date().toISOString(),
-            is_read: true
-        };
-        renderSingleMessageWithCheck(botMsg);
-        scrollToBottom();
-    }, 500);
+// ============ ФУНКЦИЯ ДЛЯ ВЕРИФИКАЦИИ В МОДАЛКЕ ============
+function handleProfileModalVerification(userId) {
+    const verifiedBox = document.getElementById('popup-verified');
+    if (!verifiedBox) return;
+
+    if (userId === CONFIG.SUPPORT_ID) {
+        verifiedBox.style.display = 'block';
+        verifiedBox.innerHTML = `
+            <div class="verified-info-box" style="background: rgba(47, 140, 201, 0.1); border-left: 3px solid #2f8cc9; padding: 12px; margin: 12px 0; border-radius: 6px;">
+                <span style="color: #2f8cc9; font-weight: 600;">✓ Официальный аккаунт</span>
+                <p style="font-size: 13px; color: var(--tg-text-secondary); margin: 6px 0 0 0;">Этот аккаунт верифицирован, так как является официальной поддержкой DICEGRAM.</p>
+            </div>
+        `;
+    } else {
+        verifiedBox.style.display = 'none';
+    }
 }
 
-function emulateBotFather(text) {
-    const lower = text.toLowerCase().trim();
-    
-    if (lower === '/start') {
-        return `I can help you create and manage Telegram bots. If you're new to the Bot API, please see the manual.\n\nYou can control me by sending these commands:\n\n/newbot - create a new bot\n/mybots - edit your bots`;
+// ============ ПОИСК ПОЛЬЗОВАТЕЛЕЙ ============
+function handleSearch(query) {
+    const resultsContainer = document.getElementById('search-results');
+    if (!query.trim()) {
+        resultsContainer.style.display = 'none';
+        resultsContainer.innerHTML = '';
+        return;
     }
-    
-    if (lower === '/newbot') {
-        return `Alright, a new bot. How are we going to call it? Please choose a name for your bot.`;
-    }
-    
-    if (!window.botCreationStep) {
-        window.botCreationStep = 'name';
-        window.botName = text;
-        return `Good. Now let's choose a username for your bot. It must end in \`bot\`. Like this, for example: TetrisBot or tetris_bot.`;
-    } else if (window.botCreationStep === 'name') {
-        window.botName = text;
-        window.botCreationStep = 'username';
-        return `Good. Now let's choose a username for your bot. It must end in \`bot\`. Like this, for example: TetrisBot or tetris_bot.`;
-    } else if (window.botCreationStep === 'username') {
-        const username = text.trim();
-        if (!username.endsWith('bot')) {
-            return `Sorry, the username must end with 'bot'. Please try again.`;
+
+    const inviteMatch = query.match(/dicegram\.me\/([a-zA-Z0-9_]+)/);
+    if (inviteMatch) {
+        const code = inviteMatch[1];
+        if (window.joinByInvite) {
+            window.joinByInvite(code);
+            document.getElementById('global-search').value = '';
+            resultsContainer.style.display = 'none';
+            return;
         }
-        
-        if (window.createdBots && window.createdBots.includes(username)) {
-            return `Sorry, this username is invalid.`;
-        }
-        
-        if (!window.createdBots) window.createdBots = [];
-        window.createdBots.push(username);
-        window.botCreationStep = null;
-        
-        const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-        return `Done! Congratulations on your new bot. You will find it at d.me/${username}. You can now add a description, about section and profile picture for your bot, see /help for a list of commands. By the way, when you've finished creating your cool bot, ping our Bot Support if you want a better username for it. Just make sure the bot is fully operational before you do this.\n\nUse this token to access the HTTP API:\n${token}\n\nKeep your token secure and store it safely, it can be used by anyone to control your bot.`;
     }
-    
-    return `I don't understand that command. Please use /start, /newbot, or /mybots.`;
+
+    if (!socket || !isConnected) {
+        resultsContainer.style.display = 'block';
+        resultsContainer.innerHTML = '<div style="padding:10px 14px;color:var(--tg-text-secondary);">Нет соединения с сервером</div>';
+        return;
+    }
+
+    socket.emit('search_users', { query: query.trim() }, (results) => {
+        resultsContainer.innerHTML = '';
+        if (results && results.length > 0) {
+            resultsContainer.style.display = 'block';
+            results.forEach(user => {
+                if (user.telegram_id === MY_ID) return;
+                const item = document.createElement('div');
+                item.className = 'search-result-item';
+                const isBotFather = user.username === 'botfather';
+                const isVerified = user.telegram_id === CONFIG.CREATOR_ID || user.is_verified || user.telegram_id === CONFIG.SUPPORT_ID;
+                const verifyBadge = isVerified ? `<span class="verified-check">✅</span>` : '';
+                item.innerHTML = `
+                    <div class="chat-avatar" style="width:36px;height:36px;font-size:12px;background:${isBotFather ? 'linear-gradient(135deg, #2a9d8f, #264653)' : 'linear-gradient(135deg, #5085b1, #366187)'}">
+                        ${(user.first_name || 'U').substring(0,2).toUpperCase()}
+                        ${isVerified ? '<span class="verified-badge" style="font-size:10px;">✅</span>' : ''}
+                    </div>
+                    <div>
+                        <div style="display:flex;align-items:center;gap:4px;font-weight:600;">${user.first_name || 'User'} ${verifyBadge}</div>
+                        <div style="font-size:12px;color:var(--tg-text-secondary);">@${user.username || ''}</div>
+                    </div>
+                `;
+                item.onclick = () => {
+                    if (user.telegram_id === MY_ID) return;
+                    if (!dynamicChats[user.telegram_id]) {
+                        dynamicChats[user.telegram_id] = {
+                            first_name: user.first_name || `User ${user.telegram_id}`,
+                            username: user.username || ''
+                        };
+                        createChatRow(user.telegram_id, user.first_name || `User ${user.telegram_id}`, user.username || '', isVerified);
+                    }
+                    openChat(user.telegram_id);
+                    resultsContainer.style.display = 'none';
+                    document.getElementById('global-search').value = '';
+                };
+                resultsContainer.appendChild(item);
+            });
+        } else {
+            resultsContainer.style.display = 'block';
+            resultsContainer.innerHTML = '<div style="padding:10px 14px;color:var(--tg-text-secondary);">Пользователи не найдены</div>';
+        }
+    });
 }
 
 // ============ ДЕЙСТВИЯ С СООБЩЕНИЯМИ ============
@@ -860,6 +889,7 @@ function replyToMessage() {
             reply_to_id: selectedMessageId
         }, (response) => {
             if (response && response.status === 'ok') {
+                // Сообщение отрисуется через 'new_message'
                 scrollToBottom();
             }
         });
@@ -935,16 +965,6 @@ function pinMessage() {
         }
     });
     document.getElementById('message-actions').classList.remove('active');
-}
-
-// ============ ВКЛЮЧЕНИЕ/ВЫКЛЮЧЕНИЕ КНОПКИ ============
-function toggleSendButton(input) {
-    const btn = document.getElementById('send-btn-icon');
-    if (input && input.value && input.value.trim().length > 0) {
-        btn.classList.add('active');
-    } else {
-        btn.classList.remove('active');
-    }
 }
 
 // ============ СОБЫТИЯ СОКЕТА ============

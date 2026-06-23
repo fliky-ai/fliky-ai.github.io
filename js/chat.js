@@ -7,7 +7,7 @@ let isInitialLoad = true;
 
 // ============ РЕАКЦИИ ============
 let currentMessageId = null;
-const REACTIONS = ['👍', '❤️', '😂', '😢', '😡', '🔥', '🎉', '😎'];
+const REACTIONS = ['👍', '❤️', '🔥', '😂', '😮', '😢'];
 
 const BLUE_VERIFY_SVG = `<svg class="tg-verify-icon" style="width:16px;height:16px;fill:#2f8cc9;vertical-align:middle;margin-left:4px;" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
 
@@ -518,7 +518,7 @@ function sendMessageToServer(text) {
     input.focus();
 }
 
-// ============ РЕАКЦИИ (ИСПРАВЛЕННЫЕ) ============
+// ============ РЕАКЦИИ ============
 function showReactionPicker(messageId) {
     currentMessageId = messageId;
     let picker = document.getElementById('reaction-picker');
@@ -528,7 +528,7 @@ function showReactionPicker(messageId) {
         picker.id = 'reaction-picker';
         picker.className = 'reaction-picker';
         picker.innerHTML = REACTIONS.map(r => 
-            `<span class="reaction-emoji" onclick="addReaction('${r}')">${r}</span>`
+            `<span class="reaction-emoji" data-reaction="${r}" onclick="addReaction('${r}')">${r}</span>`
         ).join('');
         document.body.appendChild(picker);
     }
@@ -536,7 +536,9 @@ function showReactionPicker(messageId) {
     const rect = document.querySelector(`[data-message-id="${messageId}"]`)?.getBoundingClientRect();
     if (rect) {
         picker.style.top = `${rect.top - 50}px`;
-        picker.style.left = `${rect.left + rect.width / 2 - 140}px`;
+        picker.style.left = `${rect.left + rect.width / 2 - 100}px`;
+        picker.classList.toggle('active');
+    } else {
         picker.classList.toggle('active');
     }
     
@@ -560,6 +562,7 @@ function addReaction(emoji) {
             updateReactionDisplay(currentMessageId);
         } else {
             console.log('❌ Ошибка добавления реакции:', response);
+            alert('Не удалось добавить реакцию');
         }
     });
     
@@ -665,7 +668,7 @@ function emulateBotFather(text) {
     return `I don't understand that command. Please use /start, /newbot, or /mybots.`;
 }
 
-// ============ ОСТАЛЬНЫЕ ФУНКЦИИ ============
+// ============ ПОИСК ПОЛЬЗОВАТЕЛЕЙ ============
 function handleSearch(query) {
     const resultsContainer = document.getElementById('search-results');
     if (!query.trim()) {
@@ -721,6 +724,7 @@ function handleSearch(query) {
     });
 }
 
+// ============ ДЕЙСТВИЯ С СООБЩЕНИЯМИ ============
 function showMessageActions(messageId) {
     const msgEl = document.querySelector(`[data-message-id="${messageId}"]`);
     if (!msgEl) return;

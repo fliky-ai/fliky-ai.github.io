@@ -1,4 +1,4 @@
-// ============ АВТОРИЗАЦИЯ ТОЛЬКО ПО НОМЕРУ ============
+// ============ АВТОРИЗАЦИЯ ТОЛЬКО ПО НОМЕРУ С ПЕРЕЗАГРУЗКОЙ ============
 let currentPhone = '';
 
 function showLoginScreen() {
@@ -101,12 +101,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (socket && isConnected) {
             socket.emit('auth_phone', { phone: currentPhone }, function(response) {
+                console.log('Ответ от сервера:', response);
                 nextBtn.disabled = false;
                 nextBtn.textContent = 'Войти';
                 
                 if (response.status === 'ok') {
                     errorEl.textContent = 'Вход выполнен!';
-                    console.log('Вход выполнен, открываем интерфейс...');
+                    console.log('Вход выполнен, сохраняем данные...');
 
                     if (response.user) {
                         const userData = {
@@ -128,49 +129,19 @@ document.addEventListener('DOMContentLoaded', function() {
                         MY_USERNAME = response.user.username || '';
                     }
 
-                    // Показываем интерфейс сразу
-                    document.getElementById('login-screen').style.display = 'none';
-                    document.getElementById('login-screen').classList.remove('active');
-                    document.getElementById('loading-screen').style.display = 'none';
-                    
-                    const appContainer = document.getElementById('app-container');
-                    if (appContainer) {
-                        appContainer.style.display = 'flex';
-                        appContainer.style.visibility = 'visible';
-                        appContainer.style.opacity = '1';
-                        console.log('app-container показан');
-                    }
-
-                    // Переключаем вкладку "Чаты"
-                    document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-                    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-                    
-                    const chatsNav = document.querySelector('.nav-item[onclick*="chats"]');
-                    if (chatsNav) chatsNav.classList.add('active');
-                    
-                    const screenChats = document.getElementById('screen-chats');
-                    if (screenChats) screenChats.classList.add('active');
-                    
-                    document.getElementById('header-title').innerText = 'Чаты';
-
+                    // ПРИНУДИТЕЛЬНО ПЕРЕЗАГРУЖАЕМ СТРАНИЦУ
+                    errorEl.textContent = '✅ Вход выполнен! Перезагрузка...';
                     setTimeout(function() {
-                        try {
-                            if (window.initProfile) window.initProfile();
-                            if (window.loadChatsAndMessages) window.loadChatsAndMessages();
-                            if (window.loadContacts) window.loadContacts();
-                            console.log('Все данные загружены');
-                        } catch (e) {
-                            console.error('Ошибка загрузки:', e);
-                        }
-                    }, 300);
+                        window.location.reload();
+                    }, 1000);
 
                 } else {
-                    errorEl.textContent = 'Ошибка: ' + (response.message || 'Номер не найден. Получите номер в боте через /getnumber');
+                    errorEl.textContent = '❌ Ошибка: ' + (response.message || 'Номер не найден');
                     console.error('Ошибка входа:', response);
                 }
             });
         } else {
-            errorEl.textContent = 'Нет соединения с сервером';
+            errorEl.textContent = '❌ Нет соединения с сервером';
             nextBtn.disabled = false;
             nextBtn.textContent = 'Войти';
         }

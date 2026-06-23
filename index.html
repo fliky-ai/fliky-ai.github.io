@@ -18,7 +18,7 @@
         <button class="reconnect-btn" id="reconnect-btn" onclick="reconnect()">🔄 Переподключиться</button>
     </div>
 
-    <!-- Login Screen -->
+    <!-- Login Screen (только номер) -->
     <div id="login-screen">
         <div class="login-container">
             <div class="login-header">
@@ -38,18 +38,8 @@
                     <label>Номер телефона</label>
                     <input type="tel" id="login-phone" placeholder="888 0000 0000" maxlength="15" inputmode="numeric">
                 </div>
-                <div id="login-code-field" style="display:none;">
-                    <div class="login-field">
-                        <label>Код подтверждения</label>
-                        <input type="text" id="login-code" placeholder="Введите 5-значный код" maxlength="5" inputmode="numeric">
-                    </div>
-                    <div id="login-timer" style="display:none; text-align:center; font-size:14px; color:var(--tg-text-secondary); margin-top:4px;">⏱ 05:00</div>
-                    <div class="login-hint">Код отправлен в Telegram бот</div>
-                </div>
                 <div class="login-actions">
-                    <button id="login-next-btn" class="login-btn primary">Далее</button>
-                    <button id="login-confirm-btn" class="login-btn primary" style="display:none;">Подтвердить</button>
-                    <button id="login-back-btn" class="login-btn secondary" style="display:none;">Изменить</button>
+                    <button id="login-next-btn" class="login-btn primary">Войти</button>
                 </div>
                 <div id="login-error" class="login-error"></div>
             </div>
@@ -208,4 +198,4 @@
     <script src="js/profile.js"></script>
     <script src="js/app.js"></script>
 </body>
-                    </html>
+            </html>

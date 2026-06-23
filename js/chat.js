@@ -8,6 +8,7 @@ let isInitialLoad = true;
 // ============ РЕАКЦИИ ============
 let currentMessageId = null;
 const REACTIONS = ['👍', '❤️', '🔥', '😂', '😮', '😢'];
+let reactionPickerTimeout = null;
 
 const BLUE_VERIFY_SVG = `<svg class="tg-verify-icon" style="width:16px;height:16px;fill:#2f8cc9;vertical-align:middle;margin-left:4px;" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
 
@@ -371,10 +372,6 @@ function renderSingleMessageWithCheck(msg) {
 
     wrapper.appendChild(msgEl);
     container.appendChild(wrapper);
-    
-    if (msg.id) {
-        setTimeout(() => updateReactionDisplay(msg.id), 200);
-    }
 }
 
 // ============ ПРОВЕРКА ПРАВ В КАНАЛЕ ============
@@ -518,7 +515,7 @@ function sendMessageToServer(text) {
     input.focus();
 }
 
-// ============ РЕАКЦИИ ============
+// ============ РЕАКЦИИ (ИСПРАВЛЕННЫЕ - БЕЗ ЛИШНИХ ЗАПРОСОВ) ============
 function showReactionPicker(messageId) {
     currentMessageId = messageId;
     let picker = document.getElementById('reaction-picker');
@@ -533,16 +530,41 @@ function showReactionPicker(messageId) {
         document.body.appendChild(picker);
     }
     
-    const rect = document.querySelector(`[data-message-id="${messageId}"]`)?.getBoundingClientRect();
-    if (rect) {
-        picker.style.top = `${rect.top - 50}px`;
-        picker.style.left = `${rect.left + rect.width / 2 - 100}px`;
-        picker.classList.toggle('active');
+    // Позиционируем рядом с сообщением
+    const msgEl = document.querySelector(`[data-message-id="${messageId}"]`);
+    if (msgEl) {
+        const rect = msgEl.getBoundingClientRect();
+        const pickerWidth = 220;
+        let left = rect.left + rect.width / 2 - pickerWidth / 2;
+        let top = rect.top - 55;
+        
+        if (top < 10) {
+            top = rect.bottom + 10;
+        }
+        
+        picker.style.left = `${Math.max(10, left)}px`;
+        picker.style.top = `${top}px`;
+        picker.style.display = 'flex';
     } else {
-        picker.classList.toggle('active');
+        picker.style.display = 'flex';
+        picker.style.left = '50%';
+        picker.style.top = '50%';
+        picker.style.transform = 'translate(-50%, -50%)';
     }
     
+    clearTimeout(reactionPickerTimeout);
+    reactionPickerTimeout = setTimeout(() => {
+        hideReactionPicker();
+    }, 5000);
+    
     document.getElementById('message-actions')?.classList.remove('active');
+}
+
+function hideReactionPicker() {
+    const picker = document.getElementById('reaction-picker');
+    if (picker) {
+        picker.style.display = 'none';
+    }
 }
 
 function addReaction(emoji) {
@@ -559,43 +581,71 @@ function addReaction(emoji) {
     }, (response) => {
         if (response && response.status === 'ok') {
             console.log('✅ Реакция добавлена');
-            updateReactionDisplay(currentMessageId);
+            // Обновляем напрямую без лишнего запроса
+            if (response.reactions) {
+                updateReactionDisplayDirect(currentMessageId, response.reactions);
+            } else {
+                // Если сервер не вернул реакции, делаем запрос
+                updateReactionDisplay(currentMessageId);
+            }
         } else {
             console.log('❌ Ошибка добавления реакции:', response);
-            alert('Не удалось добавить реакцию');
         }
     });
     
-    document.getElementById('reaction-picker')?.classList.remove('active');
+    hideReactionPicker();
 }
 
+// Прямое обновление без лишних запросов
+function updateReactionDisplayDirect(messageId, reactions) {
+    const msgEl = document.querySelector(`[data-message-id="${messageId}"]`);
+    if (!msgEl) return;
+    
+    let container = msgEl.querySelector('.reactions');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'reactions';
+        msgEl.appendChild(container);
+    } else {
+        container.innerHTML = '';
+    }
+    
+    if (!reactions || reactions.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+    
+    container.style.display = 'flex';
+    
+    // Группируем реакции
+    const grouped = {};
+    reactions.forEach(r => {
+        if (!grouped[r.reaction]) grouped[r.reaction] = [];
+        grouped[r.reaction].push(r.user_id);
+    });
+    
+    Object.entries(grouped).forEach(([emoji, users]) => {
+        const span = document.createElement('span');
+        span.className = 'reaction-item';
+        span.innerHTML = `${emoji} <span class="count">${users.length}</span>`;
+        span.title = users.map(id => `User ${id}`).join(', ');
+        container.appendChild(span);
+    });
+}
+
+// Старая функция для обратной совместимости (делает запрос на сервер)
 function updateReactionDisplay(messageId) {
     socket.emit('get_reactions', { message_id: messageId }, (reactions) => {
-        const msgEl = document.querySelector(`[data-message-id="${messageId}"]`);
-        if (!msgEl) return;
-        
-        const oldReactions = msgEl.querySelector('.reactions');
-        if (oldReactions) oldReactions.remove();
-        
-        if (reactions && reactions.length > 0) {
-            const container = document.createElement('div');
-            container.className = 'reactions';
-            
-            const grouped = {};
-            reactions.forEach(r => {
-                if (!grouped[r.reaction]) grouped[r.reaction] = [];
-                grouped[r.reaction].push(r.user_id);
-            });
-            
-            Object.entries(grouped).forEach(([emoji, users]) => {
-                const span = document.createElement('span');
-                span.className = 'reaction-item';
-                span.innerText = `${emoji} ${users.length}`;
-                span.title = users.map(id => `User ${id}`).join(', ');
-                container.appendChild(span);
-            });
-            
-            msgEl.appendChild(container);
+        updateReactionDisplayDirect(messageId, reactions);
+    });
+}
+
+// ============ ОБРАБОТЧИК СОБЫТИЯ reaction_updated ============
+if (socket) {
+    socket.on('reaction_updated', (data) => {
+        console.log('📢 Обновление реакций:', data);
+        if (data.message_id && data.reactions) {
+            updateReactionDisplayDirect(data.message_id, data.reactions);
         }
     });
 }
@@ -843,6 +893,16 @@ function pinMessage() {
     document.getElementById('message-actions').classList.remove('active');
 }
 
+// Закрываем пикер при клике вне его
+document.addEventListener('click', function(e) {
+    const picker = document.getElementById('reaction-picker');
+    if (picker && picker.style.display === 'flex') {
+        if (!picker.contains(e.target)) {
+            hideReactionPicker();
+        }
+    }
+});
+
 // ============ СОБЫТИЯ СОКЕТА ============
 if (socket) {
     socket.on('message_read', (data) => {
@@ -857,7 +917,10 @@ if (socket) {
     });
 
     socket.on('reaction_updated', (data) => {
-        updateReactionDisplay(data.message_id);
+        console.log('📢 Обновление реакций:', data);
+        if (data.message_id && data.reactions) {
+            updateReactionDisplayDirect(data.message_id, data.reactions);
+        }
     });
 }
 

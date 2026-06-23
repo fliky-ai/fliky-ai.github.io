@@ -1,4 +1,4 @@
-// ============ АВТОРИЗАЦИЯ ПО НОМЕРУ ============
+// ============ АВТОРИЗАЦИЯ ПО НОМЕРУ (С КНОПКОЙ ВХОДА) ============
 let loginStep = 'phone';
 let currentPhone = '';
 
@@ -18,7 +18,6 @@ function hideLoginScreen() {
 }
 
 function checkLoginRequired() {
-    // ПРОВЕРЯЕМ localStorage и ЕСЛИ ЕСТЬ - НЕ ПОКАЗЫВАЕМ ВХОД
     const savedUser = localStorage.getItem('dicegram_user');
     if (savedUser) {
         try {
@@ -34,21 +33,14 @@ function checkLoginRequired() {
                 MY_USERNAME = user.username || '';
                 console.log('Восстановлен пользователь из localStorage:', MY_ID);
                 
-                // ПРИНУДИТЕЛЬНО СКРЫВАЕМ ВХОД
-                const loginScreen = document.getElementById('login-screen');
-                if (loginScreen) {
-                    loginScreen.classList.remove('active');
-                    loginScreen.style.display = 'none';
-                }
-                document.getElementById('loading-screen').style.display = 'none';
-                
-                // ПОКАЗЫВАЕМ ИНТЕРФЕЙС
+                hideLoginScreen();
                 const appContainer = document.getElementById('app-container');
                 if (appContainer) {
                     appContainer.style.display = 'flex';
                     appContainer.style.visibility = 'visible';
                     appContainer.style.opacity = '1';
                 }
+                document.getElementById('loading-screen').style.display = 'none';
                 
                 setTimeout(() => {
                     if (window.initProfile) window.initProfile();
@@ -71,7 +63,6 @@ function checkLoginRequired() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    // ЕСЛИ ЕСТЬ LOCALSTORAGE - ВЫХОДИМ
     if (localStorage.getItem('dicegram_user')) {
         return;
     }
@@ -103,7 +94,7 @@ document.addEventListener('DOMContentLoaded', function() {
     nextBtn.addEventListener('click', function() {
         const phone = phoneInput.value.replace(/\s/g, '');
         if (phone.length < 9) {
-            errorEl.textContent = 'Ввведите полллллный номер (9 цифр)';
+            errorEl.textContent = 'Введите полный номер (9999999цифр)';
             return;
         }
         errorEl.textContent = '';
@@ -155,12 +146,75 @@ document.addEventListener('DOMContentLoaded', function() {
                         };
                         localStorage.setItem('dicegram_user', JSON.stringify(userData));
                         console.log('Пользователь сохранён в localStorage');
+
+                        window.tgUser = {
+                            id: response.telegram_id,
+                            first_name: response.user.first_name,
+                            username: response.user.username,
+                            photo_url: response.user.photo_url || ''
+                        };
+                        MY_ID = response.telegram_id;
+                        MY_USERNAME = response.user.username || '';
                     }
 
-                    // ПЕРЕЗАГРУЖАЕМ СТРАНИЦУ ЧЕРЕЗ 500мс
-                    setTimeout(function() {
-                        window.location.reload();
-                    }, 500);
+                    // Скрываем поле для кода и показываем кнопку "Войти в аккаунт"
+                    document.getElementById('login-code-field').style.display = 'none';
+                    document.getElementById('login-confirm-btn').style.display = 'none';
+                    document.getElementById('login-back-btn').style.display = 'none';
+                    
+                    // Создаём кнопку "Войти в аккаунт", если её ещё нет
+                    let enterBtn = document.getElementById('enter-account-btn');
+                    if (!enterBtn) {
+                        enterBtn = document.createElement('button');
+                        enterBtn.id = 'enter-account-btn';
+                        enterBtn.className = 'login-btn primary';
+                        enterBtn.textContent = 'Войти в аккаунт';
+                        enterBtn.style.width = '100%';
+                        enterBtn.style.marginTop = '10px';
+                        document.querySelector('.login-actions').appendChild(enterBtn);
+                    }
+                    enterBtn.style.display = 'block';
+                    
+                    // Обработчик нажатия на кнопку
+                    enterBtn.onclick = function() {
+                        console.log('Пользователь нажал "Войти в аккаунт"');
+                        
+                        // ПРИНУДИТЕЛЬНО ПОКАЗЫВАЕМ ИНТЕРФЕЙС
+                        document.getElementById('login-screen').style.display = 'none';
+                        document.getElementById('login-screen').classList.remove('active');
+                        document.getElementById('loading-screen').style.display = 'none';
+                        
+                        const appContainer = document.getElementById('app-container');
+                        if (appContainer) {
+                            appContainer.style.display = 'flex';
+                            appContainer.style.visibility = 'visible';
+                            appContainer.style.opacity = '1';
+                            console.log('app-container показан');
+                        }
+
+                        // Переключаем вкладку "Чаты"
+                        document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+                        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+                        
+                        const chatsNav = document.querySelector('.nav-item[onclick*="chats"]');
+                        if (chatsNav) chatsNav.classList.add('active');
+                        
+                        const screenChats = document.getElementById('screen-chats');
+                        if (screenChats) screenChats.classList.add('active');
+                        
+                        document.getElementById('header-title').innerText = 'Чаты';
+
+                        setTimeout(function() {
+                            try {
+                                if (window.initProfile) window.initProfile();
+                                if (window.loadChatsAndMessages) window.loadChatsAndMessages();
+                                if (window.loadContacts) window.loadContacts();
+                                console.log('Все данные загружены');
+                            } catch (e) {
+                                console.error('Ошибка загрузки:', e);
+                            }
+                        }, 300);
+                    };
 
                 } else {
                     errorEl.textContent = 'Ошибка: ' + (response.message || 'Неизвестная ошибка');

@@ -41,13 +41,12 @@ function connectSocket() {
         
         loadingStatus.textContent = 'Авторизация...';
         
-        // 🔥 Проверяем localStorage
+        // 🔥 ПРОВЕРЯЕМ localStorage и ПРИНУДИТЕЛЬНО ПОКАЗЫВАЕМ ИНТЕРФЕЙС
         const savedUser = localStorage.getItem('dicegram_user');
         if (savedUser) {
             try {
                 const user = JSON.parse(savedUser);
                 if (user && user.id) {
-                    // Восстанавливаем глобальные переменные
                     window.tgUser = {
                         id: user.id,
                         first_name: user.first_name || 'User',
@@ -58,10 +57,21 @@ function connectSocket() {
                     MY_USERNAME = user.username || '';
                     console.log('👤 Восстановлен пользователь из localStorage:', MY_ID);
                     
-                    // Пропускаем авторизацию, сразу показываем интерфейс
-                    loadingStatus.textContent = 'Загрузка...';
+                    // ПРИНУДИТЕЛЬНО СКРЫВАЕМ ЭКРАН ВХОДА
+                    const loginScreen = document.getElementById('login-screen');
+                    if (loginScreen) {
+                        loginScreen.classList.remove('active');
+                        loginScreen.style.display = 'none';
+                    }
                     document.getElementById('loading-screen').style.display = 'none';
-                    document.getElementById('app-container').style.display = 'flex';
+                    
+                    // ПРИНУДИТЕЛЬНО ПОКАЗЫВАЕМ ИНТЕРФЕЙС
+                    const appContainer = document.getElementById('app-container');
+                    if (appContainer) {
+                        appContainer.style.display = 'flex';
+                        appContainer.style.visibility = 'visible';
+                        appContainer.style.opacity = '1';
+                    }
                     
                     // Загружаем данные
                     setTimeout(() => {
@@ -79,7 +89,6 @@ function connectSocket() {
         // Если нет сохранённого пользователя, проверяем Telegram WebApp
         const tg = window.Telegram?.WebApp;
         if (tg && tg.initDataUnsafe?.user?.id) {
-            // Есть tgUser – авторизуем через auth
             socket.emit('auth', tgUser, (response) => {
                 console.log('📨 Ответ авторизации:', response);
                 
@@ -116,9 +125,7 @@ function connectSocket() {
     socket.on('connect_error', (error) => {
         console.error('❌ Ошибка подключения:', error);
         reconnectAttempts++;
-        
-        loadingStatus.textContent = `Ошибка подключения (${reconnectAttempts}/${CONFIG.MAX_RECONNECT_ATTEMPTS})`;
-        
+        loadingStatus.textContent = 'Ошибка подключения (' + reconnectAttempts + '/' + CONFIG.MAX_RECONNECT_ATTEMPTS + ')';
         if (reconnectAttempts >= CONFIG.MAX_RECONNECT_ATTEMPTS) {
             loadingError.style.display = 'block';
             reconnectBtn.style.display = 'block';
@@ -144,21 +151,15 @@ function connectSocket() {
         if (window.loadContacts) window.loadContacts();
     });
 
-    // ============ ОБРАБОТЧИК НОВЫХ СООБЩЕНИЙ ============
     socket.on('new_message', (msg) => {
         console.log('📩 Новое сообщение:', msg);
-        if (window.handleNewMessage) {
-            window.handleNewMessage(msg);
-        }
+        if (window.handleNewMessage) window.handleNewMessage(msg);
     });
 
-    // ============ ОБРАБОТЧИК ОБНОВЛЕНИЯ СПИСКА ЧАТОВ ============
     socket.on('chats_updated', (data) => {
         console.log('🔄 Обновление списка чатов:', data);
         if (window.loadChatsAndMessages) {
-            setTimeout(() => {
-                window.loadChatsAndMessages();
-            }, 300);
+            setTimeout(() => window.loadChatsAndMessages(), 300);
         }
         if (data.chat_id && window.openChat) {
             setTimeout(() => {
@@ -169,13 +170,10 @@ function connectSocket() {
         }
     });
 
-    // ============ ОБРАБОТЧИК ПРИСОЕДИНЕНИЯ К ГРУППЕ ============
     socket.on('group_joined', (data) => {
         console.log('👥 Присоединение к группе:', data);
         if (window.loadChatsAndMessages) {
-            setTimeout(() => {
-                window.loadChatsAndMessages();
-            }, 300);
+            setTimeout(() => window.loadChatsAndMessages(), 300);
         }
         if (data.chat_id && window.openChat) {
             setTimeout(() => {
@@ -184,7 +182,6 @@ function connectSocket() {
         }
     });
 
-    // ============ ОБРАБОТЧИК ОБНОВЛЕНИЯ ПОЛЬЗОВАТЕЛЯ ============
     socket.on('user_updated', (data) => {
         console.log('🔄 Обновление пользователя:', data);
         if (data.user_id === MY_ID && data.username) {
@@ -194,20 +191,18 @@ function connectSocket() {
         if (window.loadChatsAndMessages) window.loadChatsAndMessages();
     });
 
-    // ============ ОБРАБОТЧИК ПРОЧТЕНИЯ СООБЩЕНИЙ ============
     socket.on('message_read', (data) => {
         console.log('👁️ Сообщение прочитано:', data);
-        const msgEl = document.querySelector(`[data-message-id="${data.message_id}"]`);
+        const msgEl = document.querySelector('[data-message-id="' + data.message_id + '"]');
         if (msgEl) {
             const ticks = msgEl.querySelector('.status-ticks');
             if (ticks) {
                 ticks.className = 'status-ticks read';
-                ticks.innerHTML = `<svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4zm-4.24 0L12.35 5.59 6 11.94l1.41 1.41z"/><path d="M0 0h24v24H0z" fill="none"/></svg>`;
+                ticks.innerHTML = '<svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4zm-4.24 0L12.35 5.59 6 11.94l1.41 1.41z"/><path d="M0 0h24v24H0z" fill="none"/></svg>';
             }
         }
     });
 
-    // ============ ОБРАБОТЧИК ОБНОВЛЕНИЯ РЕАКЦИЙ ============
     socket.on('reaction_updated', (data) => {
         console.log('😊 Обновление реакций:', data);
         if (window.updateReactionDisplayDirect) {
@@ -215,7 +210,6 @@ function connectSocket() {
         }
     });
 
-    // ============ ОБРАБОТЧИК ОШИБОК ============
     socket.on('error', (error) => {
         console.error('❌ Ошибка сокета:', error);
     });

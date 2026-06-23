@@ -98,11 +98,49 @@ function connectSocket() {
         if (window.loadContacts) window.loadContacts();
     });
 
+    // ============ ОБРАБОТЧИК НОВЫХ СООБЩЕНИЙ ============
     socket.on('new_message', (msg) => {
         console.log('📩 Новое сообщение:', msg);
-        if (window.handleNewMessage) window.handleNewMessage(msg);
+        if (window.handleNewMessage) {
+            window.handleNewMessage(msg);
+        }
     });
 
+    // ============ ОБРАБОТЧИК ОБНОВЛЕНИЯ ЧАТОВ ============
+    socket.on('chats_updated', (data) => {
+        console.log('🔄 Обновление списка чатов:', data);
+        if (window.loadChatsAndMessages) {
+            setTimeout(() => {
+                window.loadChatsAndMessages();
+            }, 300);
+        }
+        // Если это присоединение к группе, открываем чат
+        if (data.chat_id && window.openChat) {
+            setTimeout(() => {
+                // Проверяем, что чат не открыт
+                if (window.currentChatId !== data.chat_id) {
+                    window.openChat(data.chat_id);
+                }
+            }, 500);
+        }
+    });
+
+    // ============ ОБРАБОТЧИК ПРИСОЕДИНЕНИЯ К ГРУППЕ ============
+    socket.on('group_joined', (data) => {
+        console.log('👥 Присоединение к группе:', data);
+        if (window.loadChatsAndMessages) {
+            setTimeout(() => {
+                window.loadChatsAndMessages();
+            }, 300);
+        }
+        if (data.chat_id && window.openChat) {
+            setTimeout(() => {
+                window.openChat(data.chat_id);
+            }, 500);
+        }
+    });
+
+    // ============ ОБРАБОТЧИК ОБНОВЛЕНИЯ ПОЛЬЗОВАТЕЛЯ ============
     socket.on('user_updated', (data) => {
         console.log('🔄 Обновление пользователя:', data);
         if (data.user_id === MY_ID && data.username) {
@@ -110,6 +148,32 @@ function connectSocket() {
             if (window.initProfile) window.initProfile();
         }
         if (window.loadChatsAndMessages) window.loadChatsAndMessages();
+    });
+
+    // ============ ОБРАБОТЧИК ПРОЧТЕНИЯ СООБЩЕНИЙ ============
+    socket.on('message_read', (data) => {
+        console.log('👁️ Сообщение прочитано:', data);
+        const msgEl = document.querySelector(`[data-message-id="${data.message_id}"]`);
+        if (msgEl) {
+            const ticks = msgEl.querySelector('.status-ticks');
+            if (ticks) {
+                ticks.className = 'status-ticks read';
+                ticks.innerHTML = `<svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4zm-4.24 0L12.35 5.59 6 11.94l1.41 1.41z"/><path d="M0 0h24v24H0z" fill="none"/></svg>`;
+            }
+        }
+    });
+
+    // ============ ОБРАБОТЧИК ОБНОВЛЕНИЯ РЕАКЦИЙ ============
+    socket.on('reaction_updated', (data) => {
+        console.log('😊 Обновление реакций:', data);
+        if (window.updateReactionDisplayDirect) {
+            window.updateReactionDisplayDirect(data.message_id, data.reactions);
+        }
+    });
+
+    // ============ ОБРАБОТЧИК ОШИБОК ============
+    socket.on('error', (error) => {
+        console.error('❌ Ошибка сокета:', error);
     });
 
     if (authTimeout) clearTimeout(authTimeout);
@@ -127,3 +191,5 @@ function reconnect() {
     reconnectAttempts = 0;
     connectSocket();
 }
+
+console.log('✅ Socket module loaded');

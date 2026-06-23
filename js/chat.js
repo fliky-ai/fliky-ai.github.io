@@ -5,11 +5,11 @@ let unreadCounts = {};
 let selectedMessageId = null;
 let isInitialLoad = true;
 
-// ============ REACTION SETUP ============
+// ============ РЕАКЦИИ ============
 let currentMessageId = null;
 const REACTIONS = ['👍', '❤️', '😂', '😢', '😡', '🔥', '🎉', '😎'];
 
-// Синий SVG значок верификации для точности интерфейса
+// Синий значок верификации для точности интерфейса Telegram
 const BLUE_VERIFY_SVG = `<svg class="tg-verify-icon" style="width:16px;height:16px;fill:#2f8cc9;vertical-align:middle;margin-left:4px;" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
 
 // ============ ЗАГРУЗКА ЧАТОВ ============
@@ -27,7 +27,8 @@ function loadChatsAndMessages() {
         dynamicChats[CONFIG.SUPPORT_ID] = {
             first_name: 'DICEGRAM SUPPORT',
             username: 'dicegram_support',
-            chat_type: 'private'
+            chat_type: 'private',
+            is_verified: true
         };
     }
     
@@ -35,7 +36,8 @@ function loadChatsAndMessages() {
         dynamicChats[CONFIG.BOTFATHER_ID] = {
             first_name: 'BotFather',
             username: 'botfather',
-            chat_type: 'private'
+            chat_type: 'private',
+            is_verified: false
         };
     }
 
@@ -45,7 +47,7 @@ function loadChatsAndMessages() {
         const chatsList = document.getElementById('chats-list');
         chatsList.innerHTML = '';
         
-        // Гарантированно выводим Саппорт на самый верх при загрузке
+        // Выводим Саппорт на самый верх при загрузке
         createChatRow(CONFIG.SUPPORT_ID, 'DICEGRAM SUPPORT', 'dicegram_support', true);
         const supportPreview = document.getElementById(`preview-${CONFIG.SUPPORT_ID}`);
         if (supportPreview) {
@@ -71,7 +73,8 @@ function loadChatsAndMessages() {
                             chat_type: chatType,
                             members_count: chat.members_count || 0,
                             role: chat.role || 'member',
-                            invite_link: chat.invite_link || ''
+                            invite_link: chat.invite_link || '',
+                            is_verified: chat.is_verified || false
                         };
                     }
                     
@@ -121,8 +124,11 @@ function createChatRow(tgId, firstName, username, isVerified = false, chatType =
         dynamicChats[tgId] = { 
             first_name: firstName || `User ${tgId}`, 
             username: username || '',
-            chat_type: chatType
+            chat_type: chatType,
+            is_verified: isVerified
         };
+    } else {
+        dynamicChats[tgId].is_verified = isVerified;
     }
     
     const chatsList = document.getElementById('chats-list');
@@ -132,9 +138,7 @@ function createChatRow(tgId, firstName, username, isVerified = false, chatType =
     const isSupport = tgId === CONFIG.SUPPORT_ID;
     const verified = isSupport || tgId === CONFIG.CREATOR_ID || isVerified;
     
-    // Подставляем нашу кастомную SVG галочку
     const verifiedIcon = verified ? BLUE_VERIFY_SVG : '';
-    
     const displayName = firstName || `User ${tgId}`;
     let avatarBg = 'linear-gradient(135deg, #5085b1, #366187)';
     let typeIcon = '';
@@ -151,8 +155,9 @@ function createChatRow(tgId, firstName, username, isVerified = false, chatType =
         typeIcon = '📢 ';
     }
     
+    // Передаем только tgId в функцию клика, чтобы кавычки в названиях ничего не ломали
     const rowHTML = `
-        <div class="chat-item" id="chat-item-${tgId}" onclick="openChat('${tgId}', '${displayName.replace(/'/g, "\\'")}', ${verified})">
+        <div class="chat-item" id="chat-item-${tgId}" onclick="openChat('${tgId}')">
             <div class="chat-avatar" style="background: ${avatarBg}">
                 ${displayName.substring(0,2).toUpperCase()}
                 ${verified ? '<span class="verified-badge">✅</span>' : ''}
@@ -188,7 +193,7 @@ function updateUnreadBadge(chatId, count) {
 }
 
 // ============ ОТКРЫТИЕ ЧАТА ============
-function openChat(chatId, chatName, isVerified = false) {
+function openChat(chatId) {
     if (!chatId || !socket || !isConnected) {
         if (!socket || !isConnected) {
             alert('Нет соединения с сервером');
@@ -201,10 +206,12 @@ function openChat(chatId, chatName, isVerified = false) {
     unreadCounts[chatId] = 0;
     updateUnreadBadge(chatId, 0);
     
+    const chatInfo = dynamicChats[chatId];
+    const chatName = chatInfo ? chatInfo.first_name : `User ${chatId}`;
+    
     const titleEl = document.getElementById('chat-room-title');
     titleEl.innerText = chatName || 'Чат';
     
-    const chatInfo = dynamicChats[chatId];
     if (chatInfo) {
         if (chatInfo.chat_type === 'group') {
             titleEl.innerText = '👥 ' + (chatName || 'Группа');
@@ -216,12 +223,12 @@ function openChat(chatId, chatName, isVerified = false) {
     const messagesContainer = document.getElementById('chat-messages');
     messagesContainer.innerHTML = '';
 
-    // Если кликнули на саппорт — собираем и выводим приветствие
+    // Логика приветствия DICEGRAM SUPPORT
     if (chatId === CONFIG.SUPPORT_ID) {
         titleEl.innerHTML = `DICEGRAM SUPPORT ${BLUE_VERIFY_SVG}`;
         document.getElementById('chat-room-status').innerText = 'официальный аккаунт';
 
-        // Безопасное вытаскивание данных (сборка ТГ-клиента / дефолты)
+        // Безопасное вытаскивание данных текущего юзера
         const tgUserData = window.Telegram?.WebApp?.initDataUnsafe?.user;
         const finalName = tgUserData?.first_name || (typeof MY_FIRST_NAME !== 'undefined' ? MY_FIRST_NAME : 'dauletАдмин');
         const finalUsername = tgUserData?.username || (typeof MY_USERNAME !== 'undefined' ? MY_USERNAME : 'owner');
@@ -260,7 +267,7 @@ function openChat(chatId, chatName, isVerified = false) {
     socket.emit('get_chat_history', { with_id: chatId }, (history) => {
         if (history && Array.isArray(history)) {
             history.forEach(msg => {
-                // Избегаем дублирования приветственного сообщения из БД
+                // Исключаем повторный вывод дефолтного приветствия, если оно подгрузилось из бэкенда
                 if (chatId === CONFIG.SUPPORT_ID && msg.text.includes("Добро пожаловать в DICEGRAM!")) {
                     return; 
                 }
@@ -312,3 +319,59 @@ function closeChat() {
     sendBtn.style.opacity = '1';
     sendBtn.style.cursor = 'pointer';
 }
+
+// ============ ОБРАБОТКА НОВОГО СООБЩЕНИЯ ============
+function handleNewMessage(msg) {
+    console.log('📩 Новое сообщение:', msg);
+    
+    const chatPartner = msg.sender_id === MY_ID ? msg.receiver_id : msg.sender_id;
+    
+    if (msg.sender_id === 'system') {
+        renderSingleMessage(msg);
+        scrollToBottom();
+        return;
+    }
+
+    if (chatPartner && chatPartner !== MY_ID) {
+        if (!dynamicChats[chatPartner]) {
+            // Если чат не был инициализирован, запрашиваем список заново
+            loadChatsAndMessages();
+        } else {
+            // Если чат открыт прямо сейчас — рендерим сообщение в реальном времени
+            if (currentChatId === chatPartner) {
+                renderSingleMessage(msg);
+                scrollToBottom();
+                socket.emit('mark_as_read', { chat_id: chatPartner });
+            } else {
+                // Иначе инкрементируем счетчик непрочитанных
+                unreadCounts[chatPartner] = (unreadCounts[chatPartner] || 0) + 1;
+                updateUnreadBadge(chatPartner, unreadCounts[chatPartner]);
+            }
+            
+            // Обновляем текст последнего сообщения в списке
+            const previewEl = document.getElementById(`preview-${chatPartner}`);
+            if (previewEl) {
+                previewEl.innerText = msg.text;
+            }
+        }
+    }
+}
+
+// Функция для вывода плашки официальной верификации в модалку профиля
+function handleProfileModalVerification(userId) {
+    const verifiedBox = document.getElementById('popup-verified');
+    if (!verifiedBox) return;
+
+    if (userId === CONFIG.SUPPORT_ID) {
+        verifiedBox.style.display = 'block';
+        verifiedBox.innerHTML = `
+            <div class="verified-info-box" style="background: rgba(47, 140, 201, 0.1); border-left: 3px solid #2f8cc9; padding: 12px; margin: 12px 0; border-radius: 6px;">
+                <span style="color: #2f8cc9; font-weight: 600;">✓ Официальный аккаунт</span>
+                <p style="font-size: 13px; color: var(--tg-text-secondary); margin: 6px 0 0 0;">Этот аккаунт верифицирован, так как является официальной поддержкой DICEGRAM.</p>
+            </div>
+        `;
+    } else {
+        verifiedBox.style.display = 'none';
+    }
+}
+

@@ -252,6 +252,7 @@ function closeNameInput() {
     if (overlay) overlay.remove();
 }
 
+// ============ ИСПРАВЛЕНО: СОЗДАНИЕ ЧАТА БЕЗ ИНВАЙТОВ ============
 function confirmCreate(type) {
     const input = document.getElementById('chat-name-input');
     const name = input.value.trim();
@@ -274,22 +275,23 @@ function confirmCreate(type) {
         if (response && response.status === 'ok') {
             const chatId = response.chat_id;
             const chatName = response.name;
+            const chatType = response.type || type;
             
             if (!dynamicChats[chatId]) {
                 dynamicChats[chatId] = {
                     first_name: chatName,
                     username: '',
-                    chat_type: type,
+                    chat_type: chatType,
                     members_count: 1,
                     role: 'owner'
                 };
             }
             
-            createChatRow(chatId, chatName, '', true, type);
+            createChatRow(chatId, chatName, '', true, chatType);
             openChat(chatId);
             
             setTimeout(() => {
-                alert(`✅ ${type === 'group' ? 'Группа' : 'Канал'} "${chatName}" создан!`);
+                alert(`✅ ${chatType === 'group' ? 'Группа' : 'Канал'} "${chatName}" создан!`);
             }, 1000);
         } else {
             alert(`❌ Ошибка: ${response?.message || 'Неизвестная ошибка'}`);
@@ -297,30 +299,32 @@ function confirmCreate(type) {
     });
 }
 
-// ============ ДОБАВЛЕНИЕ УЧАСТНИКА В ГРУППУ ============
+// ============ ИСПРАВЛЕНО: ДОБАВЛЕНИЕ УЧАСТНИКА ПО ЮЗЕРНЕЙМУ ============
 function addGroupMember() {
     if (!currentChatId) {
         alert('❌ Чат не выбран');
         return;
     }
     
-    const memberId = prompt('Введите ID пользователя для добавления в группу:');
-    if (!memberId || !memberId.trim()) return;
+    const username = prompt('Введите юзернейм пользователя для добавления (например, @username):');
+    if (!username || !username.trim()) return;
     
-    socket.emit('add_group_member', { 
+    // Убираем @, если юзер его случайно написал
+    const cleanUsername = username.trim().replace('@', '');
+    
+    // Шлём запрос на новое событие бэкенда
+    socket.emit('add_user_to_group', { 
         chat_id: currentChatId, 
-        member_id: memberId.trim() 
+        username: cleanUsername 
     }, (response) => {
         if (response && response.status === 'ok') {
-            alert('✅ Пользователь добавлен в группу!');
-            // Обновляем список чатов
+            alert('✅ Пользователь успешно добавлен!');
             loadChatsAndMessages();
-            // Обновляем информацию о группе
             if (currentChatId) {
                 showGroupInfo(currentChatId);
             }
         } else {
-            alert(`❌ Ошибка: ${response?.message || 'Не удалось добавить пользователя'}`);
+            alert(`❌ Ошибка: ${response?.message || 'Не удалось найти или добавить пользователя'}`);
         }
     });
 }

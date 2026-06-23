@@ -2,6 +2,27 @@
 console.log('🚀 DICEGRAM загружается...');
 console.log('👤 Пользователь:', tgUser.first_name, '@' + MY_USERNAME, 'ID:', MY_ID);
 
+// ============ ПРОВЕРКА LOCALSTORAGE ============
+const savedUser = localStorage.getItem('dicegram_user');
+if (savedUser) {
+    try {
+        const user = JSON.parse(savedUser);
+        if (user) {
+            window.tgUser = {
+                id: user.id,
+                first_name: user.first_name || 'User',
+                username: user.username || '',
+                photo_url: user.photo_url || ''
+            };
+            MY_ID = user.id;
+            MY_USERNAME = user.username || '';
+            console.log('👤 Восстановлен пользователь из localStorage:', MY_ID);
+        }
+    } catch (e) {
+        localStorage.removeItem('dicegram_user');
+    }
+}
+
 // Инициализация
 window.isInitialLoad = true;
 window.botCreationStep = null;

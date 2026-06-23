@@ -10,10 +10,18 @@ window.createdBots = [];
 
 // Запуск
 setTimeout(() => {
-    initProfile();
+    // Если tgUser уже есть (пользователь Telegram), инициализируем профиль и чаты
+    const tg = window.Telegram?.WebApp;
+    if (tg && tg.initDataUnsafe?.user?.id) {
+        initProfile();
+        // чаты загрузятся после авторизации (в socket.js)
+    }
+    // Иначе экран входа покажет socket.js
 }, 500);
 
 connectSocket();
+
+// ... остальные обработчики событий
 
 // События
 document.getElementById('message-field').addEventListener('keydown', function(e) {

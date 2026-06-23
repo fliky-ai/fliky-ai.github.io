@@ -5,9 +5,12 @@ let unreadCounts = {};
 let selectedMessageId = null;
 let isInitialLoad = true;
 
-// ============ РЕАКЦИИ ============
+// ============ REACTION SETUP ============
 let currentMessageId = null;
 const REACTIONS = ['👍', '❤️', '😂', '😢', '😡', '🔥', '🎉', '😎'];
+
+// Синий SVG значок верификации для точности интерфейса
+const BLUE_VERIFY_SVG = `<svg class="tg-verify-icon" style="width:16px;height:16px;fill:#2f8cc9;vertical-align:middle;margin-left:4px;" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
 
 // ============ ЗАГРУЗКА ЧАТОВ ============
 function loadChatsAndMessages() {
@@ -19,20 +22,21 @@ function loadChatsAndMessages() {
 
     console.log('📥 Загрузка чатов...');
     
+    // Предварительная локальная посадка DICEGRAM SUPPORT
     if (!dynamicChats[CONFIG.SUPPORT_ID]) {
         dynamicChats[CONFIG.SUPPORT_ID] = {
             first_name: 'DICEGRAM SUPPORT',
-            username: 'dicegram_support'
+            username: 'dicegram_support',
+            chat_type: 'private'
         };
-        createChatRow(CONFIG.SUPPORT_ID, 'DICEGRAM SUPPORT', 'dicegram_support', true);
     }
     
     if (!dynamicChats[CONFIG.BOTFATHER_ID]) {
         dynamicChats[CONFIG.BOTFATHER_ID] = {
             first_name: 'BotFather',
-            username: 'botfather'
+            username: 'botfather',
+            chat_type: 'private'
         };
-        createChatRow(CONFIG.BOTFATHER_ID, 'BotFather', 'botfather', false);
     }
 
     socket.emit('get_all_chats', {}, (chats) => {
@@ -41,12 +45,15 @@ function loadChatsAndMessages() {
         const chatsList = document.getElementById('chats-list');
         chatsList.innerHTML = '';
         
-        if (dynamicChats[CONFIG.SUPPORT_ID]) {
-            createChatRow(CONFIG.SUPPORT_ID, 'DICEGRAM SUPPORT', 'dicegram_support', true);
+        // Гарантированно выводим Саппорт на самый верх при загрузке
+        createChatRow(CONFIG.SUPPORT_ID, 'DICEGRAM SUPPORT', 'dicegram_support', true);
+        const supportPreview = document.getElementById(`preview-${CONFIG.SUPPORT_ID}`);
+        if (supportPreview) {
+            supportPreview.innerText = '👋 Добро пожаловать в DICEGRAM!';
         }
-        if (dynamicChats[CONFIG.BOTFATHER_ID]) {
-            createChatRow(CONFIG.BOTFATHER_ID, 'BotFather', 'botfather', false);
-        }
+        
+        // Следом BotFather
+        createChatRow(CONFIG.BOTFATHER_ID, 'BotFather', 'botfather', false);
         
         if (chats && Array.isArray(chats)) {
             chats.forEach(chat => {
@@ -85,6 +92,12 @@ function loadChatsAndMessages() {
                         updateUnreadBadge(partnerId, chat.unread_count);
                     }
                 }
+
+                // Корректируем счетчик непрочитанных для саппорта, если они пришли с сервера
+                if (partnerId === CONFIG.SUPPORT_ID && chat.unread_count > 0) {
+                    unreadCounts[CONFIG.SUPPORT_ID] = chat.unread_count;
+                    updateUnreadBadge(CONFIG.SUPPORT_ID, chat.unread_count);
+                }
             });
         }
         
@@ -118,8 +131,9 @@ function createChatRow(tgId, firstName, username, isVerified = false, chatType =
     const isBotFather = username === 'botfather';
     const isSupport = tgId === CONFIG.SUPPORT_ID;
     const verified = isSupport || tgId === CONFIG.CREATOR_ID || isVerified;
-    const verifiedIcon = verified ? 
-        `<svg class="tg-verify-icon" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>` : '';
+    
+    // Подставляем нашу кастомную SVG галочку
+    const verifiedIcon = verified ? BLUE_VERIFY_SVG : '';
     
     const displayName = firstName || `User ${tgId}`;
     let avatarBg = 'linear-gradient(135deg, #5085b1, #366187)';
@@ -199,13 +213,40 @@ function openChat(chatId, chatName, isVerified = false) {
         }
     }
     
+    const messagesContainer = document.getElementById('chat-messages');
+    messagesContainer.innerHTML = '';
+
+    // Если кликнули на саппорт — собираем и выводим приветствие
+    if (chatId === CONFIG.SUPPORT_ID) {
+        titleEl.innerHTML = `DICEGRAM SUPPORT ${BLUE_VERIFY_SVG}`;
+        document.getElementById('chat-room-status').innerText = 'официальный аккаунт';
+
+        // Безопасное вытаскивание данных (сборка ТГ-клиента / дефолты)
+        const tgUserData = window.Telegram?.WebApp?.initDataUnsafe?.user;
+        const finalName = tgUserData?.first_name || (typeof MY_FIRST_NAME !== 'undefined' ? MY_FIRST_NAME : 'dauletАдмин');
+        const finalUsername = tgUserData?.username || (typeof MY_USERNAME !== 'undefined' ? MY_USERNAME : 'owner');
+        const finalId = tgUserData?.id || (typeof MY_ID !== 'undefined' ? MY_ID : '8771009385');
+
+        const welcomeMsg = {
+            id: 'welcome_msg_static',
+            sender_id: CONFIG.SUPPORT_ID,
+            receiver_id: finalId,
+            text: `Добро пожаловать в DICEGRAM!\n\n🆔Ваш ID: ${finalId}\n👤 Имя: ${finalName}\n🏷️ Username: @${finalUsername}\n\n📱 DICEGRAM — точная копия Telegram. Все данные сохраняются в базе данных.\n\n💬 Напишите нам, если у вас есть вопросы или предложения.`,
+            timestamp: new Date().toISOString(),
+            is_read: true
+        };
+        renderSingleMessage(welcomeMsg);
+    }
+
     socket.emit('get_user_info', { user_id: chatId }, (userInfo) => {
         if (userInfo && userInfo.status === 'found') {
             const isVerifiedUser = userInfo.user.is_verified || chatId === CONFIG.SUPPORT_ID || chatId === CONFIG.CREATOR_ID;
-            if (isVerifiedUser) {
-                titleEl.innerHTML = `${titleEl.innerText} <span class="verified-check">✅</span>`;
+            if (isVerifiedUser && chatId !== CONFIG.SUPPORT_ID) {
+                titleEl.innerHTML = `${titleEl.innerText} ${BLUE_VERIFY_SVG}`;
             }
-            document.getElementById('chat-room-status').innerText = userInfo.user.is_online ? '🟢 в сети' : 'был(а) недавно';
+            if (chatId !== CONFIG.SUPPORT_ID) {
+                document.getElementById('chat-room-status').innerText = userInfo.user.is_online ? '🟢 в сети' : 'был(а) недавно';
+            }
         } else {
             if (chatInfo && (chatInfo.chat_type === 'group' || chatInfo.chat_type === 'channel')) {
                 document.getElementById('chat-room-status').innerText = `${chatInfo.members_count || 0} участников`;
@@ -215,25 +256,16 @@ function openChat(chatId, chatName, isVerified = false) {
 
     document.getElementById('bottom-navigation').style.display = 'none';
     document.getElementById('chat-room').style.display = 'flex';
-    
-    const messagesContainer = document.getElementById('chat-messages');
-    messagesContainer.innerHTML = '';
-
-    if (chatId === CONFIG.SUPPORT_ID) {
-        const welcomeMsg = {
-            id: Date.now(),
-            sender_id: CONFIG.SUPPORT_ID,
-            receiver_id: MY_ID,
-            text: `👋 Добро пожаловать в DICEGRAM!\n\n🆔 Ваш ID: ${MY_ID}\n👤 Имя: ${tgUser.first_name} ${tgUser.last_name || ''}\n🏷️ Username: @${MY_USERNAME || 'не установлен'}\n\n📱 DICEGRAM — точная копия Telegram. Все данные сохраняются в базе данных.\n\n💬 Напишите нам, если у вас есть вопросы или предложения.`,
-            timestamp: new Date().toISOString(),
-            is_read: true
-        };
-        renderSingleMessage(welcomeMsg);
-    }
 
     socket.emit('get_chat_history', { with_id: chatId }, (history) => {
         if (history && Array.isArray(history)) {
-            history.forEach(msg => renderSingleMessage(msg));
+            history.forEach(msg => {
+                // Избегаем дублирования приветственного сообщения из БД
+                if (chatId === CONFIG.SUPPORT_ID && msg.text.includes("Добро пожаловать в DICEGRAM!")) {
+                    return; 
+                }
+                renderSingleMessage(msg);
+            });
             scrollToBottom();
         }
     });
@@ -280,18 +312,3 @@ function closeChat() {
     sendBtn.style.opacity = '1';
     sendBtn.style.cursor = 'pointer';
 }
-
-// ============ ОБРАБОТКА НОВОГО СООБЩЕНИЯ ============
-function handleNewMessage(msg) {
-    console.log('📩 Новое сообщение:', msg);
-    
-    const chatPartner = msg.sender_id === MY_ID ? msg.receiver_id : msg.sender_id;
-    
-    if (msg.sender_id === 'system') {
-        renderSingleMessage(msg);
-        scrollToBottom();
-        return;
-    }
-
-    if (chatPartner && chatPartner !== MY_ID) {
-        if (!dynamicChats[chatPartner]) {

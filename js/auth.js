@@ -12,7 +12,6 @@ function showLoginScreen() {
 function hideLoginScreen() {
     const loginScreen = document.getElementById('login-screen');
     loginScreen.classList.remove('active');
-    // app-container показываем отдельно после успешного входа
 }
 
 function checkLoginRequired() {
@@ -24,7 +23,6 @@ function checkLoginRequired() {
     return false;
 }
 
-// Инициализация обработчиков после загрузки DOM
 document.addEventListener('DOMContentLoaded', function() {
     const phoneInput = document.getElementById('login-phone');
     const codeInput = document.getElementById('login-code');
@@ -34,7 +32,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const backBtn = document.getElementById('login-back-btn');
     const errorEl = document.getElementById('login-error');
 
-    // Форматирование номера
     phoneInput.addEventListener('input', function(e) {
         let val = this.value.replace(/\D/g, '');
         if (val.length > 3) {
@@ -46,7 +43,6 @@ document.addEventListener('DOMContentLoaded', function() {
         this.value = val;
     });
 
-    // Кнопка "Далее"
     nextBtn.addEventListener('click', function() {
         const phone = phoneInput.value.replace(/\s/g, '');
         if (phone.length < 9) {
@@ -54,8 +50,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         errorEl.textContent = '';
-        currentPhone = '+' + phone; // "+8888771009385"
-        
+        currentPhone = '+' + phone;
         loginStep = 'code';
         phoneInput.disabled = true;
         codeField.style.display = 'block';
@@ -66,7 +61,6 @@ document.addEventListener('DOMContentLoaded', function() {
         errorEl.textContent = 'Код отправлен в Telegram бот. Используйте /getcode';
     });
 
-    // Кнопка "Изменить"
     backBtn.addEventListener('click', function() {
         loginStep = 'phone';
         phoneInput.disabled = false;
@@ -79,7 +73,6 @@ document.addEventListener('DOMContentLoaded', function() {
         phoneInput.focus();
     });
 
-    // Кнопка "Подтвердить"
     confirmBtn.addEventListener('click', function() {
         const code = codeInput.value.trim();
         if (code.length !== 5) {
@@ -100,42 +93,53 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (response.user) {
                         MY_ID = response.telegram_id;
                         MY_USERNAME = response.user.username || '';
-                        if (window.tgUser) {
-                            window.tgUser.id = response.telegram_id;
-                            window.tgUser.first_name = response.user.first_name;
-                            window.tgUser.username = response.user.username;
-                            window.tgUser.photo_url = response.user.photo_url || '';
-                        } else {
-                            window.tgUser = {
-                                id: response.telegram_id,
-                                first_name: response.user.first_name,
-                                username: response.user.username,
-                                photo_url: response.user.photo_url || ''
-                            };
-                        }
+                        window.tgUser = {
+                            id: response.telegram_id,
+                            first_name: response.user.first_name,
+                            username: response.user.username,
+                            photo_url: response.user.photo_url || ''
+                        };
+                        console.log('tgUser обновлён:', window.tgUser);
                     }
 
                     // Скрываем экран входа и загрузочный экран
                     document.getElementById('login-screen').classList.remove('active');
+                    document.getElementById('login-screen').style.display = 'none';
                     document.getElementById('loading-screen').style.display = 'none';
-                    
-                    // Показываем основной контейнер
+
+                    // Принудительно показываем основной контейнер
                     const appContainer = document.getElementById('app-container');
                     appContainer.style.display = 'flex';
-                    console.log('app-container display set to flex');
+                    appContainer.style.visibility = 'visible';
+                    appContainer.style.opacity = '1';
+                    console.log('app-container показан:', appContainer.style.display);
+
+                    // Переключаем на вкладку "Чаты"
+                    const chatsTab = document.querySelector('.nav-item.active');
+                    if (chatsTab) {
+                        // Если есть активная вкладка, оставляем
+                    } else {
+                        // Иначе выбираем чаты
+                        const chatNav = document.querySelector('.nav-item[onclick*="chats"]');
+                        if (chatNav) chatNav.click();
+                    }
 
                     // Загружаем данные с задержкой
                     setTimeout(() => {
                         console.log('Инициализация профиля, чатов, контактов...');
-                        if (window.initProfile) window.initProfile();
-                        if (window.loadChatsAndMessages) window.loadChatsAndMessages();
-                        if (window.loadContacts) window.loadContacts();
-                        const headerTitle = document.getElementById('header-title');
-                        if (headerTitle) headerTitle.innerText = 'Чаты';
+                        try {
+                            if (window.initProfile) window.initProfile();
+                            if (window.loadChatsAndMessages) window.loadChatsAndMessages();
+                            if (window.loadContacts) window.loadContacts();
+                            document.getElementById('header-title').innerText = 'Чаты';
+                        } catch (e) {
+                            console.error('Ошибка при инициализации:', e);
+                        }
                     }, 500);
 
                 } else {
                     errorEl.textContent = '❌ ' + (response.message || 'Ошибка');
+                    console.error('Ошибка входа:', response);
                 }
             });
         } else {
@@ -145,7 +149,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Экспортируем функции
 window.showLoginScreen = showLoginScreen;
 window.hideLoginScreen = hideLoginScreen;
 window.checkLoginRequired = checkLoginRequired;

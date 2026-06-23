@@ -280,20 +280,47 @@ function confirmCreate(type) {
                     first_name: chatName,
                     username: '',
                     chat_type: type,
-                    invite_link: response.invite_link,
                     members_count: 1,
                     role: 'owner'
                 };
             }
             
-            createChatRow(chatId, chatName, '', true);
-            openChat(chatId, chatName, true);
+            createChatRow(chatId, chatName, '', true, type);
+            openChat(chatId);
             
             setTimeout(() => {
-                alert(`✅ ${type === 'group' ? 'Группа' : 'Канал'} "${chatName}" создан!\n\n🔗 Инвайт-ссылка: dicegram.me/${response.invite_link}`);
+                alert(`✅ ${type === 'group' ? 'Группа' : 'Канал'} "${chatName}" создан!`);
             }, 1000);
         } else {
             alert(`❌ Ошибка: ${response?.message || 'Неизвестная ошибка'}`);
+        }
+    });
+}
+
+// ============ ДОБАВЛЕНИЕ УЧАСТНИКА В ГРУППУ ============
+function addGroupMember() {
+    if (!currentChatId) {
+        alert('❌ Чат не выбран');
+        return;
+    }
+    
+    const memberId = prompt('Введите ID пользователя для добавления в группу:');
+    if (!memberId || !memberId.trim()) return;
+    
+    socket.emit('add_group_member', { 
+        chat_id: currentChatId, 
+        member_id: memberId.trim() 
+    }, (response) => {
+        if (response && response.status === 'ok') {
+            alert('✅ Пользователь добавлен в группу!');
+            // Обновляем список чатов
+            loadChatsAndMessages();
+            // Обновляем информацию о группе
+            if (currentChatId) {
+                showGroupInfo(currentChatId);
+            }
+        } else {
+            alert(`❌ Ошибка: ${response?.message || 'Не удалось добавить пользователя'}`);
         }
     });
 }

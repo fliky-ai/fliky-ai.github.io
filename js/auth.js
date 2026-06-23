@@ -103,7 +103,7 @@ document.addEventListener('DOMContentLoaded', function() {
     nextBtn.addEventListener('click', function() {
         const phone = phoneInput.value.replace(/\s/g, '');
         if (phone.length < 9) {
-            errorEl.textContent = 'Ввввведите полный номер (9 цифр)';
+            errorEl.textContent = 'Ввведите полллллный номер (9 цифр)';
             return;
         }
         errorEl.textContent = '';
@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         console.log('Пользователь сохранён в localStorage');
                     }
 
-                    // ПЕРЕЗАГРУЖАЕМ СТРАНИЦУ
+                    // ПЕРЕЗАГРУЖАЕМ СТРАНИЦУ ЧЕРЕЗ 500мс
                     setTimeout(function() {
                         window.location.reload();
                     }, 500);

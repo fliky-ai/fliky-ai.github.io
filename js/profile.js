@@ -65,6 +65,7 @@ function updateAvatar(elementId, name, photoUrl) {
     }
 }
 
+// ============ ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ ============
 function showUserProfile(userId) {
     if (!userId) return;
     
@@ -178,7 +179,7 @@ function showUserProfile(userId) {
                     };
                     createChatRow(userId, displayName, user.username || '', isVerified);
                 }
-                openChat(userId, displayName, isVerified);
+                openChat(userId);
                 closeProfilePopup();
             };
             actionsDiv.appendChild(chatBtn);
@@ -223,7 +224,7 @@ function showUserProfile(userId) {
     });
 }
 
-// ============ ИНФОРМАЦИЯ О ГРУППЕ ============
+// ============ ИНФОРМАЦИЯ О ГРУППЕ (БЕЗ ИНВАЙТ-ССЫЛОК) ============
 function showGroupInfo(chatId) {
     if (!chatId) return;
     
@@ -254,15 +255,9 @@ function showGroupProfile(chat, members) {
     const typeLabel = chat.type === 'group' ? '👥 Группа' : '📢 Канал';
     document.getElementById('popup-username').innerText = `${typeLabel} • ${members ? members.length : 0} участников`;
     
-    const inviteLink = `dicegram.me/${chat.invite_link}`;
-    document.getElementById('popup-bio').innerHTML = `
-        <div style="margin-top:8px;padding:8px 12px;background:rgba(82,136,193,0.1);border-radius:8px;border:1px solid rgba(82,136,193,0.2);">
-            <div style="font-size:12px;color:var(--tg-text-secondary);">🔗 Инвайт-ссылка</div>
-            <div style="font-size:14px;color:var(--tg-accent-color);cursor:pointer;word-break:break-all;" onclick="copyInviteLink('${chat.invite_link}')">
-                ${inviteLink}
-            </div>
-        </div>
-    `;
+    // Убираем инвайт-ссылку
+    document.getElementById('popup-bio').innerHTML = '';
+    document.getElementById('popup-bio').style.display = 'none';
     
     document.getElementById('popup-status').innerText = `Создан: ${new Date(chat.created_at).toLocaleDateString()}`;
     document.getElementById('popup-status').style.display = 'block';
@@ -297,8 +292,7 @@ function showGroupProfile(chat, members) {
     
     const actionsDiv = document.getElementById('popup-actions');
     actionsDiv.innerHTML = `
-        <button class="btn-chat" onclick="copyInviteLink('${chat.invite_link}')">🔗 Скопировать ссылку</button>
-        <button class="btn-share" onclick="shareInviteLink('${chat.invite_link}')">📤 Поделиться</button>
+        <button class="btn-chat" onclick="addGroupMemberByUsername()">➕ Добавить участника</button>
         <button class="btn-block" onclick="leaveGroup('${chat.chat_id}')">🚪 Покинуть ${chat.type === 'group' ? 'группу' : 'канал'}</button>
         ${membersHtml}
     `;
@@ -306,26 +300,53 @@ function showGroupProfile(chat, members) {
     popup.classList.add('active');
 }
 
-function copyInviteLink(link) {
-    const fullLink = `dicegram.me/${link}`;
-    navigator.clipboard.writeText(fullLink).then(() => {
-        alert('🔗 Ссылка скопирована в буфер обмена!');
+// ============ ДОБАВЛЕНИЕ УЧАСТНИКА ПО USERNAME ============
+function addGroupMemberByUsername() {
+    if (!currentChatId) {
+        alert('❌ Чат не выбран');
+        return;
+    }
+    
+    const username = prompt('Введите username пользователя для добавления (например: @username):');
+    if (!username || !username.trim()) return;
+    
+    const cleanUsername = username.trim().replace('@', '');
+    
+    if (!cleanUsername) {
+        alert('❌ Введите корректный username');
+        return;
+    }
+    
+    const loading = document.createElement('div');
+    loading.className = 'loading-overlay';
+    loading.innerHTML = `
+        <div class="loading-spinner"></div>
+        <p>Добавление пользователя...</p>
+    `;
+    document.body.appendChild(loading);
+    
+    socket.emit('add_user_to_group', { 
+        chat_id: currentChatId, 
+        username: cleanUsername 
+    }, (response) => {
+        loading.remove();
+        
+        if (response && response.status === 'ok') {
+            alert('✅ Пользователь успешно добавлен!');
+            if (currentChatId) {
+                showGroupInfo(currentChatId);
+                loadChatsAndMessages();
+            }
+        } else {
+            alert(`❌ Ошибка: ${response?.message || 'Не удалось добавить пользователя'}`);
+        }
     });
 }
 
-function shareInviteLink(link) {
-    const fullLink = `dicegram.me/${link}`;
-    if (navigator.share) {
-        navigator.share({
-            title: 'Приглашение в DICEGRAM',
-            text: 'Присоединяйся к чату в DICEGRAM!',
-            url: `https://${fullLink}`
-        }).catch(() => {});
-    } else {
-        copyInviteLink(link);
-    }
-}
+// ============ КОПИРОВАТЬ ССЫЛКУ (УДАЛЕНО) ============
+// copyInviteLink и shareInviteLink полностью удалены
 
+// ============ ПОКИНУТЬ ГРУППУ ============
 function leaveGroup(chatId) {
     if (confirm('Вы уверены, что хотите покинуть этот чат?')) {
         socket.emit('leave_group', { chat_id: chatId }, (response) => {

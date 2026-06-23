@@ -7,14 +7,20 @@ window.botCreationStep = null;
 window.botName = '';
 window.createdBots = [];
 
-// Запуск автоматического входа
-setTimeout(() => {
+// ПОДКЛЮЧАЕМ СОКЕТ СРАЗУ
+connectSocket();
+
+// ЖДЁМ ПОДКЛЮЧЕНИЕ И ЗАПУСКАЕМ АВТОВХОД
+setTimeout(function() {
     if (window.autoLogin) {
         window.autoLogin();
+    } else {
+        console.log('⚠️ autoLogin не найден, пробуем ещё раз...');
+        setTimeout(function() {
+            if (window.autoLogin) window.autoLogin();
+        }, 1000);
     }
-}, 500);
-
-connectSocket();
+}, 1000);
 
 // События
 document.getElementById('message-field').addEventListener('keydown', function(e) {

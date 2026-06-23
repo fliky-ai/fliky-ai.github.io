@@ -41,7 +41,42 @@ function connectSocket() {
         
         loadingStatus.textContent = 'Авторизация...';
         
-        // Проверяем, есть ли пользователь Telegram
+        // 🔥 Проверяем localStorage
+        const savedUser = localStorage.getItem('dicegram_user');
+        if (savedUser) {
+            try {
+                const user = JSON.parse(savedUser);
+                if (user && user.id) {
+                    // Восстанавливаем глобальные переменные
+                    window.tgUser = {
+                        id: user.id,
+                        first_name: user.first_name || 'User',
+                        username: user.username || '',
+                        photo_url: user.photo_url || ''
+                    };
+                    MY_ID = user.id;
+                    MY_USERNAME = user.username || '';
+                    console.log('👤 Восстановлен пользователь из localStorage:', MY_ID);
+                    
+                    // Пропускаем авторизацию, сразу показываем интерфейс
+                    loadingStatus.textContent = 'Загрузка...';
+                    document.getElementById('loading-screen').style.display = 'none';
+                    document.getElementById('app-container').style.display = 'flex';
+                    
+                    // Загружаем данные
+                    setTimeout(() => {
+                        if (window.initProfile) window.initProfile();
+                        if (window.loadChatsAndMessages) window.loadChatsAndMessages();
+                        if (window.loadContacts) window.loadContacts();
+                    }, 300);
+                    return;
+                }
+            } catch (e) {
+                localStorage.removeItem('dicegram_user');
+            }
+        }
+
+        // Если нет сохранённого пользователя, проверяем Telegram WebApp
         const tg = window.Telegram?.WebApp;
         if (tg && tg.initDataUnsafe?.user?.id) {
             // Есть tgUser – авторизуем через auth

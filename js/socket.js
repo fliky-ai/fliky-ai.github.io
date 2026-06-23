@@ -41,30 +41,41 @@ function connectSocket() {
         
         loadingStatus.textContent = 'Авторизация...';
         
-        socket.emit('auth', tgUser, (response) => {
-            console.log('📨 Ответ авторизации:', response);
-            
-            if (response && response.status === 'ok') {
-                console.log('✅ Авторизация успешна');
-                loadingStatus.textContent = 'Загрузка...';
+        // Проверяем, есть ли пользователь Telegram
+        const tg = window.Telegram?.WebApp;
+        if (tg && tg.initDataUnsafe?.user?.id) {
+            // Есть tgUser – авторизуем через auth
+            socket.emit('auth', tgUser, (response) => {
+                console.log('📨 Ответ авторизации:', response);
                 
-                document.getElementById('loading-screen').style.display = 'none';
-                document.getElementById('app-container').style.display = 'flex';
-                
-                if (window.isInitialLoad) {
-                    setTimeout(() => {
-                        if (window.loadChatsAndMessages) window.loadChatsAndMessages();
-                        if (window.loadContacts) window.loadContacts();
-                        window.isInitialLoad = false;
-                    }, 500);
+                if (response && response.status === 'ok') {
+                    console.log('✅ Авторизация успешна');
+                    loadingStatus.textContent = 'Загрузка...';
+                    
+                    document.getElementById('loading-screen').style.display = 'none';
+                    document.getElementById('app-container').style.display = 'flex';
+                    
+                    if (window.isInitialLoad) {
+                        setTimeout(() => {
+                            if (window.loadChatsAndMessages) window.loadChatsAndMessages();
+                            if (window.loadContacts) window.loadContacts();
+                            if (window.initProfile) window.initProfile();
+                            window.isInitialLoad = false;
+                        }, 500);
+                    }
+                } else {
+                    console.error('❌ Ошибка авторизации:', response);
+                    loadingStatus.textContent = 'Ошибка авторизации';
+                    loadingError.style.display = 'block';
+                    reconnectBtn.style.display = 'block';
                 }
-            } else {
-                console.error('❌ Ошибка авторизации:', response);
-                loadingStatus.textContent = 'Ошибка авторизации';
-                loadingError.style.display = 'block';
-                reconnectBtn.style.display = 'block';
-            }
-        });
+            });
+        } else {
+            // Нет tgUser – показываем экран входа по номеру
+            loadingStatus.textContent = 'Вход по номеру';
+            document.getElementById('loading-screen').style.display = 'none';
+            if (window.showLoginScreen) window.showLoginScreen();
+        }
     });
 
     socket.on('connect_error', (error) => {
@@ -106,7 +117,7 @@ function connectSocket() {
         }
     });
 
-    // ============ ОБРАБОТЧИК ОБНОВЛЕНИЯ ЧАТОВ ============
+    // ============ ОБРАБОТЧИК ОБНОВЛЕНИЯ СПИСКА ЧАТОВ ============
     socket.on('chats_updated', (data) => {
         console.log('🔄 Обновление списка чатов:', data);
         if (window.loadChatsAndMessages) {
@@ -114,10 +125,8 @@ function connectSocket() {
                 window.loadChatsAndMessages();
             }, 300);
         }
-        // Если это присоединение к группе, открываем чат
         if (data.chat_id && window.openChat) {
             setTimeout(() => {
-                // Проверяем, что чат не открыт
                 if (window.currentChatId !== data.chat_id) {
                     window.openChat(data.chat_id);
                 }

@@ -1,4 +1,4 @@
-// ============ АВТОРИЗАЦИЯ ПО НОМЕРУ (ФИНАЛ С ПЕРЕЗАГРУЗКОЙ) ============
+// ============ АВТОРИЗАЦИЯ ПО НОМЕРУ (ФИНАЛ БЕЗ ПЕРЕЗАГРУЗКИ) ============
 let loginStep = 'phone';
 let currentPhone = '';
 
@@ -23,8 +23,8 @@ function checkLoginRequired() {
     if (savedUser) {
         try {
             const user = JSON.parse(savedUser);
-            // Восстанавливаем глобальные переменные
-            if (user) {
+            if (user && user.id) {
+                // Восстанавливаем глобальные переменные
                 window.tgUser = {
                     id: user.id,
                     first_name: user.first_name || 'User',
@@ -33,10 +33,18 @@ function checkLoginRequired() {
                 };
                 MY_ID = user.id;
                 MY_USERNAME = user.username || '';
-                // Если есть сохранённый пользователь, скрываем вход и показываем приложение
+                console.log('👤 Восстановлен пользователь из localStorage:', MY_ID);
+                
+                // Скрываем экран входа и показываем приложение
                 hideLoginScreen();
-                document.getElementById('app-container').style.display = 'flex';
+                const appContainer = document.getElementById('app-container');
+                if (appContainer) {
+                    appContainer.style.display = 'flex';
+                    appContainer.style.visibility = 'visible';
+                    appContainer.style.opacity = '1';
+                }
                 document.getElementById('loading-screen').style.display = 'none';
+                
                 // Загружаем данные
                 setTimeout(() => {
                     if (window.initProfile) window.initProfile();
@@ -134,7 +142,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 confirmBtn.disabled = false;
                 if (response.status === 'ok') {
                     errorEl.textContent = '✅ Вход выполнен!';
-                    console.log('✅ Вход выполнен, сохраняем данные и перезагружаем...');
+                    console.log('✅ Вход выполнен, сохраняем данные и открываем интерфейс...');
 
                     // Сохраняем пользователя в localStorage
                     if (response.user) {
@@ -146,12 +154,56 @@ document.addEventListener('DOMContentLoaded', function() {
                         };
                         localStorage.setItem('dicegram_user', JSON.stringify(userData));
                         console.log('✅ Пользователь сохранён в localStorage');
+
+                        // Обновляем глобальные переменные
+                        window.tgUser = {
+                            id: response.telegram_id,
+                            first_name: response.user.first_name,
+                            username: response.user.username,
+                            photo_url: response.user.photo_url || ''
+                        };
+                        MY_ID = response.telegram_id;
+                        MY_USERNAME = response.user.username || '';
                     }
 
-                    // Перезагружаем страницу, чтобы применить изменения
+                    // Скрываем экран входа и загрузочный экран
+                    hideLoginScreen();
+                    document.getElementById('loading-screen').style.display = 'none';
+
+                    // Показываем основной интерфейс
+                    const appContainer = document.getElementById('app-container');
+                    if (appContainer) {
+                        appContainer.style.display = 'flex';
+                        appContainer.style.visibility = 'visible';
+                        appContainer.style.opacity = '1';
+                        console.log('app-container показан');
+                    }
+
+                    // Переключаем вкладку на "Чаты"
+                    const navItems = document.querySelectorAll('.nav-item');
+                    navItems.forEach(item => item.classList.remove('active'));
+                    const chatsNav = document.querySelector('.nav-item[onclick*="chats"]');
+                    if (chatsNav) {
+                        chatsNav.classList.add('active');
+                        const screenChats = document.getElementById('screen-chats');
+                        if (screenChats) {
+                            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+                            screenChats.classList.add('active');
+                        }
+                    }
+                    document.getElementById('header-title').innerText = 'Чаты';
+
+                    // Загружаем данные через 300ms
                     setTimeout(() => {
-                        window.location.reload();
-                    }, 500);
+                        try {
+                            if (window.initProfile) window.initProfile();
+                            if (window.loadChatsAndMessages) window.loadChatsAndMessages();
+                            if (window.loadContacts) window.loadContacts();
+                            console.log('✅ Все данные загружены');
+                        } catch (e) {
+                            console.error('Ошибка загрузки:', e);
+                        }
+                    }, 300);
 
                 } else {
                     errorEl.textContent = '❌ ' + (response.message || 'Ошибка');

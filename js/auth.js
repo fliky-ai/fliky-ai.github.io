@@ -1,6 +1,8 @@
-// ============ АВТОРИЗАЦИЯ ПО НОМЕРУ (С КНОПКОЙ ВХОДА) ============
+// ============ АВТОРИЗАЦИЯ ПО НОМЕРУ С КОДОМ И ТАЙМЕРОМ ============
 let loginStep = 'phone';
 let currentPhone = '';
+let timerInterval = null;
+let timeLeft = 300; // 5 минут
 
 function showLoginScreen() {
     const loginScreen = document.getElementById('login-screen');
@@ -15,6 +17,27 @@ function hideLoginScreen() {
         loginScreen.classList.remove('active');
         loginScreen.style.display = 'none';
     }
+}
+
+function startTimer() {
+    timeLeft = 300;
+    const timerEl = document.getElementById('login-timer');
+    if (!timerEl) return;
+    timerEl.style.display = 'block';
+    clearInterval(timerInterval);
+    timerInterval = setInterval(function() {
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        timerEl.textContent = '⏱ ' + String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            timerEl.textContent = '⏱ Код истёк';
+            timerEl.style.color = '#ff3b30';
+            document.getElementById('login-code').disabled = true;
+            document.getElementById('login-confirm-btn').disabled = true;
+        }
+        timeLeft--;
+    }, 1000);
 }
 
 function checkLoginRequired() {
@@ -94,10 +117,10 @@ document.addEventListener('DOMContentLoaded', function() {
     nextBtn.addEventListener('click', function() {
         const phone = phoneInput.value.replace(/\s/g, '');
         if (phone.length < 9) {
-            errorEl.textContent = 'Введите полный номер (9999999цифр)';
+            errorEl.textContent = 'Введите полный номер (9 цифр)';
             return;
         }
-        errorEl.textContent = '';
+        errorEl.textContent = 'Код отправлен в Telegram бот';
         currentPhone = '+' + phone;
         loginStep = 'code';
         phoneInput.disabled = true;
@@ -105,8 +128,11 @@ document.addEventListener('DOMContentLoaded', function() {
         nextBtn.style.display = 'none';
         confirmBtn.style.display = 'block';
         backBtn.style.display = 'block';
+        codeInput.disabled = false;
+        codeInput.value = '';
         codeInput.focus();
-        errorEl.textContent = 'Код отправлен в Telegram бот. Используйте /getcode';
+        startTimer();
+        errorEl.textContent = '';
     });
 
     backBtn.addEventListener('click', function() {
@@ -119,6 +145,8 @@ document.addEventListener('DOMContentLoaded', function() {
         codeInput.value = '';
         errorEl.textContent = '';
         phoneInput.focus();
+        clearInterval(timerInterval);
+        document.getElementById('login-timer').style.display = 'none';
     });
 
     confirmBtn.addEventListener('click', function() {
@@ -157,29 +185,28 @@ document.addEventListener('DOMContentLoaded', function() {
                         MY_USERNAME = response.user.username || '';
                     }
 
-                    // Скрываем поле для кода и показываем кнопку "Войти в аккаунт"
-                    document.getElementById('login-code-field').style.display = 'none';
-                    document.getElementById('login-confirm-btn').style.display = 'none';
-                    document.getElementById('login-back-btn').style.display = 'none';
+                    clearInterval(timerInterval);
+                    codeInput.disabled = true;
+                    confirmBtn.style.display = 'none';
+                    backBtn.style.display = 'none';
                     
-                    // Создаём кнопку "Войти в аккаунт", если её ещё нет
                     let enterBtn = document.getElementById('enter-account-btn');
                     if (!enterBtn) {
                         enterBtn = document.createElement('button');
                         enterBtn.id = 'enter-account-btn';
                         enterBtn.className = 'login-btn primary';
-                        enterBtn.textContent = 'Войти в аккаунт';
+                        enterBtn.textContent = '🚀 Войти в аккаунт';
                         enterBtn.style.width = '100%';
                         enterBtn.style.marginTop = '10px';
+                        enterBtn.style.padding = '16px';
+                        enterBtn.style.fontSize = '18px';
                         document.querySelector('.login-actions').appendChild(enterBtn);
                     }
                     enterBtn.style.display = 'block';
                     
-                    // Обработчик нажатия на кнопку
                     enterBtn.onclick = function() {
                         console.log('Пользователь нажал "Войти в аккаунт"');
                         
-                        // ПРИНУДИТЕЛЬНО ПОКАЗЫВАЕМ ИНТЕРФЕЙС
                         document.getElementById('login-screen').style.display = 'none';
                         document.getElementById('login-screen').classList.remove('active');
                         document.getElementById('loading-screen').style.display = 'none';
@@ -192,7 +219,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             console.log('app-container показан');
                         }
 
-                        // Переключаем вкладку "Чаты"
                         document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
                         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
                         
@@ -217,7 +243,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     };
 
                 } else {
-                    errorEl.textContent = 'Ошибка: ' + (response.message || 'Неизвестная ошибка');
+                    errorEl.textContent = 'Ошибка: ' + (response.message || 'Неверный код или код истёк');
                     console.error('Ошибка входа:', response);
                 }
             });

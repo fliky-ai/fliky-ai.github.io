@@ -7,9 +7,8 @@ window.botCreationStep = null;
 window.botName = '';
 window.createdBots = [];
 
-// Запуск
+// Запуск автоматического входа
 setTimeout(() => {
-    // Запускаем автоматический вход
     if (window.autoLogin) {
         window.autoLogin();
     }

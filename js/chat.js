@@ -67,7 +67,8 @@ function loadChatsAndMessages() {
                             chat_type: chatType,
                             members_count: chat.members_count || 0,
                             role: chat.role || 'member',
-                            is_verified: chat.is_verified || false
+                            is_verified: chat.is_verified || false,
+                            invite_link: chat.invite_link || ''
                         };
                     }
                     
@@ -216,11 +217,13 @@ function openChat(chatId) {
     const messagesContainer = document.getElementById('chat-messages');
     messagesContainer.innerHTML = '';
 
-    // Присоединяемся к комнате группы
+    // ============ КЛЮЧЕВОЕ: ПРИСОЕДИНЯЕМСЯ К КОМНАТЕ ГРУППЫ ============
     if (chatType === 'group' || chatType === 'channel') {
         socket.emit('join_chat', { chat_id: chatId }, (response) => {
             if (response && response.status === 'ok') {
                 console.log(`✅ Присоединился к комнате группы ${chatId}`);
+            } else {
+                console.warn(`⚠️ Ошибка присоединения к группе ${chatId}:`, response);
             }
         });
     }
@@ -410,36 +413,77 @@ function closeChat() {
     sendBtn.style.cursor = 'pointer';
 }
 
-// ============ ОБРАБОТКА НОВОГО СООБЩЕНИЯ ============
+// ============ ИСПРАВЛЕННАЯ ОБРАБОТКА НОВОГО СООБЩЕНИЯ ============
 function handleNewMessage(msg) {
     console.log('📩 Новое сообщение:', msg);
     
-    renderSingleMessageWithCheck(msg);
-    
+    // Определяем собеседника (для групповых чатов это receiver_id или sender_id)
     const chatPartner = msg.sender_id === MY_ID ? msg.receiver_id : msg.sender_id;
     
+    // Если сообщение системное
     if (msg.sender_id === 'system') {
+        renderSingleMessageWithCheck(msg);
         scrollToBottom();
         return;
     }
-
-    if (chatPartner && chatPartner !== MY_ID) {
-        if (!dynamicChats[chatPartner]) {
-            loadChatsAndMessages();
-        } else {
-            if (currentChatId === chatPartner) {
-                scrollToBottom();
-                socket.emit('mark_as_read', { chat_id: chatPartner });
-            } else {
-                unreadCounts[chatPartner] = (unreadCounts[chatPartner] || 0) + 1;
-                updateUnreadBadge(chatPartner, unreadCounts[chatPartner]);
-            }
-            
-            const previewEl = document.getElementById(`preview-${chatPartner}`);
-            if (previewEl) {
-                previewEl.innerText = msg.text;
-            }
+    
+    // Проверяем, открыт ли этот чат
+    const isCurrentChat = currentChatId === chatPartner || currentChatId === msg.receiver_id;
+    
+    if (isCurrentChat) {
+        // Если чат открыт - показываем сообщение
+        renderSingleMessageWithCheck(msg);
+        scrollToBottom();
+        // Отмечаем как прочитанное
+        socket.emit('mark_as_read', { chat_id: chatPartner });
+    } else {
+        // Если чат не открыт - увеличиваем счетчик непрочитанных
+        if (msg.sender_id !== MY_ID) {
+            unreadCounts[chatPartner] = (unreadCounts[chatPartner] || 0) + 1;
+            updateUnreadBadge(chatPartner, unreadCounts[chatPartner]);
         }
+    }
+    
+    // Обновляем превью в списке чатов
+    const previewEl = document.getElementById(`preview-${chatPartner}`);
+    if (previewEl) {
+        let previewText = msg.text;
+        const chatInfo = dynamicChats[chatPartner];
+        if (chatInfo) {
+            if (chatInfo.chat_type === 'group') previewText = '👥 ' + previewText;
+            if (chatInfo.chat_type === 'channel') previewText = '📢 ' + previewText;
+        }
+        previewEl.innerText = previewText;
+    }
+    
+    // Если чат еще не существует в списке - создаем
+    if (chatPartner && chatPartner !== MY_ID && !dynamicChats[chatPartner]) {
+        // Проверяем, может это группа
+        socket.emit('get_group_info', { chat_id: chatPartner }, (groupInfo) => {
+            if (groupInfo && groupInfo.status === 'found') {
+                const chat = groupInfo.chat;
+                dynamicChats[chatPartner] = {
+                    first_name: chat.name || 'Группа',
+                    username: '',
+                    chat_type: chat.type,
+                    members_count: 0,
+                    is_verified: false
+                };
+                createChatRow(chatPartner, chat.name || 'Группа', '', false, chat.type);
+            } else {
+                // Это пользователь
+                socket.emit('get_user_info', { user_id: chatPartner }, (userInfo) => {
+                    if (userInfo && userInfo.status === 'found') {
+                        dynamicChats[chatPartner] = {
+                            first_name: userInfo.user.first_name || `User ${chatPartner}`,
+                            username: userInfo.user.username || `@user${chatPartner}`
+                        };
+                        const isVerified = userInfo.user.is_verified || chatPartner === CONFIG.SUPPORT_ID;
+                        createChatRow(chatPartner, dynamicChats[chatPartner].first_name, dynamicChats[chatPartner].username, isVerified);
+                    }
+                });
+            }
+        });
     }
 }
 
@@ -515,7 +559,7 @@ function sendMessageToServer(text) {
     input.focus();
 }
 
-// ============ РЕАКЦИИ (ИСПРАВЛЕННЫЕ - БЕЗ ЛИШНИХ ЗАПРОСОВ) ============
+// ============ РЕАКЦИИ ============
 function showReactionPicker(messageId) {
     currentMessageId = messageId;
     let picker = document.getElementById('reaction-picker');
@@ -530,7 +574,6 @@ function showReactionPicker(messageId) {
         document.body.appendChild(picker);
     }
     
-    // Позиционируем рядом с сообщением
     const msgEl = document.querySelector(`[data-message-id="${messageId}"]`);
     if (msgEl) {
         const rect = msgEl.getBoundingClientRect();
@@ -581,11 +624,9 @@ function addReaction(emoji) {
     }, (response) => {
         if (response && response.status === 'ok') {
             console.log('✅ Реакция добавлена');
-            // Обновляем напрямую без лишнего запроса
             if (response.reactions) {
                 updateReactionDisplayDirect(currentMessageId, response.reactions);
             } else {
-                // Если сервер не вернул реакции, делаем запрос
                 updateReactionDisplay(currentMessageId);
             }
         } else {
@@ -596,7 +637,6 @@ function addReaction(emoji) {
     hideReactionPicker();
 }
 
-// Прямое обновление без лишних запросов
 function updateReactionDisplayDirect(messageId, reactions) {
     const msgEl = document.querySelector(`[data-message-id="${messageId}"]`);
     if (!msgEl) return;
@@ -617,7 +657,6 @@ function updateReactionDisplayDirect(messageId, reactions) {
     
     container.style.display = 'flex';
     
-    // Группируем реакции
     const grouped = {};
     reactions.forEach(r => {
         if (!grouped[r.reaction]) grouped[r.reaction] = [];
@@ -633,14 +672,13 @@ function updateReactionDisplayDirect(messageId, reactions) {
     });
 }
 
-// Старая функция для обратной совместимости (делает запрос на сервер)
 function updateReactionDisplay(messageId) {
     socket.emit('get_reactions', { message_id: messageId }, (reactions) => {
         updateReactionDisplayDirect(messageId, reactions);
     });
 }
 
-// ============ ОБРАБОТЧИК СОБЫТИЯ reaction_updated ============
+// ============ ОБРАБОТЧИКИ СОБЫТИЙ ============
 if (socket) {
     socket.on('reaction_updated', (data) => {
         console.log('📢 Обновление реакций:', data);
@@ -648,9 +686,20 @@ if (socket) {
             updateReactionDisplayDirect(data.message_id, data.reactions);
         }
     });
+
+    socket.on('message_read', (data) => {
+        const msgEl = document.querySelector(`[data-message-id="${data.message_id}"]`);
+        if (msgEl) {
+            const ticks = msgEl.querySelector('.status-ticks');
+            if (ticks) {
+                ticks.className = 'status-ticks read';
+                ticks.innerHTML = `<svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4zm-4.24 0L12.35 5.59 6 11.94l1.41 1.41z"/><path d="M0 0h24v24H0z" fill="none"/></svg>`;
+            }
+        }
+    });
 }
 
-// ============ ОБРАБОТКА КОМАНД BOTFATHER ============
+// ============ ОСТАЛЬНЫЕ ФУНКЦИИ ============
 function handleBotCommand(text) {
     const botResponse = emulateBotFather(text);
     
@@ -718,7 +767,6 @@ function emulateBotFather(text) {
     return `I don't understand that command. Please use /start, /newbot, or /mybots.`;
 }
 
-// ============ ПОИСК ПОЛЬЗОВАТЕЛЕЙ ============
 function handleSearch(query) {
     const resultsContainer = document.getElementById('search-results');
     if (!query.trim()) {
@@ -774,7 +822,6 @@ function handleSearch(query) {
     });
 }
 
-// ============ ДЕЙСТВИЯ С СООБЩЕНИЯМИ ============
 function showMessageActions(messageId) {
     const msgEl = document.querySelector(`[data-message-id="${messageId}"]`);
     if (!msgEl) return;
@@ -902,26 +949,5 @@ document.addEventListener('click', function(e) {
         }
     }
 });
-
-// ============ СОБЫТИЯ СОКЕТА ============
-if (socket) {
-    socket.on('message_read', (data) => {
-        const msgEl = document.querySelector(`[data-message-id="${data.message_id}"]`);
-        if (msgEl) {
-            const ticks = msgEl.querySelector('.status-ticks');
-            if (ticks) {
-                ticks.className = 'status-ticks read';
-                ticks.innerHTML = `<svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4zm-4.24 0L12.35 5.59 6 11.94l1.41 1.41z"/><path d="M0 0h24v24H0z" fill="none"/></svg>`;
-            }
-        }
-    });
-
-    socket.on('reaction_updated', (data) => {
-        console.log('📢 Обновление реакций:', data);
-        if (data.message_id && data.reactions) {
-            updateReactionDisplayDirect(data.message_id, data.reactions);
-        }
-    });
-}
 
 console.log('✅ Chat module loaded');

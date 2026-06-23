@@ -1,5 +1,5 @@
 // ============ АВТОРИЗАЦИЯ ПО НОМЕРУ ============
-let loginStep = 'phone'; // 'phone' | 'code'
+let loginStep = 'phone';
 let currentPhone = '';
 
 function showLoginScreen() {
@@ -9,10 +9,9 @@ function showLoginScreen() {
 
 function hideLoginScreen() {
     document.getElementById('login-screen').classList.remove('active');
-    document.getElementById('app-container').style.display = 'flex';
+    // Не прячем app-container здесь, чтобы не перекрывать
 }
 
-// Проверяем, нужно ли показывать вход (если нет tgUser)
 function checkLoginRequired() {
     const tg = window.Telegram?.WebApp;
     if (!tg || !tg.initDataUnsafe?.user?.id) {
@@ -22,7 +21,6 @@ function checkLoginRequired() {
     return false;
 }
 
-// Инициализация обработчиков после загрузки DOM
 document.addEventListener('DOMContentLoaded', function() {
     const phoneInput = document.getElementById('login-phone');
     const codeInput = document.getElementById('login-code');
@@ -32,7 +30,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const backBtn = document.getElementById('login-back-btn');
     const errorEl = document.getElementById('login-error');
 
-    // Форматирование номера (добавляем пробелы)
     phoneInput.addEventListener('input', function(e) {
         let val = this.value.replace(/\D/g, '');
         if (val.length > 3) {
@@ -44,18 +41,14 @@ document.addEventListener('DOMContentLoaded', function() {
         this.value = val;
     });
 
-    // Кнопка "Далее"
     nextBtn.addEventListener('click', function() {
-        const phone = phoneInput.value.replace(/\s/g, ''); // "8888771009385"
+        const phone = phoneInput.value.replace(/\s/g, '');
         if (phone.length < 9) {
             errorEl.textContent = 'Введите полный номер (9 цифр)';
             return;
         }
         errorEl.textContent = '';
-        // ✅ ИСПРАВЛЕНО: добавляем только "+", без дублирования 888
-        currentPhone = '+' + phone; // "+8888771009385"
-        
-        // Переключаем на ввод кода
+        currentPhone = '+' + phone;
         loginStep = 'code';
         phoneInput.disabled = true;
         codeField.style.display = 'block';
@@ -63,11 +56,9 @@ document.addEventListener('DOMContentLoaded', function() {
         confirmBtn.style.display = 'block';
         backBtn.style.display = 'block';
         codeInput.focus();
-        
         errorEl.textContent = 'Код отправлен в Telegram бот. Используйте /getcode';
     });
 
-    // Кнопка "Изменить"
     backBtn.addEventListener('click', function() {
         loginStep = 'phone';
         phoneInput.disabled = false;
@@ -80,7 +71,6 @@ document.addEventListener('DOMContentLoaded', function() {
         phoneInput.focus();
     });
 
-    // Кнопка "Подтвердить"
     confirmBtn.addEventListener('click', function() {
         const code = codeInput.value.trim();
         if (code.length !== 5) {
@@ -89,12 +79,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         errorEl.textContent = 'Проверка...';
         confirmBtn.disabled = true;
-        
+
         if (socket && isConnected) {
             socket.emit('auth_phone', { phone: currentPhone, code: code }, function(response) {
                 confirmBtn.disabled = false;
                 if (response.status === 'ok') {
                     errorEl.textContent = '✅ Вход выполнен!';
+
+                    // Обновляем глобальные переменные
                     if (response.user) {
                         MY_ID = response.telegram_id;
                         MY_USERNAME = response.user.username || '';
@@ -105,12 +97,18 @@ document.addEventListener('DOMContentLoaded', function() {
                             photo_url: response.user.photo_url || ''
                         };
                     }
+
+                    // Скрываем экран входа и показываем приложение
                     hideLoginScreen();
+                    document.getElementById('app-container').style.display = 'flex';
+
+                    // Загружаем данные пользователя
                     setTimeout(() => {
                         if (window.initProfile) window.initProfile();
                         if (window.loadChatsAndMessages) window.loadChatsAndMessages();
                         if (window.loadContacts) window.loadContacts();
                     }, 300);
+
                 } else {
                     errorEl.textContent = '❌ ' + (response.message || 'Ошибка');
                 }
@@ -122,7 +120,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Экспортируем в глобальную область
 window.showLoginScreen = showLoginScreen;
 window.hideLoginScreen = hideLoginScreen;
 window.checkLoginRequired = checkLoginRequired;

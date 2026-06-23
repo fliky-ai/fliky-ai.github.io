@@ -94,12 +94,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 confirmBtn.disabled = false;
                 if (response.status === 'ok') {
                     errorEl.textContent = '✅ Вход выполнен!';
+                    console.log('✅ Вход выполнен, показываем интерфейс...');
 
-                    // Сохраняем данные пользователя
+                    // Обновляем глобальные переменные
                     if (response.user) {
                         MY_ID = response.telegram_id;
                         MY_USERNAME = response.user.username || '';
-                        // Обновляем глобальный tgUser (используется в других модулях)
                         if (window.tgUser) {
                             window.tgUser.id = response.telegram_id;
                             window.tgUser.first_name = response.user.first_name;
@@ -115,19 +115,24 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     }
 
-                    // Скрываем экран входа и показываем приложение
-                    hideLoginScreen();
-                    document.getElementById('app-container').style.display = 'flex';
+                    // Скрываем экран входа и загрузочный экран
+                    document.getElementById('login-screen').classList.remove('active');
+                    document.getElementById('loading-screen').style.display = 'none';
+                    
+                    // Показываем основной контейнер
+                    const appContainer = document.getElementById('app-container');
+                    appContainer.style.display = 'flex';
+                    console.log('app-container display set to flex');
 
-                    // Загружаем все данные с небольшой задержкой
+                    // Загружаем данные с задержкой
                     setTimeout(() => {
+                        console.log('Инициализация профиля, чатов, контактов...');
                         if (window.initProfile) window.initProfile();
                         if (window.loadChatsAndMessages) window.loadChatsAndMessages();
                         if (window.loadContacts) window.loadContacts();
-                        // Дополнительно обновляем заголовок
                         const headerTitle = document.getElementById('header-title');
                         if (headerTitle) headerTitle.innerText = 'Чаты';
-                    }, 300);
+                    }, 500);
 
                 } else {
                     errorEl.textContent = '❌ ' + (response.message || 'Ошибка');

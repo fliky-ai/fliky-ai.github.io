@@ -1,4 +1,4 @@
-// ============ ЛОГИКА ЧАТОВ ============
+here// ============ ЛОГИКА ЧАТОВ ============
 let currentChatId = null;
 let dynamicChats = {};
 let unreadCounts = {};
@@ -194,7 +194,7 @@ function openChat(chatId) {
     }
 
     currentChatId = chatId;
-    renderedMessageIds.clear(); // Очищаем кэш при открытии
+    renderedMessageIds.clear(); // Очищаем кэш
     
     unreadCounts[chatId] = 0;
     updateUnreadBadge(chatId, 0);
@@ -292,7 +292,6 @@ function openChat(chatId) {
 function renderSingleMessageWithCheck(msg) {
     if (!msg || !msg.text) return;
     
-    // Улучшенная генерация ID
     const msgId = msg.id || msg._id || Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5);
     
     if (renderedMessageIds.has(msgId)) {
@@ -414,25 +413,33 @@ function closeChat() {
     sendBtn.style.cursor = 'pointer';
 }
 
-// ============ ИСПРАВЛЕННАЯ ОБРАБОТКА НОВОГО СООБЩЕНИЯ ============
+// ============ ФИНАЛЬНАЯ ИСПРАВЛЕННАЯ ОБРАБОТКА НОВОГО СООБЩЕНИЯ ============
 function handleNewMessage(msg) {
-    console.log('📩 Новое сообщение:', msg);
+    console.log('📩 Новое сообщение:', msg, 'currentChatId:', currentChatId);
     
-    // Определяем ID чата
+    // Определяем ID чата (для групповых — это receiver_id)
     let chatId = msg.receiver_id;
     if (msg.sender_id === MY_ID) {
         chatId = msg.receiver_id;
     } else if (msg.receiver_id === MY_ID) {
         chatId = msg.sender_id;
-    } else {
-        chatId = msg.receiver_id; // для групповых
     }
+    // Для групповых сообщений от других пользователей receiver_id — это ID группы
     
     // Если сообщение системное
     if (msg.sender_id === 'system') {
+        // Если это системное сообщение для группы, и мы в этой группе — рендерим
         if (currentChatId === msg.receiver_id) {
             renderSingleMessageWithCheck(msg);
             scrollToBottom();
+        }
+        // Обновляем превью в списке
+        const previewEl = document.getElementById(`preview-${msg.receiver_id}`);
+        if (previewEl) {
+            let previewText = msg.text;
+            const chatInfo = dynamicChats[msg.receiver_id];
+            if (chatInfo && chatInfo.chat_type === 'group') previewText = '👥 ' + previewText;
+            previewEl.innerText = previewText;
         }
         return;
     }
@@ -441,12 +448,14 @@ function handleNewMessage(msg) {
     const isCurrentChat = currentChatId === chatId;
     
     if (isCurrentChat) {
+        // Если чат открыт — рендерим сообщение
         renderSingleMessageWithCheck(msg);
         scrollToBottom();
         if (msg.sender_id !== MY_ID) {
             socket.emit('mark_as_read', { chat_id: chatId });
         }
     } else {
+        // Если чат не открыт — увеличиваем счётчик непрочитанных
         if (msg.sender_id !== MY_ID) {
             unreadCounts[chatId] = (unreadCounts[chatId] || 0) + 1;
             updateUnreadBadge(chatId, unreadCounts[chatId]);
@@ -548,7 +557,7 @@ function sendMessage() {
     sendMessageToServer(text);
 }
 
-// ============ ИСПРАВЛЕННАЯ ОТПРАВКА С ЛОКАЛЬНЫМ РЕНДЕРИНГОМ ============
+// ============ ОТПРАВКА С ЛОКАЛЬНЫМ РЕНДЕРИНГОМ ============
 function sendMessageToServer(text) {
     const input = document.getElementById('message-field');
     

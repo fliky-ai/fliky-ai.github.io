@@ -1,9 +1,10 @@
-here// ============ ЛОГИКА ЧАТОВ ============
+// ============ ЛОГИКА ЧАТОВ ============
 let currentChatId = null;
 let dynamicChats = {};
 let unreadCounts = {};
 let selectedMessageId = null;
 let isInitialLoad = true;
+let chatsLoaded = false;
 
 // ============ РЕАКЦИИ ============
 let currentMessageId = null;
@@ -13,6 +14,17 @@ let reactionPickerTimeout = null;
 const BLUE_VERIFY_SVG = `<svg class="tg-verify-icon" style="width:16px;height:16px;fill:#2f8cc9;vertical-align:middle;margin-left:4px;" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
 
 let renderedMessageIds = new Set();
+
+// ============ ИНИЦИАЛИЗАЦИЯ ЧАТОВ ============
+function initChats() {
+    console.log('🔄 initChats() вызван');
+    if (socket && isConnected) {
+        loadChatsAndMessages();
+    } else {
+        console.log('⏳ Сокет ещё не готов, повтор через 1 сек');
+        setTimeout(initChats, 1000);
+    }
+}
 
 // ============ ЗАГРУЗКА ЧАТОВ ============
 function loadChatsAndMessages() {
@@ -46,8 +58,13 @@ function loadChatsAndMessages() {
         console.log('📨 Получены чаты:', chats?.length || 0);
         
         const chatsList = document.getElementById('chats-list');
+        if (!chatsList) {
+            console.error('❌ Элемент chats-list не найден!');
+            return;
+        }
         chatsList.innerHTML = '';
         
+        // Всегда добавляем SUPPORT и BOTFATHER
         createChatRow(CONFIG.SUPPORT_ID, 'DICEGRAM SUPPORT', 'dicegram_support', true);
         createChatRow(CONFIG.BOTFATHER_ID, 'BotFather', 'botfather', false);
         
@@ -92,6 +109,8 @@ function loadChatsAndMessages() {
             });
         }
         
+        chatsLoaded = true;
+        
         if (chatsList.children.length === 0) {
             chatsList.innerHTML = `
                 <div style="padding:40px 20px;text-align:center;color:var(--tg-text-secondary);">
@@ -120,6 +139,10 @@ function createChatRow(tgId, firstName, username, isVerified = false, chatType =
     }
     
     const chatsList = document.getElementById('chats-list');
+    if (!chatsList) {
+        console.error('❌ chats-list не найден в createChatRow');
+        return;
+    }
     if (document.getElementById(`chat-item-${tgId}`)) return;
     
     const isBotFather = username === 'botfather';
@@ -1012,4 +1035,22 @@ document.addEventListener('click', function(e) {
     }
 });
 
-console.log('✅ Chat module loaded');
+// ============ АВТОЗАГРУЗКА ПРИ ПОДКЛЮЧЕНИИ ============
+// Вызываем initChats сразу, и при каждом возврате на вкладку
+setTimeout(() => {
+    initChats();
+}, 500);
+
+// Также перезагружаем чаты при переключении на вкладку "Чаты"
+document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) {
+        console.log('👁️ Страница снова активна, перезагружаем чаты');
+        initChats();
+    }
+});
+
+// Если есть кнопка переключения вкладок, можно добавить вызов при клике на "Чаты"
+// Но это уже реализовано через switchTab в ui.js (там вызывается loadContacts, но не loadChats)
+// Можно добавить в switchTab вызов loadChatsAndMessages, если вкладка "chats"
+
+console.log('✅ Chat module loaded (исправленная версия)');

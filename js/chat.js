@@ -9,8 +9,8 @@ let isInitialLoad = true;
 let currentMessageId = null;
 const REACTIONS = ['👍', '❤️', '😂', '😢', '😡', '🔥', '🎉', '😎'];
 
-// Синий значок верификации для точности интерфейса Telegram
-const BLUE_VERIFY_SVG = `<svg class="tg-verify-icon" style="width:16px;height:16px;fill:#2f8cc9;vertical-align:middle;margin-left:4px;" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
+// ============ КЭШ СООБЩЕНИЙ ДЛЯ ОТСЛЕЖИВАНИЯ ДУБЛИКАТОВ ============
+let renderedMessageIds = new Set();
 
 // ============ ЗАГРУЗКА ЧАТОВ ============
 function loadChatsAndMessages() {
@@ -22,23 +22,20 @@ function loadChatsAndMessages() {
 
     console.log('📥 Загрузка чатов...');
     
-    // Предварительная локальная посадка DICEGRAM SUPPORT
     if (!dynamicChats[CONFIG.SUPPORT_ID]) {
         dynamicChats[CONFIG.SUPPORT_ID] = {
             first_name: 'DICEGRAM SUPPORT',
-            username: 'dicegram_support',
-            chat_type: 'private',
-            is_verified: true
+            username: 'dicegram_support'
         };
+        createChatRow(CONFIG.SUPPORT_ID, 'DICEGRAM SUPPORT', 'dicegram_support', true);
     }
     
     if (!dynamicChats[CONFIG.BOTFATHER_ID]) {
         dynamicChats[CONFIG.BOTFATHER_ID] = {
             first_name: 'BotFather',
-            username: 'botfather',
-            chat_type: 'private',
-            is_verified: false
+            username: 'botfather'
         };
+        createChatRow(CONFIG.BOTFATHER_ID, 'BotFather', 'botfather', false);
     }
 
     socket.emit('get_all_chats', {}, (chats) => {
@@ -47,15 +44,12 @@ function loadChatsAndMessages() {
         const chatsList = document.getElementById('chats-list');
         chatsList.innerHTML = '';
         
-        // Выводим Саппорт на самый верх при загрузке
-        createChatRow(CONFIG.SUPPORT_ID, 'DICEGRAM SUPPORT', 'dicegram_support', true);
-        const supportPreview = document.getElementById(`preview-${CONFIG.SUPPORT_ID}`);
-        if (supportPreview) {
-            supportPreview.innerText = '👋 Добро пожаловать в DICEGRAM!';
+        if (dynamicChats[CONFIG.SUPPORT_ID]) {
+            createChatRow(CONFIG.SUPPORT_ID, 'DICEGRAM SUPPORT', 'dicegram_support', true);
         }
-        
-        // Следом BotFather
-        createChatRow(CONFIG.BOTFATHER_ID, 'BotFather', 'botfather', false);
+        if (dynamicChats[CONFIG.BOTFATHER_ID]) {
+            createChatRow(CONFIG.BOTFATHER_ID, 'BotFather', 'botfather', false);
+        }
         
         if (chats && Array.isArray(chats)) {
             chats.forEach(chat => {
@@ -73,8 +67,7 @@ function loadChatsAndMessages() {
                             chat_type: chatType,
                             members_count: chat.members_count || 0,
                             role: chat.role || 'member',
-                            invite_link: chat.invite_link || '',
-                            is_verified: chat.is_verified || false
+                            invite_link: chat.invite_link || ''
                         };
                     }
                     
@@ -95,12 +88,6 @@ function loadChatsAndMessages() {
                         updateUnreadBadge(partnerId, chat.unread_count);
                     }
                 }
-
-                // Корректируем счетчик непрочитанных для саппорта, если они пришли с сервера
-                if (partnerId === CONFIG.SUPPORT_ID && chat.unread_count > 0) {
-                    unreadCounts[CONFIG.SUPPORT_ID] = chat.unread_count;
-                    updateUnreadBadge(CONFIG.SUPPORT_ID, chat.unread_count);
-                }
             });
         }
         
@@ -116,7 +103,324 @@ function loadChatsAndMessages() {
     });
 }
 
-// ============ СОЗДАНИЕ СТРОКИ ЧАТА ============
+// ============ ОТКРЫТИЕ ЧАТА ============
+function openChat(chatId) {
+    console.log('📂 openChat вызван с ID:', chatId);
+    
+    if (!chatId) {
+        console.error('❌ chatId не передан');
+        return;
+    }
+    
+    if (!socket || !isConnected) {
+        alert('Нет соединения с сервером');
+        return;
+    }
+
+    currentChatId = chatId;
+    
+    // Очищаем кэш сообщений при открытии нового чата
+    renderedMessageIds.clear();
+    
+    unreadCounts[chatId] = 0;
+    updateUnreadBadge(chatId, 0);
+    
+    const chatInfo = dynamicChats[chatId];
+    const chatName = chatInfo ? chatInfo.first_name : `User ${chatId}`;
+    const chatType = chatInfo ? chatInfo.chat_type : 'private';
+    
+    const titleEl = document.getElementById('chat-room-title');
+    titleEl.innerText = chatName || 'Чат';
+    
+    if (chatInfo) {
+        if (chatInfo.chat_type === 'group') {
+            titleEl.innerText = '👥 ' + (chatName || 'Группа');
+        } else if (chatInfo.chat_type === 'channel') {
+            titleEl.innerText = '📢 ' + (chatName || 'Канал');
+        }
+    }
+    
+    const messagesContainer = document.getElementById('chat-messages');
+    messagesContainer.innerHTML = '';
+
+    // ============ КЛЮЧЕВОЕ: ПРИСОЕДИНЯЕМСЯ К КОМНАТЕ ГРУППЫ ============
+    if (chatType === 'group' || chatType === 'channel') {
+        socket.emit('join_chat', { chat_id: chatId }, (response) => {
+            if (response && response.status === 'ok') {
+                console.log(`✅ Присоединился к комнате группы ${chatId}`);
+            } else {
+                console.warn(`⚠️ Ошибка присоединения к группе ${chatId}:`, response);
+            }
+        });
+    }
+
+    // Приветствие для SUPPORT
+    if (chatId === CONFIG.SUPPORT_ID) {
+        titleEl.innerHTML = `DICEGRAM SUPPORT ${BLUE_VERIFY_SVG}`;
+        document.getElementById('chat-room-status').innerText = 'официальный аккаунт';
+
+        const tgUserData = window.Telegram?.WebApp?.initDataUnsafe?.user;
+        const finalName = tgUserData?.first_name || tgUser.first_name || 'Пользователь';
+        const finalUsername = tgUserData?.username || tgUser.username || 'не установлен';
+        const finalId = tgUserData?.id || MY_ID || '8771009385';
+
+        const welcomeMsg = {
+            id: 'welcome_msg_static',
+            sender_id: CONFIG.SUPPORT_ID,
+            receiver_id: finalId,
+            text: `👋 Добро пожаловать в DICEGRAM!\n\n🆔 Ваш ID: ${finalId}\n👤 Имя: ${finalName}\n🏷️ Username: @${finalUsername}\n\n📱 DICEGRAM — точная копия Telegram. Все данные сохраняются в базе данных.\n\n💬 Напишите нам, если у вас есть вопросы или предложения.`,
+            timestamp: new Date().toISOString(),
+            is_read: true
+        };
+        // Используем рендер с проверкой дубликатов
+        renderSingleMessageWithCheck(welcomeMsg);
+    }
+
+    socket.emit('get_user_info', { user_id: chatId }, (userInfo) => {
+        if (userInfo && userInfo.status === 'found') {
+            const isVerifiedUser = userInfo.user.is_verified || chatId === CONFIG.SUPPORT_ID || chatId === CONFIG.CREATOR_ID;
+            if (isVerifiedUser && chatId !== CONFIG.SUPPORT_ID) {
+                titleEl.innerHTML = `${titleEl.innerText} ${BLUE_VERIFY_SVG}`;
+            }
+            if (chatId !== CONFIG.SUPPORT_ID) {
+                document.getElementById('chat-room-status').innerText = userInfo.user.is_online ? '🟢 в сети' : 'был(а) недавно';
+            }
+        } else {
+            if (chatInfo && (chatInfo.chat_type === 'group' || chatInfo.chat_type === 'channel')) {
+                document.getElementById('chat-room-status').innerText = `${chatInfo.members_count || 0} участников`;
+            }
+        }
+    });
+
+    document.getElementById('bottom-navigation').style.display = 'none';
+    document.getElementById('chat-room').style.display = 'flex';
+
+    socket.emit('get_chat_history', { with_id: chatId }, (history) => {
+        console.log('📨 История чата:', history?.length || 0);
+        if (history && Array.isArray(history)) {
+            history.forEach(msg => {
+                if (chatId === CONFIG.SUPPORT_ID && msg.text && msg.text.includes("Добро пожаловать в DICEGRAM!")) {
+                    return; 
+                }
+                renderSingleMessageWithCheck(msg);
+            });
+            scrollToBottom();
+        }
+    });
+
+    socket.emit('mark_as_read', { chat_id: chatId });
+    
+    if (chatInfo && chatInfo.chat_type === 'channel') {
+        checkChannelPermission(chatId);
+    }
+}
+
+// ============ ОТОБРАЖЕНИЕ СООБЩЕНИЯ С ПРОВЕРКОЙ ДУБЛИКАТОВ ============
+function renderSingleMessageWithCheck(msg) {
+    if (!msg || !msg.text) return;
+    
+    // ============ КЛЮЧЕВОЕ: ПРОВЕРКА НА ДУБЛИКАТ ============
+    const msgId = msg.id || msg._id || Date.now().toString();
+    
+    // Проверяем, не отображали ли уже это сообщение
+    if (renderedMessageIds.has(msgId)) {
+        console.log(`⏭️ Сообщение ${msgId} уже отображено, пропускаем`);
+        return;
+    }
+    
+    // Добавляем ID в кэш
+    renderedMessageIds.add(msgId);
+    
+    const container = document.getElementById('chat-messages');
+    if (!container) return;
+    
+    const wrapper = document.createElement('div');
+    wrapper.classList.add('message-wrapper');
+
+    const msgEl = document.createElement('div');
+    msgEl.classList.add('message');
+    msgEl.dataset.messageId = msgId;
+
+    const timeStr = getLocalTime(msg.timestamp);
+
+    // Проверяем системное сообщение
+    if (msg.sender_id === 'system') {
+        msgEl.classList.add('system-message');
+        msgEl.innerHTML = `
+            <div class="system-message-content">
+                <span>${formatMessageText(msg.text)}</span>
+                <div class="message-meta">
+                    <span class="message-time">${timeStr}</span>
+                </div>
+            </div>
+        `;
+        wrapper.classList.add('system');
+        wrapper.appendChild(msgEl);
+        container.appendChild(wrapper);
+        return;
+    }
+
+    let ticksHtml = '';
+    if (msg.sender_id === MY_ID) {
+        wrapper.classList.add('sent');
+        msgEl.classList.add('sent');
+        
+        if (msg.is_read) {
+            ticksHtml = `<span class="status-ticks read"><svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4zm-4.24 0L12.35 5.59 6 11.94l1.41 1.41z"/><path d="M0 0h24v24H0z" fill="none"/></svg></span>`;
+        } else if (msg.delivered) {
+            ticksHtml = `<span class="status-ticks delivered"><svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4z"/><path d="M0 0h24v24H0z" fill="none"/></svg></span>`;
+        } else {
+            ticksHtml = `<span class="status-ticks sent"><svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4z"/><path d="M0 0h24v24H0z" fill="none"/></svg></span>`;
+        }
+    } else {
+        wrapper.classList.add('received');
+        msgEl.classList.add('received');
+    }
+
+    const formattedText = formatMessageText(msg.text);
+
+    msgEl.innerHTML = `
+        <span>${formattedText}</span>
+        <div class="message-meta">
+            <span class="message-time">${timeStr}</span>
+            ${ticksHtml}
+        </div>
+    `;
+
+    let longPressTimer = null;
+    msgEl.addEventListener('mousedown', () => {
+        longPressTimer = setTimeout(() => {
+            showMessageActions(msgId);
+        }, 500);
+    });
+    msgEl.addEventListener('mouseup', () => clearTimeout(longPressTimer));
+    msgEl.addEventListener('mouseleave', () => clearTimeout(longPressTimer));
+    
+    msgEl.addEventListener('touchstart', () => {
+        longPressTimer = setTimeout(() => {
+            showMessageActions(msgId);
+        }, 500);
+    });
+    msgEl.addEventListener('touchend', () => clearTimeout(longPressTimer));
+    msgEl.addEventListener('touchmove', () => clearTimeout(longPressTimer));
+
+    wrapper.appendChild(msgEl);
+    container.appendChild(wrapper);
+    
+    if (msg.id) {
+        setTimeout(() => updateReactionDisplay(msg.id), 200);
+    }
+}
+
+// ============ ОТПРАВКА СООБЩЕНИЯ (БЕЗ ДУБЛИРОВАНИЯ) ============
+function sendMessage() {
+    const input = document.getElementById('message-field');
+    const text = input.value.trim();
+    if (!text || !currentChatId) return;
+
+    if (!socket || !isConnected) {
+        alert('Нет соединения с сервером');
+        return;
+    }
+
+    // Проверка на канал
+    const chatInfo = dynamicChats[currentChatId];
+    if (chatInfo && chatInfo.chat_type === 'channel') {
+        socket.emit('check_channel_permission', { chat_id: currentChatId }, (response) => {
+            if (response && response.status === 'ok') {
+                if (!response.can_write) {
+                    alert('📢 Только владелец канала может отправлять сообщения');
+                    return;
+                }
+                sendMessageToServer(text);
+            } else {
+                alert('Ошибка проверки прав');
+            }
+        });
+        return;
+    }
+
+    // BotFather команды
+    if (currentChatId === CONFIG.BOTFATHER_ID || (dynamicChats[currentChatId] && dynamicChats[currentChatId].username === 'botfather')) {
+        handleBotCommand(text);
+        input.value = '';
+        document.getElementById('send-btn-icon').classList.remove('active');
+        return;
+    }
+
+    sendMessageToServer(text);
+}
+
+function sendMessageToServer(text) {
+    const input = document.getElementById('message-field');
+    
+    // ============ ОТПРАВЛЯЕМ СООБЩЕНИЕ И НЕ ДЕЛАЕМ РУЧНУЮ ОТРИСОВКУ ============
+    // Бэкенд вернёт сообщение через 'new_message', и оно отрисуется там
+    
+    socket.emit('send_message', { 
+        receiver_id: currentChatId, 
+        text: text 
+    }, (response) => {
+        if (response && response.status === 'ok') {
+            // Сообщение уже будет отрисовано через 'new_message'
+            // Обновляем превью в списке чатов
+            const previewEl = document.getElementById(`preview-${currentChatId}`);
+            if (previewEl) {
+                let previewText = text;
+                const chatInfo = dynamicChats[currentChatId];
+                if (chatInfo) {
+                    if (chatInfo.chat_type === 'group') previewText = '👥 ' + previewText;
+                    if (chatInfo.chat_type === 'channel') previewText = '📢 ' + previewText;
+                }
+                previewEl.innerText = previewText;
+            }
+        }
+    });
+
+    input.value = '';
+    document.getElementById('send-btn-icon').classList.remove('active');
+    input.focus();
+}
+
+// ============ ОБРАБОТКА НОВОГО СООБЩЕНИЯ (С ПРОВЕРКОЙ ДУБЛИКАТОВ) ============
+function handleNewMessage(msg) {
+    console.log('📩 Новое сообщение:', msg);
+    
+    // ============ ИСПОЛЬЗУЕМ РЕНДЕР С ПРОВЕРКОЙ ============
+    renderSingleMessageWithCheck(msg);
+    
+    const chatPartner = msg.sender_id === MY_ID ? msg.receiver_id : msg.sender_id;
+    
+    if (msg.sender_id === 'system') {
+        scrollToBottom();
+        return;
+    }
+
+    if (chatPartner && chatPartner !== MY_ID) {
+        if (!dynamicChats[chatPartner]) {
+            loadChatsAndMessages();
+        } else {
+            if (currentChatId !== chatPartner) {
+                unreadCounts[chatPartner] = (unreadCounts[chatPartner] || 0) + 1;
+                updateUnreadBadge(chatPartner, unreadCounts[chatPartner]);
+            }
+            
+            const previewEl = document.getElementById(`preview-${chatPartner}`);
+            if (previewEl) {
+                previewEl.innerText = msg.text;
+            }
+        }
+    }
+    
+    if (currentChatId === chatPartner || currentChatId === msg.receiver_id) {
+        scrollToBottom();
+        if (msg.sender_id !== MY_ID) {
+            socket.emit('mark_as_read', { chat_id: chatPartner });
+        }
+    }
+}
+
+// ============ ОСТАЛЬНЫЕ ФУНКЦИИ ============
 function createChatRow(tgId, firstName, username, isVerified = false, chatType = 'private') {
     if (!tgId) return;
     
@@ -178,7 +482,6 @@ function createChatRow(tgId, firstName, username, isVerified = false, chatType =
     chatsList.insertAdjacentHTML('beforeend', rowHTML);
 }
 
-// ============ ОБНОВЛЕНИЕ СЧЕТЧИКА ============
 function updateUnreadBadge(chatId, count) {
     const badge = document.getElementById(`unread-badge-${chatId}`);
     if (badge) {
@@ -191,214 +494,6 @@ function updateUnreadBadge(chatId, count) {
     }
 }
 
-// ============ ОТКРЫТИЕ ЧАТА ============
-function openChat(chatId) {
-    console.log('📂 openChat вызван с ID:', chatId);
-    
-    if (!chatId) {
-        console.error('❌ chatId не передан');
-        return;
-    }
-    
-    if (!socket || !isConnected) {
-        alert('Нет соединения с сервером');
-        return;
-    }
-
-    currentChatId = chatId;
-    
-    unreadCounts[chatId] = 0;
-    updateUnreadBadge(chatId, 0);
-    
-    const chatInfo = dynamicChats[chatId];
-    const chatName = chatInfo ? chatInfo.first_name : `User ${chatId}`;
-    
-    const titleEl = document.getElementById('chat-room-title');
-    titleEl.innerText = chatName || 'Чат';
-    
-    if (chatInfo) {
-        if (chatInfo.chat_type === 'group') {
-            titleEl.innerText = '👥 ' + (chatName || 'Группа');
-        } else if (chatInfo.chat_type === 'channel') {
-            titleEl.innerText = '📢 ' + (chatName || 'Канал');
-        }
-    }
-    
-    const messagesContainer = document.getElementById('chat-messages');
-    messagesContainer.innerHTML = '';
-
-    // Логика приветствия DICEGRAM SUPPORT
-    if (chatId === CONFIG.SUPPORT_ID) {
-        titleEl.innerHTML = `DICEGRAM SUPPORT ${BLUE_VERIFY_SVG}`;
-        document.getElementById('chat-room-status').innerText = 'официальный аккаунт';
-
-        const tgUserData = window.Telegram?.WebApp?.initDataUnsafe?.user;
-        const finalName = tgUserData?.first_name || tgUser.first_name || 'Пользователь';
-        const finalUsername = tgUserData?.username || tgUser.username || 'не установлен';
-        const finalId = tgUserData?.id || MY_ID || '8771009385';
-
-        const welcomeMsg = {
-            id: 'welcome_msg_static',
-            sender_id: CONFIG.SUPPORT_ID,
-            receiver_id: finalId,
-            text: `👋 Добро пожаловать в DICEGRAM!\n\n🆔 Ваш ID: ${finalId}\n👤 Имя: ${finalName}\n🏷️ Username: @${finalUsername}\n\n📱 DICEGRAM — точная копия Telegram. Все данные сохраняются в базе данных.\n\n💬 Напишите нам, если у вас есть вопросы или предложения.`,
-            timestamp: new Date().toISOString(),
-            is_read: true
-        };
-        renderSingleMessage(welcomeMsg);
-    }
-
-    socket.emit('get_user_info', { user_id: chatId }, (userInfo) => {
-        if (userInfo && userInfo.status === 'found') {
-            const isVerifiedUser = userInfo.user.is_verified || chatId === CONFIG.SUPPORT_ID || chatId === CONFIG.CREATOR_ID;
-            if (isVerifiedUser && chatId !== CONFIG.SUPPORT_ID) {
-                titleEl.innerHTML = `${titleEl.innerText} ${BLUE_VERIFY_SVG}`;
-            }
-            if (chatId !== CONFIG.SUPPORT_ID) {
-                document.getElementById('chat-room-status').innerText = userInfo.user.is_online ? '🟢 в сети' : 'был(а) недавно';
-            }
-        } else {
-            if (chatInfo && (chatInfo.chat_type === 'group' || chatInfo.chat_type === 'channel')) {
-                document.getElementById('chat-room-status').innerText = `${chatInfo.members_count || 0} участников`;
-            }
-        }
-    });
-
-    document.getElementById('bottom-navigation').style.display = 'none';
-    document.getElementById('chat-room').style.display = 'flex';
-
-    socket.emit('get_chat_history', { with_id: chatId }, (history) => {
-        console.log('📨 История чата:', history?.length || 0);
-        if (history && Array.isArray(history)) {
-            history.forEach(msg => {
-                // Исключаем повторный вывод дефолтного приветствия, если оно подгрузилось из бэкенда
-                if (chatId === CONFIG.SUPPORT_ID && msg.text && msg.text.includes("Добро пожаловать в DICEGRAM!")) {
-                    return; 
-                }
-                renderSingleMessage(msg);
-            });
-            scrollToBottom();
-        }
-    });
-
-    socket.emit('mark_as_read', { chat_id: chatId });
-    
-    if (chatInfo && chatInfo.chat_type === 'channel') {
-        checkChannelPermission(chatId);
-    }
-}
-
-// ============ ОТОБРАЖЕНИЕ СООБЩЕНИЯ ============
-function renderSingleMessage(msg) {
-    if (!msg || !msg.text) return;
-    
-    const container = document.getElementById('chat-messages');
-    if (!container) return;
-    
-    const wrapper = document.createElement('div');
-    wrapper.classList.add('message-wrapper');
-
-    const msgEl = document.createElement('div');
-    msgEl.classList.add('message');
-    msgEl.dataset.messageId = msg.id || Date.now();
-
-    const timeStr = getLocalTime(msg.timestamp);
-
-    // Проверяем системное сообщение
-    if (msg.sender_id === 'system') {
-        msgEl.classList.add('system-message');
-        msgEl.innerHTML = `
-            <div class="system-message-content">
-                <span>${formatMessageText(msg.text)}</span>
-                <div class="message-meta">
-                    <span class="message-time">${timeStr}</span>
-                </div>
-            </div>
-        `;
-        wrapper.classList.add('system');
-        wrapper.appendChild(msgEl);
-        container.appendChild(wrapper);
-        return;
-    }
-
-    let ticksHtml = '';
-    if (msg.sender_id === MY_ID) {
-        wrapper.classList.add('sent');
-        msgEl.classList.add('sent');
-        
-        if (msg.is_read) {
-            ticksHtml = `<span class="status-ticks read"><svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4zm-4.24 0L12.35 5.59 6 11.94l1.41 1.41z"/><path d="M0 0h24v24H0z" fill="none"/></svg></span>`;
-        } else if (msg.delivered) {
-            ticksHtml = `<span class="status-ticks delivered"><svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4z"/><path d="M0 0h24v24H0z" fill="none"/></svg></span>`;
-        } else {
-            ticksHtml = `<span class="status-ticks sent"><svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4z"/><path d="M0 0h24v24H0z" fill="none"/></svg></span>`;
-        }
-    } else {
-        wrapper.classList.add('received');
-        msgEl.classList.add('received');
-    }
-
-    // Форматируем текст с ссылками и упоминаниями
-    const formattedText = formatMessageText(msg.text);
-
-    msgEl.innerHTML = `
-        <span>${formattedText}</span>
-        <div class="message-meta">
-            <span class="message-time">${timeStr}</span>
-            ${ticksHtml}
-        </div>
-    `;
-
-    // Долгое нажатие для меню
-    let longPressTimer = null;
-    msgEl.addEventListener('mousedown', () => {
-        longPressTimer = setTimeout(() => {
-            showMessageActions(msgEl.dataset.messageId);
-        }, 500);
-    });
-    msgEl.addEventListener('mouseup', () => clearTimeout(longPressTimer));
-    msgEl.addEventListener('mouseleave', () => clearTimeout(longPressTimer));
-    
-    msgEl.addEventListener('touchstart', () => {
-        longPressTimer = setTimeout(() => {
-            showMessageActions(msgEl.dataset.messageId);
-        }, 500);
-    });
-    msgEl.addEventListener('touchend', () => clearTimeout(longPressTimer));
-    msgEl.addEventListener('touchmove', () => clearTimeout(longPressTimer));
-
-    wrapper.appendChild(msgEl);
-    container.appendChild(wrapper);
-    
-    // Загружаем реакции
-    if (msg.id) {
-        setTimeout(() => updateReactionDisplay(msg.id), 200);
-    }
-}
-
-// ============ ПРОВЕРКА ПРАВ В КАНАЛЕ ============
-function checkChannelPermission(chatId) {
-    socket.emit('check_channel_permission', { chat_id: chatId }, (response) => {
-        if (response && response.status === 'ok') {
-            const input = document.getElementById('message-field');
-            const sendBtn = document.getElementById('send-btn-icon');
-            
-            if (response.chat_type === 'channel' && !response.can_write) {
-                input.disabled = true;
-                input.placeholder = '📢 Канал доступен только для чтения';
-                sendBtn.style.opacity = '0.3';
-                sendBtn.style.cursor = 'not-allowed';
-            } else {
-                input.disabled = false;
-                input.placeholder = 'Сообщение...';
-                sendBtn.style.opacity = '1';
-                sendBtn.style.cursor = 'pointer';
-            }
-        }
-    });
-}
-
-// ============ ЗАКРЫТИЕ ЧАТА ============
 function closeChat() {
     document.getElementById('chat-room').style.display = 'none';
     document.getElementById('bottom-navigation').style.display = 'flex';
@@ -412,202 +507,22 @@ function closeChat() {
     sendBtn.style.cursor = 'pointer';
 }
 
-// ============ ОБРАБОТКА НОВОГО СООБЩЕНИЯ ============
-function handleNewMessage(msg) {
-    console.log('📩 Новое сообщение:', msg);
-    
-    const chatPartner = msg.sender_id === MY_ID ? msg.receiver_id : msg.sender_id;
-    
-    if (msg.sender_id === 'system') {
-        renderSingleMessage(msg);
-        scrollToBottom();
-        return;
-    }
-
-    if (chatPartner && chatPartner !== MY_ID) {
-        if (!dynamicChats[chatPartner]) {
-            // Если чат не был инициализирован, запрашиваем список заново
-            loadChatsAndMessages();
-        } else {
-            // Если чат открыт прямо сейчас — рендерим сообщение в реальном времени
-            if (currentChatId === chatPartner) {
-                renderSingleMessage(msg);
-                scrollToBottom();
-                socket.emit('mark_as_read', { chat_id: chatPartner });
-            } else {
-                // Иначе инкрементируем счетчик непрочитанных
-                unreadCounts[chatPartner] = (unreadCounts[chatPartner] || 0) + 1;
-                updateUnreadBadge(chatPartner, unreadCounts[chatPartner]);
-            }
-            
-            // Обновляем текст последнего сообщения в списке
-            const previewEl = document.getElementById(`preview-${chatPartner}`);
-            if (previewEl) {
-                previewEl.innerText = msg.text;
-            }
-        }
-    }
-}
-
-// ============ ОТПРАВКА СООБЩЕНИЯ ============
-function toggleSendButton(input) {
-    const btn = document.getElementById('send-btn-icon');
-    if (input && input.value && input.value.trim().length > 0) {
-        btn.classList.add('active');
-    } else {
-        btn.classList.remove('active');
-    }
-}
-
-function sendMessage() {
-    const input = document.getElementById('message-field');
-    const text = input.value.trim();
-    if (!text || !currentChatId) return;
-
-    if (!socket || !isConnected) {
-        alert('Нет соединения с сервером');
-        return;
-    }
-
-    // Проверка на канал
-    const chatInfo = dynamicChats[currentChatId];
-    if (chatInfo && chatInfo.chat_type === 'channel') {
-        socket.emit('check_channel_permission', { chat_id: currentChatId }, (response) => {
-            if (response && response.status === 'ok') {
-                if (!response.can_write) {
-                    alert('📢 Только владелец канала может отправлять сообщения');
-                    return;
-                }
-                sendMessageToServer(text);
-            } else {
-                alert('Ошибка проверки прав');
-            }
-        });
-        return;
-    }
-
-    // BotFather команды
-    if (currentChatId === CONFIG.BOTFATHER_ID || (dynamicChats[currentChatId] && dynamicChats[currentChatId].username === 'botfather')) {
-        handleBotCommand(text);
-        input.value = '';
-        document.getElementById('send-btn-icon').classList.remove('active');
-        return;
-    }
-
-    sendMessageToServer(text);
-}
-
-function sendMessageToServer(text) {
-    const input = document.getElementById('message-field');
-    
-    const tempId = Date.now();
-    const tempMsg = {
-        id: tempId,
-        sender_id: MY_ID,
-        receiver_id: currentChatId,
-        text: text,
-        timestamp: new Date().toISOString(),
-        is_read: false,
-        delivered: false
-    };
-    renderSingleMessage(tempMsg);
-    scrollToBottom();
-
-    socket.emit('send_message', { receiver_id: currentChatId, text: text }, (response) => {
-        if (response && response.status === 'ok') {
-            const msgEl = document.querySelector(`[data-message-id="${tempId}"]`);
-            if (msgEl) {
-                const ticks = msgEl.querySelector('.status-ticks');
-                if (ticks) {
-                    ticks.className = 'status-ticks delivered';
-                    ticks.innerHTML = `<svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4z"/><path d="M0 0h24v24H0z" fill="none"/></svg>`;
-                }
-                msgEl.dataset.messageId = response.message.id;
-            }
-            const previewEl = document.getElementById(`preview-${currentChatId}`);
-            if (previewEl) {
-                let previewText = text;
-                const chatInfo = dynamicChats[currentChatId];
-                if (chatInfo) {
-                    if (chatInfo.chat_type === 'group') previewText = '👥 ' + previewText;
-                    if (chatInfo.chat_type === 'channel') previewText = '📢 ' + previewText;
-                }
-                previewEl.innerText = previewText;
+// ============ СОБЫТИЯ СОКЕТА ============
+if (socket) {
+    socket.on('message_read', (data) => {
+        const msgEl = document.querySelector(`[data-message-id="${data.message_id}"]`);
+        if (msgEl) {
+            const ticks = msgEl.querySelector('.status-ticks');
+            if (ticks) {
+                ticks.className = 'status-ticks read';
+                ticks.innerHTML = `<svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4zm-4.24 0L12.35 5.59 6 11.94l1.41 1.41z"/><path d="M0 0h24v24H0z" fill="none"/></svg>`;
             }
         }
     });
 
-    input.value = '';
-    document.getElementById('send-btn-icon').classList.remove('active');
-    input.focus();
-}
-
-// ============ ОБРАБОТКА КОМАНД BOTFATHER ============
-function handleBotCommand(text) {
-    const botResponse = emulateBotFather(text);
-    
-    const userMsg = {
-        id: Date.now(),
-        sender_id: MY_ID,
-        receiver_id: CONFIG.BOTFATHER_ID,
-        text: text,
-        timestamp: new Date().toISOString(),
-        is_read: true
-    };
-    renderSingleMessage(userMsg);
-    
-    setTimeout(() => {
-        const botMsg = {
-            id: Date.now() + 1,
-            sender_id: CONFIG.BOTFATHER_ID,
-            receiver_id: MY_ID,
-            text: botResponse,
-            timestamp: new Date().toISOString(),
-            is_read: true
-        };
-        renderSingleMessage(botMsg);
-        scrollToBottom();
-    }, 500);
-}
-
-function emulateBotFather(text) {
-    const lower = text.toLowerCase().trim();
-    
-    if (lower === '/start') {
-        return `I can help you create and manage Telegram bots. If you're new to the Bot API, please see the manual.\n\nYou can control me by sending these commands:\n\n/newbot - create a new bot\n/mybots - edit your bots`;
-    }
-    
-    if (lower === '/newbot') {
-        return `Alright, a new bot. How are we going to call it? Please choose a name for your bot.`;
-    }
-    
-    if (!window.botCreationStep) {
-        window.botCreationStep = 'name';
-        window.botName = text;
-        return `Good. Now let's choose a username for your bot. It must end in \`bot\`. Like this, for example: TetrisBot or tetris_bot.`;
-    } else if (window.botCreationStep === 'name') {
-        window.botName = text;
-        window.botCreationStep = 'username';
-        return `Good. Now let's choose a username for your bot. It must end in \`bot\`. Like this, for example: TetrisBot or tetris_bot.`;
-    } else if (window.botCreationStep === 'username') {
-        const username = text.trim();
-        if (!username.endsWith('bot')) {
-            return `Sorry, the username must end with 'bot'. Please try again.`;
-        }
-        
-        if (window.createdBots && window.createdBots.includes(username)) {
-            return `Sorry, this username is invalid.`;
-        }
-        
-        if (!window.createdBots) window.createdBots = [];
-        window.createdBots.push(username);
-        window.botCreationStep = null;
-        
-        const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-        return `Done! Congratulations on your new bot. You will find it at d.me/${username}. You can now add a description, about section and profile picture for your bot, see /help for a list of commands. By the way, when you've finished creating your cool bot, ping our Bot Support if you want a better username for it. Just make sure the bot is fully operational before you do this.\n\nUse this token to access the HTTP API:\n${token}\n\nKeep your token secure and store it safely, it can be used by anyone to control your bot.`;
-    }
-    
-    return `I don't understand that command. Please use /start, /newbot, or /mybots.`;
+    socket.on('reaction_updated', (data) => {
+        updateReactionDisplay(data.message_id);
+    });
 }
 
 // ============ РЕАКЦИИ ============
@@ -681,7 +596,104 @@ function updateReactionDisplay(messageId) {
     });
 }
 
-// ============ ПРИСОЕДИНЕНИЕ ПО ССЫЛКЕ ============
+// ============ ОСТАЛЬНЫЕ ФУНКЦИИ ============
+function toggleSendButton(input) {
+    const btn = document.getElementById('send-btn-icon');
+    if (input && input.value && input.value.trim().length > 0) {
+        btn.classList.add('active');
+    } else {
+        btn.classList.remove('active');
+    }
+}
+
+function handleBotCommand(text) {
+    const botResponse = emulateBotFather(text);
+    
+    const userMsg = {
+        id: Date.now().toString(),
+        sender_id: MY_ID,
+        receiver_id: CONFIG.BOTFATHER_ID,
+        text: text,
+        timestamp: new Date().toISOString(),
+        is_read: true
+    };
+    renderSingleMessageWithCheck(userMsg);
+    
+    setTimeout(() => {
+        const botMsg = {
+            id: (Date.now() + 1).toString(),
+            sender_id: CONFIG.BOTFATHER_ID,
+            receiver_id: MY_ID,
+            text: botResponse,
+            timestamp: new Date().toISOString(),
+            is_read: true
+        };
+        renderSingleMessageWithCheck(botMsg);
+        scrollToBottom();
+    }, 500);
+}
+
+function emulateBotFather(text) {
+    const lower = text.toLowerCase().trim();
+    
+    if (lower === '/start') {
+        return `I can help you create and manage Telegram bots. If you're new to the Bot API, please see the manual.\n\nYou can control me by sending these commands:\n\n/newbot - create a new bot\n/mybots - edit your bots`;
+    }
+    
+    if (lower === '/newbot') {
+        return `Alright, a new bot. How are we going to call it? Please choose a name for your bot.`;
+    }
+    
+    if (!window.botCreationStep) {
+        window.botCreationStep = 'name';
+        window.botName = text;
+        return `Good. Now let's choose a username for your bot. It must end in \`bot\`. Like this, for example: TetrisBot or tetris_bot.`;
+    } else if (window.botCreationStep === 'name') {
+        window.botName = text;
+        window.botCreationStep = 'username';
+        return `Good. Now let's choose a username for your bot. It must end in \`bot\`. Like this, for example: TetrisBot or tetris_bot.`;
+    } else if (window.botCreationStep === 'username') {
+        const username = text.trim();
+        if (!username.endsWith('bot')) {
+            return `Sorry, the username must end with 'bot'. Please try again.`;
+        }
+        
+        if (window.createdBots && window.createdBots.includes(username)) {
+            return `Sorry, this username is invalid.`;
+        }
+        
+        if (!window.createdBots) window.createdBots = [];
+        window.createdBots.push(username);
+        window.botCreationStep = null;
+        
+        const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        return `Done! Congratulations on your new bot. You will find it at d.me/${username}. You can now add a description, about section and profile picture for your bot, see /help for a list of commands. By the way, when you've finished creating your cool bot, ping our Bot Support if you want a better username for it. Just make sure the bot is fully operational before you do this.\n\nUse this token to access the HTTP API:\n${token}\n\nKeep your token secure and store it safely, it can be used by anyone to control your bot.`;
+    }
+    
+    return `I don't understand that command. Please use /start, /newbot, or /mybots.`;
+}
+
+function checkChannelPermission(chatId) {
+    socket.emit('check_channel_permission', { chat_id: chatId }, (response) => {
+        if (response && response.status === 'ok') {
+            const input = document.getElementById('message-field');
+            const sendBtn = document.getElementById('send-btn-icon');
+            
+            if (response.chat_type === 'channel' && !response.can_write) {
+                input.disabled = true;
+                input.placeholder = '📢 Канал доступен только для чтения';
+                sendBtn.style.opacity = '0.3';
+                sendBtn.style.cursor = 'not-allowed';
+            } else {
+                input.disabled = false;
+                input.placeholder = 'Сообщение...';
+                sendBtn.style.opacity = '1';
+                sendBtn.style.cursor = 'pointer';
+            }
+        }
+    });
+}
+
 function joinByInvite(link) {
     if (!socket || !isConnected) {
         alert('Нет соединения с сервером');
@@ -744,25 +756,6 @@ function joinByInvite(link) {
     });
 }
 
-// ============ ФУНКЦИЯ ДЛЯ ВЕРИФИКАЦИИ В МОДАЛКЕ ============
-function handleProfileModalVerification(userId) {
-    const verifiedBox = document.getElementById('popup-verified');
-    if (!verifiedBox) return;
-
-    if (userId === CONFIG.SUPPORT_ID) {
-        verifiedBox.style.display = 'block';
-        verifiedBox.innerHTML = `
-            <div class="verified-info-box" style="background: rgba(47, 140, 201, 0.1); border-left: 3px solid #2f8cc9; padding: 12px; margin: 12px 0; border-radius: 6px;">
-                <span style="color: #2f8cc9; font-weight: 600;">✓ Официальный аккаунт</span>
-                <p style="font-size: 13px; color: var(--tg-text-secondary); margin: 6px 0 0 0;">Этот аккаунт верифицирован, так как является официальной поддержкой DICEGRAM.</p>
-            </div>
-        `;
-    } else {
-        verifiedBox.style.display = 'none';
-    }
-}
-
-// ============ ПОИСК ПОЛЬЗОВАТЕЛЕЙ ============
 function handleSearch(query) {
     const resultsContainer = document.getElementById('search-results');
     if (!query.trim()) {
@@ -831,7 +824,6 @@ function handleSearch(query) {
     });
 }
 
-// ============ ДЕЙСТВИЯ С СООБЩЕНИЯМИ ============
 function showMessageActions(messageId) {
     const msgEl = document.querySelector(`[data-message-id="${messageId}"]`);
     if (!msgEl) return;
@@ -873,7 +865,7 @@ function replyToMessage() {
             reply_to_id: selectedMessageId
         }, (response) => {
             if (response && response.status === 'ok') {
-                renderSingleMessage(response.message);
+                // Сообщение отрисуется через 'new_message'
                 scrollToBottom();
             }
         });
@@ -949,24 +941,6 @@ function pinMessage() {
         }
     });
     document.getElementById('message-actions').classList.remove('active');
-}
-
-// ============ СОБЫТИЯ СОКЕТА ============
-if (socket) {
-    socket.on('message_read', (data) => {
-        const msgEl = document.querySelector(`[data-message-id="${data.message_id}"]`);
-        if (msgEl) {
-            const ticks = msgEl.querySelector('.status-ticks');
-            if (ticks) {
-                ticks.className = 'status-ticks read';
-                ticks.innerHTML = `<svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4zm-4.24 0L12.35 5.59 6 11.94l1.41 1.41z"/><path d="M0 0h24v24H0z" fill="none"/></svg>`;
-            }
-        }
-    });
-
-    socket.on('reaction_updated', (data) => {
-        updateReactionDisplay(data.message_id);
-    });
 }
 
 console.log('✅ Chat module loaded');

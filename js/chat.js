@@ -194,7 +194,7 @@ function openChat(chatId) {
     }
 
     currentChatId = chatId;
-    renderedMessageIds.clear();
+    renderedMessageIds.clear(); // 🔥 ОЧИЩАЕМ КЭШ ПРИ ОТКРЫТИИ
     
     unreadCounts[chatId] = 0;
     updateUnreadBadge(chatId, 0);
@@ -217,7 +217,7 @@ function openChat(chatId) {
     const messagesContainer = document.getElementById('chat-messages');
     messagesContainer.innerHTML = '';
 
-    // ============ КЛЮЧЕВОЕ: ПРИСОЕДИНЯЕМСЯ К КОМНАТЕ ГРУППЫ ============
+    // ПРИСОЕДИНЯЕМСЯ К КОМНАТЕ ГРУППЫ
     if (chatType === 'group' || chatType === 'channel') {
         socket.emit('join_chat', { chat_id: chatId }, (response) => {
             if (response && response.status === 'ok') {
@@ -292,7 +292,8 @@ function openChat(chatId) {
 function renderSingleMessageWithCheck(msg) {
     if (!msg || !msg.text) return;
     
-    const msgId = msg.id || msg._id || Date.now().toString();
+    // 🔥 УЛУЧШЕННАЯ ГЕНЕРАЦИЯ ID
+    const msgId = msg.id || msg._id || Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5);
     
     if (renderedMessageIds.has(msgId)) {
         console.log(`⏭️ Сообщение ${msgId} уже отображено, пропускаем`);
@@ -417,38 +418,50 @@ function closeChat() {
 function handleNewMessage(msg) {
     console.log('📩 Новое сообщение:', msg);
     
-    // Определяем собеседника (для групповых чатов это receiver_id или sender_id)
-    const chatPartner = msg.sender_id === MY_ID ? msg.receiver_id : msg.sender_id;
+    // Определяем ID чата
+    let chatId = msg.receiver_id;
+    if (msg.sender_id === MY_ID) {
+        chatId = msg.receiver_id;
+    } else if (msg.receiver_id === MY_ID) {
+        chatId = msg.sender_id;
+    } else {
+        // Если это групповое сообщение, где мы не отправитель и не получатель
+        chatId = msg.receiver_id;
+    }
     
     // Если сообщение системное
     if (msg.sender_id === 'system') {
-        renderSingleMessageWithCheck(msg);
-        scrollToBottom();
+        if (currentChatId === msg.receiver_id) {
+            renderSingleMessageWithCheck(msg);
+            scrollToBottom();
+        }
         return;
     }
     
-    // Проверяем, открыт ли этот чат
-    const isCurrentChat = currentChatId === chatPartner || currentChatId === msg.receiver_id;
+    // 🔥 ГЛАВНЫЙ ФИКС: Проверяем, открыт ли этот чат
+    const isCurrentChat = currentChatId === chatId;
     
     if (isCurrentChat) {
         // Если чат открыт - показываем сообщение
         renderSingleMessageWithCheck(msg);
         scrollToBottom();
         // Отмечаем как прочитанное
-        socket.emit('mark_as_read', { chat_id: chatPartner });
+        if (msg.sender_id !== MY_ID) {
+            socket.emit('mark_as_read', { chat_id: chatId });
+        }
     } else {
         // Если чат не открыт - увеличиваем счетчик непрочитанных
         if (msg.sender_id !== MY_ID) {
-            unreadCounts[chatPartner] = (unreadCounts[chatPartner] || 0) + 1;
-            updateUnreadBadge(chatPartner, unreadCounts[chatPartner]);
+            unreadCounts[chatId] = (unreadCounts[chatId] || 0) + 1;
+            updateUnreadBadge(chatId, unreadCounts[chatId]);
         }
     }
     
     // Обновляем превью в списке чатов
-    const previewEl = document.getElementById(`preview-${chatPartner}`);
+    const previewEl = document.getElementById(`preview-${chatId}`);
     if (previewEl) {
         let previewText = msg.text;
-        const chatInfo = dynamicChats[chatPartner];
+        const chatInfo = dynamicChats[chatId];
         if (chatInfo) {
             if (chatInfo.chat_type === 'group') previewText = '👥 ' + previewText;
             if (chatInfo.chat_type === 'channel') previewText = '📢 ' + previewText;
@@ -456,30 +469,38 @@ function handleNewMessage(msg) {
         previewEl.innerText = previewText;
     }
     
+    // Обновляем время
+    const timeEl = document.getElementById(`time-${chatId}`);
+    if (timeEl && msg.timestamp) {
+        timeEl.innerText = getLocalTime(msg.timestamp);
+    }
+    
     // Если чат еще не существует в списке - создаем
-    if (chatPartner && chatPartner !== MY_ID && !dynamicChats[chatPartner]) {
+    if (chatId && chatId !== MY_ID && !dynamicChats[chatId]) {
         // Проверяем, может это группа
-        socket.emit('get_group_info', { chat_id: chatPartner }, (groupInfo) => {
+        socket.emit('get_group_info', { chat_id: chatId }, (groupInfo) => {
             if (groupInfo && groupInfo.status === 'found') {
                 const chat = groupInfo.chat;
-                dynamicChats[chatPartner] = {
+                dynamicChats[chatId] = {
                     first_name: chat.name || 'Группа',
                     username: '',
-                    chat_type: chat.type,
+                    chat_type: chat.type || 'group',
                     members_count: 0,
                     is_verified: false
                 };
-                createChatRow(chatPartner, chat.name || 'Группа', '', false, chat.type);
+                createChatRow(chatId, chat.name || 'Группа', '', false, chat.type || 'group');
             } else {
                 // Это пользователь
-                socket.emit('get_user_info', { user_id: chatPartner }, (userInfo) => {
+                socket.emit('get_user_info', { user_id: chatId }, (userInfo) => {
                     if (userInfo && userInfo.status === 'found') {
-                        dynamicChats[chatPartner] = {
-                            first_name: userInfo.user.first_name || `User ${chatPartner}`,
-                            username: userInfo.user.username || `@user${chatPartner}`
+                        dynamicChats[chatId] = {
+                            first_name: userInfo.user.first_name || `User ${chatId}`,
+                            username: userInfo.user.username || `@user${chatId}`,
+                            chat_type: 'private',
+                            is_verified: userInfo.user.is_verified || false
                         };
-                        const isVerified = userInfo.user.is_verified || chatPartner === CONFIG.SUPPORT_ID;
-                        createChatRow(chatPartner, dynamicChats[chatPartner].first_name, dynamicChats[chatPartner].username, isVerified);
+                        const isVerified = userInfo.user.is_verified || chatId === CONFIG.SUPPORT_ID;
+                        createChatRow(chatId, dynamicChats[chatId].first_name, dynamicChats[chatId].username, isVerified, 'private');
                     }
                 });
             }

@@ -3,13 +3,16 @@ let loginStep = 'phone';
 let currentPhone = '';
 
 function showLoginScreen() {
-    document.getElementById('login-screen').classList.add('active');
-    document.getElementById('app-container').style.display = 'none';
+    const loginScreen = document.getElementById('login-screen');
+    const appContainer = document.getElementById('app-container');
+    loginScreen.classList.add('active');
+    appContainer.style.display = 'none';
 }
 
 function hideLoginScreen() {
-    document.getElementById('login-screen').classList.remove('active');
-    // Не прячем app-container здесь, чтобы не перекрывать
+    const loginScreen = document.getElementById('login-screen');
+    loginScreen.classList.remove('active');
+    // app-container показываем отдельно после успешного входа
 }
 
 function checkLoginRequired() {
@@ -21,6 +24,7 @@ function checkLoginRequired() {
     return false;
 }
 
+// Инициализация обработчиков после загрузки DOM
 document.addEventListener('DOMContentLoaded', function() {
     const phoneInput = document.getElementById('login-phone');
     const codeInput = document.getElementById('login-code');
@@ -30,6 +34,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const backBtn = document.getElementById('login-back-btn');
     const errorEl = document.getElementById('login-error');
 
+    // Форматирование номера
     phoneInput.addEventListener('input', function(e) {
         let val = this.value.replace(/\D/g, '');
         if (val.length > 3) {
@@ -41,6 +46,7 @@ document.addEventListener('DOMContentLoaded', function() {
         this.value = val;
     });
 
+    // Кнопка "Далее"
     nextBtn.addEventListener('click', function() {
         const phone = phoneInput.value.replace(/\s/g, '');
         if (phone.length < 9) {
@@ -48,7 +54,8 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         errorEl.textContent = '';
-        currentPhone = '+' + phone;
+        currentPhone = '+' + phone; // "+8888771009385"
+        
         loginStep = 'code';
         phoneInput.disabled = true;
         codeField.style.display = 'block';
@@ -59,6 +66,7 @@ document.addEventListener('DOMContentLoaded', function() {
         errorEl.textContent = 'Код отправлен в Telegram бот. Используйте /getcode';
     });
 
+    // Кнопка "Изменить"
     backBtn.addEventListener('click', function() {
         loginStep = 'phone';
         phoneInput.disabled = false;
@@ -71,6 +79,7 @@ document.addEventListener('DOMContentLoaded', function() {
         phoneInput.focus();
     });
 
+    // Кнопка "Подтвердить"
     confirmBtn.addEventListener('click', function() {
         const code = codeInput.value.trim();
         if (code.length !== 5) {
@@ -86,27 +95,38 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (response.status === 'ok') {
                     errorEl.textContent = '✅ Вход выполнен!';
 
-                    // Обновляем глобальные переменные
+                    // Сохраняем данные пользователя
                     if (response.user) {
                         MY_ID = response.telegram_id;
                         MY_USERNAME = response.user.username || '';
-                        tgUser = {
-                            id: response.telegram_id,
-                            first_name: response.user.first_name,
-                            username: response.user.username,
-                            photo_url: response.user.photo_url || ''
-                        };
+                        // Обновляем глобальный tgUser (используется в других модулях)
+                        if (window.tgUser) {
+                            window.tgUser.id = response.telegram_id;
+                            window.tgUser.first_name = response.user.first_name;
+                            window.tgUser.username = response.user.username;
+                            window.tgUser.photo_url = response.user.photo_url || '';
+                        } else {
+                            window.tgUser = {
+                                id: response.telegram_id,
+                                first_name: response.user.first_name,
+                                username: response.user.username,
+                                photo_url: response.user.photo_url || ''
+                            };
+                        }
                     }
 
                     // Скрываем экран входа и показываем приложение
                     hideLoginScreen();
                     document.getElementById('app-container').style.display = 'flex';
 
-                    // Загружаем данные пользователя
+                    // Загружаем все данные с небольшой задержкой
                     setTimeout(() => {
                         if (window.initProfile) window.initProfile();
                         if (window.loadChatsAndMessages) window.loadChatsAndMessages();
                         if (window.loadContacts) window.loadContacts();
+                        // Дополнительно обновляем заголовок
+                        const headerTitle = document.getElementById('header-title');
+                        if (headerTitle) headerTitle.innerText = 'Чаты';
                     }, 300);
 
                 } else {
@@ -120,6 +140,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// Экспортируем функции
 window.showLoginScreen = showLoginScreen;
 window.hideLoginScreen = hideLoginScreen;
 window.checkLoginRequired = checkLoginRequired;

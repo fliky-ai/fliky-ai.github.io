@@ -10,17 +10,28 @@ const CONFIG = {
 };
 
 // ============ ПОЛЬЗОВАТЕЛЬ ============
-const tg = window.Telegram.WebApp;
-tg.expand();
-tg.ready();
+const tg = window.Telegram?.WebApp;
+let tgUser = null;
+let MY_ID = null;
+let MY_USERNAME = '';
 
-const tgUser = tg.initDataUnsafe?.user || {
-    id: 123456789,
-    first_name: "Локальный",
-    last_name: "Пользователь",
-    username: "тест_юзер",
-    photo_url: ""
-};
+if (tg && tg.initDataUnsafe?.user) {
+    tg.expand();
+    tg.ready();
+    tgUser = tg.initDataUnsafe.user;
+    MY_ID = String(tgUser.id);
+    MY_USERNAME = tgUser.username || '';
+} else {
+    // Для браузера и APK — будет создан через autoLogin
+    tgUser = {
+        id: null,
+        first_name: 'Гость',
+        username: 'гость',
+        photo_url: ''
+    };
+    MY_ID = null;
+    MY_USERNAME = '';
+}
 
-const MY_ID = String(tgUser.id);
-let MY_USERNAME = tgUser.username || '';
+console.log('👤 tgUser:', tgUser);
+console.log('🆔 MY_ID:', MY_ID);

@@ -1,4 +1,4 @@
-:root {
+here:root {
     --tg-bg-color: #0e1621;
     --tg-surface-color: #17212b;
     --tg-text-color: #f5f5f5;
@@ -43,6 +43,7 @@ body, html {
     overflow: hidden;
 }
 
+/* ============ SCROLLBAR ============ */
 ::-webkit-scrollbar {
     width: 6px;
 }
@@ -60,6 +61,7 @@ body, html {
     background: var(--tg-text-secondary);
 }
 
+/* ============ LOADING SCREEN ============ */
 #loading-screen {
     position: fixed;
     top: 0;
@@ -130,6 +132,7 @@ body, html {
     opacity: 0.9;
 }
 
+/* ============ APP CONTAINER ============ */
 #app-container {
     display: none;
     flex-direction: column;
@@ -137,6 +140,7 @@ body, html {
     height: 100%;
 }
 
+/* ============ HEADER ============ */
 #main-header {
     height: 56px;
     background-color: var(--tg-surface-color);
@@ -203,6 +207,7 @@ body, html {
     background: var(--tg-border-color);
 }
 
+/* ============ SCREENS ============ */
 .screen {
     flex: 1;
     display: none;
@@ -215,6 +220,7 @@ body, html {
     flex-direction: column;
 }
 
+/* ============ CHAT ITEMS (Список чатов) ============ */
 .chat-item {
     display: flex;
     align-items: center;
@@ -318,6 +324,7 @@ body, html {
     flex-shrink: 0;
 }
 
+/* ============ CHAT ROOM ============ */
 #chat-room {
     position: fixed;
     top: 0;
@@ -413,6 +420,7 @@ body, html {
     margin-top: 1px;
 }
 
+/* ============ MESSAGES ============ */
 #chat-messages {
     flex: 1;
     padding: 12px 16px;
@@ -526,6 +534,7 @@ body, html {
     gap: 4px;
 }
 
+/* ============ CHAT INPUT ============ */
 .chat-input-area {
     padding: 8px 12px;
     background-color: var(--tg-surface-color);
@@ -574,6 +583,7 @@ body, html {
     color: var(--tg-accent-color);
 }
 
+/* ============ BOTTOM NAVIGATION ============ */
 nav {
     position: fixed;
     bottom: 0;
@@ -634,6 +644,7 @@ nav {
     text-align: center;
 }
 
+/* ============ SEARCH RESULTS ============ */
 .search-results {
     background-color: var(--tg-surface-color);
     border-bottom: 1px solid var(--tg-border-color);
@@ -666,6 +677,7 @@ nav {
     background: rgba(255, 255, 255, 0.06);
 }
 
+/* ============ PROFILE SCREEN ============ */
 .profile-container {
     display: flex;
     flex-direction: column;
@@ -749,6 +761,7 @@ nav {
     text-decoration: underline;
 }
 
+/* ============ PROFILE POPUP (КАК В TELEGRAM) ============ */
 .profile-popup {
     position: fixed;
     top: 0;
@@ -831,6 +844,7 @@ nav {
     background: var(--tg-border-color);
 }
 
+/* Profile Info */
 .popup-user-info {
     padding: 20px 24px 24px;
 }
@@ -891,6 +905,7 @@ nav {
     padding: 0 8px;
 }
 
+/* Verified Box */
 .popup-verified {
     margin-top: 14px;
 }
@@ -925,6 +940,7 @@ nav {
     margin-top: 10px;
 }
 
+/* Popup Actions */
 .popup-actions {
     padding: 16px 24px 24px;
     display: flex;
@@ -987,6 +1003,7 @@ nav {
     opacity: 0.9;
 }
 
+/* ============ MESSAGE ACTIONS (Меню сообщения) ============ */
 .message-actions {
     position: fixed;
     bottom: 80px;
@@ -1033,6 +1050,7 @@ nav {
     background: rgba(255, 59, 48, 0.1);
 }
 
+/* ============ REACTION PICKER (НОВЫЙ КРАСИВЫЙ) ============ */
 .reaction-picker {
     position: fixed;
     background: var(--tg-surface-color);
@@ -1049,8 +1067,14 @@ nav {
 }
 
 @keyframes reactionPop {
-    from { opacity: 0; transform: scale(0.7) translateY(10px); }
-    to { opacity: 1; transform: scale(1) translateY(0); }
+    from {
+        opacity: 0;
+        transform: scale(0.7) translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
 }
 
 .reaction-picker.active {
@@ -1081,6 +1105,7 @@ nav {
     transform: scale(0.85);
 }
 
+/* ============ REACTIONS UNDER MESSAGE ============ */
 .reactions {
     display: flex;
     gap: 4px;
@@ -1115,6 +1140,7 @@ nav {
     text-align: center;
 }
 
+/* ============ СТАТУСЫ ПРОЧТЕНИЯ ============ */
 .status-ticks {
     display: inline-flex;
     align-items: center;
@@ -1140,6 +1166,7 @@ nav {
     color: #4cd964;
 }
 
+/* ============ ВЕРИФИКАЦИЯ (ГАЛОЧКА) ============ */
 .tg-verify-icon {
     display: inline-flex;
     align-items: center;
@@ -1155,6 +1182,7 @@ nav {
     fill: var(--tg-verified);
 }
 
+/* SVG галочка как в Telegram */
 .verified-check {
     display: inline-flex;
     align-items: center;
@@ -1171,6 +1199,7 @@ nav {
     fill: #2f8cc9;
 }
 
+/* Синяя галочка в профиле */
 .verified-badge {
     display: inline-flex;
     align-items: center;
@@ -1192,6 +1221,7 @@ nav {
     fill: #2f8cc9;
 }
 
+/* ============ SETTINGS ============ */
 .settings-btn {
     background: var(--tg-surface-color);
     color: var(--tg-text-color);
@@ -1213,6 +1243,7 @@ nav {
     transform: scale(0.98);
 }
 
+/* ============ LINKS ============ */
 .link {
     color: var(--tg-accent-color);
     text-decoration: none;
@@ -1234,6 +1265,7 @@ nav {
     text-decoration: underline;
 }
 
+/* ============ КНОПКА СОЗДАНИЯ ============ */
 .create-chat-btn {
     position: fixed;
     bottom: 76px;
@@ -1258,6 +1290,7 @@ nav {
     transform: scale(0.9);
 }
 
+/* ============ МЕНЮ СОЗДАНИЯ ============ */
 .create-menu {
     position: fixed;
     top: 0;
@@ -1334,6 +1367,7 @@ nav {
     color: var(--tg-text-secondary);
 }
 
+/* ============ ВВОД НАЗВАНИЯ ============ */
 .name-input-overlay {
     position: fixed;
     top: 0;
@@ -1432,6 +1466,7 @@ nav {
     cursor: not-allowed;
 }
 
+/* ============ ЗАГРУЗКА ============ */
 .loading-overlay {
     position: fixed;
     top: 0;
@@ -1461,6 +1496,7 @@ nav {
     font-size: 16px;
 }
 
+/* ============ CHAT ITEMS ДЛЯ ГРУПП ============ */
 .chat-item .chat-type-badge {
     font-size: 10px;
     background: rgba(255,255,255,0.1);
@@ -1475,6 +1511,7 @@ nav {
     color: var(--tg-text-secondary);
 }
 
+/* ============ PLACEHOLDER ============ */
 .placeholder-screen {
     display: flex;
     flex-direction: column;
@@ -1504,6 +1541,7 @@ nav {
     color: var(--tg-text-secondary);
 }
 
+/* ============ АДАПТИВ ============ */
 @media (max-width: 480px) {
     .create-chat-btn {
         bottom: 72px;
@@ -1511,54 +1549,66 @@ nav {
         width: 50px;
         height: 50px;
     }
+    
     .create-chat-btn svg {
         width: 22px;
         height: 22px;
     }
+    
     .name-input-content {
         width: 95%;
         padding: 16px;
     }
+    
     .search-input {
         max-width: 120px;
         font-size: 12px;
     }
+    
     .message-actions {
         bottom: 70px;
         padding: 4px;
         gap: 2px;
     }
+    
     .message-action-btn {
         padding: 6px 10px;
         font-size: 12px;
     }
+    
     .popup-avatar-large {
         width: 80px;
         height: 80px;
         font-size: 32px;
     }
+    
     .profile-avatar {
         width: 80px;
         height: 80px;
     }
+    
     .popup-actions button {
         padding: 12px 16px;
         font-size: 15px;
     }
+    
     .chat-avatar {
         width: 42px;
         height: 42px;
         font-size: 15px;
     }
+    
     .message {
         max-width: 85%;
         font-size: 14px;
         padding: 5px 10px 6px 10px;
     }
+    
     .reaction-picker {
         padding: 6px 10px;
         gap: 4px;
     }
+    
     .reaction-emoji {
         font-size: 24px;
         width: 32px;
@@ -1570,14 +1620,17 @@ nav {
     .header-main-title {
         font-size: 15px;
     }
+    
     .search-input {
         max-width: 80px;
         font-size: 11px;
         padding: 4px 10px;
     }
+    
     .chat-name {
         font-size: 14px;
     }
+    
     .chat-preview {
         font-size: 12px;
     }
@@ -1588,6 +1641,7 @@ nav {
         justify-content: center;
         align-items: center;
     }
+    
     .profile-popup-content {
         border-radius: var(--tg-radius-large);
         max-width: 420px;
@@ -1595,8 +1649,10 @@ nav {
         max-height: 85vh;
         animation: fadeIn 0.3s ease;
     }
+    
     @keyframes fadeIn {
         from { opacity: 0; transform: scale(0.95); }
         to { opacity: 1; transform: scale(1); }
     }
-} 
+    }
+ 

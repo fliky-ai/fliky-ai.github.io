@@ -10,7 +10,7 @@ function connectSocket() {
     const loadingError = document.getElementById('loading-error');
     const reconnectBtn = document.getElementById('reconnect-btn');
     
-    loadingStatus.textContent = 'Подключение к серверу...';
+    loadingStatus.textContent = 'Пооооооодключение к серверу...';
     loadingStatus.style.display = 'block';
     loadingError.style.display = 'none';
     reconnectBtn.style.display = 'none';

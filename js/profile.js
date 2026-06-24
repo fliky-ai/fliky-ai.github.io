@@ -1,5 +1,7 @@
 // ============ ПРОФИЛЬ ============
 let currentUserData = null;
+let profileRetryCount = 0;
+const MAX_PROFILE_RETRIES = 5;
 
 function initProfile() {
     console.log('📝 initProfile() вызван');
@@ -48,43 +50,79 @@ function initProfile() {
             currentUserData = userInfo.user;
             MY_USERNAME = currentUserData.username || MY_USERNAME;
             
+            // Получаем данные
             const fullName = currentUserData.first_name || tgUser?.first_name || 'Пользователь';
             const displayName = currentUserData.last_name ? `${fullName} ${currentUserData.last_name}` : fullName;
+            const usernameDisplay = currentUserData.username || MY_USERNAME || '';
             
-            // Обновляем имя в профиле
+            // ОБНОВЛЯЕМ ПРОФИЛЬ ПРИНУДИТЕЛЬНО
             const nameEl = document.getElementById('user-name');
-            if (currentUserData.is_verified) {
-                nameEl.innerHTML = `${displayName} <span class="verified-check"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>`;
-            } else {
-                nameEl.innerText = displayName;
+            if (nameEl) {
+                if (currentUserData.is_verified) {
+                    nameEl.innerHTML = `${displayName} <span class="verified-check"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>`;
+                } else {
+                    nameEl.innerText = displayName;
+                }
             }
             
-            // Обновляем username
-            const usernameDisplay = currentUserData.username || MY_USERNAME || '';
-            document.getElementById('user-username').innerText = usernameDisplay ? `@${usernameDisplay}` : '';
-            document.getElementById('profile-username-display').innerText = usernameDisplay ? `@${usernameDisplay}` : '';
-            document.getElementById('profile-display-name').innerText = displayName;
+            const usernameEl = document.getElementById('user-username');
+            if (usernameEl) {
+                usernameEl.innerText = usernameDisplay ? `@${usernameDisplay}` : '';
+            }
+            
+            const profileUsernameEl = document.getElementById('profile-username-display');
+            if (profileUsernameEl) {
+                profileUsernameEl.innerText = usernameDisplay ? `@${usernameDisplay}` : '';
+            }
+            
+            const profileNameEl = document.getElementById('profile-display-name');
+            if (profileNameEl) {
+                profileNameEl.innerText = displayName;
+            }
             
             // Обновляем аватар
             updateAvatar('user-avatar', displayName, currentUserData.photo_url);
             
             // Обновляем bio
-            if (currentUserData.bio) {
-                document.getElementById('profile-bio-display').innerText = currentUserData.bio;
-            } else {
-                document.getElementById('profile-bio-display').innerText = 'Добавить описание';
+            const bioEl = document.getElementById('profile-bio-display');
+            if (bioEl) {
+                bioEl.innerText = currentUserData.bio || 'Добавить описание';
             }
             
+            // Обновляем статус
+            const statusEl = document.getElementById('profile-status');
+            if (statusEl) {
+                if (currentUserData.is_online) {
+                    statusEl.innerText = '🟢 В сети';
+                    statusEl.style.color = 'var(--tg-status-online)';
+                } else {
+                    statusEl.innerText = 'Был(а) в сети недавно';
+                    statusEl.style.color = 'var(--tg-text-secondary)';
+                }
+            }
+            
+            profileRetryCount = 0;
             console.log('✅ Профиль обновлён:', displayName, '@' + usernameDisplay);
         } else {
-            console.log('⚠️ Пользователь не найден, пробуем создать через auto_auth');
-            setTimeout(initProfile, 1000);
+            profileRetryCount++;
+            if (profileRetryCount < MAX_PROFILE_RETRIES) {
+                console.log(`⚠️ Пользователь не найден, попытка ${profileRetryCount}/${MAX_PROFILE_RETRIES}`);
+                setTimeout(initProfile, 1000);
+            } else {
+                console.log('❌ Не удалось загрузить профиль после всех попыток');
+                // Пробуем создать пользователя через auto_auth
+                if (window.autoLogin) {
+                    window.autoLogin();
+                }
+            }
         }
     });
 }
 
 function updateAvatar(elementId, name, photoUrl) {
     const avatarEl = document.getElementById(elementId);
+    if (!avatarEl) return;
+    
     const initials = name ? name.substring(0, 2).toUpperCase() : 'U';
     
     if (photoUrl && photoUrl.startsWith('http')) {
@@ -112,6 +150,13 @@ function updateAvatar(elementId, name, photoUrl) {
         avatarEl.style.display = 'block';
         avatarEl.style.background = 'none';
     }
+}
+
+// ============ ОБНОВЛЕНИЕ ПРОФИЛЯ ПОСЛЕ ИЗМЕНЕНИЙ ============
+function refreshProfile() {
+    console.log('🔄 Принудительное обновление профиля');
+    profileRetryCount = 0;
+    initProfile();
 }
 
 // ============ ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ ============
@@ -442,7 +487,7 @@ function toggleVerification(userId, verify) {
             showAlert(verify ? '✅ Пользователь верифицирован!' : '❌ Верификация снята');
             closeProfilePopup();
             loadChatsAndMessages();
-            initProfile();
+            refreshProfile();
         }
     });
 }
@@ -490,11 +535,7 @@ function editName() {
                     }
                     document.getElementById('profile-display-name').innerText = newName.trim();
                     showAlert('✅ Имя обновлено!');
-                    socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
-                        if (userInfo && userInfo.status === 'found') {
-                            currentUserData = userInfo.user;
-                        }
-                    });
+                    refreshProfile();
                 }
             });
         }
@@ -526,11 +567,7 @@ function editUsername() {
                         document.getElementById('user-username').innerText = `@${username}`;
                         document.getElementById('profile-username-display').innerText = `@${username}`;
                         showAlert('✅ Username обновлен!');
-                        socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
-                            if (userInfo && userInfo.status === 'found') {
-                                currentUserData = userInfo.user;
-                            }
-                        });
+                        refreshProfile();
                     }
                 });
             });
@@ -554,11 +591,7 @@ function editBio() {
                 if (response && response.status === 'ok') {
                     document.getElementById('profile-bio-display').innerText = newBio.trim() || 'Добавить описание';
                     showAlert('✅ О себе обновлено!');
-                    socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
-                        if (userInfo && userInfo.status === 'found') {
-                            currentUserData = userInfo.user;
-                        }
-                    });
+                    refreshProfile();
                 }
             });
         }
@@ -582,11 +615,7 @@ function changeAvatar() {
             socket.emit('update_profile', { photo_url: url.trim() }, (response) => {
                 if (response && response.status === 'ok') {
                     showAlert('✅ Аватар обновлен!');
-                    socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
-                        if (userInfo && userInfo.status === 'found') {
-                            currentUserData = userInfo.user;
-                        }
-                    });
+                    refreshProfile();
                 }
             });
         }

@@ -1,5 +1,3 @@
-// ============ КАСТОМНЫЙ МОДАЛЬНЫЙ ПОПАП ============
-
 function showModal(options) {
     return new Promise((resolve) => {
         const modal = document.getElementById('custom-modal');
@@ -18,6 +16,7 @@ function showModal(options) {
         confirmBtn.textContent = options.confirmText || 'OK';
         cancelBtn.textContent = options.cancelText || 'Отмена';
         input.style.display = 'block';
+        cancelBtn.style.display = 'block';
 
         modal.classList.add('active');
 
@@ -34,8 +33,9 @@ function showModal(options) {
         }
 
         function onConfirm() {
-            const value = input.value.trim();
-            if (value || options.allowEmpty) {
+            const value = input.value;
+            // Разрешаем пустое значение, если allowEmpty = true
+            if (value || options.allowEmpty || value === '') {
                 cleanup();
                 resolve(value);
             } else {

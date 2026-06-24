@@ -80,13 +80,12 @@ function autoLogin() {
                 console.log('✅ app-container показан');
             }
             
-            // Показываем приветствие для нового пользователя
+            // Показываем приветствие
             setTimeout(function() {
-                // Проверяем имя в БД
+                // Проверяем, есть ли имя в БД
                 if (window.initProfile) {
                     window.initProfile(function(profileData) {
                         const firstName = profileData?.first_name || user.first_name || '';
-                        // Если имя == 'User' или пустое, спрашиваем
                         if (!firstName || firstName === 'User' || firstName === 'Пользователь' || firstName.startsWith('Guest_')) {
                             showWelcomeModal();
                         }
@@ -118,7 +117,6 @@ function showWelcomeModal() {
         cancelText: 'Пропустить'
     }).then((name) => {
         if (name !== null && name.trim()) {
-            // Сохраняем имя на сервере
             socket.emit('update_profile', { name: name.trim() }, (response) => {
                 if (response && response.status === 'ok') {
                     console.log('✅ Имя сохранено:', name.trim());

@@ -45,8 +45,6 @@ function connectSocket() {
         const statusEl = document.getElementById('global-status');
         if (statusEl) statusEl.style.display = 'none';
         
-        if (loadingStatus) loadingStatus.textContent = 'Авторизация профиля...';
-        
         // Передаём управление модулю авторизации auth.js, без дублирования кода!
         if (window.autoLogin) {
             window.autoLogin();
@@ -94,9 +92,8 @@ function connectSocket() {
         const statusEl = document.getElementById('global-status');
         if (statusEl) statusEl.style.display = 'none';
         
-        // Перезагружаем контент актуальных экранов
-        if (window.loadChatsAndMessages) window.loadChatsAndMessages();
-        if (window.loadContacts) window.loadContacts();
+        // Переавторизуем текущую сессию на бэке после реконнекта, чтобы восстановить sid
+        if (window.autoLogin) window.autoLogin();
     });
 
     // ===== ВХОДЯЩИЕ ИВЕНТЫ РЕАЛЬНОГО ВРЕМЕНИ =====

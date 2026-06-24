@@ -7,34 +7,43 @@ window.botCreationStep = null;
 window.botName = '';
 window.createdBots = [];
 
-// Флаг для отслеживания инициализации профиля
-let profileInitialized = false;
-
-// Запуск
-setTimeout(() => {
-    // Если есть tgUser и он настоящий — загружаем профиль
-    const tg = window.Telegram?.WebApp;
-    if (tg && tg.initDataUnsafe?.user?.id) {
-        // Есть Telegram пользователь
-        setTimeout(function() {
-            if (window.initProfile) {
-                window.initProfile();
-                profileInitialized = true;
-            }
-        }, 1000);
-    } else {
-        // Нет tgUser — autoLogin запустится из socket.js
-        console.log('⏳ Ожидаем autoLogin...');
-        // Даём время autoLogin выполниться
-        setTimeout(function() {
-            if (!profileInitialized && window.initProfile) {
-                console.log('🔄 Принудительная проверка профиля...');
-                window.initProfile();
-                profileInitialized = true;
-            }
-        }, 3000);
+// Проверяем localStorage и восстанавливаем сессию ДО подключения сокета
+const savedUser = localStorage.getItem('dicegram_user');
+if (savedUser && !MY_ID) {
+    try {
+        const user = JSON.parse(savedUser);
+        if (user && user.id) {
+            MY_ID = user.id;
+            MY_USERNAME = user.username || '';
+            window.tgUser = {
+                id: user.id,
+                first_name: user.first_name || 'User',
+                username: user.username || '',
+                photo_url: user.photo_url || ''
+            };
+            console.log('👤 Восстановлен пользователь из localStorage (app.js):', MY_ID);
+        }
+    } catch (e) {
+        localStorage.removeItem('dicegram_user');
     }
-}, 500);
+}
+
+// Если пользователь восстановлен — сразу показываем интерфейс
+if (MY_ID) {
+    document.getElementById('loading-screen').style.display = 'none';
+    const appContainer = document.getElementById('app-container');
+    if (appContainer) {
+        appContainer.style.display = 'flex';
+        appContainer.style.visibility = 'visible';
+        appContainer.style.opacity = '1';
+    }
+    // Загружаем данные после подключения сокета
+    setTimeout(() => {
+        if (window.initProfile) window.initProfile();
+        if (window.loadChatsAndMessages) window.loadChatsAndMessages();
+        if (window.loadContacts) window.loadContacts();
+    }, 1000);
+}
 
 connectSocket();
 

@@ -15,14 +15,39 @@ let tgUser = null;
 let MY_ID = null;
 let MY_USERNAME = '';
 
-if (tg && tg.initDataUnsafe?.user) {
+// Сначала проверяем localStorage
+const savedUser = localStorage.getItem('dicegram_user');
+if (savedUser) {
+    try {
+        const user = JSON.parse(savedUser);
+        if (user && user.id) {
+            tgUser = {
+                id: user.id,
+                first_name: user.first_name || 'User',
+                username: user.username || '',
+                photo_url: user.photo_url || ''
+            };
+            MY_ID = user.id;
+            MY_USERNAME = user.username || '';
+            console.log('👤 Восстановлен пользователь из localStorage:', MY_ID);
+        }
+    } catch (e) {
+        localStorage.removeItem('dicegram_user');
+    }
+}
+
+// Если нет в localStorage, пробуем Telegram WebApp
+if (!MY_ID && tg && tg.initDataUnsafe?.user) {
     tg.expand();
     tg.ready();
     tgUser = tg.initDataUnsafe.user;
     MY_ID = String(tgUser.id);
     MY_USERNAME = tgUser.username || '';
-} else {
-    // Для браузера и APK — будет создан через autoLogin
+    console.log('👤 Пользователь из Telegram:', MY_ID);
+}
+
+// Если вообще ничего нет — создаём заглушку (будет autoLogin)
+if (!MY_ID) {
     tgUser = {
         id: null,
         first_name: 'Гость',

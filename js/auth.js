@@ -81,15 +81,16 @@ function autoLogin() {
                 console.log('✅ app-container показан');
             }
             
-            setTimeout(() => {
-                // Обновляем профиль
+            // ПРИНУДИТЕЛЬНО ОБНОВЛЯЕМ ПРОФИЛЬ ЧЕРЕЗ 500мс
+            setTimeout(function() {
                 if (window.initProfile) {
                     window.initProfile();
                     console.log('✅ Профиль обновлён');
                 }
                 if (window.loadChatsAndMessages) window.loadChatsAndMessages();
                 if (window.loadContacts) window.loadContacts();
-            }, 300);
+            }, 500);
+            
         } else {
             console.error('❌ Ошибка автоматического входа:', response);
             document.getElementById('loading-status').textContent = 'Ошибка входа';

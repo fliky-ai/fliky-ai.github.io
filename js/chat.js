@@ -15,6 +15,17 @@ const BLUE_VERIFY_SVG = `<svg class="tg-verify-icon" style="width:16px;height:16
 
 let renderedMessageIds = new Set();
 
+// Безопасное получение ID системных чатов из глобального конфига или дефолты
+function getSupportId() {
+    return (window.CONFIG && window.CONFIG.SUPPORT_ID) ? window.CONFIG.SUPPORT_ID : '0';
+}
+function getBotfatherId() {
+    return (window.CONFIG && window.CONFIG.BOTFATHER_ID) ? window.CONFIG.BOTFATHER_ID : 'botfather';
+}
+function getCreatorId() {
+    return (window.CONFIG && window.CONFIG.CREATOR_ID) ? window.CONFIG.CREATOR_ID : '8771009385';
+}
+
 // ============ ИНИЦИАЛИЗАЦИЯ ЧАТОВ ============
 function initChats() {
     console.log('🔄 initChats() вызван');
@@ -36,8 +47,11 @@ function loadChatsAndMessages() {
 
     console.log('📥 Загрузка чатов...');
     
-    if (!dynamicChats[CONFIG.SUPPORT_ID]) {
-        dynamicChats[CONFIG.SUPPORT_ID] = {
+    const supportId = getSupportId();
+    const botfatherId = getBotfatherId();
+    
+    if (!dynamicChats[supportId]) {
+        dynamicChats[supportId] = {
             first_name: 'DICEGRAM SUPPORT',
             username: 'dicegram_support',
             chat_type: 'private',
@@ -45,8 +59,8 @@ function loadChatsAndMessages() {
         };
     }
     
-    if (!dynamicChats[CONFIG.BOTFATHER_ID]) {
-        dynamicChats[CONFIG.BOTFATHER_ID] = {
+    if (!dynamicChats[botfatherId]) {
+        dynamicChats[botfatherId] = {
             first_name: 'BotFather',
             username: 'botfather',
             chat_type: 'private',
@@ -54,8 +68,8 @@ function loadChatsAndMessages() {
         };
     }
 
-    socket.emit('get_all_chats', {}, (chats) => {
-        console.log('📨 Получены чаты:', chats?.length || 0);
+    socket.emit('get_all_chats', {}, (response) => {
+        console.log('📨 Получен сырой ответ get_all_chats:', response);
         
         const chatsList = document.getElementById('chats-list');
         if (!chatsList) {
@@ -65,17 +79,32 @@ function loadChatsAndMessages() {
         chatsList.innerHTML = '';
         
         // Всегда железно добавляем SUPPORT и BOTFATHER наверх списка
-        createChatRow(CONFIG.SUPPORT_ID, 'DICEGRAM SUPPORT', 'dicegram_support', true);
-        createChatRow(CONFIG.BOTFATHER_ID, 'BotFather', 'botfather', false);
+        createChatRow(supportId, 'DICEGRAM SUPPORT', 'dicegram_support', true);
+        createChatRow(botfatherId, 'BotFather', 'botfather', false);
         
-        if (chats && Array.isArray(chats)) {
-            chats.forEach(chat => {
+        // Парсим ответ: это может быть массив или объект {status: 'ok', chats: [...]}
+        let chatsArray = [];
+        if (response) {
+            if (Array.isArray(response)) {
+                chatsArray = response;
+            } else if (response.chats && Array.isArray(response.chats)) {
+                chatsArray = response.chats;
+            } else if (response.data && Array.isArray(response.data)) {
+                chatsArray = response.data;
+            }
+        }
+
+        console.log('📊 Массив чатов к отрисовке:', chatsArray.length);
+        const myId = window.MY_ID || '8771009385';
+
+        chatsArray.forEach(chat => {
+            try {
                 const partnerId = chat.chat_id || chat.partner_id;
                 const chatType = chat.type || 'private';
                 
-                if (partnerId && partnerId !== window.MY_ID && 
-                    partnerId !== CONFIG.SUPPORT_ID && 
-                    partnerId !== CONFIG.BOTFATHER_ID) {
+                if (partnerId && partnerId.toString() !== myId.toString() && 
+                    partnerId.toString() !== supportId.toString() && 
+                    partnerId.toString() !== botfatherId.toString()) {
                     
                     if (!dynamicChats[partnerId]) {
                         dynamicChats[partnerId] = {
@@ -106,8 +135,10 @@ function loadChatsAndMessages() {
                         updateUnreadBadge(partnerId, chat.unread_count);
                     }
                 }
-            });
-        }
+            } catch (err) {
+                console.error('❌ Ошибка парсинга строки чата:', err, chat);
+            }
+        });
         
         chatsLoaded = true;
         
@@ -142,9 +173,12 @@ function createChatRow(tgId, firstName, username, isVerified = false, chatType =
     if (!chatsList) return;
     if (document.getElementById(`chat-item-${tgId}`)) return;
     
-    const isBotFather = username === 'botfather';
-    const isSupport = tgId === CONFIG.SUPPORT_ID;
-    const verified = isSupport || tgId === CONFIG.CREATOR_ID || isVerified;
+    const supportId = getSupportId();
+    const creatorId = getCreatorId();
+    
+    const isBotFather = username === 'botfather' || tgId === getBotfatherId();
+    const isSupport = tgId === supportId;
+    const verified = isSupport || tgId === creatorId || isVerified;
     
     const verifiedIcon = verified ? BLUE_VERIFY_SVG : '';
     const displayName = firstName || `User ${tgId}`;
@@ -236,7 +270,8 @@ function openChat(chatId) {
         });
     }
 
-    if (chatId === CONFIG.SUPPORT_ID && titleEl) {
+    const supportId = getSupportId();
+    if (chatId.toString() === supportId.toString() && titleEl) {
         titleEl.innerHTML = `DICEGRAM SUPPORT ${BLUE_VERIFY_SVG}`;
         const statusEl = document.getElementById('chat-room-status');
         if (statusEl) statusEl.innerText = 'официальный аккаунт';
@@ -248,7 +283,7 @@ function openChat(chatId) {
 
         const welcomeMsg = {
             id: 'welcome_msg_static',
-            sender_id: CONFIG.SUPPORT_ID,
+            sender_id: supportId,
             receiver_id: finalId,
             text: `👋 Добро пожаловать в DICEGRAM!\n\n🆔 Ваш ID: ${finalId}\n👤 Имя: ${finalName}\n🏷️ Username: @${finalUsername}\n\n📱 DICEGRAM — точная копия Telegram. Все данные сохраняются в базе данных.\n\n💬 Напишите нам, если у вас есть вопросы или предложения.`,
             timestamp: new Date().toISOString(),
@@ -262,11 +297,11 @@ function openChat(chatId) {
         if (!statusEl) return;
         
         if (userInfo && userInfo.status === 'found') {
-            const isVerifiedUser = userInfo.user.is_verified || chatId === CONFIG.SUPPORT_ID || chatId === CONFIG.CREATOR_ID;
-            if (isVerifiedUser && chatId !== CONFIG.SUPPORT_ID && titleEl) {
+            const isVerifiedUser = userInfo.user.is_verified || chatId.toString() === supportId.toString() || chatId.toString() === getCreatorId().toString();
+            if (isVerifiedUser && chatId.toString() !== supportId.toString() && titleEl) {
                 titleEl.innerHTML = `${titleEl.innerText} ${BLUE_VERIFY_SVG}`;
             }
-            if (chatId !== CONFIG.SUPPORT_ID) {
+            if (chatId.toString() !== supportId.toString()) {
                 statusEl.innerText = userInfo.user.is_online ? '🟢 в сети' : 'был(а) недавно';
             }
         } else {
@@ -282,7 +317,7 @@ function openChat(chatId) {
     socket.emit('get_chat_history', { with_id: chatId }, (history) => {
         if (history && Array.isArray(history)) {
             history.forEach(msg => {
-                if (chatId === CONFIG.SUPPORT_ID && msg.text && msg.text.includes("Добро пожаловать в DICEGRAM!")) {
+                if (chatId.toString() === supportId.toString() && msg.text && msg.text.includes("Добро пожаловать в DICEGRAM!")) {
                     return; 
                 }
                 renderSingleMessageWithCheck(msg);
@@ -335,7 +370,8 @@ function renderSingleMessageWithCheck(msg) {
     }
 
     let ticksHtml = '';
-    if (msg.sender_id === window.MY_ID) {
+    const myId = window.MY_ID || '8771009385';
+    if (msg.sender_id.toString() === myId.toString()) {
         wrapper.classList.add('sent');
         msgEl.classList.add('sent');
         
@@ -361,7 +397,6 @@ function renderSingleMessageWithCheck(msg) {
         </div>
     `;
 
-    // Универсальный Лонг-пресс для мобилок и ПК
     let longPressTimer = null;
     const startPress = () => { longPressTimer = setTimeout(() => showMessageActions(msgId), 500); };
     const endPress = () => clearTimeout(longPressTimer);
@@ -419,15 +454,17 @@ function closeChat() {
 // ============ ОБРАБОТКА НОВОГО СООБЩЕНИЯ ============
 function handleNewMessage(msg) {
     if (!msg) return;
+    const myId = window.MY_ID || '8771009385';
     let chatId = msg.receiver_id;
-    if (msg.sender_id === window.MY_ID) {
+    
+    if (msg.sender_id.toString() === myId.toString()) {
         chatId = msg.receiver_id;
-    } else if (msg.receiver_id === window.MY_ID) {
+    } else if (msg.receiver_id.toString() === myId.toString()) {
         chatId = msg.sender_id;
     }
     
     if (msg.sender_id === 'system') {
-        if (currentChatId === msg.receiver_id) {
+        if (currentChatId && currentChatId.toString() === msg.receiver_id.toString()) {
             renderSingleMessageWithCheck(msg);
             if (window.scrollToBottom) window.scrollToBottom();
         }
@@ -441,15 +478,15 @@ function handleNewMessage(msg) {
         return;
     }
     
-    const isCurrentChat = currentChatId === chatId;
+    const isCurrentChat = currentChatId && currentChatId.toString() === chatId.toString();
     if (isCurrentChat) {
         renderSingleMessageWithCheck(msg);
         if (window.scrollToBottom) window.scrollToBottom();
-        if (msg.sender_id !== window.MY_ID) {
+        if (msg.sender_id.toString() !== myId.toString()) {
             socket.emit('mark_as_read', { chat_id: chatId });
         }
     } else {
-        if (msg.sender_id !== window.MY_ID) {
+        if (msg.sender_id.toString() !== myId.toString()) {
             unreadCounts[chatId] = (unreadCounts[chatId] || 0) + 1;
             updateUnreadBadge(chatId, unreadCounts[chatId]);
         }
@@ -471,7 +508,7 @@ function handleNewMessage(msg) {
         timeEl.innerText = window.getLocalTime ? window.getLocalTime(msg.timestamp) : new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     }
     
-    if (chatId && chatId !== window.MY_ID && !dynamicChats[chatId]) {
+    if (chatId && chatId.toString() !== myId.toString() && !dynamicChats[chatId]) {
         socket.emit('get_group_info', { chat_id: chatId }, (groupInfo) => {
             if (groupInfo && groupInfo.status === 'found') {
                 const chat = groupInfo.chat;
@@ -492,7 +529,7 @@ function handleNewMessage(msg) {
                             chat_type: 'private',
                             is_verified: userInfo.user.is_verified || false
                         };
-                        const isVerified = userInfo.user.is_verified || chatId === CONFIG.SUPPORT_ID;
+                        const isVerified = userInfo.user.is_verified || chatId.toString() === getSupportId().toString();
                         createChatRow(chatId, dynamicChats[chatId].first_name, dynamicChats[chatId].username, isVerified, 'private');
                     }
                 });
@@ -537,7 +574,8 @@ function sendMessage() {
         return;
     }
 
-    if (currentChatId === CONFIG.BOTFATHER_ID || (dynamicChats[currentChatId] && dynamicChats[currentChatId].username === 'botfather')) {
+    const botfatherId = getBotfatherId();
+    if (currentChatId.toString() === botfatherId.toString() || (dynamicChats[currentChatId] && dynamicChats[currentChatId].username === 'botfather')) {
         handleBotCommand(text);
         input.value = '';
         const sendBtn = document.getElementById('send-btn-icon');
@@ -551,10 +589,11 @@ function sendMessage() {
 function sendMessageToServer(text) {
     const input = document.getElementById('message-field');
     const tempId = 'temp_' + Date.now();
+    const myId = window.MY_ID || '8771009385';
     
     const localMsg = {
         id: tempId,
-        sender_id: window.MY_ID,
+        sender_id: myId,
         receiver_id: currentChatId,
         text: text,
         timestamp: new Date().toISOString(),
@@ -675,17 +714,18 @@ function updateReactionDisplay(messageId) {
     });
 }
 
-// Экспортируем функцию реакций для глобального вызова из socket.js
 window.updateReactionDisplayDirect = updateReactionDisplayDirect;
 
 // ============ ОСТАЛЬНОЙ ФУНКЦИОНАЛ (ПОИСК, ДЕЙСТВИЯ, BOTFATHER) ============
 function handleBotCommand(text) {
+    const botfatherId = getBotfatherId();
     const botResponse = emulateBotFather(text);
-    const userMsg = { id: Date.now().toString(), sender_id: window.MY_ID, receiver_id: CONFIG.BOTFATHER_ID, text: text, timestamp: new Date().toISOString(), is_read: true };
+    const myId = window.MY_ID || '8771009385';
+    const userMsg = { id: Date.now().toString(), sender_id: myId, receiver_id: botfatherId, text: text, timestamp: new Date().toISOString(), is_read: true };
     renderSingleMessageWithCheck(userMsg);
     
     setTimeout(() => {
-        const botMsg = { id: (Date.now() + 1).toString(), sender_id: CONFIG.BOTFATHER_ID, receiver_id: window.MY_ID, text: botResponse, timestamp: new Date().toISOString(), is_read: true };
+        const botMsg = { id: (Date.now() + 1).toString(), sender_id: botfatherId, receiver_id: myId, text: botResponse, timestamp: new Date().toISOString(), is_read: true };
         renderSingleMessageWithCheck(botMsg);
         if (window.scrollToBottom) window.scrollToBottom();
     }, 500);
@@ -715,15 +755,17 @@ function handleSearch(query) {
     if (!resultsContainer) return;
     if (!query.trim()) { resultsContainer.style.display = 'none'; return; }
 
+    const myId = window.MY_ID || '8771009385';
+
     socket.emit('search_users', { query: query.trim() }, (results) => {
         resultsContainer.innerHTML = '';
         if (results && results.length > 0) {
             resultsContainer.style.display = 'block';
             results.forEach(user => {
-                if (user.telegram_id === window.MY_ID) return;
+                if (user.telegram_id.toString() === myId.toString()) return;
                 const item = document.createElement('div');
                 item.className = 'search-result-item';
-                const isVerified = user.telegram_id === CONFIG.CREATOR_ID || user.is_verified || user.telegram_id === CONFIG.SUPPORT_ID;
+                const isVerified = user.telegram_id.toString() === getCreatorId().toString() || user.is_verified || user.telegram_id.toString() === getSupportId().toString();
                 item.innerHTML = `
                     <div class="chat-avatar" style="width:36px;height:36px;font-size:12px;background:linear-gradient(135deg, #5085b1, #366187)">
                         ${(user.first_name || 'U').substring(0,2).toUpperCase()}

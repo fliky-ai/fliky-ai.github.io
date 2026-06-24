@@ -95,8 +95,7 @@ function loadChatsAndMessages() {
                         const previewEl = document.getElementById(`preview-${partnerId}`);
                         if (previewEl) {
                             let previewText = chat.last_message;
-                            if (chatType === 'group') previewText = '👥 ' + previewText;
-                            if (chatType === 'channel') previewText = '📢 ' + previewText;
+                            // Убираем эмодзи из превью для групп/каналов
                             previewEl.innerText = previewText;
                         }
                     }
@@ -122,7 +121,7 @@ function loadChatsAndMessages() {
     });
 }
 
-// ============ СОЗДАНИЕ СТРОКИ ЧАТА ============
+// ============ СОЗДАНИЕ СТРОКИ ЧАТА (БЕЗ ЭМОДЗИ) ============
 function createChatRow(tgId, firstName, username, isVerified = false, chatType = 'private') {
     if (!tgId) return;
     
@@ -146,12 +145,13 @@ function createChatRow(tgId, firstName, username, isVerified = false, chatType =
     
     const isBotFather = username === 'botfather';
     const isSupport = tgId === CONFIG.SUPPORT_ID;
+    // Галочка только для личных чатов (не для групп и каналов)
     const verified = isSupport || tgId === CONFIG.CREATOR_ID || isVerified;
+    const showVerifiedBadge = verified && chatType === 'private';
     
-    const verifiedIcon = verified ? BLUE_VERIFY_SVG : '';
+    const verifiedIcon = showVerifiedBadge ? BLUE_VERIFY_SVG : '';
     const displayName = firstName || `User ${tgId}`;
     let avatarBg = 'linear-gradient(135deg, #5085b1, #366187)';
-    let typeIcon = '';
     
     if (isBotFather) {
         avatarBg = 'linear-gradient(135deg, #2a9d8f, #264653)';
@@ -159,23 +159,20 @@ function createChatRow(tgId, firstName, username, isVerified = false, chatType =
         avatarBg = 'linear-gradient(135deg, #5288c1, #1a3a5c)';
     } else if (chatType === 'group') {
         avatarBg = 'linear-gradient(135deg, #e76f51, #f4a261)';
-        typeIcon = '👥 ';
     } else if (chatType === 'channel') {
         avatarBg = 'linear-gradient(135deg, #2a9d8f, #264653)';
-        typeIcon = '📢 ';
     }
     
+    // Убираем все эмодзи из названия и авы
     const rowHTML = `
         <div class="chat-item" id="chat-item-${tgId}" onclick="openChat('${tgId}')">
             <div class="chat-avatar" style="background: ${avatarBg}">
                 ${displayName.substring(0,2).toUpperCase()}
-                ${verified ? '<span class="verified-badge">✅</span>' : ''}
-                ${chatType === 'group' ? '<span style="position:absolute;bottom:-2px;left:-2px;font-size:10px;">👥</span>' : ''}
-                ${chatType === 'channel' ? '<span style="position:absolute;bottom:-2px;left:-2px;font-size:10px;">📢</span>' : ''}
+                ${showVerifiedBadge ? '<span class="verified-badge">✅</span>' : ''}
             </div>
             <div class="chat-details">
                 <div class="chat-title-row">
-                    <div class="chat-name">${typeIcon}${displayName} ${verifiedIcon}</div>
+                    <div class="chat-name">${displayName} ${verifiedIcon}</div>
                     <div style="display:flex;align-items:center;gap:4px;">
                         <span class="chat-time" id="time-${tgId}"></span>
                         <span class="chat-unread-badge" id="unread-badge-${tgId}" style="display:none;">0</span>
@@ -201,7 +198,7 @@ function updateUnreadBadge(chatId, count) {
     }
 }
 
-// ============ ОТКРЫТИЕ ЧАТА ============
+// ============ ОТКРЫТИЕ ЧАТА (БЕЗ ЭМОДЗИ В ЗАГОЛОВКЕ) ============
 function openChat(chatId) {
     console.log('📂 openChat вызван с ID:', chatId);
     
@@ -228,11 +225,12 @@ function openChat(chatId) {
     const titleEl = document.getElementById('chat-room-title');
     titleEl.innerText = chatName || 'Чат';
     
+    // Убираем эмодзи из заголовка
     if (chatInfo) {
         if (chatInfo.chat_type === 'group') {
-            titleEl.innerText = '👥 ' + (chatName || 'Группа');
+            titleEl.innerText = chatName || 'Группа';
         } else if (chatInfo.chat_type === 'channel') {
-            titleEl.innerText = '📢 ' + (chatName || 'Канал');
+            titleEl.innerText = chatName || 'Канал';
         }
     }
     
@@ -436,23 +434,18 @@ function closeChat() {
 function handleNewMessage(msg) {
     console.log('📩 Новое сообщение:', msg, 'currentChatId:', currentChatId);
     
-    // ОПРЕДЕЛЯЕМ ID ЧАТА ПРАВИЛЬНО
     let chatId = null;
     
-    // Если сообщение от нас — receiver_id это чат
     if (msg.sender_id === MY_ID) {
         chatId = msg.receiver_id;
     } 
-    // Если сообщение нам — sender_id это собеседник
     else if (msg.receiver_id === MY_ID) {
         chatId = msg.sender_id;
     } 
-    // Если сообщение в группе/канале (receiver_id — это ID группы)
     else {
         chatId = msg.receiver_id;
     }
     
-    // Если сообщение системное
     if (msg.sender_id === 'system') {
         if (currentChatId === chatId) {
             renderSingleMessageWithCheck(msg);
@@ -460,53 +453,38 @@ function handleNewMessage(msg) {
         }
         const previewEl = document.getElementById(`preview-${chatId}`);
         if (previewEl) {
-            let previewText = msg.text;
-            const chatInfo = dynamicChats[chatId];
-            if (chatInfo && chatInfo.chat_type === 'group') previewText = '👥 ' + previewText;
-            previewEl.innerText = previewText;
+            previewEl.innerText = msg.text;
         }
         return;
     }
     
-    // Проверяем, открыт ли этот чат
     const isCurrentChat = currentChatId === chatId;
     
     console.log('🔍 chatId:', chatId, 'currentChatId:', currentChatId, 'isCurrentChat:', isCurrentChat);
     
     if (isCurrentChat) {
-        // Если чат открыт — рендерим сообщение
         renderSingleMessageWithCheck(msg);
         scrollToBottom();
         if (msg.sender_id !== MY_ID) {
             socket.emit('mark_as_read', { chat_id: chatId });
         }
     } else {
-        // Если чат не открыт — увеличиваем счётчик непрочитанных
         if (msg.sender_id !== MY_ID) {
             unreadCounts[chatId] = (unreadCounts[chatId] || 0) + 1;
             updateUnreadBadge(chatId, unreadCounts[chatId]);
         }
     }
     
-    // ОБЯЗАТЕЛЬНО ОБНОВЛЯЕМ ПРЕВЬЮ В СПИСКЕ ЧАТОВ
     const previewEl = document.getElementById(`preview-${chatId}`);
     if (previewEl) {
-        let previewText = msg.text;
-        const chatInfo = dynamicChats[chatId];
-        if (chatInfo) {
-            if (chatInfo.chat_type === 'group') previewText = '👥 ' + previewText;
-            if (chatInfo.chat_type === 'channel') previewText = '📢 ' + previewText;
-        }
-        previewEl.innerText = previewText;
+        previewEl.innerText = msg.text;
     }
     
-    // Обновляем время
     const timeEl = document.getElementById(`time-${chatId}`);
     if (timeEl && msg.timestamp) {
         timeEl.innerText = getLocalTime(msg.timestamp);
     }
     
-    // Если чата нет в списке — создаём
     if (chatId && chatId !== MY_ID && !dynamicChats[chatId]) {
         socket.emit('get_group_info', { chat_id: chatId }, (groupInfo) => {
             if (groupInfo && groupInfo.status === 'found') {
@@ -618,13 +596,7 @@ function sendMessageToServer(text) {
             
             const previewEl = document.getElementById(`preview-${currentChatId}`);
             if (previewEl) {
-                let previewText = text;
-                const chatInfo = dynamicChats[currentChatId];
-                if (chatInfo) {
-                    if (chatInfo.chat_type === 'group') previewText = '👥 ' + previewText;
-                    if (chatInfo.chat_type === 'channel') previewText = '📢 ' + previewText;
-                }
-                previewEl.innerText = previewText;
+                previewEl.innerText = text;
             }
         } else {
             const tempEl = document.querySelector(`[data-message-id="${tempId}"]`);

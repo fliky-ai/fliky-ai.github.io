@@ -2,41 +2,93 @@
 let currentUserData = null;
 
 function initProfile() {
-    if (socket && isConnected) {
-        socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
-            if (userInfo && userInfo.status === 'found') {
-                currentUserData = userInfo.user;
-                MY_USERNAME = currentUserData.username || MY_USERNAME;
-                
-                const fullName = currentUserData.first_name || tgUser.first_name || 'Пользователь';
-                const displayName = currentUserData.last_name ? `${fullName} ${currentUserData.last_name}` : fullName;
-                
-                const nameEl = document.getElementById('user-name');
-                if (currentUserData.is_verified) {
-                    nameEl.innerHTML = `${displayName} <span class="verified-check"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>`;
-                } else {
-                    nameEl.innerText = displayName;
+    console.log('📝 initProfile() вызван');
+    
+    // Если нет MY_ID, пробуем взять из localStorage
+    if (!MY_ID) {
+        const savedUser = localStorage.getItem('dicegram_user');
+        if (savedUser) {
+            try {
+                const user = JSON.parse(savedUser);
+                if (user && user.id) {
+                    MY_ID = user.id;
+                    MY_USERNAME = user.username || '';
+                    window.tgUser = {
+                        id: user.id,
+                        first_name: user.first_name || 'User',
+                        username: user.username || '',
+                        photo_url: user.photo_url || ''
+                    };
+                    console.log('👤 Восстановлен MY_ID из localStorage:', MY_ID);
                 }
-                
-                document.getElementById('user-username').innerText = MY_USERNAME ? `@${MY_USERNAME}` : '';
-                document.getElementById('profile-username-display').innerText = MY_USERNAME ? `@${MY_USERNAME}` : '';
-                document.getElementById('profile-display-name').innerText = displayName;
-                
-                updateAvatar('user-avatar', displayName, currentUserData.photo_url);
-                
-                if (currentUserData.bio) {
-                    document.getElementById('profile-bio-display').innerText = currentUserData.bio;
-                } else {
-                    document.getElementById('profile-bio-display').innerText = 'Добавить описание';
-                }
+            } catch (e) {
+                localStorage.removeItem('dicegram_user');
             }
-        });
+        }
     }
+
+    if (!MY_ID) {
+        console.log('⏳ MY_ID ещё не установлен, повтор через 500мс');
+        setTimeout(initProfile, 500);
+        return;
+    }
+
+    if (!socket || !isConnected) {
+        console.log('⏳ Сокет ещё не готов, повтор через 500мс');
+        setTimeout(initProfile, 500);
+        return;
+    }
+
+    console.log('📥 Загрузка профиля для:', MY_ID);
+    
+    socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
+        console.log('📨 Ответ get_user_info:', userInfo);
+        
+        if (userInfo && userInfo.status === 'found') {
+            currentUserData = userInfo.user;
+            MY_USERNAME = currentUserData.username || MY_USERNAME;
+            
+            const fullName = currentUserData.first_name || tgUser?.first_name || 'Пользователь';
+            const displayName = currentUserData.last_name ? `${fullName} ${currentUserData.last_name}` : fullName;
+            
+            // Обновляем имя в профиле
+            const nameEl = document.getElementById('user-name');
+            if (currentUserData.is_verified) {
+                nameEl.innerHTML = `${displayName} <span class="verified-check"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>`;
+            } else {
+                nameEl.innerText = displayName;
+            }
+            
+            // Обновляем username
+            const usernameDisplay = currentUserData.username || MY_USERNAME || '';
+            document.getElementById('user-username').innerText = usernameDisplay ? `@${usernameDisplay}` : '';
+            document.getElementById('profile-username-display').innerText = usernameDisplay ? `@${usernameDisplay}` : '';
+            document.getElementById('profile-display-name').innerText = displayName;
+            
+            // Обновляем аватар
+            updateAvatar('user-avatar', displayName, currentUserData.photo_url);
+            
+            // Обновляем bio
+            if (currentUserData.bio) {
+                document.getElementById('profile-bio-display').innerText = currentUserData.bio;
+            } else {
+                document.getElementById('profile-bio-display').innerText = 'Добавить описание';
+            }
+            
+            console.log('✅ Профиль обновлён:', displayName, '@' + usernameDisplay);
+        } else {
+            console.log('⚠️ Пользователь не найден, пробуем создать через auto_auth');
+            // Если пользователь не найден, но у нас есть MY_ID из localStorage
+            // возможно, это случайный пользователь, созданный через auto_auth
+            // пробуем ещё раз через 1 секунду
+            setTimeout(initProfile, 1000);
+        }
+    });
 }
 
 function updateAvatar(elementId, name, photoUrl) {
     const avatarEl = document.getElementById(elementId);
-    const initials = name.substring(0, 2).toUpperCase();
+    const initials = name ? name.substring(0, 2).toUpperCase() : 'U';
     
     if (photoUrl && photoUrl.startsWith('http')) {
         avatarEl.src = photoUrl;
@@ -224,7 +276,7 @@ function showUserProfile(userId) {
     });
 }
 
-// ============ ИНФОРМАЦИЯ О ГРУППЕ (БЕЗ ИНВАЙТ-ССЫЛОК) ============
+// ============ ИНФОРМАЦИЯ О ГРУППЕ ============
 function showGroupInfo(chatId) {
     if (!chatId) return;
     
@@ -255,7 +307,6 @@ function showGroupProfile(chat, members) {
     const typeLabel = chat.type === 'group' ? '👥 Группа' : '📢 Канал';
     document.getElementById('popup-username').innerText = `${typeLabel} • ${members ? members.length : 0} участников`;
     
-    // Убираем инвайт-ссылку
     document.getElementById('popup-bio').innerHTML = '';
     document.getElementById('popup-bio').style.display = 'none';
     
@@ -343,9 +394,6 @@ function addGroupMemberByUsername() {
     });
 }
 
-// ============ КОПИРОВАТЬ ССЫЛКУ (УДАЛЕНО) ============
-// copyInviteLink и shareInviteLink полностью удалены
-
 // ============ ПОКИНУТЬ ГРУППУ ============
 function leaveGroup(chatId) {
     if (confirm('Вы уверены, что хотите покинуть этот чат?')) {
@@ -396,7 +444,7 @@ function blockUser() {
 
 function editName() {
     const currentName = document.getElementById('user-name').innerText.replace(' ✅', '').replace('⭐', '');
-    const newName = prompt('Введите новое имя:', currentName || tgUser.first_name || '');
+    const newName = prompt('Введите новое имя:', currentName || tgUser?.first_name || '');
     if (newName && newName.trim()) {
         socket.emit('update_profile', { name: newName.trim() }, (response) => {
             if (response && response.status === 'ok') {
@@ -487,4 +535,7 @@ function changeLanguage() {
     alert('🌐 Выбор языка будет доступен в следующей версии');
 }
 
+// Ждём готовность и загружаем профиль
 setTimeout(initProfile, 1000);
+
+console.log('✅ Profile module loaded');

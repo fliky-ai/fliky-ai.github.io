@@ -1,5 +1,6 @@
 // ============ ГЛАВНЫЙ МОДУЛЬ ============
 console.log('🚀 DICEGRAM загружается...');
+console.log('👤 Пользователь:', tgUser.first_name, '@' + MY_USERNAME, 'ID:', MY_ID);
 
 // Инициализация
 window.isInitialLoad = true;
@@ -7,20 +8,12 @@ window.botCreationStep = null;
 window.botName = '';
 window.createdBots = [];
 
-// ПОДКЛЮЧАЕМ СОКЕТ СРАЗУ
-connectSocket();
+// Запуск
+setTimeout(() => {
+    initProfile();
+}, 500);
 
-// ЖДЁМ ПОДКЛЮЧЕНИЕ И ЗАПУСКАЕМ АВТОВХОД
-setTimeout(function() {
-    if (window.autoLogin) {
-        window.autoLogin();
-    } else {
-        console.log('⚠️ autoLogin не найден, пробуем ещё раз...');
-        setTimeout(function() {
-            if (window.autoLogin) window.autoLogin();
-        }, 1000);
-    }
-}, 1000);
+connectSocket();
 
 // События
 document.getElementById('message-field').addEventListener('keydown', function(e) {
@@ -47,6 +40,7 @@ document.getElementById('profile-popup').addEventListener('click', function(e) {
     }
 });
 
+// Восстановление после закрытия
 document.addEventListener('visibilitychange', function() {
     if (!document.hidden && !isConnected) {
         console.log('🔄 Восстановление соединения...');

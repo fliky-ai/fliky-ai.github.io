@@ -1,6 +1,5 @@
 // ============ ГЛАВНЫЙ МОДУЛЬ ============
 console.log('🚀 DICEGRAM загружается...');
-console.log('👤 Пользователь:', tgUser.first_name, '@' + MY_USERNAME, 'ID:', MY_ID);
 
 // Инициализация
 window.isInitialLoad = true;
@@ -10,7 +9,11 @@ window.createdBots = [];
 
 // Запуск
 setTimeout(() => {
-    initProfile();
+    // Если есть tgUser и он настоящий — загружаем профиль
+    if (window.Telegram?.WebApp?.initDataUnsafe?.user?.id) {
+        initProfile();
+    }
+    // autoLogin запустится из socket.js, если нет tgUser
 }, 500);
 
 connectSocket();
@@ -40,7 +43,6 @@ document.getElementById('profile-popup').addEventListener('click', function(e) {
     }
 });
 
-// Восстановление после закрытия
 document.addEventListener('visibilitychange', function() {
     if (!document.hidden && !isConnected) {
         console.log('🔄 Восстановление соединения...');

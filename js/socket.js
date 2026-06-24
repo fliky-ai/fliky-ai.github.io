@@ -1,4 +1,4 @@
-// ============ УПРАВЛЕНИЕ СОКЕТОМ (SOCKET.IO) ============
+// ============ УПРАВЛЕНИЕ СОКЕТОМ ============
 let socket = null;
 let isConnected = false;
 let reconnectAttempts = 0;
@@ -9,151 +9,167 @@ function connectSocket() {
     const loadingError = document.getElementById('loading-error');
     const reconnectBtn = document.getElementById('reconnect-btn');
     
-    if (loadingStatus) {
-        loadingStatus.textContent = 'Подключение к серверу DICEGRAM...';
-        loadingStatus.style.display = 'block';
-    }
-    if (loadingError) loadingError.style.display = 'none';
-    if (reconnectBtn) reconnectBtn.style.display = 'none';
+    loadingStatus.textContent = 'Подключение к серверу...';
+    loadingStatus.style.display = 'block';
+    loadingError.style.display = 'none';
+    reconnectBtn.style.display = 'none';
 
-    // Используем SOCKET_URL из config.js
-    const serverUrl = CONFIG.SOCKET_URL || CONFIG.SERVER_URL || window.location.origin;
-    console.log('🔌 Инициализация соединения с бэкендом:', serverUrl);
+    console.log('🔌 Подключение к серверу:', CONFIG.SERVER_URL);
 
     if (socket) {
         socket.disconnect();
         socket = null;
     }
 
-    // Соединение, оптимизированное под Python-бэк (FastAPI / python-socketio)
-    socket = io(serverUrl, { 
+    socket = io(CONFIG.SERVER_URL, { 
         transports: ["websocket", "polling"],
         secure: true,
         reconnection: true,
-        reconnectionAttempts: CONFIG.MAX_RECONNECT_ATTEMPTS || 5,
+        reconnectionAttempts: CONFIG.MAX_RECONNECT_ATTEMPTS,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
         timeout: 10000
     });
 
-    window.socket = socket; // ФИКС: Обязательно экспортируем сокет в window для поиска!
-
-    // ===== СОБЫТИЕ: УСПЕШНЫЙ КОННЕКТ С СЕРВЕРОМ =====
     socket.on('connect', () => {
-        console.log('✅ Сетевой уровень Socket.IO подключен успешно!');
+        console.log('✅ Socket.IO подключен');
         isConnected = true;
-        window.isConnected = true;
         reconnectAttempts = 0;
         
         const statusEl = document.getElementById('global-status');
         if (statusEl) statusEl.style.display = 'none';
         
-        // Передаём управление модулю авторизации auth.js, без дублирования кода!
-        if (window.autoLogin) {
-            window.autoLogin();
-        } else {
-            console.error('❌ Критическая ошибка: модуль window.autoLogin не найден!');
-            if (loadingStatus) loadingStatus.textContent = 'Ошибка загрузки модулей аутентификации';
+        loadingStatus.textContent = 'Авторизация...';
+        
+        // БЕЗОПАСНОЕ ПОЛУЧЕНИЕ ДАННЫХ ПОЛЬЗОВАТЕЛЯ ИЗ ТЕЛЕГРАМ
+        let currentUserData = null;
+        if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe) {
+            currentUserData = window.Telegram.WebApp.initDataUnsafe.user;
         }
+        
+        // Если WebApp недоступен (тест в браузере), берем заглушку
+        if (!currentUserData) {
+            currentUserData = window.tgUser || { id: window.MY_ID || '8771009385', first_name: 'Пользователь', username: 'testuser' };
+        }
+
+        console.log('🔑 Отправка данных на авторизацию:', currentUserData);
+        
+        socket.emit('auth', currentUserData, (response) => {
+            console.log('📨 Ответ авторизации:', response);
+            
+            if (response && response.status === 'ok') {
+                console.log('✅ Авторизация успешна');
+                loadingStatus.textContent = 'Загрузка...';
+                
+                if (document.getElementById('loading-screen')) document.getElementById('loading-screen').style.display = 'none';
+                if (document.getElementById('app-container')) document.getElementById('app-container').style.display = 'flex';
+                
+                // Включаем слушатели событий, которые зависят от socket
+                setupSocketListeners();
+                
+                if (window.isInitialLoad) {
+                    setTimeout(() => {
+                        if (window.loadChatsAndMessages) window.loadChatsAndMessages();
+                        if (window.loadContacts) window.loadContacts();
+                        window.isInitialLoad = false;
+                    }, 500);
+                }
+            } else {
+                console.error('❌ Ошибка авторизации:', response);
+                loadingStatus.textContent = 'Ошибка авторизации';
+                if (loadingError) loadingError.style.display = 'block';
+                if (reconnectBtn) reconnectBtn.style.display = 'block';
+            }
+        });
     });
 
-    // ===== СОБЫТИЕ: ОШИБКА ПОДКЛЮЧЕНИЯ =====
     socket.on('connect_error', (error) => {
-        console.error('❌ Сетевая ошибка Socket.IO:', error);
+        console.error('❌ Ошибка подключения:', error);
         reconnectAttempts++;
         
-        const maxAttempts = CONFIG.MAX_RECONNECT_ATTEMPTS || 5;
-        if (loadingStatus) {
-            loadingStatus.textContent = `Ошибка сети. Попытка переподключения (${reconnectAttempts}/${maxAttempts})`;
-        }
+        loadingStatus.textContent = `Ошибка подключения (${reconnectAttempts}/${CONFIG.MAX_RECONNECT_ATTEMPTS})`;
         
-        if (reconnectAttempts >= maxAttempts) {
+        if (reconnectAttempts >= CONFIG.MAX_RECONNECT_ATTEMPTS) {
             if (loadingError) loadingError.style.display = 'block';
             if (reconnectBtn) reconnectBtn.style.display = 'block';
-            if (loadingStatus) loadingStatus.textContent = 'Не удалось связаться с сервером';
+            loadingStatus.textContent = 'Не удалось подключиться';
         }
     });
 
-    // ===== СОБЫТИЕ: ДИСКОННЕКТ =====
     socket.on('disconnect', (reason) => {
-        console.warn('🔌 Соединение с сокет-сервером разорвано:', reason);
+        console.log('🔌 Отключение:', reason);
         isConnected = false;
-        window.isConnected = false;
-        
         const statusEl = document.getElementById('global-status');
         if (statusEl) {
             statusEl.style.display = 'block';
-            statusEl.innerText = '⚠️ Соединение потеряно. Переподключение...';
+            statusEl.innerText = 'Соединение потеряно';
             statusEl.style.color = '#ff3b30';
         }
     });
 
-    // ===== СОБЫТИЕ: РЕКОННЕКТ (АВТОВОССТАНОВЛЕНИЕ) =====
     socket.on('reconnect', () => {
-        console.log('🔄 Соединение автоматически восстановлено!');
+        console.log('🔄 Переподключено');
         isConnected = true;
-        window.isConnected = true;
-        
         const statusEl = document.getElementById('global-status');
         if (statusEl) statusEl.style.display = 'none';
-        
-        if (window.autoLogin) window.autoLogin();
+        if (window.loadChatsAndMessages) window.loadChatsAndMessages();
+        if (window.loadContacts) window.loadContacts();
     });
 
-    // ===== ВХОДЯЩИЕ ИВЕНТЫ РЕАЛЬНОГО ВРЕМЕНИ =====
-    
-    // Новое сообщение (ФИКС: Связываем напрямую с обработчиком в chat.js)
     socket.on('new_message', (msg) => {
-        console.log('📩 Получено новое сообщение через сокет:', msg);
-        if (typeof window.handleNewMessage === 'function') {
-            window.handleNewMessage(msg);
-        } else {
-            // Фолбэк, если модуль чатов не успел прокинуться
-            if (window.appendMessageToChat && (msg.chat_id === currentChatId || msg.sender_id === currentChatId)) {
-                window.appendMessageToChat(msg);
-            }
-            if (window.loadChatsAndMessages) window.loadChatsAndMessages();
-        }
+        console.log('📩 Новое сообщение:', msg);
+        if (window.handleNewMessage) window.handleNewMessage(msg);
     });
 
-    // Реакции на сообщения
-    socket.on('reaction_updated', (data) => {
-        console.log('😊 Ивент обновления реакции:', data);
-        if (data && data.message_id && data.reactions && typeof window.updateReactionDisplayDirect === 'function') {
-            window.updateReactionDisplayDirect(data.message_id, data.reactions);
-        }
-    });
-
-    // Обновление профиля/статуса какого-то юзера на сервере
     socket.on('user_updated', (data) => {
-        console.log('🔄 Ивент обновления пользователя от сервера:', data);
-        if (data && data.user_id === window.MY_ID) {
-            if (data.username) window.MY_USERNAME = data.username;
+        console.log('🔄 Обновление пользователя:', data);
+        if (data.user_id === window.MY_ID && data.username) {
+            window.MY_USERNAME = data.username;
             if (window.initProfile) window.initProfile();
         }
         if (window.loadChatsAndMessages) window.loadChatsAndMessages();
     });
 
-    // Таймаут на загрузку
     if (authTimeout) clearTimeout(authTimeout);
     authTimeout = setTimeout(() => {
         if (!isConnected) {
-            if (loadingStatus) loadingStatus.textContent = 'Превышено время ожидания сервера (Таймаут)';
+            loadingStatus.textContent = 'Превышено время ожидания';
             if (loadingError) loadingError.style.display = 'block';
             if (reconnectBtn) reconnectBtn.style.display = 'block';
         }
     }, 15000);
 }
 
+// Вынесли динамические подписки в отдельную функцию, запускаемую после коннекта
+function setupSocketListeners() {
+    if (!socket) return;
+    
+    // Снимаем старые листенеры, чтобы не дублировались
+    socket.off('reaction_updated');
+    socket.off('message_read');
+
+    socket.on('reaction_updated', (data) => {
+        console.log('📢 Обновление реакций:', data);
+        if (data.message_id && data.reactions && window.updateReactionDisplayDirect) {
+            window.updateReactionDisplayDirect(data.message_id, data.reactions);
+        }
+    });
+
+    socket.on('message_read', (data) => {
+        const msgEl = document.querySelector(`[data-message-id="${data.message_id}"]`);
+        if (msgEl) {
+            const ticks = msgEl.querySelector('.status-ticks');
+            if (ticks) {
+                ticks.className = 'status-ticks read';
+                ticks.innerHTML = `<svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4zm-4.24 0L12.35 5.59 6 11.94l1.41 1.41z"/><path d="M0 0h24v24H0z" fill="none"/></svg>`;
+            }
+        }
+    });
+}
+
 function reconnect() {
-    console.log('🔄 Запуск ручного переподключения сети...');
+    console.log('🔄 Ручное переподключение...');
     reconnectAttempts = 0;
     connectSocket();
 }
-
-// Экспорт в глобальную область видимости
-window.connectSocket = connectSocket;
-window.reconnect = reconnect;
-
-console.log('✅ Модуль Socket успешно собран, изолирован и готов к поиску');
 

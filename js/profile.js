@@ -3,7 +3,7 @@ let currentUserData = null;
 let profileRetryCount = 0;
 const MAX_PROFILE_RETRIES = 5;
 
-function initProfile() {
+function initProfile(callback) {
     console.log('📝 initProfile() вызван');
     
     // Если нет MY_ID, пробуем взять из localStorage
@@ -31,13 +31,13 @@ function initProfile() {
 
     if (!MY_ID) {
         console.log('⏳ MY_ID ещё не установлен, повтор через 500мс');
-        setTimeout(initProfile, 500);
+        setTimeout(() => initProfile(callback), 500);
         return;
     }
 
     if (!socket || !isConnected) {
         console.log('⏳ Сокет ещё не готов, повтор через 500мс');
-        setTimeout(initProfile, 500);
+        setTimeout(() => initProfile(callback), 500);
         return;
     }
 
@@ -50,12 +50,11 @@ function initProfile() {
             currentUserData = userInfo.user;
             MY_USERNAME = currentUserData.username || MY_USERNAME;
             
-            // Получаем данные
             const fullName = currentUserData.first_name || tgUser?.first_name || 'Пользователь';
             const displayName = currentUserData.last_name ? `${fullName} ${currentUserData.last_name}` : fullName;
             const usernameDisplay = currentUserData.username || MY_USERNAME || '';
             
-            // ОБНОВЛЯЕМ ПРОФИЛЬ ПРИНУДИТЕЛЬНО
+            // ОБНОВЛЯЕМ ПРОФИЛЬ
             const nameEl = document.getElementById('user-name');
             if (nameEl) {
                 if (currentUserData.is_verified) {
@@ -80,16 +79,13 @@ function initProfile() {
                 profileNameEl.innerText = displayName;
             }
             
-            // Обновляем аватар
             updateAvatar('user-avatar', displayName, currentUserData.photo_url);
             
-            // Обновляем bio
             const bioEl = document.getElementById('profile-bio-display');
             if (bioEl) {
                 bioEl.innerText = currentUserData.bio || 'Добавить описание';
             }
             
-            // Обновляем статус
             const statusEl = document.getElementById('profile-status');
             if (statusEl) {
                 if (currentUserData.is_online) {
@@ -103,21 +99,27 @@ function initProfile() {
             
             profileRetryCount = 0;
             console.log('✅ Профиль обновлён:', displayName, '@' + usernameDisplay);
+            
+            // Вызываем колбэк, если передан
+            if (callback) {
+                callback(currentUserData);
+            }
         } else {
             profileRetryCount++;
             if (profileRetryCount < MAX_PROFILE_RETRIES) {
                 console.log(`⚠️ Пользователь не найден, попытка ${profileRetryCount}/${MAX_PROFILE_RETRIES}`);
-                setTimeout(initProfile, 1000);
+                setTimeout(() => initProfile(callback), 1000);
             } else {
                 console.log('❌ Не удалось загрузить профиль после всех попыток');
-                // Пробуем создать пользователя через auto_auth
-                if (window.autoLogin) {
-                    window.autoLogin();
+                if (callback) {
+                    callback(null);
                 }
             }
         }
     });
 }
+
+// ... остальные функции (updateAvatar, showUserProfile, showGroupInfo, etc.) остаются без изменений
 
 function updateAvatar(elementId, name, photoUrl) {
     const avatarEl = document.getElementById(elementId);

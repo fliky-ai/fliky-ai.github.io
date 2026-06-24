@@ -9,7 +9,6 @@ function autoLogin() {
         return;
     }
 
-    // Проверяем localStorage
     const savedUser = localStorage.getItem('dicegram_user');
     if (savedUser) {
         try {
@@ -37,7 +36,7 @@ function autoLogin() {
                     if (window.initProfile) window.initProfile();
                     if (window.loadChatsAndMessages) window.loadChatsAndMessages();
                     if (window.loadContacts) window.loadContacts();
-                }, 300);
+                }, 500);
                 return;
             }
         } catch (e) {
@@ -55,8 +54,7 @@ function autoLogin() {
                 id: user.telegram_id,
                 first_name: user.first_name || 'User',
                 username: user.username || '',
-                photo_url: user.photo_url || '',
-                is_new: true // Флаг нового пользователя
+                photo_url: user.photo_url || ''
             };
             localStorage.setItem('dicegram_user', JSON.stringify(userData));
             
@@ -82,69 +80,20 @@ function autoLogin() {
                 console.log('✅ app-container показан');
             }
             
-            // ============ НОВОЕ: Показываем приветствие для нового пользователя ============
+            // ПРИНУДИТЕЛЬНО ОБНОВЛЯЕМ ПРОФИЛЬ
             setTimeout(function() {
-                // Проверяем, есть ли имя в БД или это новый пользователь
+                console.log('🔄 Принудительное обновление профиля...');
                 if (window.initProfile) {
-                    // Сначала загружаем профиль, чтобы узнать, есть ли имя
-                    window.initProfile(function(profileData) {
-                        // Если имя == 'User' или пустое, значит новый пользователь
-                        const firstName = profileData?.first_name || user.first_name || '';
-                        if (!firstName || firstName === 'User' || firstName === 'Пользователь') {
-                            showWelcomeModal();
-                        }
-                    });
+                    window.initProfile();
+                    console.log('✅ Профиль обновлён из auto_auth');
                 }
-                
                 if (window.loadChatsAndMessages) window.loadChatsAndMessages();
                 if (window.loadContacts) window.loadContacts();
-            }, 500);
+            }, 800);
             
         } else {
             console.error('❌ Ошибка автоматического входа:', response);
             document.getElementById('loading-status').textContent = 'Ошибка входа';
-        }
-    });
-}
-
-// ============ ПРИВЕТСТВЕННОЕ МОДАЛЬНОЕ ОКНО ============
-function showWelcomeModal() {
-    console.log('👋 Показываем приветствие для нового пользователя');
-    
-    showModal({
-        title: '👋 Добро пожаловать в DICEGRAM!',
-        subtitle: 'Как вас называть? Это имя будет отображаться в вашем профиле.',
-        defaultValue: '',
-        placeholder: 'Введите ваше имя...',
-        maxLength: 50,
-        confirmText: 'Сохранить',
-        cancelText: 'Пропустить'
-    }).then((name) => {
-        if (name !== null && name.trim()) {
-            // Сохраняем имя на сервере
-            socket.emit('update_profile', { name: name.trim() }, (response) => {
-                if (response && response.status === 'ok') {
-                    console.log('✅ Имя сохранено:', name.trim());
-                    // Обновляем tgUser и localStorage
-                    window.tgUser.first_name = name.trim();
-                    MY_USERNAME = window.tgUser.username || '';
-                    const saved = localStorage.getItem('dicegram_user');
-                    if (saved) {
-                        try {
-                            const userData = JSON.parse(saved);
-                            userData.first_name = name.trim();
-                            localStorage.setItem('dicegram_user', JSON.stringify(userData));
-                        } catch(e) {}
-                    }
-                    // Обновляем профиль
-                    if (window.initProfile) window.initProfile();
-                    showAlert('✅ Имя сохранено!');
-                } else {
-                    showAlert('❌ Ошибка сохранения имени');
-                }
-            });
-        } else {
-            console.log('⏭️ Пользователь пропустил ввод имени');
         }
     });
 }
@@ -156,4 +105,3 @@ function logout() {
 
 window.logout = logout;
 window.autoLogin = autoLogin;
-window.showWelcomeModal = showWelcomeModal;

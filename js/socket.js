@@ -53,14 +53,16 @@ function connectSocket() {
                     loadingStatus.textContent = 'Загрузка...';
                     document.getElementById('loading-screen').style.display = 'none';
                     document.getElementById('app-container').style.display = 'flex';
-                    if (window.isInitialLoad) {
-                        setTimeout(() => {
-                            if (window.loadChatsAndMessages) window.loadChatsAndMessages();
-                            if (window.loadContacts) window.loadContacts();
-                            if (window.initProfile) window.initProfile();
-                            window.isInitialLoad = false;
-                        }, 500);
-                    }
+                    
+                    setTimeout(function() {
+                        if (window.initProfile) {
+                            window.initProfile();
+                            console.log('✅ Профиль обновлён после авторизации');
+                        }
+                        if (window.loadChatsAndMessages) window.loadChatsAndMessages();
+                        if (window.loadContacts) window.loadContacts();
+                    }, 500);
+                    
                 } else {
                     console.error('❌ Ошибка авторизации:', response);
                     loadingStatus.textContent = 'Ошибка авторизации';

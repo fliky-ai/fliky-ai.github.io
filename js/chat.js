@@ -64,7 +64,6 @@ function loadChatsAndMessages() {
         }
         chatsList.innerHTML = '';
         
-        // Всегда добавляем SUPPORT с галочкой
         createChatRow(CONFIG.SUPPORT_ID, 'DICEGRAM SUPPORT', 'dicegram_support', true);
         createChatRow(CONFIG.BOTFATHER_ID, 'BotFather', 'botfather', false);
         
@@ -212,7 +211,7 @@ function openChat(chatId) {
     }
     
     if (!socket || !isConnected) {
-        alert('Нет соединения с сервером');
+        showAlert('Нет соединения с сервером');
         return;
     }
 
@@ -240,7 +239,6 @@ function openChat(chatId) {
     const messagesContainer = document.getElementById('chat-messages');
     messagesContainer.innerHTML = '';
 
-    // Присоединяемся к комнате группы
     if (chatType === 'group' || chatType === 'channel') {
         socket.emit('join_chat', { chat_id: chatId }, (response) => {
             if (response && response.status === 'ok') {
@@ -251,7 +249,6 @@ function openChat(chatId) {
         });
     }
 
-    // ============ ПРИВЕТСТВИЕ DICEGRAM SUPPORT С ГАЛОЧКОЙ ============
     if (chatId === CONFIG.SUPPORT_ID) {
         titleEl.innerHTML = `DICEGRAM SUPPORT ${BLUE_VERIFY_SVG}`;
         document.getElementById('chat-room-status').innerText = 'официальный аккаунт';
@@ -538,7 +535,7 @@ function sendMessage() {
     if (!text || !currentChatId) return;
 
     if (!socket || !isConnected) {
-        alert('Нет соединения с сервером');
+        showAlert('Нет соединения с сервером');
         return;
     }
 
@@ -547,12 +544,12 @@ function sendMessage() {
         socket.emit('check_channel_permission', { chat_id: currentChatId }, (response) => {
             if (response && response.status === 'ok') {
                 if (!response.can_write) {
-                    alert('📢 Только владелец канала может отправлять сообщения');
+                    showAlert('📢 Только владелец канала может отправлять сообщения');
                     return;
                 }
                 sendMessageToServer(text);
             } else {
-                alert('Ошибка проверки прав');
+                showAlert('Ошибка проверки прав');
             }
         });
         return;
@@ -568,6 +565,7 @@ function sendMessage() {
     sendMessageToServer(text);
 }
 
+// ============ ОТПРАВКА С ЛОКАЛЬНЫМ РЕНДЕРИНГОМ ============
 function sendMessageToServer(text) {
     const input = document.getElementById('message-field');
     
@@ -617,7 +615,7 @@ function sendMessageToServer(text) {
                 if (wrapper) wrapper.remove();
                 renderedMessageIds.delete(tempId);
             }
-            alert('❌ Ошибка отправки: ' + (response?.message || 'Неизвестная ошибка'));
+            showAlert('❌ Ошибка отправки: ' + (response?.message || 'Неизвестная ошибка'));
         }
     });
 
@@ -922,33 +920,51 @@ function showMessageActions(messageId) {
 }
 
 function replyToMessage() {
-    const text = prompt('Введите ответ:');
-    if (text && text.trim()) {
-        socket.emit('send_message', { 
-            receiver_id: currentChatId, 
-            text: text.trim(),
-            reply_to_id: selectedMessageId
-        }, (response) => {
-            if (response && response.status === 'ok') {
-                scrollToBottom();
-            }
-        });
-    }
+    showModal({
+        title: 'Ответить',
+        subtitle: 'Введите текст ответа',
+        defaultValue: '',
+        placeholder: 'Ваш ответ...',
+        maxLength: 1000,
+        confirmText: 'Отправить',
+        cancelText: 'Отмена'
+    }).then((text) => {
+        if (text !== null && text.trim()) {
+            socket.emit('send_message', { 
+                receiver_id: currentChatId, 
+                text: text.trim(),
+                reply_to_id: selectedMessageId
+            }, (response) => {
+                if (response && response.status === 'ok') {
+                    scrollToBottom();
+                }
+            });
+        }
+    });
     document.getElementById('message-actions').classList.remove('active');
 }
 
 function forwardMessage() {
-    const chatId = prompt('Введите ID пользователя для пересылки:');
-    if (chatId && chatId.trim()) {
-        socket.emit('forward_message', { 
-            message_id: selectedMessageId,
-            to_id: chatId.trim()
-        }, (response) => {
-            if (response && response.status === 'ok') {
-                alert('✅ Сообщение переслано');
-            }
-        });
-    }
+    showModal({
+        title: 'Переслать',
+        subtitle: 'Введите ID пользователя или чата',
+        defaultValue: '',
+        placeholder: 'ID пользователя',
+        maxLength: 50,
+        confirmText: 'Переслать',
+        cancelText: 'Отмена'
+    }).then((chatId) => {
+        if (chatId !== null && chatId.trim()) {
+            socket.emit('forward_message', { 
+                message_id: selectedMessageId,
+                to_id: chatId.trim()
+            }, (response) => {
+                if (response && response.status === 'ok') {
+                    showAlert('✅ Сообщение переслано');
+                }
+            });
+        }
+    });
     document.getElementById('message-actions').classList.remove('active');
 }
 
@@ -957,51 +973,72 @@ function copyMessage() {
     if (msgEl) {
         const text = msgEl.querySelector('span').innerText;
         navigator.clipboard.writeText(text).then(() => {
-            alert('📋 Сообщение скопировано');
+            showAlert('📋 Сообщение скопировано');
         });
     }
     document.getElementById('message-actions').classList.remove('active');
 }
 
 function editMessage() {
-    const newText = prompt('Введите новый текст:');
-    if (newText && newText.trim()) {
-        socket.emit('edit_message', { 
-            message_id: selectedMessageId,
-            text: newText.trim()
-        }, (response) => {
-            if (response && response.status === 'ok') {
-                const msgEl = document.querySelector(`[data-message-id="${selectedMessageId}"]`);
-                if (msgEl) {
-                    const textSpan = msgEl.querySelector('span');
-                    if (textSpan) {
-                        textSpan.innerHTML = formatMessageText(newText.trim());
+    const msgEl = document.querySelector(`[data-message-id="${selectedMessageId}"]`);
+    const currentText = msgEl ? msgEl.querySelector('span').innerText : '';
+    showModal({
+        title: 'Редактировать',
+        subtitle: 'Измените текст сообщения',
+        defaultValue: currentText,
+        placeholder: 'Новый текст...',
+        maxLength: 1000,
+        confirmText: 'Сохранить',
+        cancelText: 'Отмена'
+    }).then((newText) => {
+        if (newText !== null && newText.trim()) {
+            socket.emit('edit_message', { 
+                message_id: selectedMessageId,
+                text: newText.trim()
+            }, (response) => {
+                if (response && response.status === 'ok') {
+                    const msgEl = document.querySelector(`[data-message-id="${selectedMessageId}"]`);
+                    if (msgEl) {
+                        const textSpan = msgEl.querySelector('span');
+                        if (textSpan) {
+                            textSpan.innerHTML = formatMessageText(newText.trim());
+                        }
                     }
+                    document.getElementById('message-actions').classList.remove('active');
                 }
-                document.getElementById('message-actions').classList.remove('active');
-            }
-        });
-    }
+            });
+        }
+    });
 }
 
 function deleteMessage() {
-    if (confirm('🗑 Удалить сообщение?')) {
-        socket.emit('delete_message', { message_id: selectedMessageId }, (response) => {
-            if (response && response.status === 'ok') {
-                const msgEl = document.querySelector(`[data-message-id="${selectedMessageId}"]`);
-                if (msgEl) {
-                    msgEl.closest('.message-wrapper').remove();
+    showModal({
+        title: 'Удалить сообщение',
+        subtitle: 'Вы уверены, что хотите удалить это сообщение?',
+        defaultValue: '',
+        placeholder: '',
+        confirmText: 'Удалить',
+        cancelText: 'Отмена',
+        allowEmpty: true
+    }).then((confirmed) => {
+        if (confirmed !== null) {
+            socket.emit('delete_message', { message_id: selectedMessageId }, (response) => {
+                if (response && response.status === 'ok') {
+                    const msgEl = document.querySelector(`[data-message-id="${selectedMessageId}"]`);
+                    if (msgEl) {
+                        msgEl.closest('.message-wrapper').remove();
+                    }
+                    document.getElementById('message-actions').classList.remove('active');
                 }
-                document.getElementById('message-actions').classList.remove('active');
-            }
-        });
-    }
+            });
+        }
+    });
 }
 
 function pinMessage() {
     socket.emit('pin_message', { message_id: selectedMessageId }, (response) => {
         if (response && response.status === 'ok') {
-            alert('📌 Сообщение закреплено');
+            showAlert('📌 Сообщение закреплено');
         }
     });
     document.getElementById('message-actions').classList.remove('active');

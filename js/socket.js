@@ -3,6 +3,7 @@ let socket = null;
 let isConnected = false;
 let reconnectAttempts = 0;
 let authTimeout = null;
+let isAuthInProgress = false;
 
 function connectSocket() {
     const loadingStatus = document.getElementById('loading-status');
@@ -45,11 +46,72 @@ function connectSocket() {
         const savedUser = localStorage.getItem('dicegram_user');
         const tg = window.Telegram?.WebApp;
         
+        // ===== ВАЖНО: сначала проверяем Telegram, потом localStorage =====
+        if (tg && tg.initDataUnsafe?.user?.id) {
+            // Пользователь из Telegram
+            const tgUserId = String(tg.initDataUnsafe.user.id);
+            console.log('👤 Пользователь из Telegram:', tgUserId);
+            
+            // Проверяем, совпадает ли с localStorage
+            if (savedUser) {
+                try {
+                    const user = JSON.parse(savedUser);
+                    if (user && user.id === tgUserId) {
+                        // Всё ок, восстанавливаем
+                        window.tgUser = {
+                            id: user.id,
+                            first_name: user.first_name || 'User',
+                            username: user.username || '',
+                            photo_url: user.photo_url || ''
+                        };
+                        MY_ID = user.id;
+                        MY_USERNAME = user.username || '';
+                        console.log('👤 Восстановлен пользователь из localStorage:', MY_ID);
+                        
+                        // Показываем интерфейс
+                        showApp();
+                        return;
+                    }
+                } catch (e) {
+                    localStorage.removeItem('dicegram_user');
+                }
+            }
+            
+            // Если нет в localStorage — авторизуем через Telegram
+            if (!MY_ID) {
+                socket.emit('auth', tgUser, (response) => {
+                    console.log('📨 Ответ авторизации:', response);
+                    
+                    if (response && response.status === 'ok') {
+                        console.log('✅ Авторизация успешна');
+                        const userData = {
+                            id: response.telegram_id,
+                            first_name: tgUser?.first_name || 'User',
+                            username: tgUser?.username || '',
+                            photo_url: tgUser?.photo_url || ''
+                        };
+                        localStorage.setItem('dicegram_user', JSON.stringify(userData));
+                        window.tgUser = userData;
+                        MY_ID = userData.id;
+                        MY_USERNAME = userData.username || '';
+                        
+                        showApp();
+                    } else {
+                        console.error('❌ Ошибка авторизации:', response);
+                        loadingStatus.textContent = 'Ошибка авторизации';
+                        loadingError.style.display = 'block';
+                        reconnectBtn.style.display = 'block';
+                    }
+                });
+                return;
+            }
+        }
+        
+        // ===== Если нет Telegram — пробуем localStorage =====
         if (savedUser) {
             try {
                 const user = JSON.parse(savedUser);
                 if (user && user.id) {
-                    // Восстанавливаем глобальные переменные
                     window.tgUser = {
                         id: user.id,
                         first_name: user.first_name || 'User',
@@ -60,57 +122,24 @@ function connectSocket() {
                     MY_USERNAME = user.username || '';
                     console.log('👤 Восстановлен пользователь из localStorage:', MY_ID);
                     
-                    // Показываем интерфейс
-                    document.getElementById('loading-screen').style.display = 'none';
-                    document.getElementById('app-container').style.display = 'flex';
-                    
-                    // Загружаем данные
-                    setTimeout(() => {
-                        if (window.initProfile) window.initProfile();
-                        if (window.loadChatsAndMessages) window.loadChatsAndMessages();
-                        if (window.loadContacts) window.loadContacts();
-                    }, 500);
+                    showApp();
                     return;
                 }
             } catch (e) {
                 localStorage.removeItem('dicegram_user');
             }
         }
-
-        if (tg && tg.initDataUnsafe?.user?.id) {
-            socket.emit('auth', tgUser, (response) => {
-                console.log('📨 Ответ авторизации:', response);
-                
-                if (response && response.status === 'ok') {
-                    console.log('✅ Авторизация успешна');
-                    loadingStatus.textContent = 'Загрузка...';
-                    document.getElementById('loading-screen').style.display = 'none';
-                    document.getElementById('app-container').style.display = 'flex';
-                    
-                    setTimeout(() => {
-                        if (window.initProfile) window.initProfile();
-                        if (window.loadChatsAndMessages) window.loadChatsAndMessages();
-                        if (window.loadContacts) window.loadContacts();
-                    }, 500);
-                } else {
-                    console.error('❌ Ошибка авторизации:', response);
-                    loadingStatus.textContent = 'Ошибка авторизации';
-                    loadingError.style.display = 'block';
-                    reconnectBtn.style.display = 'block';
-                }
-            });
+        
+        // ===== Если ничего нет — autoLogin =====
+        console.log('🆕 Нет пользователя, запускаем autoLogin');
+        loadingStatus.textContent = 'Автоматический вход...';
+        if (window.autoLogin) {
+            window.autoLogin();
         } else {
-            console.log('Нет пользователя, запускаем autoLogin');
-            loadingStatus.textContent = 'Автоматический вход...';
-            document.getElementById('loading-screen').style.display = 'none';
-            if (window.autoLogin) {
-                window.autoLogin();
-            } else {
-                console.error('❌ autoLogin не найден!');
-                loadingStatus.textContent = 'Ошибка: autoLogin не найден';
-                loadingError.style.display = 'block';
-                reconnectBtn.style.display = 'block';
-            }
+            console.error('❌ autoLogin не найден!');
+            loadingStatus.textContent = 'Ошибка: autoLogin не найден';
+            loadingError.style.display = 'block';
+            reconnectBtn.style.display = 'block';
         }
     });
 
@@ -165,6 +194,22 @@ function connectSocket() {
             reconnectBtn.style.display = 'block';
         }
     }, 15000);
+}
+
+// ===== ФУНКЦИЯ ПОКАЗА ИНТЕРФЕЙСА =====
+function showApp() {
+    console.log('🚀 Показываем интерфейс для:', MY_ID);
+    
+    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('app-container').style.display = 'flex';
+    document.getElementById('app-container').style.visibility = 'visible';
+    document.getElementById('app-container').style.opacity = '1';
+    
+    setTimeout(() => {
+        if (window.initProfile) window.initProfile();
+        if (window.loadChatsAndMessages) window.loadChatsAndMessages();
+        if (window.loadContacts) window.loadContacts();
+    }, 500);
 }
 
 function reconnect() {

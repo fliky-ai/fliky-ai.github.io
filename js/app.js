@@ -7,13 +7,33 @@ window.botCreationStep = null;
 window.botName = '';
 window.createdBots = [];
 
+// Флаг для отслеживания инициализации профиля
+let profileInitialized = false;
+
 // Запуск
 setTimeout(() => {
     // Если есть tgUser и он настоящий — загружаем профиль
-    if (window.Telegram?.WebApp?.initDataUnsafe?.user?.id) {
-        initProfile();
+    const tg = window.Telegram?.WebApp;
+    if (tg && tg.initDataUnsafe?.user?.id) {
+        // Есть Telegram пользователь
+        setTimeout(function() {
+            if (window.initProfile) {
+                window.initProfile();
+                profileInitialized = true;
+            }
+        }, 1000);
+    } else {
+        // Нет tgUser — autoLogin запустится из socket.js
+        console.log('⏳ Ожидаем autoLogin...');
+        // Даём время autoLogin выполниться
+        setTimeout(function() {
+            if (!profileInitialized && window.initProfile) {
+                console.log('🔄 Принудительная проверка профиля...');
+                window.initProfile();
+                profileInitialized = true;
+            }
+        }, 3000);
     }
-    // autoLogin запустится из socket.js, если нет tgUser
 }, 500);
 
 connectSocket();

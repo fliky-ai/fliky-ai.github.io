@@ -78,9 +78,6 @@ function initProfile() {
             console.log('✅ Профиль обновлён:', displayName, '@' + usernameDisplay);
         } else {
             console.log('⚠️ Пользователь не найден, пробуем создать через auto_auth');
-            // Если пользователь не найден, но у нас есть MY_ID из localStorage
-            // возможно, это случайный пользователь, созданный через auto_auth
-            // пробуем ещё раз через 1 секунду
             setTimeout(initProfile, 1000);
         }
     });
@@ -129,7 +126,7 @@ function showUserProfile(userId) {
     }
     
     if (!socket || !isConnected) {
-        alert('Нет соединения с сервером');
+        showAlert('Нет соединения с сервером');
         return;
     }
 
@@ -248,7 +245,7 @@ function showUserProfile(userId) {
                     }).catch(() => {});
                 } else {
                     navigator.clipboard.writeText(shareUrl).then(() => {
-                        alert('🔗 Ссылка скопирована!');
+                        showAlert('🔗 Ссылка скопирована!');
                     });
                 }
             };
@@ -354,62 +351,81 @@ function showGroupProfile(chat, members) {
 // ============ ДОБАВЛЕНИЕ УЧАСТНИКА ПО USERNAME ============
 function addGroupMemberByUsername() {
     if (!currentChatId) {
-        alert('❌ Чат не выбран');
+        showAlert('❌ Чат не выбран');
         return;
     }
     
-    const username = prompt('Введите username пользователя для добавления (например: @username):');
-    if (!username || !username.trim()) return;
-    
-    const cleanUsername = username.trim().replace('@', '');
-    
-    if (!cleanUsername) {
-        alert('❌ Введите корректный username');
-        return;
-    }
-    
-    const loading = document.createElement('div');
-    loading.className = 'loading-overlay';
-    loading.innerHTML = `
-        <div class="loading-spinner"></div>
-        <p>Добавление пользователя...</p>
-    `;
-    document.body.appendChild(loading);
-    
-    socket.emit('add_user_to_group', { 
-        chat_id: currentChatId, 
-        username: cleanUsername 
-    }, (response) => {
-        loading.remove();
-        
-        if (response && response.status === 'ok') {
-            alert('✅ Пользователь успешно добавлен!');
-            if (currentChatId) {
-                showGroupInfo(currentChatId);
-                loadChatsAndMessages();
+    showModal({
+        title: 'Добавить участника',
+        subtitle: 'Введите username пользователя (например: username)',
+        defaultValue: '',
+        placeholder: 'username',
+        maxLength: 32,
+        confirmText: 'Добавить',
+        cancelText: 'Отмена'
+    }).then((username) => {
+        if (username !== null && username.trim()) {
+            const cleanUsername = username.trim().replace('@', '');
+            
+            if (!cleanUsername) {
+                showAlert('❌ Введите корректный username');
+                return;
             }
-        } else {
-            alert(`❌ Ошибка: ${response?.message || 'Не удалось добавить пользователя'}`);
+            
+            const loading = document.createElement('div');
+            loading.className = 'loading-overlay';
+            loading.innerHTML = `
+                <div class="loading-spinner"></div>
+                <p>Добавление пользователя...</p>
+            `;
+            document.body.appendChild(loading);
+            
+            socket.emit('add_user_to_group', { 
+                chat_id: currentChatId, 
+                username: cleanUsername 
+            }, (response) => {
+                loading.remove();
+                
+                if (response && response.status === 'ok') {
+                    showAlert('✅ Пользователь успешно добавлен!');
+                    if (currentChatId) {
+                        showGroupInfo(currentChatId);
+                        loadChatsAndMessages();
+                    }
+                } else {
+                    showAlert(`❌ Ошибка: ${response?.message || 'Не удалось добавить пользователя'}`);
+                }
+            });
         }
     });
 }
 
 // ============ ПОКИНУТЬ ГРУППУ ============
 function leaveGroup(chatId) {
-    if (confirm('Вы уверены, что хотите покинуть этот чат?')) {
-        socket.emit('leave_group', { chat_id: chatId }, (response) => {
-            if (response && response.status === 'ok') {
-                alert('✅ Вы покинули чат');
-                closeProfilePopup();
-                const chatItem = document.getElementById(`chat-item-${chatId}`);
-                if (chatItem) chatItem.remove();
-                delete dynamicChats[chatId];
-                loadChatsAndMessages();
-            } else {
-                alert(`❌ Ошибка: ${response?.message || 'Не удалось покинуть чат'}`);
-            }
-        });
-    }
+    showModal({
+        title: 'Покинуть чат',
+        subtitle: 'Вы уверены, что хотите покинуть этот чат?',
+        defaultValue: '',
+        placeholder: '',
+        confirmText: 'Покинуть',
+        cancelText: 'Отмена',
+        allowEmpty: true
+    }).then((confirmed) => {
+        if (confirmed !== null) {
+            socket.emit('leave_group', { chat_id: chatId }, (response) => {
+                if (response && response.status === 'ok') {
+                    showAlert('✅ Вы покинули чат');
+                    closeProfilePopup();
+                    const chatItem = document.getElementById(`chat-item-${chatId}`);
+                    if (chatItem) chatItem.remove();
+                    delete dynamicChats[chatId];
+                    loadChatsAndMessages();
+                } else {
+                    showAlert(`❌ Ошибка: ${response?.message || 'Не удалось покинуть чат'}`);
+                }
+            });
+        }
+    });
 }
 
 function closeProfilePopup() {
@@ -418,12 +434,12 @@ function closeProfilePopup() {
 
 function toggleVerification(userId, verify) {
     if (MY_ID !== CONFIG.CREATOR_ID) {
-        alert('❌ Только создатель может управлять верификацией!');
+        showAlert('❌ Только создатель может управлять верификацией!');
         return;
     }
     socket.emit('verify_user', { user_id: userId, verify: verify }, (response) => {
         if (response && response.status === 'ok') {
-            alert(verify ? '✅ Пользователь верифицирован!' : '❌ Верификация снята');
+            showAlert(verify ? '✅ Пользователь верифицирован!' : '❌ Верификация снята');
             closeProfilePopup();
             loadChatsAndMessages();
             initProfile();
@@ -432,58 +448,48 @@ function toggleVerification(userId, verify) {
 }
 
 function blockUser() {
-    if (confirm('🚫 Заблокировать пользователя?')) {
-        socket.emit('block_user', { block_id: currentUserData.telegram_id }, (response) => {
-            if (response && response.status === 'ok') {
-                alert('Пользователь заблокирован');
-                closeProfilePopup();
-            }
-        });
-    }
+    showModal({
+        title: 'Заблокировать',
+        subtitle: 'Вы уверены, что хотите заблокировать этого пользователя?',
+        defaultValue: '',
+        placeholder: '',
+        confirmText: 'Заблокировать',
+        cancelText: 'Отмена',
+        allowEmpty: true
+    }).then((confirmed) => {
+        if (confirmed !== null) {
+            socket.emit('block_user', { block_id: currentUserData.telegram_id }, (response) => {
+                if (response && response.status === 'ok') {
+                    showAlert('✅ Пользователь заблокирован');
+                    closeProfilePopup();
+                }
+            });
+        }
+    });
 }
 
 function editName() {
     const currentName = document.getElementById('user-name').innerText.replace(' ✅', '').replace('⭐', '');
-    const newName = prompt('Введите новое имя:', currentName || tgUser?.first_name || '');
-    if (newName && newName.trim()) {
-        socket.emit('update_profile', { name: newName.trim() }, (response) => {
-            if (response && response.status === 'ok') {
-                const nameEl = document.getElementById('user-name');
-                if (currentUserData && currentUserData.is_verified) {
-                    nameEl.innerHTML = `${newName.trim()} <span class="verified-check"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>`;
-                } else {
-                    nameEl.innerText = newName.trim();
-                }
-                document.getElementById('profile-display-name').innerText = newName.trim();
-                alert('✅ Имя обновлено!');
-                socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
-                    if (userInfo && userInfo.status === 'found') {
-                        currentUserData = userInfo.user;
-                    }
-                });
-            }
-        });
-    }
-}
-
-function editUsername() {
-    const isCreator = MY_ID === CONFIG.CREATOR_ID;
-    const currentUsername = MY_USERNAME || '';
-    const newUsername = prompt('Введите новый username:', currentUsername);
-    
-    if (newUsername && newUsername.trim()) {
-        const username = newUsername.trim().replace('@', '');
-        socket.emit('check_username', { username: username }, (response) => {
-            if (response && response.status === 'taken' && !isCreator) {
-                alert('❌ Этот username уже занят');
-                return;
-            }
-            socket.emit('update_profile', { username: username }, (response) => {
+    showModal({
+        title: 'Изменить имя',
+        subtitle: 'Введите новое имя',
+        defaultValue: currentName || tgUser?.first_name || '',
+        placeholder: 'Ваше имя',
+        maxLength: 50,
+        confirmText: 'Сохранить',
+        cancelText: 'Отмена'
+    }).then((newName) => {
+        if (newName !== null && newName.trim()) {
+            socket.emit('update_profile', { name: newName.trim() }, (response) => {
                 if (response && response.status === 'ok') {
-                    MY_USERNAME = username;
-                    document.getElementById('user-username').innerText = `@${username}`;
-                    document.getElementById('profile-username-display').innerText = `@${username}`;
-                    alert('✅ Username обновлен!');
+                    const nameEl = document.getElementById('user-name');
+                    if (currentUserData && currentUserData.is_verified) {
+                        nameEl.innerHTML = `${newName.trim()} <span class="verified-check"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>`;
+                    } else {
+                        nameEl.innerText = newName.trim();
+                    }
+                    document.getElementById('profile-display-name').innerText = newName.trim();
+                    showAlert('✅ Имя обновлено!');
                     socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
                         if (userInfo && userInfo.status === 'found') {
                             currentUserData = userInfo.user;
@@ -491,48 +497,104 @@ function editUsername() {
                     });
                 }
             });
-        });
-    }
+        }
+    });
+}
+
+function editUsername() {
+    const isCreator = MY_ID === CONFIG.CREATOR_ID;
+    const currentUsername = MY_USERNAME || '';
+    showModal({
+        title: 'Изменить username',
+        subtitle: 'Введите новый username (только латиница и цифры)',
+        defaultValue: currentUsername,
+        placeholder: 'username',
+        maxLength: 32,
+        confirmText: 'Сохранить',
+        cancelText: 'Отмена'
+    }).then((newUsername) => {
+        if (newUsername !== null && newUsername.trim()) {
+            const username = newUsername.trim().replace('@', '');
+            socket.emit('check_username', { username: username }, (response) => {
+                if (response && response.status === 'taken' && !isCreator) {
+                    showAlert('❌ Этот username уже занят');
+                    return;
+                }
+                socket.emit('update_profile', { username: username }, (response) => {
+                    if (response && response.status === 'ok') {
+                        MY_USERNAME = username;
+                        document.getElementById('user-username').innerText = `@${username}`;
+                        document.getElementById('profile-username-display').innerText = `@${username}`;
+                        showAlert('✅ Username обновлен!');
+                        socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
+                            if (userInfo && userInfo.status === 'found') {
+                                currentUserData = userInfo.user;
+                            }
+                        });
+                    }
+                });
+            });
+        }
+    });
 }
 
 function editBio() {
     const currentBio = currentUserData?.bio || '';
-    const newBio = prompt('Введите описание (О себе):', currentBio);
-    if (newBio !== null) {
-        socket.emit('update_profile', { bio: newBio.trim() }, (response) => {
-            if (response && response.status === 'ok') {
-                document.getElementById('profile-bio-display').innerText = newBio.trim() || 'Добавить описание';
-                alert('✅ О себе обновлено!');
-                socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
-                    if (userInfo && userInfo.status === 'found') {
-                        currentUserData = userInfo.user;
-                    }
-                });
-            }
-        });
-    }
+    showModal({
+        title: 'О себе',
+        subtitle: 'Введите описание вашего профиля',
+        defaultValue: currentBio,
+        placeholder: 'Расскажите о себе...',
+        maxLength: 200,
+        confirmText: 'Сохранить',
+        cancelText: 'Отмена'
+    }).then((newBio) => {
+        if (newBio !== null) {
+            socket.emit('update_profile', { bio: newBio.trim() }, (response) => {
+                if (response && response.status === 'ok') {
+                    document.getElementById('profile-bio-display').innerText = newBio.trim() || 'Добавить описание';
+                    showAlert('✅ О себе обновлено!');
+                    socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
+                        if (userInfo && userInfo.status === 'found') {
+                            currentUserData = userInfo.user;
+                        }
+                    });
+                }
+            });
+        }
+    });
 }
 
 function changeAvatar() {
-    const url = prompt('Введите URL фото профиля:');
-    if (url && url.trim()) {
-        const avatarEl = document.getElementById('user-avatar');
-        avatarEl.src = url.trim();
-        socket.emit('update_profile', { photo_url: url.trim() }, (response) => {
-            if (response && response.status === 'ok') {
-                alert('✅ Аватар обновлен!');
-                socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
-                    if (userInfo && userInfo.status === 'found') {
-                        currentUserData = userInfo.user;
-                    }
-                });
-            }
-        });
-    }
+    showModal({
+        title: 'Изменить аватар',
+        subtitle: 'Введите URL вашего фото',
+        defaultValue: '',
+        placeholder: 'https://example.com/avatar.jpg',
+        type: 'url',
+        maxLength: 500,
+        confirmText: 'Сохранить',
+        cancelText: 'Отмена'
+    }).then((url) => {
+        if (url !== null && url.trim()) {
+            const avatarEl = document.getElementById('user-avatar');
+            avatarEl.src = url.trim();
+            socket.emit('update_profile', { photo_url: url.trim() }, (response) => {
+                if (response && response.status === 'ok') {
+                    showAlert('✅ Аватар обновлен!');
+                    socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
+                        if (userInfo && userInfo.status === 'found') {
+                            currentUserData = userInfo.user;
+                        }
+                    });
+                }
+            });
+        }
+    });
 }
 
 function changeLanguage() {
-    alert('🌐 Выбор языка будет доступен в следующей версии');
+    showAlert('🌐 Выбор языка будет доступен в следующей версии');
 }
 
 // Ждём готовность и загружаем профиль

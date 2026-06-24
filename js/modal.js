@@ -3,15 +3,24 @@
 function showModal(options) {
     return new Promise((resolve) => {
         const modal = document.getElementById('custom-modal');
+        
+        // Если модалка не найдена — используем старый prompt
+        if (!modal) {
+            console.warn('⚠️ Модалка не найдена, используем prompt');
+            const result = prompt(options.title + '\n' + (options.subtitle || ''), options.defaultValue || '');
+            resolve(result);
+            return;
+        }
+
         const title = document.getElementById('modal-title');
         const subtitle = document.getElementById('modal-subtitle');
         const input = document.getElementById('modal-input');
         const confirmBtn = document.getElementById('modal-confirm');
         const cancelBtn = document.getElementById('modal-cancel');
 
-        if (!modal) {
-            // fallback на старый prompt
-            const result = prompt(options.title + '\n' + options.subtitle, options.defaultValue || '');
+        if (!title || !input || !confirmBtn) {
+            console.warn('⚠️ Элементы модалки не найдены, используем prompt');
+            const result = prompt(options.title + '\n' + (options.subtitle || ''), options.defaultValue || '');
             resolve(result);
             return;
         }
@@ -43,7 +52,7 @@ function showModal(options) {
 
         function onConfirm() {
             const value = input.value;
-            if (value || options.allowEmpty) {
+            if (value || options.allowEmpty || value === '') {
                 cleanup();
                 resolve(value);
             } else {
@@ -84,6 +93,7 @@ function showModal(options) {
 function showAlert(message) {
     return new Promise((resolve) => {
         const modal = document.getElementById('custom-modal');
+        
         if (!modal) {
             alert(message);
             resolve();
@@ -95,6 +105,12 @@ function showAlert(message) {
         const input = document.getElementById('modal-input');
         const confirmBtn = document.getElementById('modal-confirm');
         const cancelBtn = document.getElementById('modal-cancel');
+
+        if (!title || !confirmBtn) {
+            alert(message);
+            resolve();
+            return;
+        }
 
         title.textContent = 'ℹ️';
         subtitle.textContent = message || '';

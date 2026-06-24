@@ -15,9 +15,11 @@ function switchTab(tabName, element) {
         profile: 'Профиль'
     };
     document.getElementById('header-title').innerText = titles[tabName] || 'Чаты';
-    document.getElementById('search-results').style.display = 'none';
     
-    if (tabName === 'contacts') {
+    const searchRes = document.getElementById('search-results');
+    if (searchRes) searchRes.style.display = 'none';
+    
+    if (tabName === 'contacts' && typeof loadContacts === 'function') {
         loadContacts();
     }
 }
@@ -27,11 +29,13 @@ function toggleTheme() {
     if (theme === 'dark') {
         root.setAttribute('data-theme', 'light');
         theme = 'light';
-        document.querySelector('.theme-switch').innerText = '☀️';
+        const sw = document.querySelector('.theme-switch');
+        if (sw) sw.innerText = '☀️';
     } else {
         root.removeAttribute('data-theme');
         theme = 'dark';
-        document.querySelector('.theme-switch').innerText = '🌙';
+        const sw = document.querySelector('.theme-switch');
+        if (sw) sw.innerText = '🌙';
     }
 }
 
@@ -39,11 +43,12 @@ function showMessageActions(messageId) {
     const actions = document.getElementById('message-actions');
     if (actions) {
         actions.classList.toggle('active');
-        selectedMessageId = messageId;
+        window.selectedMessageId = messageId; // Привязываем к глобальному окну
     }
 }
 
 function replyToMessage() {
+    if (typeof showModal !== 'function') return;
     showModal({
         title: 'Ответить',
         subtitle: 'Введите текст ответа',
@@ -55,20 +60,22 @@ function replyToMessage() {
     }).then((text) => {
         if (text !== null && text.trim()) {
             socket.emit('send_message', { 
-                receiver_id: currentChatId, 
+                receiver_id: window.currentChatId, 
                 text: text.trim(),
-                reply_to_id: selectedMessageId
+                reply_to_id: window.selectedMessageId
             }, (response) => {
-                if (response && response.status === 'ok') {
+                if (response && response.status === 'ok' && typeof scrollToBottom === 'function') {
                     scrollToBottom();
                 }
             });
         }
     });
-    document.getElementById('message-actions').classList.remove('active');
+    const actions = document.getElementById('message-actions');
+    if (actions) actions.classList.remove('active');
 }
 
 function forwardMessage() {
+    if (typeof showModal !== 'function') return;
     showModal({
         title: 'Переслать',
         subtitle: 'Введите ID пользователя или чата',
@@ -80,32 +87,38 @@ function forwardMessage() {
     }).then((chatId) => {
         if (chatId !== null && chatId.trim()) {
             socket.emit('forward_message', { 
-                message_id: selectedMessageId,
+                message_id: window.selectedMessageId,
                 to_id: chatId.trim()
             }, (response) => {
-                if (response && response.status === 'ok') {
+                if (response && response.status === 'ok' && typeof showAlert === 'function') {
                     showAlert('✅ Сообщение переслано');
                 }
             });
         }
     });
-    document.getElementById('message-actions').classList.remove('active');
+    const actions = document.getElementById('message-actions');
+    if (actions) actions.classList.remove('active');
 }
 
 function copyMessage() {
-    const msgEl = document.querySelector(`[data-message-id="${selectedMessageId}"]`);
+    const msgEl = document.querySelector(`[data-message-id="${window.selectedMessageId}"]`);
     if (msgEl) {
-        const text = msgEl.querySelector('span').innerText;
+        const textSpan = msgEl.querySelector('span');
+        const text = textSpan ? textSpan.innerText : '';
         navigator.clipboard.writeText(text).then(() => {
-            showAlert('📋 Сообщение скопировано');
+            if (typeof showAlert === 'function') showAlert('📋 Сообщение скопировано');
         });
     }
-    document.getElementById('message-actions').classList.remove('active');
+    const actions = document.getElementById('message-actions');
+    if (actions) actions.classList.remove('active');
 }
 
 function editMessage() {
-    const msgEl = document.querySelector(`[data-message-id="${selectedMessageId}"]`);
-    const currentText = msgEl ? msgEl.querySelector('span').innerText : '';
+    const msgEl = document.querySelector(`[data-message-id="${window.selectedMessageId}"]`);
+    const textSpan = msgEl ? msgEl.querySelector('span') : null;
+    const currentText = textSpan ? textSpan.innerText : '';
+    
+    if (typeof showModal !== 'function') return;
     showModal({
         title: 'Редактировать',
         subtitle: 'Измените текст сообщения',
@@ -117,25 +130,27 @@ function editMessage() {
     }).then((newText) => {
         if (newText !== null && newText.trim()) {
             socket.emit('edit_message', { 
-                message_id: selectedMessageId,
+                message_id: window.selectedMessageId,
                 text: newText.trim()
             }, (response) => {
                 if (response && response.status === 'ok') {
-                    const msgEl = document.querySelector(`[data-message-id="${selectedMessageId}"]`);
-                    if (msgEl) {
-                        const textSpan = msgEl.querySelector('span');
-                        if (textSpan) {
-                            textSpan.innerHTML = formatMessageText(newText.trim());
+                    const refreshMsgEl = document.querySelector(`[data-message-id="${window.selectedMessageId}"]`);
+                    if (refreshMsgEl) {
+                        const refreshSpan = refreshMsgEl.querySelector('span');
+                        if (refreshSpan) {
+                            refreshSpan.innerHTML = typeof formatMessageText === 'function' ? formatMessageText(newText.trim()) : newText.trim();
                         }
                     }
                 }
             });
         }
     });
-    document.getElementById('message-actions').classList.remove('active');
+    const actions = document.getElementById('message-actions');
+    if (actions) actions.classList.remove('active');
 }
 
 function deleteMessage() {
+    if (typeof showModal !== 'function') return;
     showModal({
         title: 'Удалить сообщение',
         subtitle: 'Вы уверены, что хотите удалить это сообщение?',
@@ -146,26 +161,29 @@ function deleteMessage() {
         allowEmpty: true
     }).then((confirmed) => {
         if (confirmed !== null) {
-            socket.emit('delete_message', { message_id: selectedMessageId }, (response) => {
+            socket.emit('delete_message', { message_id: window.selectedMessageId }, (response) => {
                 if (response && response.status === 'ok') {
-                    const msgEl = document.querySelector(`[data-message-id="${selectedMessageId}"]`);
+                    const msgEl = document.querySelector(`[data-message-id="${window.selectedMessageId}"]`);
                     if (msgEl) {
-                        msgEl.closest('.message-wrapper').remove();
+                        const wrapper = msgEl.closest('.message-wrapper');
+                        if (wrapper) wrapper.remove();
                     }
                 }
             });
         }
     });
-    document.getElementById('message-actions').classList.remove('active');
+    const actions = document.getElementById('message-actions');
+    if (actions) actions.classList.remove('active');
 }
 
 function pinMessage() {
-    socket.emit('pin_message', { message_id: selectedMessageId }, (response) => {
-        if (response && response.status === 'ok') {
+    socket.emit('pin_message', { message_id: window.selectedMessageId }, (response) => {
+        if (response && response.status === 'ok' && typeof showAlert === 'function') {
             showAlert('📌 Сообщение закреплено');
         }
     });
-    document.getElementById('message-actions').classList.remove('active');
+    const actions = document.getElementById('message-actions');
+    if (actions) actions.classList.remove('active');
 }
 
 // ============ КНОПКА СОЗДАНИЯ ============
@@ -173,6 +191,8 @@ function addCreateButton() {
     if (document.getElementById('create-chat-btn')) return;
     
     const chatsScreen = document.getElementById('screen-chats');
+    if (!chatsScreen) return;
+    
     const button = document.createElement('button');
     button.id = 'create-chat-btn';
     button.className = 'create-chat-btn';
@@ -243,7 +263,7 @@ function closeCreateMenu() {
     if (menu) menu.classList.remove('active');
 }
 
-// ============ СОЗДАНИЕ ГРУППЫ ============
+// ============ СОЗДАНИЕ ГРУППЫ / КАНАЛА ============
 function createGroup() {
     closeCreateMenu();
     showNameInput('group');
@@ -283,9 +303,9 @@ function showNameInput(type) {
     const input = document.getElementById('chat-name-input');
     input.addEventListener('input', function() {
         const btn = document.getElementById('create-confirm-btn');
-        btn.disabled = !this.value.trim();
+        if (btn) btn.disabled = !this.value.trim();
     });
-    setTimeout(() => input.focus(), 100);
+    setTimeout(() => { if(input) input.focus(); }, 100);
 }
 
 function closeNameInput() {
@@ -293,9 +313,10 @@ function closeNameInput() {
     if (overlay) overlay.remove();
 }
 
-// ============ ИСПРАВЛЕННОЕ СОЗДАНИЕ ЧАТА (С showAlert) ============
+// ============ СВЯЗУЮЩЕЕ СОЗДАНИЕ ЧАТА ============
 function confirmCreate(type) {
     const input = document.getElementById('chat-name-input');
+    if (!input) return;
     const name = input.value.trim();
     if (!name) return;
     
@@ -318,8 +339,10 @@ function confirmCreate(type) {
             const chatName = response.name;
             const chatType = response.type || type;
             
-            if (!dynamicChats[chatId]) {
-                dynamicChats[chatId] = {
+            // Безопасное добавление в глобальный объект dynamicChats
+            if (!window.dynamicChats) window.dynamicChats = {};
+            if (!window.dynamicChats[chatId]) {
+                window.dynamicChats[chatId] = {
                     first_name: chatName,
                     username: '',
                     chat_type: chatType,
@@ -328,25 +351,40 @@ function confirmCreate(type) {
                 };
             }
             
-            createChatRow(chatId, chatName, '', true, chatType);
-            openChat(chatId);
+            // Вызываем глобальные функции отрисовки и открытия из chats.js
+            if (typeof window.createChatRow === 'function') {
+                window.createChatRow(chatId, chatName, '', true, chatType);
+            } else if (typeof createChatRow === 'function') {
+                createChatRow(chatId, chatName, '', true, chatType);
+            }
+
+            if (typeof window.openChat === 'function') {
+                window.openChat(chatId);
+            } else if (typeof openChat === 'function') {
+                openChat(chatId);
+            }
             
             setTimeout(() => {
-                showAlert(`✅ ${chatType === 'group' ? 'Группа' : 'Канал'} "${chatName}" создан!`);
+                if (typeof showAlert === 'function') {
+                    showAlert(`✅ ${chatType === 'group' ? 'Группа' : 'Канал'} "${chatName}" создан!`);
+                }
             }, 1000);
         } else {
-            showAlert(`❌ Ошибка: ${response?.message || 'Неизвестная ошибка'}`);
+            if (typeof showAlert === 'function') {
+                showAlert(`❌ Ошибка: ${response?.message || 'Неизвестная ошибка'}`);
+            }
         }
     });
 }
 
 // ============ ДОБАВЛЕНИЕ УЧАСТНИКА ============
 function addGroupMember() {
-    if (!currentChatId) {
-        showAlert('❌ Чат не выбран');
+    if (!window.currentChatId) {
+        if (typeof showAlert === 'function') showAlert('❌ Чат не выбран');
         return;
     }
     
+    if (typeof showModal !== 'function') return;
     showModal({
         title: 'Добавить участника',
         subtitle: 'Введите юзернейм пользователя (например, username)',
@@ -360,17 +398,19 @@ function addGroupMember() {
             const cleanUsername = username.trim().replace('@', '');
             
             socket.emit('add_user_to_group', { 
-                chat_id: currentChatId, 
+                chat_id: window.currentChatId, 
                 username: cleanUsername 
             }, (response) => {
                 if (response && response.status === 'ok') {
-                    showAlert('✅ Пользователь успешно добавлен!');
-                    loadChatsAndMessages();
-                    if (currentChatId) {
-                        showGroupInfo(currentChatId);
+                    if (typeof showAlert === 'function') showAlert('✅ Пользователь успешно добавлен!');
+                    if (typeof loadChatsAndMessages === 'function') loadChatsAndMessages();
+                    if (window.currentChatId && typeof showGroupInfo === 'function') {
+                        showGroupInfo(window.currentChatId);
                     }
                 } else {
-                    showAlert(`❌ Ошибка: ${response?.message || 'Не удалось найти или добавить пользователя'}`);
+                    if (typeof showAlert === 'function') {
+                        showAlert(`❌ Ошибка: ${response?.message || 'Не удалось найти или добавить пользователя'}`);
+                    }
                 }
             });
         }
@@ -379,3 +419,4 @@ function addGroupMember() {
 
 // ============ ИНИЦИАЛИЗАЦИЯ ============
 setTimeout(addCreateButton, 2000);
+console.log('✅ UI module loaded (исправленная версия)');

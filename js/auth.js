@@ -80,20 +80,65 @@ function autoLogin() {
                 console.log('✅ app-container показан');
             }
             
-            // ПРИНУДИТЕЛЬНО ОБНОВЛЯЕМ ПРОФИЛЬ
+            // Показываем приветствие для нового пользователя
             setTimeout(function() {
-                console.log('🔄 Принудительное обновление профиля...');
+                // Проверяем имя в БД
                 if (window.initProfile) {
-                    window.initProfile();
-                    console.log('✅ Профиль обновлён из auto_auth');
+                    window.initProfile(function(profileData) {
+                        const firstName = profileData?.first_name || user.first_name || '';
+                        // Если имя == 'User' или пустое, спрашиваем
+                        if (!firstName || firstName === 'User' || firstName === 'Пользователь' || firstName.startsWith('Guest_')) {
+                            showWelcomeModal();
+                        }
+                    });
                 }
+                
                 if (window.loadChatsAndMessages) window.loadChatsAndMessages();
                 if (window.loadContacts) window.loadContacts();
-            }, 800);
+            }, 500);
             
         } else {
             console.error('❌ Ошибка автоматического входа:', response);
             document.getElementById('loading-status').textContent = 'Ошибка входа';
+        }
+    });
+}
+
+// ============ ПРИВЕТСТВЕННОЕ МОДАЛЬНОЕ ОКНО ============
+function showWelcomeModal() {
+    console.log('👋 Показываем приветствие для нового пользователя');
+    
+    showModal({
+        title: '👋 Добро пожаловать в DICEGRAM!',
+        subtitle: 'Как вас называть? Это имя будет отображаться в вашем профиле.',
+        defaultValue: '',
+        placeholder: 'Введите ваше имя...',
+        maxLength: 50,
+        confirmText: 'Сохранить',
+        cancelText: 'Пропустить'
+    }).then((name) => {
+        if (name !== null && name.trim()) {
+            // Сохраняем имя на сервере
+            socket.emit('update_profile', { name: name.trim() }, (response) => {
+                if (response && response.status === 'ok') {
+                    console.log('✅ Имя сохранено:', name.trim());
+                    window.tgUser.first_name = name.trim();
+                    const saved = localStorage.getItem('dicegram_user');
+                    if (saved) {
+                        try {
+                            const userData = JSON.parse(saved);
+                            userData.first_name = name.trim();
+                            localStorage.setItem('dicegram_user', JSON.stringify(userData));
+                        } catch(e) {}
+                    }
+                    if (window.initProfile) window.initProfile();
+                    showAlert('✅ Имя сохранено!');
+                } else {
+                    showAlert('❌ Ошибка сохранения имени');
+                }
+            });
+        } else {
+            console.log('⏭️ Пользователь пропустил ввод имени');
         }
     });
 }
@@ -105,3 +150,4 @@ function logout() {
 
 window.logout = logout;
 window.autoLogin = autoLogin;
+window.showWelcomeModal = showWelcomeModal;

@@ -1,10 +1,10 @@
-// ============ ПРОФИЛЬ ============
+here// ============ ПРОФИЛЬ ============
 let currentUserData = null;
 let profileRetryCount = 0;
-const MAX_PROFILE_RETRIES = 5;
+const MAX_PROFILE_RETRIES = 10;
 
 function initProfile(callback) {
-    console.log('📝 initProfile() вызван');
+    console.log('📝 initProfile() вызван, попытка', profileRetryCount + 1);
     
     // Если нет MY_ID, пробуем взять из localStorage
     if (!MY_ID) {
@@ -54,7 +54,7 @@ function initProfile(callback) {
             const displayName = currentUserData.last_name ? `${fullName} ${currentUserData.last_name}` : fullName;
             const usernameDisplay = currentUserData.username || MY_USERNAME || '';
             
-            // ОБНОВЛЯЕМ ПРОФИЛЬ
+            // ОБНОВЛЯЕМ ПРОФИЛЬ ПРИНУДИТЕЛЬНО
             const nameEl = document.getElementById('user-name');
             if (nameEl) {
                 if (currentUserData.is_verified) {
@@ -100,7 +100,6 @@ function initProfile(callback) {
             profileRetryCount = 0;
             console.log('✅ Профиль обновлён:', displayName, '@' + usernameDisplay);
             
-            // Вызываем колбэк, если передан
             if (callback) {
                 callback(currentUserData);
             }
@@ -118,8 +117,6 @@ function initProfile(callback) {
         }
     });
 }
-
-// ... остальные функции (updateAvatar, showUserProfile, showGroupInfo, etc.) остаются без изменений
 
 function updateAvatar(elementId, name, photoUrl) {
     const avatarEl = document.getElementById(elementId);
@@ -517,6 +514,8 @@ function blockUser() {
 
 function editName() {
     const currentName = document.getElementById('user-name').innerText.replace(' ✅', '').replace('⭐', '');
+    console.log('📝 Редактирование имени, текущее:', currentName);
+    
     showModal({
         title: 'Изменить имя',
         subtitle: 'Введите новое имя',
@@ -526,8 +525,11 @@ function editName() {
         confirmText: 'Сохранить',
         cancelText: 'Отмена'
     }).then((newName) => {
+        console.log('📝 Новое имя из модалки:', newName);
         if (newName !== null && newName.trim()) {
+            console.log('📤 Отправка update_profile с именем:', newName.trim());
             socket.emit('update_profile', { name: newName.trim() }, (response) => {
+                console.log('📨 Ответ сервера update_profile:', response);
                 if (response && response.status === 'ok') {
                     const nameEl = document.getElementById('user-name');
                     if (currentUserData && currentUserData.is_verified) {
@@ -536,8 +538,32 @@ function editName() {
                         nameEl.innerText = newName.trim();
                     }
                     document.getElementById('profile-display-name').innerText = newName.trim();
+                    
+                    // Обновляем tgUser и localStorage
+                    if (window.tgUser) window.tgUser.first_name = newName.trim();
+                    const saved = localStorage.getItem('dicegram_user');
+                    if (saved) {
+                        try {
+                            const userData = JSON.parse(saved);
+                            userData.first_name = newName.trim();
+                            localStorage.setItem('dicegram_user', JSON.stringify(userData));
+                        } catch(e) {
+                            console.error('Ошибка обновления localStorage:', e);
+                        }
+                    }
+                    
                     showAlert('✅ Имя обновлено!');
-                    refreshProfile();
+                    // Обновляем данные с сервера
+                    setTimeout(() => {
+                        socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
+                            if (userInfo && userInfo.status === 'found') {
+                                currentUserData = userInfo.user;
+                                console.log('📥 Данные обновлены с сервера:', currentUserData);
+                            }
+                        });
+                    }, 300);
+                } else {
+                    showAlert('❌ Ошибка: ' + (response?.message || 'Не удалось сохранить имя'));
                 }
             });
         }
@@ -547,6 +573,8 @@ function editName() {
 function editUsername() {
     const isCreator = MY_ID === CONFIG.CREATOR_ID;
     const currentUsername = MY_USERNAME || '';
+    console.log('📝 Редактирование username, текущий:', currentUsername);
+    
     showModal({
         title: 'Изменить username',
         subtitle: 'Введите новый username (только латиница и цифры)',
@@ -556,6 +584,7 @@ function editUsername() {
         confirmText: 'Сохранить',
         cancelText: 'Отмена'
     }).then((newUsername) => {
+        console.log('📝 Новый username из модалки:', newUsername);
         if (newUsername !== null && newUsername.trim()) {
             const username = newUsername.trim().replace('@', '');
             socket.emit('check_username', { username: username }, (response) => {
@@ -568,8 +597,25 @@ function editUsername() {
                         MY_USERNAME = username;
                         document.getElementById('user-username').innerText = `@${username}`;
                         document.getElementById('profile-username-display').innerText = `@${username}`;
+                        
+                        // Обновляем localStorage
+                        const saved = localStorage.getItem('dicegram_user');
+                        if (saved) {
+                            try {
+                                const userData = JSON.parse(saved);
+                                userData.username = username;
+                                localStorage.setItem('dicegram_user', JSON.stringify(userData));
+                            } catch(e) {}
+                        }
+                        
                         showAlert('✅ Username обновлен!');
-                        refreshProfile();
+                        setTimeout(() => {
+                            socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
+                                if (userInfo && userInfo.status === 'found') {
+                                    currentUserData = userInfo.user;
+                                }
+                            });
+                        }, 300);
                     }
                 });
             });
@@ -579,6 +625,8 @@ function editUsername() {
 
 function editBio() {
     const currentBio = currentUserData?.bio || '';
+    console.log('📝 Редактирование bio, текущее:', currentBio);
+    
     showModal({
         title: 'О себе',
         subtitle: 'Введите описание вашего профиля',
@@ -588,12 +636,19 @@ function editBio() {
         confirmText: 'Сохранить',
         cancelText: 'Отмена'
     }).then((newBio) => {
+        console.log('📝 Новое bio из модалки:', newBio);
         if (newBio !== null) {
             socket.emit('update_profile', { bio: newBio.trim() }, (response) => {
                 if (response && response.status === 'ok') {
                     document.getElementById('profile-bio-display').innerText = newBio.trim() || 'Добавить описание';
                     showAlert('✅ О себе обновлено!');
-                    refreshProfile();
+                    setTimeout(() => {
+                        socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
+                            if (userInfo && userInfo.status === 'found') {
+                                currentUserData = userInfo.user;
+                            }
+                        });
+                    }, 300);
                 }
             });
         }
@@ -617,7 +672,13 @@ function changeAvatar() {
             socket.emit('update_profile', { photo_url: url.trim() }, (response) => {
                 if (response && response.status === 'ok') {
                     showAlert('✅ Аватар обновлен!');
-                    refreshProfile();
+                    setTimeout(() => {
+                        socket.emit('get_user_info', { user_id: MY_ID }, (userInfo) => {
+                            if (userInfo && userInfo.status === 'found') {
+                                currentUserData = userInfo.user;
+                            }
+                        });
+                    }, 300);
                 }
             });
         }

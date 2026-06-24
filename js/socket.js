@@ -41,7 +41,42 @@ function connectSocket() {
         
         loadingStatus.textContent = 'Авторизация...';
         
+        // Проверяем, есть ли пользователь в localStorage
+        const savedUser = localStorage.getItem('dicegram_user');
         const tg = window.Telegram?.WebApp;
+        
+        if (savedUser) {
+            try {
+                const user = JSON.parse(savedUser);
+                if (user && user.id) {
+                    // Восстанавливаем глобальные переменные
+                    window.tgUser = {
+                        id: user.id,
+                        first_name: user.first_name || 'User',
+                        username: user.username || '',
+                        photo_url: user.photo_url || ''
+                    };
+                    MY_ID = user.id;
+                    MY_USERNAME = user.username || '';
+                    console.log('👤 Восстановлен пользователь из localStorage:', MY_ID);
+                    
+                    // Показываем интерфейс
+                    document.getElementById('loading-screen').style.display = 'none';
+                    document.getElementById('app-container').style.display = 'flex';
+                    
+                    // Загружаем данные
+                    setTimeout(() => {
+                        if (window.initProfile) window.initProfile();
+                        if (window.loadChatsAndMessages) window.loadChatsAndMessages();
+                        if (window.loadContacts) window.loadContacts();
+                    }, 500);
+                    return;
+                }
+            } catch (e) {
+                localStorage.removeItem('dicegram_user');
+            }
+        }
+
         if (tg && tg.initDataUnsafe?.user?.id) {
             socket.emit('auth', tgUser, (response) => {
                 console.log('📨 Ответ авторизации:', response);
@@ -52,12 +87,11 @@ function connectSocket() {
                     document.getElementById('loading-screen').style.display = 'none';
                     document.getElementById('app-container').style.display = 'flex';
                     
-                    // ТОЛЬКО ЗАГРУЖАЕМ ДАННЫЕ, БЕЗ initProfile (он вызовется в auth.js)
-                    setTimeout(function() {
+                    setTimeout(() => {
+                        if (window.initProfile) window.initProfile();
                         if (window.loadChatsAndMessages) window.loadChatsAndMessages();
                         if (window.loadContacts) window.loadContacts();
                     }, 500);
-                    
                 } else {
                     console.error('❌ Ошибка авторизации:', response);
                     loadingStatus.textContent = 'Ошибка авторизации';
@@ -66,7 +100,7 @@ function connectSocket() {
                 }
             });
         } else {
-            console.log('Нет tgUser, запускаем autoLogin');
+            console.log('Нет пользователя, запускаем autoLogin');
             loadingStatus.textContent = 'Автоматический вход...';
             document.getElementById('loading-screen').style.display = 'none';
             if (window.autoLogin) {

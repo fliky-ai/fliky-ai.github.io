@@ -41,10 +41,8 @@ function connectSocket() {
         
         loadingStatus.textContent = 'Авторизация...';
         
-        // Проверяем, есть ли пользователь Telegram
         const tg = window.Telegram?.WebApp;
         if (tg && tg.initDataUnsafe?.user?.id) {
-            // Есть tgUser – авторизуем через auth
             socket.emit('auth', tgUser, (response) => {
                 console.log('📨 Ответ авторизации:', response);
                 
@@ -54,11 +52,8 @@ function connectSocket() {
                     document.getElementById('loading-screen').style.display = 'none';
                     document.getElementById('app-container').style.display = 'flex';
                     
+                    // ТОЛЬКО ЗАГРУЖАЕМ ДАННЫЕ, БЕЗ initProfile (он вызовется в auth.js)
                     setTimeout(function() {
-                        if (window.initProfile) {
-                            window.initProfile();
-                            console.log('✅ Профиль обновлён после авторизации');
-                        }
                         if (window.loadChatsAndMessages) window.loadChatsAndMessages();
                         if (window.loadContacts) window.loadContacts();
                     }, 500);
@@ -71,7 +66,6 @@ function connectSocket() {
                 }
             });
         } else {
-            // Нет tgUser – запускаем автоматический вход
             console.log('Нет tgUser, запускаем autoLogin');
             loadingStatus.textContent = 'Автоматический вход...';
             document.getElementById('loading-screen').style.display = 'none';

@@ -36,10 +36,13 @@ function connectSocket() {
         timeout: 10000
     });
 
+    window.socket = socket; // ФИКС: Обязательно экспортируем сокет в window для поиска!
+
     // ===== СОБЫТИЕ: УСПЕШНЫЙ КОННЕКТ С СЕРВЕРОМ =====
     socket.on('connect', () => {
         console.log('✅ Сетевой уровень Socket.IO подключен успешно!');
         isConnected = true;
+        window.isConnected = true;
         reconnectAttempts = 0;
         
         const statusEl = document.getElementById('global-status');
@@ -75,6 +78,7 @@ function connectSocket() {
     socket.on('disconnect', (reason) => {
         console.warn('🔌 Соединение с сокет-сервером разорвано:', reason);
         isConnected = false;
+        window.isConnected = false;
         
         const statusEl = document.getElementById('global-status');
         if (statusEl) {
@@ -88,35 +92,43 @@ function connectSocket() {
     socket.on('reconnect', () => {
         console.log('🔄 Соединение автоматически восстановлено!');
         isConnected = true;
+        window.isConnected = true;
         
         const statusEl = document.getElementById('global-status');
         if (statusEl) statusEl.style.display = 'none';
         
-        // Переавторизуем текущую сессию на бэке после реконнекта, чтобы восстановить sid
         if (window.autoLogin) window.autoLogin();
     });
 
     // ===== ВХОДЯЩИЕ ИВЕНТЫ РЕАЛЬНОГО ВРЕМЕНИ =====
     
-    // Новое сообщение
+    // Новое сообщение (ФИКС: Связываем напрямую с обработчиком в chat.js)
     socket.on('new_message', (msg) => {
-        console.log('📩 Получено новое сообщение:', msg);
-        
-        // Рендерим в чат, если он открыт
-        if (window.appendMessageToChat && (msg.chat_id === currentChatId || msg.sender_id === currentChatId)) {
-            window.appendMessageToChat(msg);
-            if (window.scrollToBottom) window.scrollToBottom();
+        console.log('📩 Получено новое сообщение через сокет:', msg);
+        if (typeof window.handleNewMessage === 'function') {
+            window.handleNewMessage(msg);
+        } else {
+            // Фолбэк, если модуль чатов не успел прокинуться
+            if (window.appendMessageToChat && (msg.chat_id === currentChatId || msg.sender_id === currentChatId)) {
+                window.appendMessageToChat(msg);
+            }
+            if (window.loadChatsAndMessages) window.loadChatsAndMessages();
         }
-        
-        // Обновляем список чатов (превью, поднятие наверх)
-        if (window.loadChatsAndMessages) window.loadChatsAndMessages();
+    });
+
+    // Реакции на сообщения
+    socket.on('reaction_updated', (data) => {
+        console.log('😊 Ивент обновления реакции:', data);
+        if (data && data.message_id && data.reactions && typeof window.updateReactionDisplayDirect === 'function') {
+            window.updateReactionDisplayDirect(data.message_id, data.reactions);
+        }
     });
 
     // Обновление профиля/статуса какого-то юзера на сервере
     socket.on('user_updated', (data) => {
         console.log('🔄 Ивент обновления пользователя от сервера:', data);
-        if (data && data.user_id === MY_ID) {
-            if (data.username) MY_USERNAME = data.username;
+        if (data && data.user_id === window.MY_ID) {
+            if (data.username) window.MY_USERNAME = data.username;
             if (window.initProfile) window.initProfile();
         }
         if (window.loadChatsAndMessages) window.loadChatsAndMessages();
@@ -143,4 +155,5 @@ function reconnect() {
 window.connectSocket = connectSocket;
 window.reconnect = reconnect;
 
-console.log('✅ Модуль Socket успешно собран и изолирован');
+console.log('✅ Модуль Socket успешно собран, изолирован и готов к поиску');
+

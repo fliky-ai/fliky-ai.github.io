@@ -432,47 +432,63 @@ function closeChat() {
     sendBtn.style.cursor = 'pointer';
 }
 
-// ============ ОБРАБОТКА НОВОГО СООБЩЕНИЯ ============
+// ============ ИСПРАВЛЕННАЯ ОБРАБОТКА НОВОГО СООБЩЕНИЯ ============
 function handleNewMessage(msg) {
     console.log('📩 Новое сообщение:', msg, 'currentChatId:', currentChatId);
     
-    let chatId = msg.receiver_id;
+    // ОПРЕДЕЛЯЕМ ID ЧАТА ПРАВИЛЬНО
+    let chatId = null;
+    
+    // Если сообщение от нас — receiver_id это чат
     if (msg.sender_id === MY_ID) {
         chatId = msg.receiver_id;
-    } else if (msg.receiver_id === MY_ID) {
+    } 
+    // Если сообщение нам — sender_id это собеседник
+    else if (msg.receiver_id === MY_ID) {
         chatId = msg.sender_id;
+    } 
+    // Если сообщение в группе/канале (receiver_id — это ID группы)
+    else {
+        chatId = msg.receiver_id;
     }
     
+    // Если сообщение системное
     if (msg.sender_id === 'system') {
-        if (currentChatId === msg.receiver_id) {
+        if (currentChatId === chatId) {
             renderSingleMessageWithCheck(msg);
             scrollToBottom();
         }
-        const previewEl = document.getElementById(`preview-${msg.receiver_id}`);
+        const previewEl = document.getElementById(`preview-${chatId}`);
         if (previewEl) {
             let previewText = msg.text;
-            const chatInfo = dynamicChats[msg.receiver_id];
+            const chatInfo = dynamicChats[chatId];
             if (chatInfo && chatInfo.chat_type === 'group') previewText = '👥 ' + previewText;
             previewEl.innerText = previewText;
         }
         return;
     }
     
+    // Проверяем, открыт ли этот чат
     const isCurrentChat = currentChatId === chatId;
     
+    console.log('🔍 chatId:', chatId, 'currentChatId:', currentChatId, 'isCurrentChat:', isCurrentChat);
+    
     if (isCurrentChat) {
+        // Если чат открыт — рендерим сообщение
         renderSingleMessageWithCheck(msg);
         scrollToBottom();
         if (msg.sender_id !== MY_ID) {
             socket.emit('mark_as_read', { chat_id: chatId });
         }
     } else {
+        // Если чат не открыт — увеличиваем счётчик непрочитанных
         if (msg.sender_id !== MY_ID) {
             unreadCounts[chatId] = (unreadCounts[chatId] || 0) + 1;
             updateUnreadBadge(chatId, unreadCounts[chatId]);
         }
     }
     
+    // ОБЯЗАТЕЛЬНО ОБНОВЛЯЕМ ПРЕВЬЮ В СПИСКЕ ЧАТОВ
     const previewEl = document.getElementById(`preview-${chatId}`);
     if (previewEl) {
         let previewText = msg.text;
@@ -484,11 +500,13 @@ function handleNewMessage(msg) {
         previewEl.innerText = previewText;
     }
     
+    // Обновляем время
     const timeEl = document.getElementById(`time-${chatId}`);
     if (timeEl && msg.timestamp) {
         timeEl.innerText = getLocalTime(msg.timestamp);
     }
     
+    // Если чата нет в списке — создаём
     if (chatId && chatId !== MY_ID && !dynamicChats[chatId]) {
         socket.emit('get_group_info', { chat_id: chatId }, (groupInfo) => {
             if (groupInfo && groupInfo.status === 'found') {

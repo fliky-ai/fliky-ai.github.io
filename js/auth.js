@@ -25,7 +25,6 @@ function autoLogin() {
                 MY_USERNAME = user.username || '';
                 console.log('👤 Восстановлен пользователь из localStorage:', MY_ID);
                 
-                // Сразу показываем интерфейс
                 document.getElementById('loading-screen').style.display = 'none';
                 const appContainer = document.getElementById('app-container');
                 if (appContainer) {
@@ -46,7 +45,6 @@ function autoLogin() {
         }
     }
 
-    // Если нет localStorage — запрашиваем у сервера нового пользователя
     console.log('🆕 Создаём нового пользователя...');
     socket.emit('auto_auth', {}, function(response) {
         console.log('📨 Ответ auto_auth:', response);
@@ -78,6 +76,7 @@ function autoLogin() {
                 appContainer.style.display = 'flex';
                 appContainer.style.visibility = 'visible';
                 appContainer.style.opacity = '1';
+                console.log('✅ app-container показан');
             }
             
             setTimeout(() => {
@@ -88,12 +87,6 @@ function autoLogin() {
         } else {
             console.error('❌ Ошибка автоматического входа:', response);
             document.getElementById('loading-status').textContent = 'Ошибка входа';
-            // Показываем сообщение об ошибке
-            const errorEl = document.getElementById('loading-error');
-            if (errorEl) {
-                errorEl.style.display = 'block';
-                errorEl.textContent = '❌ Ошибка подключения к серверу';
-            }
         }
     });
 }

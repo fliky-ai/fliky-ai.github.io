@@ -69,6 +69,8 @@ function autoLogin() {
             MY_USERNAME = user.username || '';
             
             console.log('✅ Пользователь создан:', MY_ID);
+            console.log('👤 Имя:', user.first_name);
+            console.log('🏷️ Username:', user.username);
             
             document.getElementById('loading-screen').style.display = 'none';
             const appContainer = document.getElementById('app-container');
@@ -80,7 +82,11 @@ function autoLogin() {
             }
             
             setTimeout(() => {
-                if (window.initProfile) window.initProfile();
+                // Обновляем профиль
+                if (window.initProfile) {
+                    window.initProfile();
+                    console.log('✅ Профиль обновлён');
+                }
                 if (window.loadChatsAndMessages) window.loadChatsAndMessages();
                 if (window.loadContacts) window.loadContacts();
             }, 300);

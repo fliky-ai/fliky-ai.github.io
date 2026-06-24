@@ -1,9 +1,9 @@
-here// ============ ЛОГИКА ЧАТОВ ============
+// ============ ЛОГИКА ЧАТОВ ============
 let currentChatId = null;
 let dynamicChats = {};
 let unreadCounts = {};
 let selectedMessageId = null;
-let isInitialLoad = true;
+window.isInitialLoad = true;
 let chatsLoaded = false;
 
 // ============ РЕАКЦИИ ============
@@ -64,7 +64,7 @@ function loadChatsAndMessages() {
         }
         chatsList.innerHTML = '';
         
-        // Всегда добавляем SUPPORT и BOTFATHER
+        // Всегда железно добавляем SUPPORT и BOTFATHER наверх списка
         createChatRow(CONFIG.SUPPORT_ID, 'DICEGRAM SUPPORT', 'dicegram_support', true);
         createChatRow(CONFIG.BOTFATHER_ID, 'BotFather', 'botfather', false);
         
@@ -73,7 +73,7 @@ function loadChatsAndMessages() {
                 const partnerId = chat.chat_id || chat.partner_id;
                 const chatType = chat.type || 'private';
                 
-                if (partnerId && partnerId !== MY_ID && 
+                if (partnerId && partnerId !== window.MY_ID && 
                     partnerId !== CONFIG.SUPPORT_ID && 
                     partnerId !== CONFIG.BOTFATHER_ID) {
                     
@@ -139,10 +139,7 @@ function createChatRow(tgId, firstName, username, isVerified = false, chatType =
     }
     
     const chatsList = document.getElementById('chats-list');
-    if (!chatsList) {
-        console.error('❌ chats-list не найден в createChatRow');
-        return;
-    }
+    if (!chatsList) return;
     if (document.getElementById(`chat-item-${tgId}`)) return;
     
     const isBotFather = username === 'botfather';
@@ -205,19 +202,10 @@ function updateUnreadBadge(chatId, count) {
 // ============ ОТКРЫТИЕ ЧАТА ============
 function openChat(chatId) {
     console.log('📂 openChat вызван с ID:', chatId);
-    
-    if (!chatId) {
-        console.error('❌ chatId не передан');
-        return;
-    }
-    
-    if (!socket || !isConnected) {
-        alert('Нет соединения с сервером');
-        return;
-    }
+    if (!chatId || !socket || !isConnected) return;
 
     currentChatId = chatId;
-    renderedMessageIds.clear(); // Очищаем кэш
+    renderedMessageIds.clear(); 
     
     unreadCounts[chatId] = 0;
     updateUnreadBadge(chatId, 0);
@@ -227,9 +215,9 @@ function openChat(chatId) {
     const chatType = chatInfo ? chatInfo.chat_type : 'private';
     
     const titleEl = document.getElementById('chat-room-title');
-    titleEl.innerText = chatName || 'Чат';
+    if (titleEl) titleEl.innerText = chatName || 'Чат';
     
-    if (chatInfo) {
+    if (chatInfo && titleEl) {
         if (chatInfo.chat_type === 'group') {
             titleEl.innerText = '👥 ' + (chatName || 'Группа');
         } else if (chatInfo.chat_type === 'channel') {
@@ -238,28 +226,25 @@ function openChat(chatId) {
     }
     
     const messagesContainer = document.getElementById('chat-messages');
-    messagesContainer.innerHTML = '';
+    if (messagesContainer) messagesContainer.innerHTML = '';
 
-    // Присоединяемся к комнате группы
     if (chatType === 'group' || chatType === 'channel') {
         socket.emit('join_chat', { chat_id: chatId }, (response) => {
             if (response && response.status === 'ok') {
                 console.log(`✅ Присоединился к комнате группы ${chatId}`);
-            } else {
-                console.warn(`⚠️ Ошибка присоединения к группе ${chatId}:`, response);
             }
         });
     }
 
-    // Приветствие SUPPORT
-    if (chatId === CONFIG.SUPPORT_ID) {
+    if (chatId === CONFIG.SUPPORT_ID && titleEl) {
         titleEl.innerHTML = `DICEGRAM SUPPORT ${BLUE_VERIFY_SVG}`;
-        document.getElementById('chat-room-status').innerText = 'официальный аккаунт';
+        const statusEl = document.getElementById('chat-room-status');
+        if (statusEl) statusEl.innerText = 'официальный аккаунт';
 
         const tgUserData = window.Telegram?.WebApp?.initDataUnsafe?.user;
-        const finalName = tgUserData?.first_name || tgUser.first_name || 'Пользователь';
-        const finalUsername = tgUserData?.username || tgUser.username || 'не установлен';
-        const finalId = tgUserData?.id || MY_ID || '8771009385';
+        const finalName = tgUserData?.first_name || 'Пользователь';
+        const finalUsername = tgUserData?.username || 'не установлен';
+        const finalId = tgUserData?.id || window.MY_ID || '8771009385';
 
         const welcomeMsg = {
             id: 'welcome_msg_static',
@@ -273,26 +258,28 @@ function openChat(chatId) {
     }
 
     socket.emit('get_user_info', { user_id: chatId }, (userInfo) => {
+        const statusEl = document.getElementById('chat-room-status');
+        if (!statusEl) return;
+        
         if (userInfo && userInfo.status === 'found') {
             const isVerifiedUser = userInfo.user.is_verified || chatId === CONFIG.SUPPORT_ID || chatId === CONFIG.CREATOR_ID;
-            if (isVerifiedUser && chatId !== CONFIG.SUPPORT_ID) {
+            if (isVerifiedUser && chatId !== CONFIG.SUPPORT_ID && titleEl) {
                 titleEl.innerHTML = `${titleEl.innerText} ${BLUE_VERIFY_SVG}`;
             }
             if (chatId !== CONFIG.SUPPORT_ID) {
-                document.getElementById('chat-room-status').innerText = userInfo.user.is_online ? '🟢 в сети' : 'был(а) недавно';
+                statusEl.innerText = userInfo.user.is_online ? '🟢 в сети' : 'был(а) недавно';
             }
         } else {
             if (chatInfo && (chatInfo.chat_type === 'group' || chatInfo.chat_type === 'channel')) {
-                document.getElementById('chat-room-status').innerText = `${chatInfo.members_count || 0} участников`;
+                statusEl.innerText = `${chatInfo.members_count || 0} участников`;
             }
         }
     });
 
-    document.getElementById('bottom-navigation').style.display = 'none';
-    document.getElementById('chat-room').style.display = 'flex';
+    if (document.getElementById('bottom-navigation')) document.getElementById('bottom-navigation').style.display = 'none';
+    if (document.getElementById('chat-room')) document.getElementById('chat-room').style.display = 'flex';
 
     socket.emit('get_chat_history', { with_id: chatId }, (history) => {
-        console.log('📨 История чата:', history?.length || 0);
         if (history && Array.isArray(history)) {
             history.forEach(msg => {
                 if (chatId === CONFIG.SUPPORT_ID && msg.text && msg.text.includes("Добро пожаловать в DICEGRAM!")) {
@@ -300,12 +287,11 @@ function openChat(chatId) {
                 }
                 renderSingleMessageWithCheck(msg);
             });
-            scrollToBottom();
+            if (window.scrollToBottom) window.scrollToBottom();
         }
     });
 
     socket.emit('mark_as_read', { chat_id: chatId });
-    
     if (chatInfo && chatInfo.chat_type === 'channel') {
         checkChannelPermission(chatId);
     }
@@ -316,11 +302,7 @@ function renderSingleMessageWithCheck(msg) {
     if (!msg || !msg.text) return;
     
     const msgId = msg.id || msg._id || Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5);
-    
-    if (renderedMessageIds.has(msgId)) {
-        console.log(`⏭️ Сообщение ${msgId} уже отображено, пропускаем`);
-        return;
-    }
+    if (renderedMessageIds.has(msgId)) return;
     
     renderedMessageIds.add(msgId);
     
@@ -334,13 +316,13 @@ function renderSingleMessageWithCheck(msg) {
     msgEl.classList.add('message');
     msgEl.dataset.messageId = msgId;
 
-    const timeStr = getLocalTime(msg.timestamp);
+    const timeStr = window.getLocalTime ? window.getLocalTime(msg.timestamp) : new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
     if (msg.sender_id === 'system') {
         msgEl.classList.add('system-message');
         msgEl.innerHTML = `
             <div class="system-message-content">
-                <span>${formatMessageText(msg.text)}</span>
+                <span>${window.formatMessageText ? window.formatMessageText(msg.text) : msg.text}</span>
                 <div class="message-meta">
                     <span class="message-time">${timeStr}</span>
                 </div>
@@ -353,7 +335,7 @@ function renderSingleMessageWithCheck(msg) {
     }
 
     let ticksHtml = '';
-    if (msg.sender_id === MY_ID) {
+    if (msg.sender_id === window.MY_ID) {
         wrapper.classList.add('sent');
         msgEl.classList.add('sent');
         
@@ -369,7 +351,7 @@ function renderSingleMessageWithCheck(msg) {
         msgEl.classList.add('received');
     }
 
-    const formattedText = formatMessageText(msg.text);
+    const formattedText = window.formatMessageText ? window.formatMessageText(msg.text) : msg.text;
 
     msgEl.innerHTML = `
         <span>${formattedText}</span>
@@ -379,22 +361,17 @@ function renderSingleMessageWithCheck(msg) {
         </div>
     `;
 
+    // Универсальный Лонг-пресс для мобилок и ПК
     let longPressTimer = null;
-    msgEl.addEventListener('mousedown', () => {
-        longPressTimer = setTimeout(() => {
-            showMessageActions(msgId);
-        }, 500);
-    });
-    msgEl.addEventListener('mouseup', () => clearTimeout(longPressTimer));
-    msgEl.addEventListener('mouseleave', () => clearTimeout(longPressTimer));
-    
-    msgEl.addEventListener('touchstart', () => {
-        longPressTimer = setTimeout(() => {
-            showMessageActions(msgId);
-        }, 500);
-    });
-    msgEl.addEventListener('touchend', () => clearTimeout(longPressTimer));
-    msgEl.addEventListener('touchmove', () => clearTimeout(longPressTimer));
+    const startPress = () => { longPressTimer = setTimeout(() => showMessageActions(msgId), 500); };
+    const endPress = () => clearTimeout(longPressTimer);
+
+    msgEl.addEventListener('mousedown', startPress);
+    msgEl.addEventListener('mouseup', endPress);
+    msgEl.addEventListener('mouseleave', endPress);
+    msgEl.addEventListener('touchstart', startPress);
+    msgEl.addEventListener('touchend', endPress);
+    msgEl.addEventListener('touchmove', endPress);
 
     wrapper.appendChild(msgEl);
     container.appendChild(wrapper);
@@ -406,6 +383,7 @@ function checkChannelPermission(chatId) {
         if (response && response.status === 'ok') {
             const input = document.getElementById('message-field');
             const sendBtn = document.getElementById('send-btn-icon');
+            if (!input || !sendBtn) return;
             
             if (response.chat_type === 'channel' && !response.can_write) {
                 input.disabled = true;
@@ -424,39 +402,35 @@ function checkChannelPermission(chatId) {
 
 // ============ ЗАКРЫТИЕ ЧАТА ============
 function closeChat() {
-    document.getElementById('chat-room').style.display = 'none';
-    document.getElementById('bottom-navigation').style.display = 'flex';
+    if (document.getElementById('chat-room')) document.getElementById('chat-room').style.display = 'none';
+    if (document.getElementById('bottom-navigation')) document.getElementById('bottom-navigation').style.display = 'flex';
     currentChatId = null;
     
     const input = document.getElementById('message-field');
     const sendBtn = document.getElementById('send-btn-icon');
-    input.disabled = false;
-    input.placeholder = 'Сообщение...';
-    sendBtn.style.opacity = '1';
-    sendBtn.style.cursor = 'pointer';
+    if (input && sendBtn) {
+        input.disabled = false;
+        input.placeholder = 'Сообщение...';
+        sendBtn.style.opacity = '1';
+        sendBtn.style.cursor = 'pointer';
+    }
 }
 
-// ============ ФИНАЛЬНАЯ ИСПРАВЛЕННАЯ ОБРАБОТКА НОВОГО СООБЩЕНИЯ ============
+// ============ ОБРАБОТКА НОВОГО СООБЩЕНИЯ ============
 function handleNewMessage(msg) {
-    console.log('📩 Новое сообщение:', msg, 'currentChatId:', currentChatId);
-    
-    // Определяем ID чата (для групповых — это receiver_id)
+    if (!msg) return;
     let chatId = msg.receiver_id;
-    if (msg.sender_id === MY_ID) {
+    if (msg.sender_id === window.MY_ID) {
         chatId = msg.receiver_id;
-    } else if (msg.receiver_id === MY_ID) {
+    } else if (msg.receiver_id === window.MY_ID) {
         chatId = msg.sender_id;
     }
-    // Для групповых сообщений от других пользователей receiver_id — это ID группы
     
-    // Если сообщение системное
     if (msg.sender_id === 'system') {
-        // Если это системное сообщение для группы, и мы в этой группе — рендерим
         if (currentChatId === msg.receiver_id) {
             renderSingleMessageWithCheck(msg);
-            scrollToBottom();
+            if (window.scrollToBottom) window.scrollToBottom();
         }
-        // Обновляем превью в списке
         const previewEl = document.getElementById(`preview-${msg.receiver_id}`);
         if (previewEl) {
             let previewText = msg.text;
@@ -467,25 +441,20 @@ function handleNewMessage(msg) {
         return;
     }
     
-    // Проверяем, открыт ли этот чат
     const isCurrentChat = currentChatId === chatId;
-    
     if (isCurrentChat) {
-        // Если чат открыт — рендерим сообщение
         renderSingleMessageWithCheck(msg);
-        scrollToBottom();
-        if (msg.sender_id !== MY_ID) {
+        if (window.scrollToBottom) window.scrollToBottom();
+        if (msg.sender_id !== window.MY_ID) {
             socket.emit('mark_as_read', { chat_id: chatId });
         }
     } else {
-        // Если чат не открыт — увеличиваем счётчик непрочитанных
-        if (msg.sender_id !== MY_ID) {
+        if (msg.sender_id !== window.MY_ID) {
             unreadCounts[chatId] = (unreadCounts[chatId] || 0) + 1;
             updateUnreadBadge(chatId, unreadCounts[chatId]);
         }
     }
     
-    // Обновляем превью в списке чатов
     const previewEl = document.getElementById(`preview-${chatId}`);
     if (previewEl) {
         let previewText = msg.text;
@@ -497,14 +466,12 @@ function handleNewMessage(msg) {
         previewEl.innerText = previewText;
     }
     
-    // Обновляем время
     const timeEl = document.getElementById(`time-${chatId}`);
     if (timeEl && msg.timestamp) {
-        timeEl.innerText = getLocalTime(msg.timestamp);
+        timeEl.innerText = window.getLocalTime ? window.getLocalTime(msg.timestamp) : new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     }
     
-    // Если чата нет в списке — создаём
-    if (chatId && chatId !== MY_ID && !dynamicChats[chatId]) {
+    if (chatId && chatId !== window.MY_ID && !dynamicChats[chatId]) {
         socket.emit('get_group_info', { chat_id: chatId }, (groupInfo) => {
             if (groupInfo && groupInfo.status === 'found') {
                 const chat = groupInfo.chat;
@@ -537,6 +504,7 @@ function handleNewMessage(msg) {
 // ============ ОТПРАВКА СООБЩЕНИЯ ============
 function toggleSendButton(input) {
     const btn = document.getElementById('send-btn-icon');
+    if (!btn) return;
     if (input && input.value && input.value.trim().length > 0) {
         btn.classList.add('active');
     } else {
@@ -546,6 +514,7 @@ function toggleSendButton(input) {
 
 function sendMessage() {
     const input = document.getElementById('message-field');
+    if (!input) return;
     const text = input.value.trim();
     if (!text || !currentChatId) return;
 
@@ -563,8 +532,6 @@ function sendMessage() {
                     return;
                 }
                 sendMessageToServer(text);
-            } else {
-                alert('Ошибка проверки прав');
             }
         });
         return;
@@ -573,22 +540,21 @@ function sendMessage() {
     if (currentChatId === CONFIG.BOTFATHER_ID || (dynamicChats[currentChatId] && dynamicChats[currentChatId].username === 'botfather')) {
         handleBotCommand(text);
         input.value = '';
-        document.getElementById('send-btn-icon').classList.remove('active');
+        const sendBtn = document.getElementById('send-btn-icon');
+        if (sendBtn) sendBtn.classList.remove('active');
         return;
     }
 
     sendMessageToServer(text);
 }
 
-// ============ ОТПРАВКА С ЛОКАЛЬНЫМ РЕНДЕРИНГОМ ============
 function sendMessageToServer(text) {
     const input = document.getElementById('message-field');
-    
-    // Локальное сообщение (сразу показываем)
     const tempId = 'temp_' + Date.now();
+    
     const localMsg = {
         id: tempId,
-        sender_id: MY_ID,
+        sender_id: window.MY_ID,
         receiver_id: currentChatId,
         text: text,
         timestamp: new Date().toISOString(),
@@ -596,55 +562,32 @@ function sendMessageToServer(text) {
         delivered: false
     };
     renderSingleMessageWithCheck(localMsg);
-    scrollToBottom();
+    if (window.scrollToBottom) window.scrollToBottom();
     
-    // Отправляем на сервер
-    socket.emit('send_message', { 
-        receiver_id: currentChatId, 
-        text: text 
-    }, (response) => {
+    socket.emit('send_message', { receiver_id: currentChatId, text: text }, (response) => {
         if (response && response.status === 'ok') {
-            // Удаляем временное сообщение
             const tempEl = document.querySelector(`[data-message-id="${tempId}"]`);
             if (tempEl) {
                 const wrapper = tempEl.closest('.message-wrapper');
                 if (wrapper) wrapper.remove();
                 renderedMessageIds.delete(tempId);
             }
-            // Рендерим реальное сообщение
             if (response.message) {
                 renderSingleMessageWithCheck(response.message);
-                scrollToBottom();
+                if (window.scrollToBottom) window.scrollToBottom();
             }
-            
-            const previewEl = document.getElementById(`preview-${currentChatId}`);
-            if (previewEl) {
-                let previewText = text;
-                const chatInfo = dynamicChats[currentChatId];
-                if (chatInfo) {
-                    if (chatInfo.chat_type === 'group') previewText = '👥 ' + previewText;
-                    if (chatInfo.chat_type === 'channel') previewText = '📢 ' + previewText;
-                }
-                previewEl.innerText = previewText;
-            }
-        } else {
-            // Если ошибка — удаляем временное
-            const tempEl = document.querySelector(`[data-message-id="${tempId}"]`);
-            if (tempEl) {
-                const wrapper = tempEl.closest('.message-wrapper');
-                if (wrapper) wrapper.remove();
-                renderedMessageIds.delete(tempId);
-            }
-            alert('❌ Ошибка отправки: ' + (response?.message || 'Неизвестная ошибка'));
         }
     });
 
-    input.value = '';
-    document.getElementById('send-btn-icon').classList.remove('active');
-    input.focus();
+    if (input) {
+        input.value = '';
+        const sendBtn = document.getElementById('send-btn-icon');
+        if (sendBtn) sendBtn.classList.remove('active');
+        input.focus();
+    }
 }
 
-// ============ РЕАКЦИИ ============
+// ============ СИСТЕМА РЕАКЦИЙ ============
 function showReactionPicker(messageId) {
     currentMessageId = messageId;
     let picker = document.getElementById('reaction-picker');
@@ -662,63 +605,34 @@ function showReactionPicker(messageId) {
     const msgEl = document.querySelector(`[data-message-id="${messageId}"]`);
     if (msgEl) {
         const rect = msgEl.getBoundingClientRect();
-        const pickerWidth = 220;
-        let left = rect.left + rect.width / 2 - pickerWidth / 2;
-        let top = rect.top - 55;
-        
-        if (top < 10) {
-            top = rect.bottom + 10;
-        }
-        
-        picker.style.left = `${Math.max(10, left)}px`;
-        picker.style.top = `${top}px`;
+        picker.style.left = `${Math.max(10, rect.left + rect.width / 2 - 110)}px`;
+        picker.style.top = `${rect.top - 55}px`;
         picker.style.display = 'flex';
-    } else {
-        picker.style.display = 'flex';
-        picker.style.left = '50%';
-        picker.style.top = '50%';
-        picker.style.transform = 'translate(-50%, -50%)';
     }
     
     clearTimeout(reactionPickerTimeout);
-    reactionPickerTimeout = setTimeout(() => {
-        hideReactionPicker();
-    }, 5000);
-    
-    document.getElementById('message-actions')?.classList.remove('active');
+    reactionPickerTimeout = setTimeout(hideReactionPicker, 5000);
+    const actions = document.getElementById('message-actions');
+    if (actions) actions.classList.remove('active');
 }
 
 function hideReactionPicker() {
     const picker = document.getElementById('reaction-picker');
-    if (picker) {
-        picker.style.display = 'none';
-    }
+    if (picker) picker.style.display = 'none';
 }
 
 function addReaction(emoji) {
-    if (!currentMessageId || !socket || !isConnected) {
-        console.log('❌ Нельзя добавить реакцию');
-        return;
-    }
+    if (!currentMessageId || !socket || !isConnected) return;
     
-    console.log(`😊 Добавление реакции ${emoji} на сообщение ${currentMessageId}`);
-    
-    socket.emit('add_reaction', { 
-        message_id: currentMessageId, 
-        reaction: emoji 
-    }, (response) => {
+    socket.emit('add_reaction', { message_id: currentMessageId, reaction: emoji }, (response) => {
         if (response && response.status === 'ok') {
-            console.log('✅ Реакция добавлена');
             if (response.reactions) {
                 updateReactionDisplayDirect(currentMessageId, response.reactions);
             } else {
                 updateReactionDisplay(currentMessageId);
             }
-        } else {
-            console.log('❌ Ошибка добавления реакции:', response);
         }
     });
-    
     hideReactionPicker();
 }
 
@@ -741,7 +655,6 @@ function updateReactionDisplayDirect(messageId, reactions) {
     }
     
     container.style.display = 'flex';
-    
     const grouped = {};
     reactions.forEach(r => {
         if (!grouped[r.reaction]) grouped[r.reaction] = [];
@@ -752,7 +665,6 @@ function updateReactionDisplayDirect(messageId, reactions) {
         const span = document.createElement('span');
         span.className = 'reaction-item';
         span.innerHTML = `${emoji} <span class="count">${users.length}</span>`;
-        span.title = users.map(id => `User ${id}`).join(', ');
         container.appendChild(span);
     });
 }
@@ -763,136 +675,67 @@ function updateReactionDisplay(messageId) {
     });
 }
 
-// ============ ОБРАБОТЧИКИ СОБЫТИЙ ============
-if (socket) {
-    socket.on('reaction_updated', (data) => {
-        console.log('📢 Обновление реакций:', data);
-        if (data.message_id && data.reactions) {
-            updateReactionDisplayDirect(data.message_id, data.reactions);
-        }
-    });
+// Экспортируем функцию реакций для глобального вызова из socket.js
+window.updateReactionDisplayDirect = updateReactionDisplayDirect;
 
-    socket.on('message_read', (data) => {
-        const msgEl = document.querySelector(`[data-message-id="${data.message_id}"]`);
-        if (msgEl) {
-            const ticks = msgEl.querySelector('.status-ticks');
-            if (ticks) {
-                ticks.className = 'status-ticks read';
-                ticks.innerHTML = `<svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4zm-4.24 0L12.35 5.59 6 11.94l1.41 1.41z"/><path d="M0 0h24v24H0z" fill="none"/></svg>`;
-            }
-        }
-    });
-}
-
-// ============ ОСТАЛЬНЫЕ ФУНКЦИИ (без изменений) ============
+// ============ ОСТАЛЬНОЙ ФУНКЦИОНАЛ (ПОИСК, ДЕЙСТВИЯ, BOTFATHER) ============
 function handleBotCommand(text) {
     const botResponse = emulateBotFather(text);
-    
-    const userMsg = {
-        id: Date.now().toString(),
-        sender_id: MY_ID,
-        receiver_id: CONFIG.BOTFATHER_ID,
-        text: text,
-        timestamp: new Date().toISOString(),
-        is_read: true
-    };
+    const userMsg = { id: Date.now().toString(), sender_id: window.MY_ID, receiver_id: CONFIG.BOTFATHER_ID, text: text, timestamp: new Date().toISOString(), is_read: true };
     renderSingleMessageWithCheck(userMsg);
     
     setTimeout(() => {
-        const botMsg = {
-            id: (Date.now() + 1).toString(),
-            sender_id: CONFIG.BOTFATHER_ID,
-            receiver_id: MY_ID,
-            text: botResponse,
-            timestamp: new Date().toISOString(),
-            is_read: true
-        };
+        const botMsg = { id: (Date.now() + 1).toString(), sender_id: CONFIG.BOTFATHER_ID, receiver_id: window.MY_ID, text: botResponse, timestamp: new Date().toISOString(), is_read: true };
         renderSingleMessageWithCheck(botMsg);
-        scrollToBottom();
+        if (window.scrollToBottom) window.scrollToBottom();
     }, 500);
 }
 
 function emulateBotFather(text) {
     const lower = text.toLowerCase().trim();
-    
-    if (lower === '/start') {
-        return `I can help you create and manage Telegram bots. If you're new to the Bot API, please see the manual.\n\nYou can control me by sending these commands:\n\n/newbot - create a new bot\n/mybots - edit your bots`;
-    }
-    
-    if (lower === '/newbot') {
-        return `Alright, a new bot. How are we going to call it? Please choose a name for your bot.`;
-    }
+    if (lower === '/start') return `I can help you create and manage Telegram bots.\n\n/newbot - create a new bot\n/mybots - edit your bots`;
+    if (lower === '/newbot') return `Alright, a new bot. How are we going to call it? Please choose a name for your bot.`;
     
     if (!window.botCreationStep) {
         window.botCreationStep = 'name';
-        window.botName = text;
-        return `Good. Now let's choose a username for your bot. It must end in \`bot\`. Like this, for example: TetrisBot or tetris_bot.`;
+        return `Good. Now let's choose a username for your bot. It must end in \`bot\`.`;
     } else if (window.botCreationStep === 'name') {
-        window.botName = text;
         window.botCreationStep = 'username';
-        return `Good. Now let's choose a username for your bot. It must end in \`bot\`. Like this, for example: TetrisBot or tetris_bot.`;
+        return `Good. Now let's choose a username for your bot.`;
     } else if (window.botCreationStep === 'username') {
-        const username = text.trim();
-        if (!username.endsWith('bot')) {
-            return `Sorry, the username must end with 'bot'. Please try again.`;
-        }
-        
-        if (window.createdBots && window.createdBots.includes(username)) {
-            return `Sorry, this username is invalid.`;
-        }
-        
-        if (!window.createdBots) window.createdBots = [];
-        window.createdBots.push(username);
+        if (!text.trim().endsWith('bot')) return `Sorry, the username must end with 'bot'.`;
         window.botCreationStep = null;
-        
-        const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-        return `Done! Congratulations on your new bot. You will find it at d.me/${username}. You can now add a description, about section and profile picture for your bot, see /help for a list of commands. By the way, when you've finished creating your cool bot, ping our Bot Support if you want a better username for it. Just make sure the bot is fully operational before you do this.\n\nUse this token to access the HTTP API:\n${token}\n\nKeep your token secure and store it safely, it can be used by anyone to control your bot.`;
+        return `Done! Congratulations on your new bot.\n\nUse this token to access the HTTP API:\n${Math.random().toString(36).substr(2)}${Math.random().toString(36).substr(2)}`;
     }
-    
-    return `I don't understand that command. Please use /start, /newbot, or /mybots.`;
+    return `I don't understand that command.`;
 }
 
 function handleSearch(query) {
     const resultsContainer = document.getElementById('search-results');
-    if (!query.trim()) {
-        resultsContainer.style.display = 'none';
-        resultsContainer.innerHTML = '';
-        return;
-    }
-
-    if (!socket || !isConnected) {
-        resultsContainer.style.display = 'block';
-        resultsContainer.innerHTML = '<div style="padding:10px 14px;color:var(--tg-text-secondary);">Нет соединения с сервером</div>';
-        return;
-    }
+    if (!resultsContainer) return;
+    if (!query.trim()) { resultsContainer.style.display = 'none'; return; }
 
     socket.emit('search_users', { query: query.trim() }, (results) => {
         resultsContainer.innerHTML = '';
         if (results && results.length > 0) {
             resultsContainer.style.display = 'block';
             results.forEach(user => {
-                if (user.telegram_id === MY_ID) return;
+                if (user.telegram_id === window.MY_ID) return;
                 const item = document.createElement('div');
                 item.className = 'search-result-item';
                 const isVerified = user.telegram_id === CONFIG.CREATOR_ID || user.is_verified || user.telegram_id === CONFIG.SUPPORT_ID;
-                const verifyBadge = isVerified ? `<span class="verified-check">✅</span>` : '';
                 item.innerHTML = `
                     <div class="chat-avatar" style="width:36px;height:36px;font-size:12px;background:linear-gradient(135deg, #5085b1, #366187)">
                         ${(user.first_name || 'U').substring(0,2).toUpperCase()}
                     </div>
                     <div>
-                        <div style="display:flex;align-items:center;gap:4px;font-weight:600;">${user.first_name || 'User'} ${verifyBadge}</div>
+                        <div style="font-weight:600;">${user.first_name || 'User'}</div>
                         <div style="font-size:12px;color:var(--tg-text-secondary);">@${user.username || ''}</div>
                     </div>
                 `;
                 item.onclick = () => {
-                    if (user.telegram_id === MY_ID) return;
                     if (!dynamicChats[user.telegram_id]) {
-                        dynamicChats[user.telegram_id] = {
-                            first_name: user.first_name || `User ${user.telegram_id}`,
-                            username: user.username || ''
-                        };
-                        createChatRow(user.telegram_id, user.first_name || `User ${user.telegram_id}`, user.username || '', isVerified);
+                        createChatRow(user.telegram_id, user.first_name, user.username, isVerified);
                     }
                     openChat(user.telegram_id);
                     resultsContainer.style.display = 'none';
@@ -900,157 +743,49 @@ function handleSearch(query) {
                 };
                 resultsContainer.appendChild(item);
             });
-        } else {
-            resultsContainer.style.display = 'block';
-            resultsContainer.innerHTML = '<div style="padding:10px 14px;color:var(--tg-text-secondary);">Пользователи не найдены</div>';
         }
     });
 }
 
 function showMessageActions(messageId) {
     const msgEl = document.querySelector(`[data-message-id="${messageId}"]`);
-    if (!msgEl) return;
+    const actions = document.getElementById('message-actions');
+    if (!msgEl || !actions) return;
     
     const wrapper = msgEl.closest('.message-wrapper');
     const isSent = wrapper.classList.contains('sent');
     
-    const actions = document.getElementById('message-actions');
-    
-    if (!isSent) {
-        actions.innerHTML = `
-            <button class="message-action-btn" onclick="replyToMessage()">↩ Ответить</button>
-            <button class="message-action-btn" onclick="forwardMessage()">📤 Переслать</button>
-            <button class="message-action-btn" onclick="copyMessage()">📋 Копировать</button>
-            <button class="message-action-btn" onclick="showReactionPicker('${messageId}')">😊 Реакция</button>
-        `;
-    } else {
-        actions.innerHTML = `
-            <button class="message-action-btn" onclick="replyToMessage()">↩ Ответить</button>
-            <button class="message-action-btn" onclick="forwardMessage()">📤 Переслать</button>
-            <button class="message-action-btn" onclick="copyMessage()">📋 Копировать</button>
-            <button class="message-action-btn" onclick="showReactionPicker('${messageId}')">😊 Реакция</button>
-            <button class="message-action-btn" onclick="editMessage()">✏️ Изменить</button>
-            <button class="message-action-btn danger" onclick="deleteMessage()">🗑 Удалить</button>
-            <button class="message-action-btn" onclick="pinMessage()">📌 Закрепить</button>
-        `;
-    }
-    
+    actions.innerHTML = `
+        <button class="message-action-btn" onclick="copyMessage()">📋 Копировать</button>
+        <button class="message-action-btn" onclick="showReactionPicker('${messageId}')">😊 Реакция</button>
+        ${isSent ? `<button class="message-action-btn danger" onclick="deleteMessage()">🗑 Удалить</button>` : ''}
+    `;
     actions.classList.toggle('active');
     selectedMessageId = messageId;
-}
-
-function replyToMessage() {
-    const text = prompt('Введите ответ:');
-    if (text && text.trim()) {
-        socket.emit('send_message', { 
-            receiver_id: currentChatId, 
-            text: text.trim(),
-            reply_to_id: selectedMessageId
-        }, (response) => {
-            if (response && response.status === 'ok') {
-                scrollToBottom();
-            }
-        });
-    }
-    document.getElementById('message-actions').classList.remove('active');
-}
-
-function forwardMessage() {
-    const chatId = prompt('Введите ID пользователя для пересылки:');
-    if (chatId && chatId.trim()) {
-        socket.emit('forward_message', { 
-            message_id: selectedMessageId,
-            to_id: chatId.trim()
-        }, (response) => {
-            if (response && response.status === 'ok') {
-                alert('✅ Сообщение переслано');
-            }
-        });
-    }
-    document.getElementById('message-actions').classList.remove('active');
 }
 
 function copyMessage() {
     const msgEl = document.querySelector(`[data-message-id="${selectedMessageId}"]`);
     if (msgEl) {
-        const text = msgEl.querySelector('span').innerText;
-        navigator.clipboard.writeText(text).then(() => {
-            alert('📋 Сообщение скопировано');
-        });
+        navigator.clipboard.writeText(msgEl.querySelector('span').innerText);
     }
-    document.getElementById('message-actions').classList.remove('active');
-}
-
-function editMessage() {
-    const newText = prompt('Введите новый текст:');
-    if (newText && newText.trim()) {
-        socket.emit('edit_message', { 
-            message_id: selectedMessageId,
-            text: newText.trim()
-        }, (response) => {
-            if (response && response.status === 'ok') {
-                const msgEl = document.querySelector(`[data-message-id="${selectedMessageId}"]`);
-                if (msgEl) {
-                    const textSpan = msgEl.querySelector('span');
-                    if (textSpan) {
-                        textSpan.innerHTML = formatMessageText(newText.trim());
-                    }
-                }
-                document.getElementById('message-actions').classList.remove('active');
-            }
-        });
-    }
+    if (document.getElementById('message-actions')) document.getElementById('message-actions').classList.remove('active');
 }
 
 function deleteMessage() {
-    if (confirm('🗑 Удалить сообщение?')) {
-        socket.emit('delete_message', { message_id: selectedMessageId }, (response) => {
-            if (response && response.status === 'ok') {
-                const msgEl = document.querySelector(`[data-message-id="${selectedMessageId}"]`);
-                if (msgEl) {
-                    msgEl.closest('.message-wrapper').remove();
-                }
-                document.getElementById('message-actions').classList.remove('active');
-            }
-        });
-    }
-}
-
-function pinMessage() {
-    socket.emit('pin_message', { message_id: selectedMessageId }, (response) => {
+    socket.emit('delete_message', { message_id: selectedMessageId }, (response) => {
         if (response && response.status === 'ok') {
-            alert('📌 Сообщение закреплено');
+            const msgEl = document.querySelector(`[data-message-id="${selectedMessageId}"]`);
+            if (msgEl) msgEl.closest('.message-wrapper').remove();
         }
     });
-    document.getElementById('message-actions').classList.remove('active');
+    if (document.getElementById('message-actions')) document.getElementById('message-actions').classList.remove('active');
 }
 
-// Закрываем пикер при клике вне его
 document.addEventListener('click', function(e) {
     const picker = document.getElementById('reaction-picker');
-    if (picker && picker.style.display === 'flex') {
-        if (!picker.contains(e.target)) {
-            hideReactionPicker();
-        }
-    }
+    if (picker && picker.style.display === 'flex' && !picker.contains(e.target)) hideReactionPicker();
 });
 
-// ============ АВТОЗАГРУЗКА ПРИ ПОДКЛЮЧЕНИИ ============
-// Вызываем initChats сразу, и при каждом возврате на вкладку
-setTimeout(() => {
-    initChats();
-}, 500);
-
-// Также перезагружаем чаты при переключении на вкладку "Чаты"
-document.addEventListener('visibilitychange', function() {
-    if (!document.hidden) {
-        console.log('👁️ Страница снова активна, перезагружаем чаты');
-        initChats();
-    }
-});
-
-// Если есть кнопка переключения вкладок, можно добавить вызов при клике на "Чаты"
-// Но это уже реализовано через switchTab в ui.js (там вызывается loadContacts, но не loadChats)
-// Можно добавить в switchTab вызов loadChatsAndMessages, если вкладка "chats"
-
+setTimeout(initChats, 500);
 console.log('✅ Chat module loaded (исправленная версия)');

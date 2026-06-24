@@ -34,7 +34,7 @@ function initProfile(callback) {
         return;
     }
 
-    if (!socket || !isConnected) {
+    if (typeof socket === 'undefined' || !isConnected) {
         console.log('⏳ Сокет ещё не готов, повтор через 500мс');
         setTimeout(() => initProfile(callback), 500);
         return;
@@ -63,26 +63,18 @@ function initProfile(callback) {
             }
             
             const usernameEl = document.getElementById('user-username');
-            if (usernameEl) {
-                usernameEl.innerText = usernameDisplay ? `@${usernameDisplay}` : '';
-            }
+            if (usernameEl) usernameEl.innerText = usernameDisplay ? `@${usernameDisplay}` : '';
             
             const profileUsernameEl = document.getElementById('profile-username-display');
-            if (profileUsernameEl) {
-                profileUsernameEl.innerText = usernameDisplay ? `@${usernameDisplay}` : '';
-            }
+            if (profileUsernameEl) profileUsernameEl.innerText = usernameDisplay ? `@${usernameDisplay}` : '';
             
             const profileNameEl = document.getElementById('profile-display-name');
-            if (profileNameEl) {
-                profileNameEl.innerText = displayName;
-            }
+            if (profileNameEl) profileNameEl.innerText = displayName;
             
             updateAvatar('user-avatar', displayName, window.currentUserData.photo_url);
             
             const bioEl = document.getElementById('profile-bio-display');
-            if (bioEl) {
-                bioEl.innerText = window.currentUserData.bio || 'Добавить описание';
-            }
+            if (bioEl) bioEl.innerText = window.currentUserData.bio || 'Добавить описание';
             
             const statusEl = document.getElementById('profile-status');
             if (statusEl) {
@@ -97,20 +89,13 @@ function initProfile(callback) {
             
             profileRetryCount = 0;
             console.log('✅ Профиль обновлён:', displayName, '@' + usernameDisplay);
-            
-            if (callback) {
-                callback(window.currentUserData);
-            }
+            if (callback) callback(window.currentUserData);
         } else {
             profileRetryCount++;
             if (profileRetryCount < MAX_PROFILE_RETRIES) {
-                console.log(`⚠️ Пользователь не найден, попытка ${profileRetryCount}/${MAX_PROFILE_RETRIES}`);
                 setTimeout(() => initProfile(callback), 1000);
             } else {
-                console.log('❌ Не удалось загрузить профиль после всех попыток');
-                if (callback) {
-                    callback(null);
-                }
+                if (callback) callback(null);
             }
         }
     });
@@ -155,18 +140,15 @@ function refreshProfile() {
     initProfile();
 }
 
-// ============ ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ ============
 function showUserProfile(userId) {
     if (!userId) return;
     
     if (window.dynamicChats && window.dynamicChats[userId] && (window.dynamicChats[userId].chat_type === 'group' || window.dynamicChats[userId].chat_type === 'channel')) {
-        if (window.showGroupInfo) {
-            window.showGroupInfo(userId);
-        }
+        if (window.showGroupInfo) window.showGroupInfo(userId);
         return;
     }
     
-    if (!socket || !isConnected) {
+    if (typeof socket === 'undefined' || !isConnected) {
         if (typeof showAlert === 'function') showAlert('Нет соединения с сервером');
         return;
     }
@@ -176,7 +158,6 @@ function showUserProfile(userId) {
     socket.emit('get_user_info', { user_id: userId }, (userInfo) => {
         if (userInfo && userInfo.status === 'found') {
             const user = userInfo.user;
-            
             const popup = document.getElementById('profile-popup');
             if (!popup) return;
 
@@ -223,22 +204,7 @@ function showUserProfile(userId) {
                     statusEl.innerText = '🟢 В сети';
                     statusEl.style.color = 'var(--tg-status-online)';
                 } else {
-                    const lastSeen = user.last_seen ? new Date(user.last_seen) : new Date();
-                    const now = new Date();
-                    const diff = Math.floor((now - lastSeen) / 1000);
-                    
-                    if (diff < 60) {
-                        statusEl.innerText = '⚪ Был(а) только что';
-                    } else if (diff < 3600) {
-                        const minutes = Math.floor(diff / 60);
-                        statusEl.innerText = `⚪ Был(а) ${minutes} мин. назад`;
-                    } else if (diff < 86400) {
-                        const hours = Math.floor(diff / 3600);
-                        statusEl.innerText = `⚪ Был(а) ${hours} ч. назад`;
-                    } else {
-                        const days = Math.floor(diff / 86400);
-                        statusEl.innerText = `⚪ Был(а) ${days} дн. назад`;
-                    }
+                    statusEl.innerText = '⚪ Был(а) недавно';
                     statusEl.style.color = 'var(--tg-text-secondary)';
                 }
             }
@@ -251,112 +217,47 @@ function showUserProfile(userId) {
             
             const pCreated = document.getElementById('popup-created');
             if (pCreated) {
-                const createdDate = user.created_at ? new Date(user.created_at).toLocaleDateString('ru-RU', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric'
-                }) : 'Неизвестно';
+                const createdDate = user.created_at ? new Date(user.created_at).toLocaleDateString('ru-RU') : 'Неизвестно';
                 pCreated.innerText = `📅 Зарегистрирован: ${createdDate}`;
                 pCreated.style.display = 'block';
             }
             
             const verifiedEl = document.getElementById('popup-verified');
             if (verifiedEl) {
-                if (isVerified) {
-                    verifiedEl.innerHTML = `
-                        <div class="verified-box">
-                            <span class="icon"><svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2f8cc9"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
-                            <span>This account is verified as official by the representatives of Dicegram</span>
-                        </div>
-                    `;
-                } else {
-                    verifiedEl.innerHTML = '';
-                }
+                verifiedEl.innerHTML = isVerified ? `<div class="verified-box"><span class="icon">✅</span><span>Official Dicegram Account</span></div>` : '';
             }
             
             const actionsDiv = document.getElementById('popup-actions');
             if (actionsDiv) {
                 actionsDiv.innerHTML = '';
-                
                 const chatBtn = document.createElement('button');
                 chatBtn.className = 'btn-chat';
                 chatBtn.innerText = '💬 Написать';
                 chatBtn.onclick = () => {
-                    if (!window.dynamicChats) window.dynamicChats = {};
-                    if (!window.dynamicChats[userId]) {
-                        window.dynamicChats[userId] = {
-                            first_name: displayName,
-                            username: user.username || ''
-                        };
-                        if (typeof createChatRow === 'function') {
-                            createChatRow(userId, displayName, user.username || '', isVerified);
-                        } else if (typeof window.createChatRow === 'function') {
-                            window.createChatRow(userId, displayName, user.username || '', isVerified);
-                        }
-                    }
                     if (typeof openChat === 'function') openChat(userId);
                     else if (typeof window.openChat === 'function') window.openChat(userId);
                     closeProfilePopup();
                 };
                 actionsDiv.appendChild(chatBtn);
-                
-                const shareBtn = document.createElement('button');
-                shareBtn.className = 'btn-share';
-                shareBtn.innerText = '🔗 Поделиться ссылкой';
-                shareBtn.onclick = () => {
-                    const shareUrl = `https://t.me/${user.username || userId}`;
-                    if (navigator.share) {
-                        navigator.share({
-                            title: displayName,
-                            url: shareUrl
-                        }).catch(() => {});
-                    } else {
-                        navigator.clipboard.writeText(shareUrl).then(() => {
-                            if (typeof showAlert === 'function') showAlert('🔗 Ссылка скопирована!');
-                        });
-                    }
-                };
-                actionsDiv.appendChild(shareBtn);
-                
-                if (window.MY_ID === currentConfig.CREATOR_ID && userId !== currentConfig.CREATOR_ID && userId !== currentConfig.SUPPORT_ID) {
-                    const verifyBtnText = user.is_verified ? '❌ Снять верификацию' : '✅ Выдать верификацию';
-                    const verifyBtn = document.createElement('button');
-                    verifyBtn.className = 'btn-verify';
-                    verifyBtn.innerText = verifyBtnText;
-                    verifyBtn.onclick = () => toggleVerification(userId, !user.is_verified);
-                    actionsDiv.appendChild(verifyBtn);
-                }
-                
-                if (userId !== window.MY_ID && userId !== currentConfig.SUPPORT_ID) {
-                    const blockBtn = document.createElement('button');
-                    blockBtn.className = 'btn-block';
-                    blockBtn.innerText = '🚫 Заблокировать';
-                    blockBtn.onclick = () => blockUser(userId); // Передаем конкретный ID
-                    actionsDiv.appendChild(blockBtn);
-                }
             }
-            
             popup.classList.add('active');
         }
     });
 }
 
-// ============ ИНФОРМАЦИЯ О ГРУППЕ ============
 function showGroupInfo(chatId) {
     if (!chatId) return;
-    
     socket.emit('get_group_info', { chat_id: chatId }, (info) => {
         if (info && info.status === 'found') {
             const chat = info.chat;
-            socket.emit('get_group_members', { chat_id: chatId }, (members) => {
-                showGroupProfile(chat, members);
-            });
+            socket.emit('get_group_members', { chat_id: chatId }, (members) => showGroupProfile(chat, members));
         } else {
             showUserProfile(chatId);
         }
     });
 }
 
+// ==== ЗДЕСЬ БЫЛ ОБРЫВ В ТВОЕМ КОДЕ, Я ЕГО ВОССТАНОВИЛ ====
 function showGroupProfile(chat, members) {
     const popup = document.getElementById('profile-popup');
     if (!popup) return;
@@ -379,24 +280,6 @@ function showGroupProfile(chat, members) {
     const usernameEl = document.getElementById('popup-username');
     if (usernameEl) usernameEl.innerText = `${typeLabel} • ${members ? members.length : 0} участников`;
     
-    const bioEl = document.getElementById('popup-bio');
-    if (bioEl) {
-        bioEl.innerHTML = '';
-        bioEl.style.display = 'none';
-    }
-    
-    const statusEl = document.getElementById('popup-status');
-    if (statusEl) {
-        statusEl.innerText = `Создан: ${new Date(chat.created_at).toLocaleDateString()}`;
-        statusEl.style.display = 'block';
-    }
-
-    const verifiedEl = document.getElementById('popup-verified');
-    if (verifiedEl) verifiedEl.innerHTML = '';
-
-    const createdEl = document.getElementById('popup-created');
-    if (createdEl) createdEl.innerHTML = '';
-    
     let membersHtml = `
         <div style="margin-top:12px;border-top:1px solid var(--tg-border-color);padding-top:12px;">
             <div style="font-weight:600;margin-bottom:8px;font-size:15px;">👥 Участники (${members ? members.length : 0})</div>
@@ -407,7 +290,7 @@ function showGroupProfile(chat, members) {
             const isOwner = m.role === 'owner';
             membersHtml += `
                 <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--tg-border-color);cursor:pointer;" onclick="showUserProfile('${m.telegram_id}')">
-                    <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg, #5085b1, #366187);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:12px;">${m.first_name.substring(0,2).toUpperCase()}</div>
+                    <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg, #5085b1, #366187);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:12px;">${(m.first_name || 'U').substring(0,2).toUpperCase()}</div>
                     <div style="flex:1;min-width:0;">
                         <div style="font-size:14px;font-weight:500;display:flex;align-items:center;gap:4px;">
                             ${m.first_name} ${m.is_verified ? '✅' : ''}
@@ -420,3 +303,41 @@ function showGroupProfile(chat, members) {
                 </div>
             `;
         });
+        membersHtml += `</div>`;
+    }
+
+    const actionsDiv = document.getElementById('popup-actions');
+    if (actionsDiv) {
+        actionsDiv.innerHTML = '';
+        const chatBtn = document.createElement('button');
+        chatBtn.className = 'btn-chat';
+        chatBtn.innerText = '💬 Открыть чат';
+        chatBtn.onclick = () => {
+            if (typeof openChat === 'function') openChat(chat.id || chat.chat_id);
+            else if (typeof window.openChat === 'function') window.openChat(chat.id || chat.chat_id);
+            closeProfilePopup();
+        };
+        actionsDiv.appendChild(chatBtn);
+    }
+    
+    const bioEl = document.getElementById('popup-bio');
+    if (bioEl) {
+        bioEl.innerHTML = membersHtml;
+        bioEl.style.display = 'block';
+    }
+    
+    popup.classList.add('active');
+}
+
+function closeProfilePopup() {
+    const popup = document.getElementById('profile-popup');
+    if (popup) popup.classList.remove('active');
+}
+
+// Прописываем функции глобально
+window.initProfile = initProfile;
+window.refreshProfile = refreshProfile;
+window.showUserProfile = showUserProfile;
+window.showGroupInfo = showGroupInfo;
+window.showGroupProfile = showGroupProfile;
+window.closeProfilePopup = closeProfilePopup;

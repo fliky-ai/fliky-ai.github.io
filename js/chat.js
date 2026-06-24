@@ -1,4 +1,4 @@
-here// ============ ЛОГИКА ЧАТОВ ============
+// ============ ЛОГИКА ЧАТОВ ============
 let currentChatId = null;
 let dynamicChats = {};
 let unreadCounts = {};
@@ -64,7 +64,7 @@ function loadChatsAndMessages() {
         }
         chatsList.innerHTML = '';
         
-        // Всегда добавляем SUPPORT и BOTFATHER
+        // Всегда добавляем SUPPORT с галочкой
         createChatRow(CONFIG.SUPPORT_ID, 'DICEGRAM SUPPORT', 'dicegram_support', true);
         createChatRow(CONFIG.BOTFATHER_ID, 'BotFather', 'botfather', false);
         
@@ -217,7 +217,7 @@ function openChat(chatId) {
     }
 
     currentChatId = chatId;
-    renderedMessageIds.clear(); // Очищаем кэш
+    renderedMessageIds.clear();
     
     unreadCounts[chatId] = 0;
     updateUnreadBadge(chatId, 0);
@@ -251,15 +251,14 @@ function openChat(chatId) {
         });
     }
 
-    // Приветствие SUPPORT
+    // ============ ПРИВЕТСТВИЕ DICEGRAM SUPPORT С ГАЛОЧКОЙ ============
     if (chatId === CONFIG.SUPPORT_ID) {
         titleEl.innerHTML = `DICEGRAM SUPPORT ${BLUE_VERIFY_SVG}`;
         document.getElementById('chat-room-status').innerText = 'официальный аккаунт';
 
-        const tgUserData = window.Telegram?.WebApp?.initDataUnsafe?.user;
-        const finalName = tgUserData?.first_name || tgUser.first_name || 'Пользователь';
-        const finalUsername = tgUserData?.username || tgUser.username || 'не установлен';
-        const finalId = tgUserData?.id || MY_ID || '8771009385';
+        const finalId = MY_ID || '8771009385';
+        const finalName = tgUser?.first_name || 'Пользователь';
+        const finalUsername = tgUser?.username || 'не установлен';
 
         const welcomeMsg = {
             id: 'welcome_msg_static',
@@ -436,27 +435,22 @@ function closeChat() {
     sendBtn.style.cursor = 'pointer';
 }
 
-// ============ ФИНАЛЬНАЯ ИСПРАВЛЕННАЯ ОБРАБОТКА НОВОГО СООБЩЕНИЯ ============
+// ============ ОБРАБОТКА НОВОГО СООБЩЕНИЯ ============
 function handleNewMessage(msg) {
     console.log('📩 Новое сообщение:', msg, 'currentChatId:', currentChatId);
     
-    // Определяем ID чата (для групповых — это receiver_id)
     let chatId = msg.receiver_id;
     if (msg.sender_id === MY_ID) {
         chatId = msg.receiver_id;
     } else if (msg.receiver_id === MY_ID) {
         chatId = msg.sender_id;
     }
-    // Для групповых сообщений от других пользователей receiver_id — это ID группы
     
-    // Если сообщение системное
     if (msg.sender_id === 'system') {
-        // Если это системное сообщение для группы, и мы в этой группе — рендерим
         if (currentChatId === msg.receiver_id) {
             renderSingleMessageWithCheck(msg);
             scrollToBottom();
         }
-        // Обновляем превью в списке
         const previewEl = document.getElementById(`preview-${msg.receiver_id}`);
         if (previewEl) {
             let previewText = msg.text;
@@ -467,25 +461,21 @@ function handleNewMessage(msg) {
         return;
     }
     
-    // Проверяем, открыт ли этот чат
     const isCurrentChat = currentChatId === chatId;
     
     if (isCurrentChat) {
-        // Если чат открыт — рендерим сообщение
         renderSingleMessageWithCheck(msg);
         scrollToBottom();
         if (msg.sender_id !== MY_ID) {
             socket.emit('mark_as_read', { chat_id: chatId });
         }
     } else {
-        // Если чат не открыт — увеличиваем счётчик непрочитанных
         if (msg.sender_id !== MY_ID) {
             unreadCounts[chatId] = (unreadCounts[chatId] || 0) + 1;
             updateUnreadBadge(chatId, unreadCounts[chatId]);
         }
     }
     
-    // Обновляем превью в списке чатов
     const previewEl = document.getElementById(`preview-${chatId}`);
     if (previewEl) {
         let previewText = msg.text;
@@ -497,13 +487,11 @@ function handleNewMessage(msg) {
         previewEl.innerText = previewText;
     }
     
-    // Обновляем время
     const timeEl = document.getElementById(`time-${chatId}`);
     if (timeEl && msg.timestamp) {
         timeEl.innerText = getLocalTime(msg.timestamp);
     }
     
-    // Если чата нет в списке — создаём
     if (chatId && chatId !== MY_ID && !dynamicChats[chatId]) {
         socket.emit('get_group_info', { chat_id: chatId }, (groupInfo) => {
             if (groupInfo && groupInfo.status === 'found') {
@@ -580,11 +568,9 @@ function sendMessage() {
     sendMessageToServer(text);
 }
 
-// ============ ОТПРАВКА С ЛОКАЛЬНЫМ РЕНДЕРИНГОМ ============
 function sendMessageToServer(text) {
     const input = document.getElementById('message-field');
     
-    // Локальное сообщение (сразу показываем)
     const tempId = 'temp_' + Date.now();
     const localMsg = {
         id: tempId,
@@ -598,20 +584,17 @@ function sendMessageToServer(text) {
     renderSingleMessageWithCheck(localMsg);
     scrollToBottom();
     
-    // Отправляем на сервер
     socket.emit('send_message', { 
         receiver_id: currentChatId, 
         text: text 
     }, (response) => {
         if (response && response.status === 'ok') {
-            // Удаляем временное сообщение
             const tempEl = document.querySelector(`[data-message-id="${tempId}"]`);
             if (tempEl) {
                 const wrapper = tempEl.closest('.message-wrapper');
                 if (wrapper) wrapper.remove();
                 renderedMessageIds.delete(tempId);
             }
-            // Рендерим реальное сообщение
             if (response.message) {
                 renderSingleMessageWithCheck(response.message);
                 scrollToBottom();
@@ -628,7 +611,6 @@ function sendMessageToServer(text) {
                 previewEl.innerText = previewText;
             }
         } else {
-            // Если ошибка — удаляем временное
             const tempEl = document.querySelector(`[data-message-id="${tempId}"]`);
             if (tempEl) {
                 const wrapper = tempEl.closest('.message-wrapper');
@@ -700,8 +682,6 @@ function addReaction(emoji) {
         console.log('❌ Нельзя добавить реакцию');
         return;
     }
-    
-    console.log(`😊 Добавление реакции ${emoji} на сообщение ${currentMessageId}`);
     
     socket.emit('add_reaction', { 
         message_id: currentMessageId, 
@@ -784,7 +764,7 @@ if (socket) {
     });
 }
 
-// ============ ОСТАЛЬНЫЕ ФУНКЦИИ (без изменений) ============
+// ============ БОТФАТЕР ============
 function handleBotCommand(text) {
     const botResponse = emulateBotFather(text);
     
@@ -852,6 +832,7 @@ function emulateBotFather(text) {
     return `I don't understand that command. Please use /start, /newbot, or /mybots.`;
 }
 
+// ============ ПОИСК ============
 function handleSearch(query) {
     const resultsContainer = document.getElementById('search-results');
     if (!query.trim()) {
@@ -907,6 +888,7 @@ function handleSearch(query) {
     });
 }
 
+// ============ ДЕЙСТВИЯ С СООБЩЕНИЯМИ ============
 function showMessageActions(messageId) {
     const msgEl = document.querySelector(`[data-message-id="${messageId}"]`);
     if (!msgEl) return;
@@ -1035,13 +1017,11 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// ============ АВТОЗАГРУЗКА ПРИ ПОДКЛЮЧЕНИИ ============
-// Вызываем initChats сразу, и при каждом возврате на вкладку
+// ============ АВТОЗАГРУЗКА ============
 setTimeout(() => {
     initChats();
 }, 500);
 
-// Также перезагружаем чаты при переключении на вкладку "Чаты"
 document.addEventListener('visibilitychange', function() {
     if (!document.hidden) {
         console.log('👁️ Страница снова активна, перезагружаем чаты');
@@ -1049,8 +1029,4 @@ document.addEventListener('visibilitychange', function() {
     }
 });
 
-// Если есть кнопка переключения вкладок, можно добавить вызов при клике на "Чаты"
-// Но это уже реализовано через switchTab в ui.js (там вызывается loadContacts, но не loadChats)
-// Можно добавить в switchTab вызов loadChatsAndMessages, если вкладка "chats"
-
-console.log('✅ Chat module loaded (исправленная версия)');
+console.log('✅ Chat module loaded');

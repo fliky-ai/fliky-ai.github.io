@@ -18,7 +18,7 @@ let renderedMessageIds = new Set();
 // ============ ИНИЦИАЛИЗАЦИЯ ЧАТОВ ============
 function initChats() {
     console.log('🔄 initChats() вызван');
-    if (socket && isConnected) {
+    if (window.socket && window.isConnected) {
         loadChatsAndMessages();
     } else {
         console.log('⏳ Сокет ещё не готов, повтор через 1 сек');
@@ -28,13 +28,13 @@ function initChats() {
 
 // ============ ЗАГРУЗКА ЧАТОВ ============
 function loadChatsAndMessages() {
-    if (!socket || !isConnected) {
+    if (!window.socket || !window.isConnected) {
         console.log('⏳ Ожидание соединения...');
         setTimeout(loadChatsAndMessages, 1000);
         return;
     }
 
-    console.log('📥 Загрузка чатов...');
+    console.log('📥 Загрузка чатов с сервера...');
     
     if (!dynamicChats[CONFIG.SUPPORT_ID]) {
         dynamicChats[CONFIG.SUPPORT_ID] = {
@@ -54,8 +54,8 @@ function loadChatsAndMessages() {
         };
     }
 
-    socket.emit('get_all_chats', {}, (chats) => {
-        console.log('📨 Получены чаты:', chats?.length || 0);
+    window.socket.emit('get_all_chats', {}, (chats) => {
+        console.log('📨 Получены чаты от бэка:', chats?.length || 0);
         
         const chatsList = document.getElementById('chats-list');
         if (!chatsList) {
@@ -64,17 +64,20 @@ function loadChatsAndMessages() {
         }
         chatsList.innerHTML = '';
         
-        createChatRow(CONFIG.SUPPORT_ID, 'DICEGRAM SUPPORT', 'dicegram_support', true);
-        createChatRow(CONFIG.BOTFATHER_ID, 'BotFather', 'botfather', false);
+        // Рендерим служебные системные чаты по дефолту
+        createChatRow(CONFIG.SUPPORT_ID, 'DICEGRAM SUPPORT', 'dicegram_support', true, 'private');
+        createChatRow(CONFIG.BOTFATHER_ID, 'BotFather', 'botfather', false, 'private');
         
         if (chats && Array.isArray(chats)) {
             chats.forEach(chat => {
+                // ФИКС: Учитываем, что бэкенд для групп может возвращать chat_id напрямую
                 const partnerId = String(chat.chat_id || chat.partner_id);
-                const chatType = chat.type || 'private';
+                const chatType = chat.type || chat.chat_type || 'private';
                 
-                if (partnerId && partnerId !== MY_ID && 
-                    partnerId !== CONFIG.SUPPORT_ID && 
-                    partnerId !== CONFIG.BOTFATHER_ID) {
+                // Проверяем, чтобы мы случайно не продублировали саппорт/ботфазер или себя
+                if (partnerId && partnerId !== window.MY_ID && 
+                    partnerId !== String(CONFIG.SUPPORT_ID) && 
+                    partnerId !== String(CONFIG.BOTFATHER_ID)) {
                     
                     if (!dynamicChats[partnerId]) {
                         dynamicChats[partnerId] = {
@@ -133,15 +136,18 @@ function createChatRow(tgId, firstName, username, isVerified = false, chatType =
         };
     } else {
         dynamicChats[stringId].is_verified = isVerified;
+        dynamicChats[stringId].chat_type = chatType; // ФИКС: Всегда синхронизируем тип чата
     }
     
     const chatsList = document.getElementById('chats-list');
     if (!chatsList) return;
+    
+    // Если строка уже есть на экране, просто выходим
     if (document.getElementById(`chat-item-${stringId}`)) return;
     
     const isBotFather = username === 'botfather';
-    const isSupport = stringId === CONFIG.SUPPORT_ID;
-    const verified = isSupport || stringId === CONFIG.CREATOR_ID || isVerified;
+    const isSupport = stringId === String(CONFIG.SUPPORT_ID);
+    const verified = isSupport || stringId === String(CONFIG.CREATOR_ID) || isVerified;
     const showVerifiedBadge = verified && chatType === 'private';
     
     const verifiedIcon = showVerifiedBadge ? BLUE_VERIFY_SVG : '';
@@ -151,7 +157,7 @@ function createChatRow(tgId, firstName, username, isVerified = false, chatType =
     if (isBotFather) {
         avatarBg = 'linear-gradient(135deg, #2a9d8f, #264653)';
     } else if (isSupport) {
-        avatarBg = 'linear-gradient(135deg, #1e2c3a, #0f171e)'; // Тотально темный для саппорта
+        avatarBg = 'linear-gradient(135deg, #1e2c3a, #0f171e)'; 
     } else if (chatType === 'group') {
         avatarBg = 'linear-gradient(135deg, #e76f51, #f4a261)';
     } else if (chatType === 'channel') {
@@ -197,12 +203,13 @@ function openChat(chatId) {
     console.log('📂 openChat вызван с ID:', chatId);
     if (!chatId) return;
     
-    if (!socket || !isConnected) {
-        showAlert('Нет соединения с сервером');
+    if (!window.socket || !window.isConnected) {
+        alert('Нет соединения с сервером');
         return;
     }
 
     currentChatId = String(chatId);
+    window.currentChatId = currentChatId; // Экспортируем в глобальный стейт
     renderedMessageIds.clear();
     
     unreadCounts[currentChatId] = 0;
@@ -224,19 +231,19 @@ function openChat(chatId) {
     messagesContainer.innerHTML = '';
 
     if (chatType === 'group' || chatType === 'channel') {
-        socket.emit('join_chat', { chat_id: currentChatId }, (response) => {
-            if (response && response.status === 'ok') console.log(`✅ Вошел в комнату: ${currentChatId}`);
+        window.socket.emit('join_chat', { chat_id: currentChatId }, (response) => {
+            if (response && response.status === 'ok') console.log(`✅ Вошел в комнату сокетов: ${currentChatId}`);
         });
     }
 
-    // Универсальное динамическое приветствие: подтягивает данные из window.tgUser
-    if (currentChatId === CONFIG.SUPPORT_ID) {
+    // Динамический рендер DICEGRAM SUPPORT
+    if (currentChatId === String(CONFIG.SUPPORT_ID)) {
         titleEl.innerHTML = `DICEGRAM SUPPORT ${BLUE_VERIFY_SVG}`;
         document.getElementById('chat-room-status').innerText = 'официальный аккаунт';
 
-        const finalId = MY_ID || 'Не определен';
+        const finalId = window.MY_ID || 'Не определен';
         const finalName = window.tgUser?.first_name || 'Пользователь';
-        const finalUsername = MY_USERNAME ? `@${MY_USERNAME}` : 'не установлен';
+        const finalUsername = window.MY_USERNAME ? `@${window.MY_USERNAME}` : 'не установлен';
 
         const welcomeMsg = {
             id: 'welcome_msg_static',
@@ -249,13 +256,13 @@ function openChat(chatId) {
         renderSingleMessageWithCheck(welcomeMsg);
     }
 
-    socket.emit('get_user_info', { user_id: currentChatId }, (userInfo) => {
+    window.socket.emit('get_user_info', { user_id: currentChatId }, (userInfo) => {
         if (userInfo && userInfo.status === 'found') {
-            const isVerifiedUser = userInfo.user.is_verified || currentChatId === CONFIG.SUPPORT_ID || currentChatId === CONFIG.CREATOR_ID;
-            if (isVerifiedUser && currentChatId !== CONFIG.SUPPORT_ID) {
+            const isVerifiedUser = userInfo.user.is_verified || currentChatId === String(CONFIG.SUPPORT_ID) || currentChatId === String(CONFIG.CREATOR_ID);
+            if (isVerifiedUser && currentChatId !== String(CONFIG.SUPPORT_ID)) {
                 titleEl.innerHTML = `${titleEl.innerText} ${BLUE_VERIFY_SVG}`;
             }
-            if (currentChatId !== CONFIG.SUPPORT_ID) {
+            if (currentChatId !== String(CONFIG.SUPPORT_ID)) {
                 document.getElementById('chat-room-status').innerText = userInfo.user.is_online ? '🟢 в сети' : 'был(а) недавно';
             }
         } else {
@@ -265,21 +272,23 @@ function openChat(chatId) {
         }
     });
 
-    document.getElementById('bottom-navigation').style.display = 'none';
-    document.getElementById('chat-room').style.display = 'flex';
+    const bottomNav = document.getElementById('bottom-navigation');
+    if (bottomNav) bottomNav.style.display = 'none';
+    
+    const chatRoom = document.getElementById('chat-room');
+    if (chatRoom) chatRoom.style.display = 'flex';
 
-    socket.emit('get_chat_history', { with_id: currentChatId }, (history) => {
+    window.socket.emit('get_chat_history', { with_id: currentChatId }, (history) => {
         if (history && Array.isArray(history)) {
             history.forEach(msg => {
-                if (currentChatId === CONFIG.SUPPORT_ID && msg.text && msg.text.includes("Вы успешно авторизовались")) return; 
+                if (currentChatId === String(CONFIG.SUPPORT_ID) && msg.text && msg.text.includes("Вы успешно авторизовались")) return; 
                 renderSingleMessageWithCheck(msg);
             });
             scrollToBottom();
         }
     });
 
-    socket.emit('mark_as_read', { chat_id: currentChatId });
-    if (chatInfo && chatInfo.chat_type === 'channel') checkChannelPermission(currentChatId);
+    window.socket.emit('mark_as_read', { chat_id: currentChatId });
 }
 
 // ============ ОТОБРАЖЕНИЕ СООБЩЕНИЯ ============
@@ -304,7 +313,7 @@ function renderSingleMessageWithCheck(msg) {
 
     if (msg.sender_id === 'system') {
         msgEl.classList.add('system-message');
-        msgEl.innerHTML = `<div class="system-message-content"><span>${formatMessageText(msg.text)}</span></div>`;
+        msgEl.innerHTML = `<div class="system-message-content"><span>${msg.text}</span></div>`;
         wrapper.classList.add('system');
         wrapper.appendChild(msgEl);
         container.appendChild(wrapper);
@@ -312,7 +321,7 @@ function renderSingleMessageWithCheck(msg) {
     }
 
     let ticksHtml = '';
-    if (msg.sender_id === MY_ID) {
+    if (msg.sender_id === window.MY_ID) {
         wrapper.classList.add('sent');
         msgEl.classList.add('sent');
         if (msg.is_read) {
@@ -326,14 +335,14 @@ function renderSingleMessageWithCheck(msg) {
     }
 
     msgEl.innerHTML = `
-        <span>${formatMessageText(msg.text)}</span>
+        <span>${msg.text}</span>
         <div class="message-meta">
             <span class="message-time">${timeStr}</span>
             ${ticksHtml}
         </div>
     `;
 
-    // Логика зажатия (контекстное меню)
+    // Слушатели контекстных действий
     let longPressTimer = null;
     const startPress = () => longPressTimer = setTimeout(() => showMessageActions(msgId), 450);
     const clearPress = () => clearTimeout(longPressTimer);
@@ -351,16 +360,16 @@ function renderSingleMessageWithCheck(msg) {
 // ============ ИСПРАВЛЕННАЯ ОБРАБОТКА ВХОДЯЩИХ ИВЕНТОВ ============
 function handleNewMessage(msg) {
     if (!msg) return;
-    console.log('📩 Обработка handleNewMessage:', msg);
+    console.log('📩 Обработка handleNewMessage в реальном времени:', msg);
     
-    let chatId = String(msg.sender_id === MY_ID ? msg.receiver_id : (msg.chat_type === 'group' || msg.chat_type === 'channel' ? msg.receiver_id : msg.sender_id));
+    let chatId = String(msg.sender_id === window.MY_ID ? msg.receiver_id : (msg.chat_type === 'group' || msg.chat_type === 'channel' ? msg.receiver_id : msg.sender_id));
     
-    // Фикс создания группы: если прилетает ивент от неизвестного чата/группы, мгновенно рендерим строку в списке
+    // ФИКС: Если прилетает ивент от неизвестного чата/группы, мгновенно рендерим строку в списке
     if (!dynamicChats[chatId]) {
-        const isGroup = msg.chat_type === 'group' || msg.chat_type === 'channel' || msg.receiver_id.startsWith('group_') || msg.receiver_id.startsWith('channel_');
+        const isGroup = msg.chat_type === 'group' || msg.chat_type === 'channel' || chatId.startsWith('group_') || chatId.startsWith('channel_');
         
         dynamicChats[chatId] = {
-            first_name: msg.chat_name || (isGroup ? 'Новая группа' : `Пользователь ${chatId}`),
+            first_name: msg.chat_name || (isGroup ? 'Группа DICEGRAM' : `Пользователь ${chatId}`),
             username: msg.chat_username || '',
             chat_type: msg.chat_type || (isGroup ? 'group' : 'private'),
             is_verified: false
@@ -383,9 +392,9 @@ function handleNewMessage(msg) {
     if (isCurrentChat) {
         renderSingleMessageWithCheck(msg);
         scrollToBottom();
-        if (msg.sender_id !== MY_ID) socket.emit('mark_as_read', { chat_id: chatId });
+        if (msg.sender_id !== window.MY_ID) window.socket.emit('mark_as_read', { chat_id: chatId });
     } else {
-        if (msg.sender_id !== MY_ID) {
+        if (msg.sender_id !== window.MY_ID) {
             unreadCounts[chatId] = (unreadCounts[chatId] || 0) + 1;
             updateUnreadBadge(chatId, unreadCounts[chatId]);
         }
@@ -409,16 +418,21 @@ function toggleSendButton(input) {
 
 function sendMessage() {
     const input = document.getElementById('message-field');
+    if (!input) return;
     const text = input.value.trim();
     if (!text || !currentChatId) return;
 
-    if (!socket || !isConnected) {
-        showAlert('Нет соединения с сервером');
+    if (!window.socket || !window.isConnected) {
+        alert('Нет соединения с сервером');
         return;
     }
 
     if (currentChatId === CONFIG.BOTFATHER_ID || (dynamicChats[currentChatId] && dynamicChats[currentChatId].username === 'botfather')) {
-        handleBotCommand(text);
+        if (typeof window.handleBotCommandStatic === 'function') {
+            window.handleBotCommandStatic(text);
+        } else {
+            alert('Модуль ботов загружается...');
+        }
         input.value = '';
         return;
     }
@@ -432,7 +446,7 @@ function sendMessageToServer(text) {
     
     const localMsg = {
         id: tempId,
-        sender_id: MY_ID,
+        sender_id: window.MY_ID,
         receiver_id: currentChatId,
         text: text,
         timestamp: new Date().toISOString(),
@@ -442,7 +456,7 @@ function sendMessageToServer(text) {
     renderSingleMessageWithCheck(localMsg);
     scrollToBottom();
     
-    socket.emit('send_message', { receiver_id: currentChatId, text: text }, (response) => {
+    window.socket.emit('send_message', { receiver_id: currentChatId, text: text }, (response) => {
         const tempEl = document.querySelector(`[data-message-id="${tempId}"]`);
         if (tempEl) tempEl.closest('.message-wrapper')?.remove();
         renderedMessageIds.delete(tempId);
@@ -453,7 +467,7 @@ function sendMessageToServer(text) {
             const previewEl = document.getElementById(`preview-${currentChatId}`);
             if (previewEl) previewEl.innerText = text;
         } else {
-            showAlert('❌ Ошибка отправки: ' + (response?.message || 'Сервер отклонил запрос'));
+            alert('❌ Ошибка отправки: ' + (response?.message || 'Сервер отклонил запрос'));
         }
     });
 
@@ -463,7 +477,6 @@ function sendMessageToServer(text) {
     input.focus();
 }
 
-// ============ РЕАКЦИИ И ДЕЙСТВИЯ С СООБЩЕНИЯМИ (ОСТАВЛЕНО БЕЗ ИЗМЕНЕНИЙ) ============
 function showReactionPicker(messageId) {
     currentMessageId = messageId;
     let picker = document.getElementById('reaction-picker');
@@ -492,8 +505,8 @@ function hideReactionPicker() {
 }
 
 function addReaction(emoji) {
-    if (!currentMessageId || !socket || !isConnected) return;
-    socket.emit('add_reaction', { message_id: currentMessageId, reaction: emoji }, (response) => {
+    if (!currentMessageId || !window.socket || !window.isConnected) return;
+    window.socket.emit('add_reaction', { message_id: currentMessageId, reaction: emoji }, (response) => {
         if (response && response.status === 'ok' && response.reactions) {
             updateReactionDisplayDirect(currentMessageId, response.reactions);
         }
@@ -530,6 +543,7 @@ function showMessageActions(messageId) {
     if (!msgEl) return;
     const isSent = msgEl.closest('.message-wrapper').classList.contains('sent');
     const actions = document.getElementById('message-actions');
+    if (!actions) return;
     
     const baseButtons = `
         <button class="message-action-btn" onclick="replyToMessage()">↩ Ответить</button>
@@ -550,19 +564,33 @@ function copyMessage() {
     const msgEl = document.querySelector(`[data-message-id="${selectedMessageId}"]`);
     if (msgEl) {
         navigator.clipboard.writeText(msgEl.querySelector('span').innerText);
-        showAlert('📋 Скопировано');
     }
-    document.getElementById('message-actions').classList.remove('active');
+    const actions = document.getElementById('message-actions');
+    if (actions) actions.classList.remove('active');
 }
 
-function checkChannelPermission(chatId) {}
-function closeChat() { document.getElementById('chat-room').style.display = 'none'; document.getElementById('bottom-navigation').style.display = 'flex'; currentChatId = null; }
-function handleBotCommand(text) { handleBotCommandStatic(text); }
-
-// Глобальные бинды сокетов
-if (socket) {
-    socket.on('reaction_updated', data => data.message_id && data.reactions && updateReactionDisplayDirect(data.message_id, data.reactions));
+function scrollToBottom() {
+    const container = document.getElementById('chat-messages');
+    if (container) container.scrollTop = container.scrollHeight;
 }
 
+function getLocalTime(isoString) {
+    if (!isoString) return '';
+    try {
+        const d = new Date(isoString);
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch(e) { return ''; }
+}
+
+// ФИКС: Экспортируем функции в глобальную зону window, чтобы к ним имели доступ другие файлы (socket.js и app.js)
+window.loadChatsAndMessages = loadChatsAndMessages;
+window.handleNewMessage = handleNewMessage;
+window.createChatRow = createChatRow;
+window.openChat = openChat;
+window.sendMessage = sendMessage;
+window.updateReactionDisplayDirect = updateReactionDisplayDirect;
+window.scrollToBottom = scrollToBottom;
+
+// Запуск модуля чатов
 setTimeout(initChats, 500);
-console.log('✅ Модуль чатов полностью обновлен и защищен');
+console.log('✅ Модуль чатов полностью обновлен, экспортирован в глобальный стейт и защищен');

@@ -1,6 +1,6 @@
-// ============ ЛОГИКА ЧАТОВ ============
+here// ============ ЛОГИКА ЧАТОВ ============
 let currentChatId = null;
-if (typeof dynamicChats === 'undefined') window.dynamicChats = {}; 
+let dynamicChats = {};
 let unreadCounts = {};
 let selectedMessageId = null;
 let isInitialLoad = true;
@@ -18,7 +18,7 @@ let renderedMessageIds = new Set();
 // ============ ИНИЦИАЛИЗАЦИЯ ЧАТОВ ============
 function initChats() {
     console.log('🔄 initChats() вызван');
-    if (window.socket && window.isConnected) {
+    if (socket && isConnected) {
         loadChatsAndMessages();
     } else {
         console.log('⏳ Сокет ещё не готов, повтор через 1 сек');
@@ -28,13 +28,13 @@ function initChats() {
 
 // ============ ЗАГРУЗКА ЧАТОВ ============
 function loadChatsAndMessages() {
-    if (!window.socket || !window.isConnected) {
+    if (!socket || !isConnected) {
         console.log('⏳ Ожидание соединения...');
         setTimeout(loadChatsAndMessages, 1000);
         return;
     }
 
-    console.log('📥 Загрузка чатов с сервера...');
+    console.log('📥 Загрузка чатов...');
     
     if (!dynamicChats[CONFIG.SUPPORT_ID]) {
         dynamicChats[CONFIG.SUPPORT_ID] = {
@@ -54,8 +54,8 @@ function loadChatsAndMessages() {
         };
     }
 
-    window.socket.emit('get_all_chats', {}, (chats) => {
-        console.log('📨 Получены чаты от бэка:', chats?.length || 0);
+    socket.emit('get_all_chats', {}, (chats) => {
+        console.log('📨 Получены чаты:', chats?.length || 0);
         
         const chatsList = document.getElementById('chats-list');
         if (!chatsList) {
@@ -64,25 +64,23 @@ function loadChatsAndMessages() {
         }
         chatsList.innerHTML = '';
         
-        // Рендерим служебные системные чаты по дефолту
-        createChatRow(CONFIG.SUPPORT_ID, 'DICEGRAM SUPPORT', 'dicegram_support', true, 'private');
-        createChatRow(CONFIG.BOTFATHER_ID, 'BotFather', 'botfather', false, 'private');
+        // Всегда добавляем SUPPORT и BOTFATHER
+        createChatRow(CONFIG.SUPPORT_ID, 'DICEGRAM SUPPORT', 'dicegram_support', true);
+        createChatRow(CONFIG.BOTFATHER_ID, 'BotFather', 'botfather', false);
         
         if (chats && Array.isArray(chats)) {
             chats.forEach(chat => {
-                // ФИКС: Учитываем, что бэкенд для групп может возвращать chat_id напрямую
-                const partnerId = String(chat.chat_id || chat.partner_id);
-                const chatType = chat.type || chat.chat_type || 'private';
+                const partnerId = chat.chat_id || chat.partner_id;
+                const chatType = chat.type || 'private';
                 
-                // Проверяем, чтобы мы случайно не продублировали саппорт/ботфазер или себя
-                if (partnerId && partnerId !== window.MY_ID && 
-                    partnerId !== String(CONFIG.SUPPORT_ID) && 
-                    partnerId !== String(CONFIG.BOTFATHER_ID)) {
+                if (partnerId && partnerId !== MY_ID && 
+                    partnerId !== CONFIG.SUPPORT_ID && 
+                    partnerId !== CONFIG.BOTFATHER_ID) {
                     
                     if (!dynamicChats[partnerId]) {
                         dynamicChats[partnerId] = {
-                            first_name: chat.name || chat.partner_name || `Чат ${partnerId}`,
-                            username: chat.username || chat.partner_username || '',
+                            first_name: chat.name || chat.partner_name || `User ${partnerId}`,
+                            username: chat.username || chat.partner_username || `@user${partnerId}`,
                             chat_type: chatType,
                             members_count: chat.members_count || 0,
                             role: chat.role || 'member',
@@ -97,7 +95,10 @@ function loadChatsAndMessages() {
                     if (chat.last_message) {
                         const previewEl = document.getElementById(`preview-${partnerId}`);
                         if (previewEl) {
-                            previewEl.innerText = chat.last_message;
+                            let previewText = chat.last_message;
+                            if (chatType === 'group') previewText = '👥 ' + previewText;
+                            if (chatType === 'channel') previewText = '📢 ' + previewText;
+                            previewEl.innerText = previewText;
                         }
                     }
                     if (chat.unread_count > 0) {
@@ -125,60 +126,63 @@ function loadChatsAndMessages() {
 // ============ СОЗДАНИЕ СТРОКИ ЧАТА ============
 function createChatRow(tgId, firstName, username, isVerified = false, chatType = 'private') {
     if (!tgId) return;
-    const stringId = String(tgId);
     
-    if (!dynamicChats[stringId]) {
-        dynamicChats[stringId] = { 
-            first_name: firstName || `ID ${stringId}`, 
+    if (!dynamicChats[tgId]) {
+        dynamicChats[tgId] = { 
+            first_name: firstName || `User ${tgId}`, 
             username: username || '',
             chat_type: chatType,
             is_verified: isVerified
         };
     } else {
-        dynamicChats[stringId].is_verified = isVerified;
-        dynamicChats[stringId].chat_type = chatType; // ФИКС: Всегда синхронизируем тип чата
+        dynamicChats[tgId].is_verified = isVerified;
     }
     
     const chatsList = document.getElementById('chats-list');
-    if (!chatsList) return;
-    
-    // Если строка уже есть на экране, просто выходим
-    if (document.getElementById(`chat-item-${stringId}`)) return;
+    if (!chatsList) {
+        console.error('❌ chats-list не найден в createChatRow');
+        return;
+    }
+    if (document.getElementById(`chat-item-${tgId}`)) return;
     
     const isBotFather = username === 'botfather';
-    const isSupport = stringId === String(CONFIG.SUPPORT_ID);
-    const verified = isSupport || stringId === String(CONFIG.CREATOR_ID) || isVerified;
-    const showVerifiedBadge = verified && chatType === 'private';
+    const isSupport = tgId === CONFIG.SUPPORT_ID;
+    const verified = isSupport || tgId === CONFIG.CREATOR_ID || isVerified;
     
-    const verifiedIcon = showVerifiedBadge ? BLUE_VERIFY_SVG : '';
-    const displayName = firstName || `ID ${stringId}`;
+    const verifiedIcon = verified ? BLUE_VERIFY_SVG : '';
+    const displayName = firstName || `User ${tgId}`;
     let avatarBg = 'linear-gradient(135deg, #5085b1, #366187)';
+    let typeIcon = '';
     
     if (isBotFather) {
         avatarBg = 'linear-gradient(135deg, #2a9d8f, #264653)';
     } else if (isSupport) {
-        avatarBg = 'linear-gradient(135deg, #1e2c3a, #0f171e)'; 
+        avatarBg = 'linear-gradient(135deg, #5288c1, #1a3a5c)';
     } else if (chatType === 'group') {
         avatarBg = 'linear-gradient(135deg, #e76f51, #f4a261)';
+        typeIcon = '👥 ';
     } else if (chatType === 'channel') {
         avatarBg = 'linear-gradient(135deg, #2a9d8f, #264653)';
+        typeIcon = '📢 ';
     }
     
     const rowHTML = `
-        <div class="chat-item" id="chat-item-${stringId}" onclick="openChat('${stringId}')">
+        <div class="chat-item" id="chat-item-${tgId}" onclick="openChat('${tgId}')">
             <div class="chat-avatar" style="background: ${avatarBg}">
                 ${displayName.substring(0,2).toUpperCase()}
-                ${showVerifiedBadge ? '<span class="verified-badge">✅</span>' : ''}
+                ${verified ? '<span class="verified-badge">✅</span>' : ''}
+                ${chatType === 'group' ? '<span style="position:absolute;bottom:-2px;left:-2px;font-size:10px;">👥</span>' : ''}
+                ${chatType === 'channel' ? '<span style="position:absolute;bottom:-2px;left:-2px;font-size:10px;">📢</span>' : ''}
             </div>
             <div class="chat-details">
                 <div class="chat-title-row">
-                    <div class="chat-name">${displayName} ${verifiedIcon}</div>
+                    <div class="chat-name">${typeIcon}${displayName} ${verifiedIcon}</div>
                     <div style="display:flex;align-items:center;gap:4px;">
-                        <span class="chat-time" id="time-${stringId}"></span>
-                        <span class="chat-unread-badge" id="unread-badge-${stringId}" style="display:none;">0</span>
+                        <span class="chat-time" id="time-${tgId}"></span>
+                        <span class="chat-unread-badge" id="unread-badge-${tgId}" style="display:none;">0</span>
                     </div>
                 </div>
-                <div class="chat-preview" id="preview-${stringId}">Нет сообщений</div>
+                <div class="chat-preview" id="preview-${tgId}">Нет сообщений</div>
             </div>
         </div>
     `;
@@ -201,68 +205,80 @@ function updateUnreadBadge(chatId, count) {
 // ============ ОТКРЫТИЕ ЧАТА ============
 function openChat(chatId) {
     console.log('📂 openChat вызван с ID:', chatId);
-    if (!chatId) return;
     
-    if (!window.socket || !window.isConnected) {
+    if (!chatId) {
+        console.error('❌ chatId не передан');
+        return;
+    }
+    
+    if (!socket || !isConnected) {
         alert('Нет соединения с сервером');
         return;
     }
 
-    currentChatId = String(chatId);
-    window.currentChatId = currentChatId; // Экспортируем в глобальный стейт
-    renderedMessageIds.clear();
+    currentChatId = chatId;
+    renderedMessageIds.clear(); // Очищаем кэш
     
-    unreadCounts[currentChatId] = 0;
-    updateUnreadBadge(currentChatId, 0);
+    unreadCounts[chatId] = 0;
+    updateUnreadBadge(chatId, 0);
     
-    const chatInfo = dynamicChats[currentChatId];
-    const chatName = chatInfo ? chatInfo.first_name : `Чат ${currentChatId}`;
+    const chatInfo = dynamicChats[chatId];
+    const chatName = chatInfo ? chatInfo.first_name : `User ${chatId}`;
     const chatType = chatInfo ? chatInfo.chat_type : 'private';
     
     const titleEl = document.getElementById('chat-room-title');
     titleEl.innerText = chatName || 'Чат';
     
     if (chatInfo) {
-        if (chatInfo.chat_type === 'group') titleEl.innerText = chatName || 'Группа';
-        if (chatInfo.chat_type === 'channel') titleEl.innerText = chatName || 'Канал';
+        if (chatInfo.chat_type === 'group') {
+            titleEl.innerText = '👥 ' + (chatName || 'Группа');
+        } else if (chatInfo.chat_type === 'channel') {
+            titleEl.innerText = '📢 ' + (chatName || 'Канал');
+        }
     }
     
     const messagesContainer = document.getElementById('chat-messages');
     messagesContainer.innerHTML = '';
 
+    // Присоединяемся к комнате группы
     if (chatType === 'group' || chatType === 'channel') {
-        window.socket.emit('join_chat', { chat_id: currentChatId }, (response) => {
-            if (response && response.status === 'ok') console.log(`✅ Вошел в комнату сокетов: ${currentChatId}`);
+        socket.emit('join_chat', { chat_id: chatId }, (response) => {
+            if (response && response.status === 'ok') {
+                console.log(`✅ Присоединился к комнате группы ${chatId}`);
+            } else {
+                console.warn(`⚠️ Ошибка присоединения к группе ${chatId}:`, response);
+            }
         });
     }
 
-    // Динамический рендер DICEGRAM SUPPORT
-    if (currentChatId === String(CONFIG.SUPPORT_ID)) {
+    // Приветствие SUPPORT
+    if (chatId === CONFIG.SUPPORT_ID) {
         titleEl.innerHTML = `DICEGRAM SUPPORT ${BLUE_VERIFY_SVG}`;
         document.getElementById('chat-room-status').innerText = 'официальный аккаунт';
 
-        const finalId = window.MY_ID || 'Не определен';
-        const finalName = window.tgUser?.first_name || 'Пользователь';
-        const finalUsername = window.MY_USERNAME ? `@${window.MY_USERNAME}` : 'не установлен';
+        const tgUserData = window.Telegram?.WebApp?.initDataUnsafe?.user;
+        const finalName = tgUserData?.first_name || tgUser.first_name || 'Пользователь';
+        const finalUsername = tgUserData?.username || tgUser.username || 'не установлен';
+        const finalId = tgUserData?.id || MY_ID || '8771009385';
 
         const welcomeMsg = {
             id: 'welcome_msg_static',
             sender_id: CONFIG.SUPPORT_ID,
             receiver_id: finalId,
-            text: `🚀 Вы успешно авторизовались в DICEGRAM!\n\n🆔 Ваш ID: ${finalId}\n👤 Никнейм: ${finalName}\n🏷️ Юзернейм: ${finalUsername}\n\n📱 Платформа работает стабильно в Mini App и внешнем приложении. Все сессии и созданные группы привязаны к вашему ID.`,
+            text: `👋 Добро пожаловать в DICEGRAM!\n\n🆔 Ваш ID: ${finalId}\n👤 Имя: ${finalName}\n🏷️ Username: @${finalUsername}\n\n📱 DICEGRAM — точная копия Telegram. Все данные сохраняются в базе данных.\n\n💬 Напишите нам, если у вас есть вопросы или предложения.`,
             timestamp: new Date().toISOString(),
             is_read: true
         };
         renderSingleMessageWithCheck(welcomeMsg);
     }
 
-    window.socket.emit('get_user_info', { user_id: currentChatId }, (userInfo) => {
+    socket.emit('get_user_info', { user_id: chatId }, (userInfo) => {
         if (userInfo && userInfo.status === 'found') {
-            const isVerifiedUser = userInfo.user.is_verified || currentChatId === String(CONFIG.SUPPORT_ID) || currentChatId === String(CONFIG.CREATOR_ID);
-            if (isVerifiedUser && currentChatId !== String(CONFIG.SUPPORT_ID)) {
+            const isVerifiedUser = userInfo.user.is_verified || chatId === CONFIG.SUPPORT_ID || chatId === CONFIG.CREATOR_ID;
+            if (isVerifiedUser && chatId !== CONFIG.SUPPORT_ID) {
                 titleEl.innerHTML = `${titleEl.innerText} ${BLUE_VERIFY_SVG}`;
             }
-            if (currentChatId !== String(CONFIG.SUPPORT_ID)) {
+            if (chatId !== CONFIG.SUPPORT_ID) {
                 document.getElementById('chat-room-status').innerText = userInfo.user.is_online ? '🟢 в сети' : 'был(а) недавно';
             }
         } else {
@@ -272,33 +288,42 @@ function openChat(chatId) {
         }
     });
 
-    const bottomNav = document.getElementById('bottom-navigation');
-    if (bottomNav) bottomNav.style.display = 'none';
-    
-    const chatRoom = document.getElementById('chat-room');
-    if (chatRoom) chatRoom.style.display = 'flex';
+    document.getElementById('bottom-navigation').style.display = 'none';
+    document.getElementById('chat-room').style.display = 'flex';
 
-    window.socket.emit('get_chat_history', { with_id: currentChatId }, (history) => {
+    socket.emit('get_chat_history', { with_id: chatId }, (history) => {
+        console.log('📨 История чата:', history?.length || 0);
         if (history && Array.isArray(history)) {
             history.forEach(msg => {
-                if (currentChatId === String(CONFIG.SUPPORT_ID) && msg.text && msg.text.includes("Вы успешно авторизовались")) return; 
+                if (chatId === CONFIG.SUPPORT_ID && msg.text && msg.text.includes("Добро пожаловать в DICEGRAM!")) {
+                    return; 
+                }
                 renderSingleMessageWithCheck(msg);
             });
             scrollToBottom();
         }
     });
 
-    window.socket.emit('mark_as_read', { chat_id: currentChatId });
+    socket.emit('mark_as_read', { chat_id: chatId });
+    
+    if (chatInfo && chatInfo.chat_type === 'channel') {
+        checkChannelPermission(chatId);
+    }
 }
 
-// ============ ОТОБРАЖЕНИЕ СООБЩЕНИЯ ============
+// ============ ОТОБРАЖЕНИЕ СООБЩЕНИЯ С ПРОВЕРКОЙ ============
 function renderSingleMessageWithCheck(msg) {
     if (!msg || !msg.text) return;
     
     const msgId = msg.id || msg._id || Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5);
-    if (renderedMessageIds.has(msgId)) return;
+    
+    if (renderedMessageIds.has(msgId)) {
+        console.log(`⏭️ Сообщение ${msgId} уже отображено, пропускаем`);
+        return;
+    }
     
     renderedMessageIds.add(msgId);
+    
     const container = document.getElementById('chat-messages');
     if (!container) return;
     
@@ -313,7 +338,14 @@ function renderSingleMessageWithCheck(msg) {
 
     if (msg.sender_id === 'system') {
         msgEl.classList.add('system-message');
-        msgEl.innerHTML = `<div class="system-message-content"><span>${msg.text}</span></div>`;
+        msgEl.innerHTML = `
+            <div class="system-message-content">
+                <span>${formatMessageText(msg.text)}</span>
+                <div class="message-meta">
+                    <span class="message-time">${timeStr}</span>
+                </div>
+            </div>
+        `;
         wrapper.classList.add('system');
         wrapper.appendChild(msgEl);
         container.appendChild(wrapper);
@@ -321,276 +353,704 @@ function renderSingleMessageWithCheck(msg) {
     }
 
     let ticksHtml = '';
-    if (msg.sender_id === window.MY_ID) {
+    if (msg.sender_id === MY_ID) {
         wrapper.classList.add('sent');
         msgEl.classList.add('sent');
+        
         if (msg.is_read) {
-            ticksHtml = `<span class="status-ticks read"><svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4zm-4.24 0L12.35 5.59 6 11.94l1.41 1.41z" fill="currentColor"/></svg></span>`;
+            ticksHtml = `<span class="status-ticks read"><svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4zm-4.24 0L12.35 5.59 6 11.94l1.41 1.41z"/><path d="M0 0h24v24H0z" fill="none"/></svg></span>`;
+        } else if (msg.delivered) {
+            ticksHtml = `<span class="status-ticks delivered"><svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4z"/><path d="M0 0h24v24H0z" fill="none"/></svg></span>`;
         } else {
-            ticksHtml = `<span class="status-ticks sent"><svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4" fill="currentColor"/></svg></span>`;
+            ticksHtml = `<span class="status-ticks sent"><svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4z"/><path d="M0 0h24v24H0z" fill="none"/></svg></span>`;
         }
     } else {
         wrapper.classList.add('received');
         msgEl.classList.add('received');
     }
 
+    const formattedText = formatMessageText(msg.text);
+
     msgEl.innerHTML = `
-        <span>${msg.text}</span>
+        <span>${formattedText}</span>
         <div class="message-meta">
             <span class="message-time">${timeStr}</span>
             ${ticksHtml}
         </div>
     `;
 
-    // Слушатели контекстных действий
     let longPressTimer = null;
-    const startPress = () => longPressTimer = setTimeout(() => showMessageActions(msgId), 450);
-    const clearPress = () => clearTimeout(longPressTimer);
-
-    msgEl.addEventListener('mousedown', startPress);
-    msgEl.addEventListener('mouseup', clearPress);
-    msgEl.addEventListener('mouseleave', clearPress);
-    msgEl.addEventListener('touchstart', startPress);
-    msgEl.addEventListener('touchend', clearPress);
+    msgEl.addEventListener('mousedown', () => {
+        longPressTimer = setTimeout(() => {
+            showMessageActions(msgId);
+        }, 500);
+    });
+    msgEl.addEventListener('mouseup', () => clearTimeout(longPressTimer));
+    msgEl.addEventListener('mouseleave', () => clearTimeout(longPressTimer));
+    
+    msgEl.addEventListener('touchstart', () => {
+        longPressTimer = setTimeout(() => {
+            showMessageActions(msgId);
+        }, 500);
+    });
+    msgEl.addEventListener('touchend', () => clearTimeout(longPressTimer));
+    msgEl.addEventListener('touchmove', () => clearTimeout(longPressTimer));
 
     wrapper.appendChild(msgEl);
     container.appendChild(wrapper);
 }
 
-// ============ ИСПРАВЛЕННАЯ ОБРАБОТКА ВХОДЯЩИХ ИВЕНТОВ ============
-function handleNewMessage(msg) {
-    if (!msg) return;
-    console.log('📩 Обработка handleNewMessage в реальном времени:', msg);
-    
-    let chatId = String(msg.sender_id === window.MY_ID ? msg.receiver_id : (msg.chat_type === 'group' || msg.chat_type === 'channel' ? msg.receiver_id : msg.sender_id));
-    
-    // ФИКС: Если прилетает ивент от неизвестного чата/группы, мгновенно рендерим строку в списке
-    if (!dynamicChats[chatId]) {
-        const isGroup = msg.chat_type === 'group' || msg.chat_type === 'channel' || chatId.startsWith('group_') || chatId.startsWith('channel_');
-        
-        dynamicChats[chatId] = {
-            first_name: msg.chat_name || (isGroup ? 'Группа DICEGRAM' : `Пользователь ${chatId}`),
-            username: msg.chat_username || '',
-            chat_type: msg.chat_type || (isGroup ? 'group' : 'private'),
-            is_verified: false
-        };
-        
-        createChatRow(chatId, dynamicChats[chatId].first_name, dynamicChats[chatId].username, false, dynamicChats[chatId].chat_type);
-    }
+// ============ ПРОВЕРКА ПРАВ В КАНАЛЕ ============
+function checkChannelPermission(chatId) {
+    socket.emit('check_channel_permission', { chat_id: chatId }, (response) => {
+        if (response && response.status === 'ok') {
+            const input = document.getElementById('message-field');
+            const sendBtn = document.getElementById('send-btn-icon');
+            
+            if (response.chat_type === 'channel' && !response.can_write) {
+                input.disabled = true;
+                input.placeholder = '📢 Канал доступен только для чтения';
+                sendBtn.style.opacity = '0.3';
+                sendBtn.style.cursor = 'not-allowed';
+            } else {
+                input.disabled = false;
+                input.placeholder = 'Сообщение...';
+                sendBtn.style.opacity = '1';
+                sendBtn.style.cursor = 'pointer';
+            }
+        }
+    });
+}
 
+// ============ ЗАКРЫТИЕ ЧАТА ============
+function closeChat() {
+    document.getElementById('chat-room').style.display = 'none';
+    document.getElementById('bottom-navigation').style.display = 'flex';
+    currentChatId = null;
+    
+    const input = document.getElementById('message-field');
+    const sendBtn = document.getElementById('send-btn-icon');
+    input.disabled = false;
+    input.placeholder = 'Сообщение...';
+    sendBtn.style.opacity = '1';
+    sendBtn.style.cursor = 'pointer';
+}
+
+// ============ ФИНАЛЬНАЯ ИСПРАВЛЕННАЯ ОБРАБОТКА НОВОГО СООБЩЕНИЯ ============
+function handleNewMessage(msg) {
+    console.log('📩 Новое сообщение:', msg, 'currentChatId:', currentChatId);
+    
+    // Определяем ID чата (для групповых — это receiver_id)
+    let chatId = msg.receiver_id;
+    if (msg.sender_id === MY_ID) {
+        chatId = msg.receiver_id;
+    } else if (msg.receiver_id === MY_ID) {
+        chatId = msg.sender_id;
+    }
+    // Для групповых сообщений от других пользователей receiver_id — это ID группы
+    
+    // Если сообщение системное
     if (msg.sender_id === 'system') {
-        if (currentChatId === chatId) {
+        // Если это системное сообщение для группы, и мы в этой группе — рендерим
+        if (currentChatId === msg.receiver_id) {
             renderSingleMessageWithCheck(msg);
             scrollToBottom();
         }
-        const previewEl = document.getElementById(`preview-${chatId}`);
-        if (previewEl) previewEl.innerText = msg.text;
+        // Обновляем превью в списке
+        const previewEl = document.getElementById(`preview-${msg.receiver_id}`);
+        if (previewEl) {
+            let previewText = msg.text;
+            const chatInfo = dynamicChats[msg.receiver_id];
+            if (chatInfo && chatInfo.chat_type === 'group') previewText = '👥 ' + previewText;
+            previewEl.innerText = previewText;
+        }
         return;
     }
     
+    // Проверяем, открыт ли этот чат
     const isCurrentChat = currentChatId === chatId;
+    
     if (isCurrentChat) {
+        // Если чат открыт — рендерим сообщение
         renderSingleMessageWithCheck(msg);
         scrollToBottom();
-        if (msg.sender_id !== window.MY_ID) window.socket.emit('mark_as_read', { chat_id: chatId });
+        if (msg.sender_id !== MY_ID) {
+            socket.emit('mark_as_read', { chat_id: chatId });
+        }
     } else {
-        if (msg.sender_id !== window.MY_ID) {
+        // Если чат не открыт — увеличиваем счётчик непрочитанных
+        if (msg.sender_id !== MY_ID) {
             unreadCounts[chatId] = (unreadCounts[chatId] || 0) + 1;
             updateUnreadBadge(chatId, unreadCounts[chatId]);
         }
     }
     
+    // Обновляем превью в списке чатов
     const previewEl = document.getElementById(`preview-${chatId}`);
-    if (previewEl) previewEl.innerText = msg.text;
+    if (previewEl) {
+        let previewText = msg.text;
+        const chatInfo = dynamicChats[chatId];
+        if (chatInfo) {
+            if (chatInfo.chat_type === 'group') previewText = '👥 ' + previewText;
+            if (chatInfo.chat_type === 'channel') previewText = '📢 ' + previewText;
+        }
+        previewEl.innerText = previewText;
+    }
     
+    // Обновляем время
     const timeEl = document.getElementById(`time-${chatId}`);
-    if (timeEl && msg.timestamp) timeEl.innerText = getLocalTime(msg.timestamp);
+    if (timeEl && msg.timestamp) {
+        timeEl.innerText = getLocalTime(msg.timestamp);
+    }
+    
+    // Если чата нет в списке — создаём
+    if (chatId && chatId !== MY_ID && !dynamicChats[chatId]) {
+        socket.emit('get_group_info', { chat_id: chatId }, (groupInfo) => {
+            if (groupInfo && groupInfo.status === 'found') {
+                const chat = groupInfo.chat;
+                dynamicChats[chatId] = {
+                    first_name: chat.name || 'Группа',
+                    username: '',
+                    chat_type: chat.type || 'group',
+                    members_count: 0,
+                    is_verified: false
+                };
+                createChatRow(chatId, chat.name || 'Группа', '', false, chat.type || 'group');
+            } else {
+                socket.emit('get_user_info', { user_id: chatId }, (userInfo) => {
+                    if (userInfo && userInfo.status === 'found') {
+                        dynamicChats[chatId] = {
+                            first_name: userInfo.user.first_name || `User ${chatId}`,
+                            username: userInfo.user.username || `@user${chatId}`,
+                            chat_type: 'private',
+                            is_verified: userInfo.user.is_verified || false
+                        };
+                        const isVerified = userInfo.user.is_verified || chatId === CONFIG.SUPPORT_ID;
+                        createChatRow(chatId, dynamicChats[chatId].first_name, dynamicChats[chatId].username, isVerified, 'private');
+                    }
+                });
+            }
+        });
+    }
 }
 
 // ============ ОТПРАВКА СООБЩЕНИЯ ============
 function toggleSendButton(input) {
     const btn = document.getElementById('send-btn-icon');
-    if (btn) {
-        if (input && input.value && input.value.trim().length > 0) btn.classList.add('active');
-        else btn.classList.remove('active');
+    if (input && input.value && input.value.trim().length > 0) {
+        btn.classList.add('active');
+    } else {
+        btn.classList.remove('active');
     }
 }
 
 function sendMessage() {
     const input = document.getElementById('message-field');
-    if (!input) return;
     const text = input.value.trim();
     if (!text || !currentChatId) return;
 
-    if (!window.socket || !window.isConnected) {
+    if (!socket || !isConnected) {
         alert('Нет соединения с сервером');
         return;
     }
 
+    const chatInfo = dynamicChats[currentChatId];
+    if (chatInfo && chatInfo.chat_type === 'channel') {
+        socket.emit('check_channel_permission', { chat_id: currentChatId }, (response) => {
+            if (response && response.status === 'ok') {
+                if (!response.can_write) {
+                    alert('📢 Только владелец канала может отправлять сообщения');
+                    return;
+                }
+                sendMessageToServer(text);
+            } else {
+                alert('Ошибка проверки прав');
+            }
+        });
+        return;
+    }
+
     if (currentChatId === CONFIG.BOTFATHER_ID || (dynamicChats[currentChatId] && dynamicChats[currentChatId].username === 'botfather')) {
-        if (typeof window.handleBotCommandStatic === 'function') {
-            window.handleBotCommandStatic(text);
-        } else {
-            alert('Модуль ботов загружается...');
-        }
+        handleBotCommand(text);
         input.value = '';
+        document.getElementById('send-btn-icon').classList.remove('active');
         return;
     }
 
     sendMessageToServer(text);
 }
 
+// ============ ОТПРАВКА С ЛОКАЛЬНЫМ РЕНДЕРИНГОМ ============
 function sendMessageToServer(text) {
     const input = document.getElementById('message-field');
-    const tempId = 'temp_' + Date.now();
     
+    // Локальное сообщение (сразу показываем)
+    const tempId = 'temp_' + Date.now();
     const localMsg = {
         id: tempId,
-        sender_id: window.MY_ID,
+        sender_id: MY_ID,
         receiver_id: currentChatId,
         text: text,
         timestamp: new Date().toISOString(),
-        is_read: false
+        is_read: false,
+        delivered: false
     };
-    
     renderSingleMessageWithCheck(localMsg);
     scrollToBottom();
     
-    window.socket.emit('send_message', { receiver_id: currentChatId, text: text }, (response) => {
-        const tempEl = document.querySelector(`[data-message-id="${tempId}"]`);
-        if (tempEl) tempEl.closest('.message-wrapper')?.remove();
-        renderedMessageIds.delete(tempId);
-
-        if (response && response.status === 'ok' && response.message) {
-            renderSingleMessageWithCheck(response.message);
-            scrollToBottom();
+    // Отправляем на сервер
+    socket.emit('send_message', { 
+        receiver_id: currentChatId, 
+        text: text 
+    }, (response) => {
+        if (response && response.status === 'ok') {
+            // Удаляем временное сообщение
+            const tempEl = document.querySelector(`[data-message-id="${tempId}"]`);
+            if (tempEl) {
+                const wrapper = tempEl.closest('.message-wrapper');
+                if (wrapper) wrapper.remove();
+                renderedMessageIds.delete(tempId);
+            }
+            // Рендерим реальное сообщение
+            if (response.message) {
+                renderSingleMessageWithCheck(response.message);
+                scrollToBottom();
+            }
+            
             const previewEl = document.getElementById(`preview-${currentChatId}`);
-            if (previewEl) previewEl.innerText = text;
+            if (previewEl) {
+                let previewText = text;
+                const chatInfo = dynamicChats[currentChatId];
+                if (chatInfo) {
+                    if (chatInfo.chat_type === 'group') previewText = '👥 ' + previewText;
+                    if (chatInfo.chat_type === 'channel') previewText = '📢 ' + previewText;
+                }
+                previewEl.innerText = previewText;
+            }
         } else {
-            alert('❌ Ошибка отправки: ' + (response?.message || 'Сервер отклонил запрос'));
+            // Если ошибка — удаляем временное
+            const tempEl = document.querySelector(`[data-message-id="${tempId}"]`);
+            if (tempEl) {
+                const wrapper = tempEl.closest('.message-wrapper');
+                if (wrapper) wrapper.remove();
+                renderedMessageIds.delete(tempId);
+            }
+            alert('❌ Ошибка отправки: ' + (response?.message || 'Неизвестная ошибка'));
         }
     });
 
     input.value = '';
-    const btn = document.getElementById('send-btn-icon');
-    if (btn) btn.classList.remove('active');
+    document.getElementById('send-btn-icon').classList.remove('active');
     input.focus();
 }
 
+// ============ РЕАКЦИИ ============
 function showReactionPicker(messageId) {
     currentMessageId = messageId;
     let picker = document.getElementById('reaction-picker');
+    
     if (!picker) {
         picker = document.createElement('div');
         picker.id = 'reaction-picker';
         picker.className = 'reaction-picker';
-        picker.innerHTML = REACTIONS.map(r => `<span class="reaction-emoji" data-reaction="${r}" onclick="addReaction('${r}')">${r}</span>`).join('');
+        picker.innerHTML = REACTIONS.map(r => 
+            `<span class="reaction-emoji" data-reaction="${r}" onclick="addReaction('${r}')">${r}</span>`
+        ).join('');
         document.body.appendChild(picker);
     }
+    
     const msgEl = document.querySelector(`[data-message-id="${messageId}"]`);
     if (msgEl) {
         const rect = msgEl.getBoundingClientRect();
-        picker.style.left = `${Math.max(10, rect.left + rect.width / 2 - 110)}px`;
-        picker.style.top = `${rect.top - 55 < 10 ? rect.bottom + 10 : rect.top - 55}px`;
+        const pickerWidth = 220;
+        let left = rect.left + rect.width / 2 - pickerWidth / 2;
+        let top = rect.top - 55;
+        
+        if (top < 10) {
+            top = rect.bottom + 10;
+        }
+        
+        picker.style.left = `${Math.max(10, left)}px`;
+        picker.style.top = `${top}px`;
         picker.style.display = 'flex';
+    } else {
+        picker.style.display = 'flex';
+        picker.style.left = '50%';
+        picker.style.top = '50%';
+        picker.style.transform = 'translate(-50%, -50%)';
     }
+    
     clearTimeout(reactionPickerTimeout);
-    reactionPickerTimeout = setTimeout(hideReactionPicker, 5000);
+    reactionPickerTimeout = setTimeout(() => {
+        hideReactionPicker();
+    }, 5000);
+    
     document.getElementById('message-actions')?.classList.remove('active');
 }
 
 function hideReactionPicker() {
     const picker = document.getElementById('reaction-picker');
-    if (picker) picker.style.display = 'none';
+    if (picker) {
+        picker.style.display = 'none';
+    }
 }
 
 function addReaction(emoji) {
-    if (!currentMessageId || !window.socket || !window.isConnected) return;
-    window.socket.emit('add_reaction', { message_id: currentMessageId, reaction: emoji }, (response) => {
-        if (response && response.status === 'ok' && response.reactions) {
-            updateReactionDisplayDirect(currentMessageId, response.reactions);
+    if (!currentMessageId || !socket || !isConnected) {
+        console.log('❌ Нельзя добавить реакцию');
+        return;
+    }
+    
+    console.log(`😊 Добавление реакции ${emoji} на сообщение ${currentMessageId}`);
+    
+    socket.emit('add_reaction', { 
+        message_id: currentMessageId, 
+        reaction: emoji 
+    }, (response) => {
+        if (response && response.status === 'ok') {
+            console.log('✅ Реакция добавлена');
+            if (response.reactions) {
+                updateReactionDisplayDirect(currentMessageId, response.reactions);
+            } else {
+                updateReactionDisplay(currentMessageId);
+            }
+        } else {
+            console.log('❌ Ошибка добавления реакции:', response);
         }
     });
+    
     hideReactionPicker();
 }
 
 function updateReactionDisplayDirect(messageId, reactions) {
     const msgEl = document.querySelector(`[data-message-id="${messageId}"]`);
     if (!msgEl) return;
-    let container = msgEl.querySelector('.reactions') || document.createElement('div');
-    if (!msgEl.querySelector('.reactions')) {
+    
+    let container = msgEl.querySelector('.reactions');
+    if (!container) {
+        container = document.createElement('div');
         container.className = 'reactions';
         msgEl.appendChild(container);
-    } else container.innerHTML = '';
+    } else {
+        container.innerHTML = '';
+    }
     
     if (!reactions || reactions.length === 0) {
         container.style.display = 'none';
         return;
     }
+    
     container.style.display = 'flex';
+    
     const grouped = {};
-    reactions.forEach(r => { if (!grouped[r.reaction]) grouped[r.reaction] = []; grouped[r.reaction].push(r.user_id); });
+    reactions.forEach(r => {
+        if (!grouped[r.reaction]) grouped[r.reaction] = [];
+        grouped[r.reaction].push(r.user_id);
+    });
+    
     Object.entries(grouped).forEach(([emoji, users]) => {
         const span = document.createElement('span');
         span.className = 'reaction-item';
         span.innerHTML = `${emoji} <span class="count">${users.length}</span>`;
+        span.title = users.map(id => `User ${id}`).join(', ');
         container.appendChild(span);
+    });
+}
+
+function updateReactionDisplay(messageId) {
+    socket.emit('get_reactions', { message_id: messageId }, (reactions) => {
+        updateReactionDisplayDirect(messageId, reactions);
+    });
+}
+
+// ============ ОБРАБОТЧИКИ СОБЫТИЙ ============
+if (socket) {
+    socket.on('reaction_updated', (data) => {
+        console.log('📢 Обновление реакций:', data);
+        if (data.message_id && data.reactions) {
+            updateReactionDisplayDirect(data.message_id, data.reactions);
+        }
+    });
+
+    socket.on('message_read', (data) => {
+        const msgEl = document.querySelector(`[data-message-id="${data.message_id}"]`);
+        if (msgEl) {
+            const ticks = msgEl.querySelector('.status-ticks');
+            if (ticks) {
+                ticks.className = 'status-ticks read';
+                ticks.innerHTML = `<svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41L10 12.17 7.41 9.59 6 11l4 4zm-4.24 0L12.35 5.59 6 11.94l1.41 1.41z"/><path d="M0 0h24v24H0z" fill="none"/></svg>`;
+            }
+        }
+    });
+}
+
+// ============ ОСТАЛЬНЫЕ ФУНКЦИИ (без изменений) ============
+function handleBotCommand(text) {
+    const botResponse = emulateBotFather(text);
+    
+    const userMsg = {
+        id: Date.now().toString(),
+        sender_id: MY_ID,
+        receiver_id: CONFIG.BOTFATHER_ID,
+        text: text,
+        timestamp: new Date().toISOString(),
+        is_read: true
+    };
+    renderSingleMessageWithCheck(userMsg);
+    
+    setTimeout(() => {
+        const botMsg = {
+            id: (Date.now() + 1).toString(),
+            sender_id: CONFIG.BOTFATHER_ID,
+            receiver_id: MY_ID,
+            text: botResponse,
+            timestamp: new Date().toISOString(),
+            is_read: true
+        };
+        renderSingleMessageWithCheck(botMsg);
+        scrollToBottom();
+    }, 500);
+}
+
+function emulateBotFather(text) {
+    const lower = text.toLowerCase().trim();
+    
+    if (lower === '/start') {
+        return `I can help you create and manage Telegram bots. If you're new to the Bot API, please see the manual.\n\nYou can control me by sending these commands:\n\n/newbot - create a new bot\n/mybots - edit your bots`;
+    }
+    
+    if (lower === '/newbot') {
+        return `Alright, a new bot. How are we going to call it? Please choose a name for your bot.`;
+    }
+    
+    if (!window.botCreationStep) {
+        window.botCreationStep = 'name';
+        window.botName = text;
+        return `Good. Now let's choose a username for your bot. It must end in \`bot\`. Like this, for example: TetrisBot or tetris_bot.`;
+    } else if (window.botCreationStep === 'name') {
+        window.botName = text;
+        window.botCreationStep = 'username';
+        return `Good. Now let's choose a username for your bot. It must end in \`bot\`. Like this, for example: TetrisBot or tetris_bot.`;
+    } else if (window.botCreationStep === 'username') {
+        const username = text.trim();
+        if (!username.endsWith('bot')) {
+            return `Sorry, the username must end with 'bot'. Please try again.`;
+        }
+        
+        if (window.createdBots && window.createdBots.includes(username)) {
+            return `Sorry, this username is invalid.`;
+        }
+        
+        if (!window.createdBots) window.createdBots = [];
+        window.createdBots.push(username);
+        window.botCreationStep = null;
+        
+        const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        return `Done! Congratulations on your new bot. You will find it at d.me/${username}. You can now add a description, about section and profile picture for your bot, see /help for a list of commands. By the way, when you've finished creating your cool bot, ping our Bot Support if you want a better username for it. Just make sure the bot is fully operational before you do this.\n\nUse this token to access the HTTP API:\n${token}\n\nKeep your token secure and store it safely, it can be used by anyone to control your bot.`;
+    }
+    
+    return `I don't understand that command. Please use /start, /newbot, or /mybots.`;
+}
+
+function handleSearch(query) {
+    const resultsContainer = document.getElementById('search-results');
+    if (!query.trim()) {
+        resultsContainer.style.display = 'none';
+        resultsContainer.innerHTML = '';
+        return;
+    }
+
+    if (!socket || !isConnected) {
+        resultsContainer.style.display = 'block';
+        resultsContainer.innerHTML = '<div style="padding:10px 14px;color:var(--tg-text-secondary);">Нет соединения с сервером</div>';
+        return;
+    }
+
+    socket.emit('search_users', { query: query.trim() }, (results) => {
+        resultsContainer.innerHTML = '';
+        if (results && results.length > 0) {
+            resultsContainer.style.display = 'block';
+            results.forEach(user => {
+                if (user.telegram_id === MY_ID) return;
+                const item = document.createElement('div');
+                item.className = 'search-result-item';
+                const isVerified = user.telegram_id === CONFIG.CREATOR_ID || user.is_verified || user.telegram_id === CONFIG.SUPPORT_ID;
+                const verifyBadge = isVerified ? `<span class="verified-check">✅</span>` : '';
+                item.innerHTML = `
+                    <div class="chat-avatar" style="width:36px;height:36px;font-size:12px;background:linear-gradient(135deg, #5085b1, #366187)">
+                        ${(user.first_name || 'U').substring(0,2).toUpperCase()}
+                    </div>
+                    <div>
+                        <div style="display:flex;align-items:center;gap:4px;font-weight:600;">${user.first_name || 'User'} ${verifyBadge}</div>
+                        <div style="font-size:12px;color:var(--tg-text-secondary);">@${user.username || ''}</div>
+                    </div>
+                `;
+                item.onclick = () => {
+                    if (user.telegram_id === MY_ID) return;
+                    if (!dynamicChats[user.telegram_id]) {
+                        dynamicChats[user.telegram_id] = {
+                            first_name: user.first_name || `User ${user.telegram_id}`,
+                            username: user.username || ''
+                        };
+                        createChatRow(user.telegram_id, user.first_name || `User ${user.telegram_id}`, user.username || '', isVerified);
+                    }
+                    openChat(user.telegram_id);
+                    resultsContainer.style.display = 'none';
+                    document.getElementById('global-search').value = '';
+                };
+                resultsContainer.appendChild(item);
+            });
+        } else {
+            resultsContainer.style.display = 'block';
+            resultsContainer.innerHTML = '<div style="padding:10px 14px;color:var(--tg-text-secondary);">Пользователи не найдены</div>';
+        }
     });
 }
 
 function showMessageActions(messageId) {
     const msgEl = document.querySelector(`[data-message-id="${messageId}"]`);
     if (!msgEl) return;
-    const isSent = msgEl.closest('.message-wrapper').classList.contains('sent');
+    
+    const wrapper = msgEl.closest('.message-wrapper');
+    const isSent = wrapper.classList.contains('sent');
+    
     const actions = document.getElementById('message-actions');
-    if (!actions) return;
     
-    const baseButtons = `
-        <button class="message-action-btn" onclick="replyToMessage()">↩ Ответить</button>
-        <button class="message-action-btn" onclick="copyMessage()">📋 Копировать</button>
-        <button class="message-action-btn" onclick="showReactionPicker('${messageId}')">😊 Реакция</button>
-    `;
-    
-    actions.innerHTML = isSent ? baseButtons + `
-        <button class="message-action-btn" onclick="editMessage()">✏️ Изменить</button>
-        <button class="message-action-btn danger" onclick="deleteMessage()">🗑 Удалить</button>
-    ` : baseButtons;
+    if (!isSent) {
+        actions.innerHTML = `
+            <button class="message-action-btn" onclick="replyToMessage()">↩ Ответить</button>
+            <button class="message-action-btn" onclick="forwardMessage()">📤 Переслать</button>
+            <button class="message-action-btn" onclick="copyMessage()">📋 Копировать</button>
+            <button class="message-action-btn" onclick="showReactionPicker('${messageId}')">😊 Реакция</button>
+        `;
+    } else {
+        actions.innerHTML = `
+            <button class="message-action-btn" onclick="replyToMessage()">↩ Ответить</button>
+            <button class="message-action-btn" onclick="forwardMessage()">📤 Переслать</button>
+            <button class="message-action-btn" onclick="copyMessage()">📋 Копировать</button>
+            <button class="message-action-btn" onclick="showReactionPicker('${messageId}')">😊 Реакция</button>
+            <button class="message-action-btn" onclick="editMessage()">✏️ Изменить</button>
+            <button class="message-action-btn danger" onclick="deleteMessage()">🗑 Удалить</button>
+            <button class="message-action-btn" onclick="pinMessage()">📌 Закрепить</button>
+        `;
+    }
     
     actions.classList.toggle('active');
     selectedMessageId = messageId;
 }
 
+function replyToMessage() {
+    const text = prompt('Введите ответ:');
+    if (text && text.trim()) {
+        socket.emit('send_message', { 
+            receiver_id: currentChatId, 
+            text: text.trim(),
+            reply_to_id: selectedMessageId
+        }, (response) => {
+            if (response && response.status === 'ok') {
+                scrollToBottom();
+            }
+        });
+    }
+    document.getElementById('message-actions').classList.remove('active');
+}
+
+function forwardMessage() {
+    const chatId = prompt('Введите ID пользователя для пересылки:');
+    if (chatId && chatId.trim()) {
+        socket.emit('forward_message', { 
+            message_id: selectedMessageId,
+            to_id: chatId.trim()
+        }, (response) => {
+            if (response && response.status === 'ok') {
+                alert('✅ Сообщение переслано');
+            }
+        });
+    }
+    document.getElementById('message-actions').classList.remove('active');
+}
+
 function copyMessage() {
     const msgEl = document.querySelector(`[data-message-id="${selectedMessageId}"]`);
     if (msgEl) {
-        navigator.clipboard.writeText(msgEl.querySelector('span').innerText);
+        const text = msgEl.querySelector('span').innerText;
+        navigator.clipboard.writeText(text).then(() => {
+            alert('📋 Сообщение скопировано');
+        });
     }
-    const actions = document.getElementById('message-actions');
-    if (actions) actions.classList.remove('active');
+    document.getElementById('message-actions').classList.remove('active');
 }
 
-function scrollToBottom() {
-    const container = document.getElementById('chat-messages');
-    if (container) container.scrollTop = container.scrollHeight;
+function editMessage() {
+    const newText = prompt('Введите новый текст:');
+    if (newText && newText.trim()) {
+        socket.emit('edit_message', { 
+            message_id: selectedMessageId,
+            text: newText.trim()
+        }, (response) => {
+            if (response && response.status === 'ok') {
+                const msgEl = document.querySelector(`[data-message-id="${selectedMessageId}"]`);
+                if (msgEl) {
+                    const textSpan = msgEl.querySelector('span');
+                    if (textSpan) {
+                        textSpan.innerHTML = formatMessageText(newText.trim());
+                    }
+                }
+                document.getElementById('message-actions').classList.remove('active');
+            }
+        });
+    }
 }
 
-function getLocalTime(isoString) {
-    if (!isoString) return '';
-    try {
-        const d = new Date(isoString);
-        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } catch(e) { return ''; }
+function deleteMessage() {
+    if (confirm('🗑 Удалить сообщение?')) {
+        socket.emit('delete_message', { message_id: selectedMessageId }, (response) => {
+            if (response && response.status === 'ok') {
+                const msgEl = document.querySelector(`[data-message-id="${selectedMessageId}"]`);
+                if (msgEl) {
+                    msgEl.closest('.message-wrapper').remove();
+                }
+                document.getElementById('message-actions').classList.remove('active');
+            }
+        });
+    }
 }
 
-// ФИКС: Экспортируем функции в глобальную зону window, чтобы к ним имели доступ другие файлы (socket.js и app.js)
-window.loadChatsAndMessages = loadChatsAndMessages;
-window.handleNewMessage = handleNewMessage;
-window.createChatRow = createChatRow;
-window.openChat = openChat;
-window.sendMessage = sendMessage;
-window.updateReactionDisplayDirect = updateReactionDisplayDirect;
-window.scrollToBottom = scrollToBottom;
+function pinMessage() {
+    socket.emit('pin_message', { message_id: selectedMessageId }, (response) => {
+        if (response && response.status === 'ok') {
+            alert('📌 Сообщение закреплено');
+        }
+    });
+    document.getElementById('message-actions').classList.remove('active');
+}
 
-// Запуск модуля чатов
-setTimeout(initChats, 500);
-console.log('✅ Модуль чатов полностью обновлен, экспортирован в глобальный стейт и защищен');
+// Закрываем пикер при клике вне его
+document.addEventListener('click', function(e) {
+    const picker = document.getElementById('reaction-picker');
+    if (picker && picker.style.display === 'flex') {
+        if (!picker.contains(e.target)) {
+            hideReactionPicker();
+        }
+    }
+});
+
+// ============ АВТОЗАГРУЗКА ПРИ ПОДКЛЮЧЕНИИ ============
+// Вызываем initChats сразу, и при каждом возврате на вкладку
+setTimeout(() => {
+    initChats();
+}, 500);
+
+// Также перезагружаем чаты при переключении на вкладку "Чаты"
+document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) {
+        console.log('👁️ Страница снова активна, перезагружаем чаты');
+        initChats();
+    }
+});
+
+// Если есть кнопка переключения вкладок, можно добавить вызов при клике на "Чаты"
+// Но это уже реализовано через switchTab в ui.js (там вызывается loadContacts, но не loadChats)
+// Можно добавить в switchTab вызов loadChatsAndMessages, если вкладка "chats"
+
+console.log('✅ Chat module loaded (исправленная версия)');

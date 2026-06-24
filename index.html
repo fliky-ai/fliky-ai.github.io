@@ -9,7 +9,6 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <!-- Loading Screen -->
     <div id="loading-screen">
         <div class="spinner"></div>
         <div class="loading-title">DICEGRAM</div>
@@ -18,7 +17,6 @@
         <button class="reconnect-btn" id="reconnect-btn" onclick="reconnect()">🔄 Переподключиться</button>
     </div>
 
-    <!-- App Container -->
     <div id="app-container">
         <header id="main-header">
             <div class="header-content-left">
@@ -31,7 +29,6 @@
 
         <div id="search-results" class="search-results"></div>
 
-        <!-- Screens -->
         <div id="screen-chats" class="screen active">
             <div id="chats-list"></div>
         </div>
@@ -79,11 +76,10 @@
             </div>
         </div>
 
-        <!-- Chat Room -->
         <div id="chat-room">
             <div class="chat-header">
                 <button class="back-btn" onclick="closeChat()">❮ Назад</button>
-                <div class="header-user-info" onclick="showUserProfile(currentChatId)">
+                <div class="header-user-info" onclick="if(typeof currentChatId !== 'undefined' && currentChatId) showUserProfile(currentChatId)">
                     <div class="header-avatar" id="room-header-avatar">DS</div>
                     <div class="header-text-container">
                         <span id="chat-room-title" class="header-chat-title">Чат</span>
@@ -93,7 +89,7 @@
             </div>
             <div id="chat-messages"></div>
             <div class="chat-input-area">
-                <input type="text" id="message-field" class="chat-input" placeholder="Сообщение..." autocomplete="off" oninput="toggleSendButton(this)">
+                <input type="text" id="message-field" class="chat-input" placeholder="Сообщение..." autocomplete="off" oninput="toggleSendButton(this)" onkeypress="if(event.key === 'Enter') sendMessage()">
                 <button id="send-btn-icon" class="send-btn" onclick="sendMessage()">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                         <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -103,7 +99,6 @@
             </div>
         </div>
 
-        <!-- Bottom Navigation -->
         <nav id="bottom-navigation">
             <div class="nav-item active" onclick="switchTab('chats', this)">
                 <div style="font-size:22px;">💬</div>
@@ -124,7 +119,6 @@
         </nav>
     </div>
 
-    <!-- Profile Popup -->
     <div id="profile-popup" class="profile-popup">
         <div class="profile-popup-content">
             <div class="profile-popup-header">
@@ -146,7 +140,6 @@
         </div>
     </div>
 
-    <!-- Message Actions -->
     <div id="message-actions" class="message-actions">
         <button class="message-action-btn" onclick="replyToMessage()">↩ Ответить</button>
         <button class="message-action-btn" onclick="forwardMessage()">📤 Переслать</button>
@@ -156,10 +149,8 @@
         <button class="message-action-btn" onclick="pinMessage()">📌 Закрепить</button>
     </div>
 
-    <!-- Reaction Picker -->
     <div id="reaction-picker" class="reaction-picker"></div>
 
-    <!-- ====== КАСТОМНЫЙ МОДАЛЬНЫЙ ПОПАП ====== -->
     <div id="custom-modal">
         <div class="modal-content">
             <h3 id="modal-title" class="modal-title">Введите значение</h3>
@@ -172,7 +163,6 @@
         </div>
     </div>
 
-    <!-- JavaScript -->
     <script src="js/config.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/utils.js"></script>

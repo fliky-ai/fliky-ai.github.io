@@ -1,100 +1,1602 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>DICEGRAM TikTok</title>
-    <link rel="stylesheet" href="style.css">
-    <!-- Подключаем Socket.io клиент -->
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-    <!-- Подключаем Telegram WebApp SDK для работы Mini App -->
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>⚡ Tap Race Simulator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&display=swap');
+
+  :root {
+    --bg: #0f0f1a;
+    --panel: #1a1a2e;
+    --panel2: #16213e;
+    --accent: #f7c948;
+    --blue: #4fc3f7;
+    --green: #69f0ae;
+    --red: #ff5252;
+    --purple: #b388ff;
+    --pink: #f48fb1;
+    --orange: #ffb74d;
+    --text: #ffffff;
+    --subtext: #aab4c8;
+    --radius: 14px;
+    --shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; user-select: none; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Nunito', sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  /* ===== ORIENTATION LOCK ===== */
+  #orientation-lock {
+    display: none;
+    position: fixed; inset: 0;
+    background: #0f0f1a;
+    z-index: 9999;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+  #orientation-lock .rotate-icon {
+    font-size: 80px;
+    animation: rotateAnim 2s ease-in-out infinite;
+  }
+  @keyframes rotateAnim {
+    0%,100% { transform: rotate(0deg); }
+    50% { transform: rotate(90deg); }
+  }
+  #orientation-lock p {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--accent);
+    text-align: center;
+    padding: 0 30px;
+  }
+
+  /* ===== NAME MODAL ===== */
+  #name-modal {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+  #name-modal.active { display: flex; }
+  .name-box {
+    background: var(--panel);
+    border: 2px solid var(--accent);
+    border-radius: 20px;
+    padding: 30px 24px;
+    width: min(380px, 90vw);
+    text-align: center;
+    box-shadow: 0 0 40px rgba(247,201,72,0.3);
+  }
+  .name-box h2 { font-size: 22px; font-weight: 900; color: var(--accent); margin-bottom: 8px; }
+  .name-box p { font-size: 13px; color: var(--subtext); margin-bottom: 18px; }
+  .name-box input {
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 2px solid var(--blue);
+    background: var(--bg);
+    color: #fff;
+    font-size: 16px;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    outline: none;
+    margin-bottom: 16px;
+  }
+  .name-box input::placeholder { color: var(--subtext); font-weight: 400; }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #e6a800);
+    color: #111;
+    font-weight: 900;
+    font-size: 15px;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    width: 100%;
+    transition: transform 0.1s, box-shadow 0.1s;
+    font-family: 'Nunito', sans-serif;
+  }
+  .btn-primary:active { transform: scale(0.97); }
+
+  /* ===== MAIN LAYOUT ===== */
+  #game {
+    display: none;
+    width: 100vw;
+    height: 100vh;
+    flex-direction: column;
+  }
+  #game.active { display: flex; }
+
+  /* TOP BAR */
+  #top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--panel);
+    padding: 6px 12px;
+    height: 46px;
+    border-bottom: 2px solid rgba(255,255,255,0.07);
+    flex-shrink: 0;
+  }
+  #player-tag {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.07);
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+  #player-avatar {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    background: linear-gradient(135deg, var(--accent), var(--orange));
+  }
+  #player-name-tag { font-size: 13px; font-weight: 800; color: var(--accent); }
+
+  #phase-timer {
+    text-align: center;
+    flex: 1;
+    padding: 0 8px;
+  }
+  #phase-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--subtext);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  #phase-countdown {
+    font-size: 20px;
+    font-weight: 900;
+    color: var(--accent);
+    line-height: 1;
+  }
+  #phase-countdown.race-mode { color: var(--red); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.7; } }
+
+  #top-stats {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .stat-chip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255,255,255,0.07);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .stat-chip .icon { font-size: 14px; }
+  .stat-chip.wins { color: var(--accent); }
+  .stat-chip.speed { color: var(--green); }
+
+  /* MAIN AREA */
+  #main-area {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* LEFT SIDEBAR */
+  #sidebar {
+    width: 64px;
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 0;
+    gap: 8px;
+    border-right: 2px solid rgba(255,255,255,0.07);
+    flex-shrink: 0;
+  }
+  .side-btn {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 20px;
+    transition: transform 0.1s, background 0.2s;
+    background: rgba(255,255,255,0.05);
+    border: 2px solid transparent;
+    gap: 1px;
+  }
+  .side-btn:active { transform: scale(0.93); }
+  .side-btn span.label { font-size: 8px; font-weight: 800; color: var(--subtext); text-transform: uppercase; }
+  .side-btn.shop { border-color: var(--orange); background: rgba(255,183,77,0.1); }
+  .side-btn.eggs { border-color: var(--purple); background: rgba(179,136,255,0.1); }
+  .side-btn.inventory { border-color: var(--blue); background: rgba(79,195,247,0.1); }
+  .side-btn.codes { border-color: var(--green); background: rgba(105,240,174,0.1); }
+  .side-btn.pets-display { border-color: var(--pink); background: rgba(244,143,177,0.1); }
+
+  /* GAME CANVAS AREA */
+  #canvas-area {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ===== TRAINING ZONE ===== */
+  #training-zone {
+    position: absolute; inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse at center, #1a2a1a 0%, #0f1a0f 70%);
+    overflow: hidden;
+  }
+  #training-zone::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(105,240,174,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(105,240,174,0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  #tap-btn {
+    position: relative;
+    width: 150px; height: 150px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, #fff 0%, var(--accent) 30%, #c97a00 100%);
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 0 0 8px rgba(247,201,72,0.15), 0 0 40px rgba(247,201,72,0.4), var(--shadow);
+    transition: transform 0.08s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 52px;
+    z-index: 2;
+  }
+  #tap-btn:active { transform: scale(0.92); }
+  #tap-btn.disabled { opacity: 0.4; pointer-events: none; }
+  #tap-label {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--green);
+    margin-top: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    z-index: 2;
+    text-shadow: 0 0 10px rgba(105,240,174,0.5);
+  }
+  #tap-power-label {
+    font-size: 11px;
+    color: var(--subtext);
+    z-index: 2;
+    margin-top: 4px;
+  }
+  #equipped-pets-display {
+    position: absolute;
+    top: 8px; right: 8px;
+    display: flex;
+    gap: 4px;
+    z-index: 3;
+  }
+  .mini-pet {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+
+  /* Floating +N text */
+  .float-text {
+    position: absolute;
+    font-size: 18px;
+    font-weight: 900;
+    color: var(--green);
+    pointer-events: none;
+    z-index: 100;
+    text-shadow: 0 0 10px rgba(105,240,174,0.7);
+    animation: floatUp 0.9s ease-out forwards;
+  }
+  @keyframes floatUp {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-60px) scale(1.3); }
+  }
+
+  /* ===== RACE TRACK ===== */
+  #race-zone {
+    position: absolute; inset: 0;
+    display: none;
+    flex-direction: column;
+    background: #0a1a0a;
+    overflow: hidden;
+  }
+  #race-zone.active { display: flex; }
+
+  #race-canvas-wrapper {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #race-track {
+    position: absolute;
+    top: 0; left: 0;
+    height: 100%;
+    /* width set dynamically */
+  }
+
+  /* Sky */
+  #race-track .sky {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 45%;
+    background: linear-gradient(180deg, #0a0a2e 0%, #1a1a4e 60%, #2a2a6e 100%);
+  }
+  /* Stars */
+  #race-track .stars {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 45%;
+    overflow: hidden;
+  }
+  /* Ground */
+  #race-track .ground {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 55%;
+    background: linear-gradient(180deg, #1a4a1a 0%, #0d2d0d 100%);
+  }
+  /* Road */
+  #race-track .road {
+    position: absolute;
+    bottom: 22%;
+    left: 0; right: 0;
+    height: 28%;
+    background: #2a2a2a;
+    border-top: 4px solid #fff;
+    border-bottom: 4px solid #fff;
+  }
+  #race-track .road::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0; right: 0;
+    height: 4px;
+    margin-top: -2px;
+    background: repeating-linear-gradient(90deg, #fff 0px, #fff 60px, transparent 60px, transparent 120px);
+    opacity: 0.4;
+  }
+  /* Checkered start/finish */
+  .checkered-line {
+    position: absolute;
+    bottom: 22%;
+    width: 20px;
+    height: 28%;
+    background: repeating-conic-gradient(#fff 0% 25%, #000 0% 50%) 0 0 / 10px 10px;
+    z-index: 5;
+  }
+
+  /* Milestone markers */
+  .milestone {
+    position: absolute;
+    bottom: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 4;
+  }
+  .milestone .pole {
+    width: 4px;
+    height: 40px;
+    background: #ffeb3b;
+  }
+  .milestone .flag {
+    background: linear-gradient(135deg, var(--accent), var(--orange));
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 900;
+    color: #111;
+    white-space: nowrap;
+  }
+
+  /* Racers */
+  .racer {
+    position: absolute;
+    bottom: 22%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: left 0.1s linear;
+    z-index: 6;
+  }
+  .racer .racer-name {
+    font-size: 9px;
+    font-weight: 800;
+    color: #fff;
+    background: rgba(0,0,0,0.6);
+    padding: 1px 4px;
+    border-radius: 4px;
+    white-space: nowrap;
+    margin-bottom: 2px;
+  }
+  .racer .racer-body {
+    font-size: 28px;
+    line-height: 1;
+  }
+  .racer .racer-vehicle {
+    font-size: 22px;
+    line-height: 1;
+  }
+  #player-racer .racer-name { color: var(--accent); }
+
+  /* Race leaderboard */
+  #race-positions {
+    display: flex;
+    gap: 6px;
+    padding: 4px 8px;
+    background: rgba(0,0,0,0.4);
+    border-top: 1px solid rgba(255,255,255,0.1);
+    flex-shrink: 0;
+    overflow-x: auto;
+  }
+  .pos-card {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255,255,255,0.07);
+    padding: 3px 8px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 800;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .pos-card .pos-num { color: var(--subtext); }
+  .pos-card.player-pos { border: 1px solid var(--accent); color: var(--accent); }
+
+  /* ===== SPEED BAR ===== */
+  #bottom-bar {
+    height: 40px;
+    background: var(--panel);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 10px;
+    border-top: 2px solid rgba(255,255,255,0.07);
+    flex-shrink: 0;
+  }
+  #speed-label { font-size: 11px; font-weight: 800; color: var(--subtext); white-space: nowrap; }
+  #speed-bar-outer {
+    flex: 1;
+    height: 18px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 9px;
+    overflow: hidden;
+  }
+  #speed-bar-inner {
+    height: 100%;
+    background: linear-gradient(90deg, var(--green), #00e676);
+    border-radius: 9px;
+    transition: width 0.3s ease;
+    min-width: 0;
+    position: relative;
+  }
+  #speed-bar-inner::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 4px; right: 4px; bottom: 4px;
+    background: rgba(255,255,255,0.25);
+    border-radius: 6px;
+  }
+  #speed-val { font-size: 12px; font-weight: 900; color: var(--green); white-space: nowrap; }
+
+  /* ===== MODALS ===== */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.8);
+    z-index: 500;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal-box {
+    background: var(--panel);
+    border-radius: 20px;
+    border: 2px solid rgba(255,255,255,0.1);
+    width: min(520px, 96vw);
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 60px rgba(0,0,0,0.7);
+    overflow: hidden;
+  }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 2px solid rgba(255,255,255,0.07);
+    flex-shrink: 0;
+  }
+  .modal-header h2 { font-size: 18px; font-weight: 900; }
+  .modal-close {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.08);
+    border: none;
+    color: #fff;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+  }
+  .modal-close:hover { background: rgba(255,82,82,0.3); }
+  .modal-body {
+    padding: 14px;
+    overflow-y: auto;
+    flex: 1;
+  }
+  .modal-body::-webkit-scrollbar { width: 4px; }
+  .modal-body::-webkit-scrollbar-track { background: transparent; }
+  .modal-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+
+  /* Shop items */
+  .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .shop-item {
+    background: var(--panel2);
+    border-radius: 14px;
+    padding: 14px 12px;
+    border: 2px solid rgba(255,255,255,0.07);
+    text-align: center;
+    transition: border-color 0.2s, transform 0.1s;
+    cursor: pointer;
+  }
+  .shop-item:active { transform: scale(0.97); }
+  .shop-item.owned { border-color: var(--green); }
+  .shop-item.equipped { border-color: var(--accent); background: rgba(247,201,72,0.05); }
+  .shop-item .item-icon { font-size: 40px; margin-bottom: 6px; }
+  .shop-item .item-name { font-size: 13px; font-weight: 800; margin-bottom: 2px; }
+  .shop-item .item-mult { font-size: 11px; color: var(--green); margin-bottom: 8px; }
+  .shop-item .item-price {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(247,201,72,0.15);
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--accent);
+  }
+  .shop-item .item-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 800;
+  }
+  .badge-owned { background: rgba(105,240,174,0.2); color: var(--green); }
+  .badge-equipped { background: rgba(247,201,72,0.2); color: var(--accent); }
+  .badge-free { background: rgba(79,195,247,0.2); color: var(--blue); }
+
+  /* Egg items */
+  .egg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .egg-card {
+    background: var(--panel2);
+    border-radius: 14px;
+    padding: 14px 12px;
+    text-align: center;
+    border: 2px solid rgba(255,255,255,0.07);
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  .egg-card:active { transform: scale(0.97); }
+  .egg-card.common { border-color: rgba(105,240,174,0.4); }
+  .egg-card.rare { border-color: rgba(179,136,255,0.6); }
+  .egg-icon { font-size: 44px; margin-bottom: 6px; }
+  .egg-name { font-size: 14px; font-weight: 900; margin-bottom: 4px; }
+  .egg-cost { font-size: 12px; color: var(--accent); font-weight: 800; margin-bottom: 8px; }
+  .egg-odds { font-size: 10px; color: var(--subtext); line-height: 1.6; }
+  .btn-hatch {
+    margin-top: 8px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    font-size: 13px;
+    font-weight: 800;
+    font-family: 'Nunito', sans-serif;
+    cursor: pointer;
+    transition: transform 0.1s;
+    width: 100%;
+  }
+  .btn-hatch:active { transform: scale(0.97); }
+  .btn-hatch.common { background: linear-gradient(135deg, var(--green), #00c853); color: #111; }
+  .btn-hatch.rare { background: linear-gradient(135deg, var(--purple), #7c4dff); color: #fff; }
+
+  /* Inventory */
+  .inv-section-title { font-size: 12px; font-weight: 800; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.5px; margin: 10px 0 6px; }
+  .inv-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .inv-pet {
+    background: var(--panel2);
+    border-radius: 12px;
+    padding: 8px 4px;
+    text-align: center;
+    border: 2px solid rgba(255,255,255,0.07);
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.1s;
+  }
+  .inv-pet:active { transform: scale(0.95); }
+  .inv-pet.equipped-pet { border-color: var(--accent); }
+  .inv-pet .pet-icon { font-size: 28px; }
+  .inv-pet .pet-name { font-size: 9px; font-weight: 800; margin-top: 2px; color: var(--subtext); }
+  .inv-pet .pet-boost { font-size: 9px; color: var(--green); font-weight: 700; }
+  .inv-pet .pet-eq-badge { font-size: 8px; color: var(--accent); font-weight: 800; margin-top: 1px; }
+  .inv-empty { color: var(--subtext); font-size: 13px; text-align: center; padding: 20px; }
+  .equip-info {
+    background: rgba(247,201,72,0.08);
+    border: 1px solid rgba(247,201,72,0.2);
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 11px;
+    color: var(--subtext);
+    margin-bottom: 10px;
+  }
+  .equip-info strong { color: var(--accent); }
+
+  /* Codes modal */
+  .codes-form { display: flex; flex-direction: column; gap: 12px; }
+  .codes-form input {
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 2px solid rgba(255,255,255,0.1);
+    background: var(--bg);
+    color: #fff;
+    font-size: 15px;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    outline: none;
+  }
+  .codes-form input:focus { border-color: var(--green); }
+  .btn-redeem {
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    background: linear-gradient(135deg, var(--green), #00c853);
+    color: #111;
+    font-size: 15px;
+    font-weight: 900;
+    font-family: 'Nunito', sans-serif;
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  .btn-redeem:active { transform: scale(0.97); }
+  #code-result { font-size: 13px; font-weight: 800; text-align: center; padding: 6px; border-radius: 8px; }
+  #code-result.success { background: rgba(105,240,174,0.15); color: var(--green); }
+  #code-result.error { background: rgba(255,82,82,0.15); color: var(--red); }
+
+  /* ===== NOTIFICATION ===== */
+  #notification {
+    position: fixed;
+    top: 55px; left: 50%;
+    transform: translateX(-50%) translateY(-80px);
+    background: linear-gradient(135deg, #1a3a1a, #0d2d0d);
+    border: 2px solid var(--green);
+    border-radius: 12px;
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--green);
+    z-index: 2000;
+    white-space: nowrap;
+    transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    box-shadow: 0 4px 20px rgba(105,240,174,0.3);
+    pointer-events: none;
+  }
+  #notification.owner { border-color: var(--accent); color: var(--accent); background: linear-gradient(135deg, #3a2a00, #2d1f00); box-shadow: 0 4px 20px rgba(247,201,72,0.4); }
+  #notification.show { transform: translateX(-50%) translateY(0); }
+
+  /* ===== EGG HATCH ANIMATION ===== */
+  #hatch-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.9);
+    z-index: 800;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+  }
+  #hatch-overlay.active { display: flex; }
+  .hatch-egg { font-size: 80px; animation: eggShake 0.5s ease-in-out 3; }
+  @keyframes eggShake {
+    0%,100% { transform: rotate(0deg); }
+    25% { transform: rotate(-15deg) scale(1.05); }
+    75% { transform: rotate(15deg) scale(1.05); }
+  }
+  .hatch-result { font-size: 70px; display: none; animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+  @keyframes popIn { from { transform: scale(0) rotate(-20deg); opacity: 0; } to { transform: scale(1) rotate(0deg); opacity: 1; } }
+  .hatch-name { font-size: 22px; font-weight: 900; color: var(--accent); display: none; }
+  .hatch-boost { font-size: 14px; color: var(--green); display: none; font-weight: 800; }
+  .hatch-rarity { font-size: 12px; color: var(--subtext); display: none; }
+  .hatch-ok { display: none; margin-top: 10px; padding: 10px 30px; border-radius: 10px; border: none; background: var(--accent); color: #111; font-size: 15px; font-weight: 900; font-family: 'Nunito', sans-serif; cursor: pointer; }
+
+  /* Race end overlay */
+  #race-end-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.88);
+    z-index: 700;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+  }
+  #race-end-overlay.active { display: flex; }
+  .race-end-box {
+    background: var(--panel);
+    border: 2px solid var(--accent);
+    border-radius: 20px;
+    padding: 24px;
+    text-align: center;
+    width: min(340px, 92vw);
+    box-shadow: 0 0 40px rgba(247,201,72,0.3);
+  }
+  .race-end-box h2 { font-size: 26px; font-weight: 900; color: var(--accent); }
+  .race-end-box .wins-earned { font-size: 20px; font-weight: 800; color: var(--green); margin: 8px 0; }
+  .race-end-box p { font-size: 13px; color: var(--subtext); }
+  .btn-continue {
+    margin-top: 14px;
+    padding: 12px 32px;
+    border-radius: 10px;
+    border: none;
+    background: linear-gradient(135deg, var(--accent), var(--orange));
+    color: #111;
+    font-size: 15px;
+    font-weight: 900;
+    font-family: 'Nunito', sans-serif;
+    cursor: pointer;
+  }
+
+  /* Milestone popup */
+  #milestone-popup {
+    position: fixed;
+    bottom: 60px; left: 50%;
+    transform: translateX(-50%) translateY(60px);
+    background: linear-gradient(135deg, #1a1a3e, #0d0d2d);
+    border: 2px solid var(--accent);
+    border-radius: 14px;
+    padding: 8px 20px;
+    font-size: 14px;
+    font-weight: 900;
+    color: var(--accent);
+    z-index: 600;
+    text-align: center;
+    transition: transform 0.3s, opacity 0.3s;
+    opacity: 0;
+    pointer-events: none;
+  }
+  #milestone-popup.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  /* Stars gen */
+  .star {
+    position: absolute;
+    border-radius: 50%;
+    background: #fff;
+    animation: twinkle 2s infinite;
+  }
+  @keyframes twinkle { 0%,100% { opacity: 1; } 50% { opacity: 0.2; } }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+</style>
 </head>
 <body>
 
-    <!-- 1. ЗАГРУЗОЧНЫЙ ЭКРАН -->
-    <div id="loading-screen" class="screen">
-        <div class="loader"></div>
-        <p>Подключение к DICEGRAM...</p>
-        <p id="loading-error" style="display:none; color:#ff4545;">Не удалось подключиться</p>
-        <button id="reconnect-btn" style="display:none;" onclick="reconnect()">Повторить попытку</button>
+<!-- ORIENTATION LOCK -->
+<div id="orientation-lock">
+  <div class="rotate-icon">🔄</div>
+  <p>Please rotate your device to landscape mode</p>
+</div>
+
+<!-- NAME MODAL -->
+<div id="name-modal">
+  <div class="name-box">
+    <h2>🏁 Welcome to Tap Race!</h2>
+    <p>Enter your racer name to begin your journey</p>
+    <input type="text" id="name-input" placeholder="Your racer name..." maxlength="16" autocomplete="off">
+    <button class="btn-primary" onclick="submitName()">🚀 Start Racing!</button>
+  </div>
+</div>
+
+<!-- MAIN GAME -->
+<div id="game">
+
+  <!-- TOP BAR -->
+  <div id="top-bar">
+    <div id="player-tag">
+      <div id="player-avatar">🏎️</div>
+      <span id="player-name-tag">Racer</span>
+    </div>
+    <div id="phase-timer">
+      <div id="phase-label">TRAINING PHASE</div>
+      <div id="phase-countdown">30s</div>
+    </div>
+    <div id="top-stats">
+      <div class="stat-chip wins"><span class="icon">🏆</span><span id="wins-counter">0</span></div>
+      <div class="stat-chip speed"><span class="icon">⚡</span><span id="speed-counter">0</span></div>
+    </div>
+  </div>
+
+  <!-- MAIN AREA -->
+  <div id="main-area">
+
+    <!-- LEFT SIDEBAR -->
+    <div id="sidebar">
+      <div class="side-btn shop" onclick="openModal('shop-modal')">
+        🛒<span class="label">Shop</span>
+      </div>
+      <div class="side-btn eggs" onclick="openModal('eggs-modal')">
+        🥚<span class="label">Eggs</span>
+      </div>
+      <div class="side-btn inventory" onclick="openModal('inv-modal')">
+        🎒<span class="label">Inv</span>
+      </div>
+      <div class="side-btn codes" onclick="openModal('codes-modal')">
+        🎁<span class="label">Codes</span>
+      </div>
     </div>
 
-    <!-- 2. ЭКРАН ВЫБОРА (ВХОД / РЕГИСТРАЦИЯ) -->
-    <div id="screen-auth-choice" class="screen" style="display: none;">
-        <div class="auth-logo">
-            <span class="logo-text">DICEGRAM</span>
-            <span class="logo-sub">TIKTOK</span>
+    <!-- CANVAS AREA -->
+    <div id="canvas-area">
+
+      <!-- TRAINING ZONE -->
+      <div id="training-zone">
+        <div id="equipped-pets-display"></div>
+        <button id="tap-btn" ontouchstart="handleTap(event)" onclick="handleTap(event)">⚡</button>
+        <div id="tap-label">TAP TO TRAIN!</div>
+        <div id="tap-power-label">+1 Speed per tap</div>
+      </div>
+
+      <!-- RACE ZONE -->
+      <div id="race-zone">
+        <div id="race-canvas-wrapper">
+          <div id="race-track">
+            <div class="sky"></div>
+            <div class="stars" id="stars-layer"></div>
+            <div class="ground"></div>
+            <div class="road"></div>
+          </div>
+          <!-- Racers injected by JS -->
+          <div id="player-racer" class="racer">
+            <div class="racer-name" id="player-racer-name">You</div>
+            <div class="racer-body">🧑</div>
+            <div class="racer-vehicle" id="player-vehicle-icon">🛴</div>
+          </div>
+          <div id="bot1-racer" class="racer"><div class="racer-name">Guest932</div><div class="racer-body">🤖</div><div class="racer-vehicle">🏎️</div></div>
+          <div id="bot2-racer" class="racer"><div class="racer-name">ProRacer</div><div class="racer-body">👾</div><div class="racer-vehicle">🚗</div></div>
+          <div id="bot3-racer" class="racer"><div class="racer-name">BloxBoy</div><div class="racer-body">🤺</div><div class="racer-vehicle">🛵</div></div>
         </div>
-        <div class="auth-buttons">
-            <button class="btn btn-primary" onclick="showAuthScreen('login')">Войти на аккаунт</button>
-            <button class="btn btn-secondary" onclick="showAuthScreen('register')">Создать новый аккаунт</button>
+        <div id="race-positions">
+          <div class="pos-card player-pos"><span class="pos-num">#?</span> <span id="race-pos-name">You</span> <span id="race-pos-dist">0m</span></div>
+          <div class="pos-card" id="bot1-pos-card"><span class="pos-num">#?</span> Guest932 <span id="bot1-pos-dist">0m</span></div>
+          <div class="pos-card" id="bot2-pos-card"><span class="pos-num">#?</span> ProRacer <span id="bot2-pos-dist">0m</span></div>
+          <div class="pos-card" id="bot3-pos-card"><span class="pos-num">#?</span> BloxBoy <span id="bot3-pos-dist">0m</span></div>
         </div>
+      </div>
+
     </div>
+  </div>
 
-    <!-- 3. ЭКРАН ВХОДА -->
-    <div id="screen-auth-login" class="screen" style="display: none;">
-        <div class="back-btn" onclick="showAuthScreen('choice')">← Назад</div>
-        <h2>Войти на аккаунт</h2>
-        <div class="auth-form">
-            <div class="input-group">
-                <label>Ваш юзернейм</label>
-                <input type="text" id="login-username" placeholder="Введите @username">
-            </div>
-            <div class="input-group">
-                <label>Ваш пароль</label>
-                <input type="password" id="login-password" placeholder="Введите пароль">
-            </div>
-            <div id="login-error-msg" class="error-text" style="display: none;"></div>
-            <button class="btn btn-primary" onclick="processLogin()">Войти</button>
-        </div>
+  <!-- BOTTOM SPEED BAR -->
+  <div id="bottom-bar">
+    <span id="speed-label">⚡ SPEED</span>
+    <div id="speed-bar-outer">
+      <div id="speed-bar-inner" style="width:0%"></div>
     </div>
+    <span id="speed-val">0</span>
+  </div>
 
-    <!-- 4. ЭКРАН РЕГИСТРАЦИИ -->
-    <div id="screen-auth-register" class="screen" style="display: none;">
-        <div class="back-btn" onclick="showAuthScreen('choice')">← Назад</div>
-        <h2>Регистрация</h2>
-        <div class="auth-form">
-            <div class="input-group">
-                <label>Напишите вашего юзернейм из оригинального телеграмма</label>
-                <input type="text" id="reg-username" placeholder="Пример: dauletbr">
-            </div>
-            <div class="input-group">
-                <label>Создайте пароль</label>
-                <input type="password" id="reg-password" placeholder="Придумайте пароль">
-            </div>
-            <div class="input-group">
-                <label>Подтвердите пароля</label>
-                <input type="password" id="reg-password-confirm" placeholder="Повторите пароль">
-            </div>
-            <div id="reg-error-msg" class="error-text" style="display: none;"></div>
-            <button class="btn btn-secondary" onclick="processRegister()">Создать аккаунт</button>
-        </div>
+</div>
+
+<!-- ===== SHOP MODAL ===== -->
+<div id="shop-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header" style="border-color: rgba(255,183,77,0.3);">
+      <h2 style="color: var(--orange)">🛒 Vehicle Shop</h2>
+      <button class="modal-close" onclick="closeModal('shop-modal')">✕</button>
     </div>
-
-    <!-- 5. ГЛАВНЫЙ ЭКРАН ПРИЛОЖЕНИЯ (БЕСКОНЕЧНАЯ ЛЕНТА) -->
-    <div id="app-container" class="screen" style="display: none;">
-        <!-- Индикатор статуса сети -->
-        <span id="global-status" style="display:none;"></span>
-
-        <!-- Вертикальный контейнер для видео-слайдов -->
-        <div id="video-feed" class="video-feed-container">
-            <!-- Сюда JS будет динамически рендерить слайды с видео -->
-        </div>
-
-        <!-- Нижнее навигационное меню (как в ТТ) -->
-        <div class="bottom-nav">
-            <div class="nav-item active" onclick="changeTab('feed')">🏠 Лента</div>
-            <div class="nav-item" onclick="changeTab('profile')">👤 Профиль</div>
-        </div>
+    <div class="modal-body">
+      <div class="shop-grid" id="shop-grid"></div>
     </div>
+  </div>
+</div>
 
-    <!-- Подключаем JS скрипты конфигурации и ядра -->
-    <script src="js/config.js"></script>
-    <script src="js/socket.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/feed.js"></script>
-    <script src="js/ui.js"></script>
-</body>
-</html>
+<!-- ===== EGGS MODAL ===== -->
+<div id="eggs-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header" style="border-color: rgba(179,136,255,0.3);">
+      <h2 style="color: var(--purple)">🥚 Egg Shop</h2>
+      <button class="modal-close" onclick="closeModal('eggs-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="egg-grid">
+        <div class="egg-card common">
+          <div class="egg-icon">🥚</div>
+          <div class="egg-name" style="color:var(--green)">Common Egg</div>
+          <div class="egg-cost">🏆 15 Wins</div>
+          <div class="egg-odds">
+            🐶 Dog — 50% (+2 boost)<br>
+            🐱 Cat — 40% (+3 boost)
+          </div>
+          <button class="btn-hatch common" onclick="hatchEgg('common')">Hatch Now!</button>
+        </div>
+        <div class="egg-card rare">
+          <div class="egg-icon">🔮</div>
+          <div class="egg-name" style="color:var(--purple)">Rare Egg</div>
+          <div class="egg-cost">🏆 100 Wins</div>
+          <div class="egg-odds">
+            🐲 Dragon — 8% (+15 boost)<br>
+            🦄 Pegasus — 2% (+50 boost)
+          </div>
+          <button class="btn-hatch rare" onclick="hatchEgg('rare')">Hatch Now!</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
+<!-- ===== INVENTORY MODAL ===== -->
+<div id="inv-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header" style="border-color: rgba(79,195,247,0.3);">
+      <h2 style="color: var(--blue)">🎒 Pet Inventory</h2>
+      <button class="modal-close" onclick="closeModal('inv-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="equip-info">Equip up to <strong>3 pets</strong> at once. Tap a pet to equip/unequip. Equipped pets boost your tap power!</div>
+      <div id="equipped-section">
+        <div class="inv-section-title">⚡ EQUIPPED PETS (0/3)</div>
+        <div class="inv-grid" id="equipped-grid"></div>
+      </div>
+      <div id="owned-section">
+        <div class="inv-section-title">🎒 ALL PETS</div>
+        <div class="inv-grid" id="owned-grid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CODES MODAL ===== -->
+<div id="codes-modal" class="modal-overlay">
+  <div class="modal-box" style="max-width: 360px;">
+    <div class="modal-header" style="border-color: rgba(105,240,174,0.3);">
+      <h2 style="color: var(--green)">🎁 Promo Codes</h2>
+      <button class="modal-close" onclick="closeModal('codes-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="codes-form">
+        <input type="text" id="code-input" placeholder="Enter promo code..." autocomplete="off" autocorrect="off" autocapitalize="none">
+        <button class="btn-redeem" onclick="redeemCode()">🎁 Redeem Code</button>
+        <div id="code-result" style="display:none"></div>
+      </div>
+      <div style="margin-top:16px; padding:12px; background:rgba(255,255,255,0.04); border-radius:10px;">
+        <div style="font-size:11px;font-weight:800;color:var(--subtext);margin-bottom:6px;">HINT</div>
+        <div style="font-size:12px;color:var(--subtext);">Follow the official channels for exclusive codes! 👑</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EGG HATCH OVERLAY -->
+<div id="hatch-overlay">
+  <div class="hatch-egg" id="hatch-egg-anim">🥚</div>
+  <div class="hatch-result" id="hatch-result-icon"></div>
+  <div class="hatch-name" id="hatch-result-name"></div>
+  <div class="hatch-boost" id="hatch-result-boost"></div>
+  <div class="hatch-rarity" id="hatch-result-rarity"></div>
+  <button class="hatch-ok" id="hatch-ok-btn" onclick="closeHatchOverlay()">NICE! 🎉</button>
+</div>
+
+<!-- RACE END OVERLAY -->
+<div id="race-end-overlay">
+  <div class="race-end-box">
+    <h2>🏁 Race Over!</h2>
+    <div class="wins-earned" id="race-wins-earned">+0 🏆 Wins</div>
+    <p id="race-end-msg">Great race! Training phase begins again.</p>
+    <button class="btn-continue" onclick="closeRaceEnd()">Continue →</button>
+  </div>
+</div>
+
+<!-- NOTIFICATION -->
+<div id="notification"></div>
+
+<!-- MILESTONE POPUP -->
+<div id="milestone-popup"></div>
+
+<script>
+// ===== GAME STATE =====
+const VEHICLES = [
+  { id: 'scooter',   name: 'Kick Scooter', icon: '🛴', mult: 1,  cost: 0,   tier: 1 },
+  { id: 'moto',      name: 'Motorcycle',   icon: '🏍️', mult: 3,  cost: 50,  tier: 2 },
+  { id: 'sportscar', name: 'Sports Car',   icon: '🏎️', mult: 10, cost: 500, tier: 3 },
+];
+
+const PET_POOLS = {
+  common: [
+    { id: 'dog',    name: 'Dog',    icon: '🐶', boost: 2,  rarity: 'Common', chance: 0.50 },
+    { id: 'cat',    name: 'Cat',    icon: '🐱', boost: 3,  rarity: 'Common', chance: 0.40 },
+  ],
+  rare: [
+    { id: 'dragon',  name: 'Dragon',  icon: '🐲', boost: 15, rarity: 'Rare',   chance: 0.08 },
+    { id: 'pegasus', name: 'Pegasus', icon: '🦄', boost: 50, rarity: 'Legendary', chance: 0.02 },
+  ],
+};
+
+const MILESTONES = [
+  { dist: 100,      wins: 1,   label: '100m' },
+  { dist: 500,      wins: 5,   label: '500m' },
+  { dist: 1000,     wins: 15,  label: '1km' },
+  { dist: 5000,     wins: 50,  label: '5km' },
+  { dist: 10000,    wins: 500, label: '10km' },
+  { dist: 50000,    wins: 2000, label: '50km' },
+  { dist: 100000,   wins: 10000, label: '100km' },
+  { dist: 1000000,  wins: 999999, label: '1M' },
+];
+
+const TRACK_WORLD_LENGTH = 6000; // px for visual track width
+const TRACK_REAL_MAX = MILESTONES[MILESTONES.length - 1].dist;
+
+let G = {
+  name: '',
+  wins: 0,
+  speed: 0,
+  equippedVehicle: 'scooter',
+  ownedVehicles: ['scooter'],
+  pets: [],         // array of {uid, petId, ...pet data}
+  equippedPets: [], // array of pet uids (max 3)
+  phase: 'training', // 'training' | 'race'
+  trainingTime: 30,
+  raceTime: 180,
+  timer: 30,
+};
+
+// Runtime race state (not persisted between races - reset each race)
+let raceState = {
+  playerDist: 0,
+  botDists: [0, 0, 0],
+  botSpeeds: [1, 1, 1],
+  milestonePassed: [],
+  winsThisRace: 0,
+  raceInterval: null,
+  cameraX: 0,
+};
+
+let timerInterval = null;
+let petUidCounter = 0;
+
+// ===== PERSISTENCE =====
+function saveGame() {
+  localStorage.setItem('taprace_v3', JSON.stringify({
+    name: G.name,
+    wins: G.wins,
+    equippedVehicle: G.equippedVehicle,
+    ownedVehicles: G.ownedVehicles,
+    pets: G.pets,
+    equippedPets: G.equippedPets,
+    petUidCounter,
+  }));
+}
+
+function loadGame() {
+  try {
+    const raw = localStorage.getItem('taprace_v3');
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    G.name = d.name || '';
+    G.wins = d.wins || 0;
+    G.equippedVehicle = d.equippedVehicle || 'scooter';
+    G.ownedVehicles = d.ownedVehicles || ['scooter'];
+    G.pets = d.pets || [];
+    G.equippedPets = d.equippedPets || [];
+    petUidCounter = d.petUidCounter || 0;
+  } catch(e) {}
+}
+
+// ===== COMPUTED =====
+function getTapPower() {
+  const v = VEHICLES.find(v => v.id === G.equippedVehicle);
+  const vMult = v ? v.mult : 1;
+  let petBoost = 0;
+  for (const uid of G.equippedPets) {
+    const p = G.pets.find(p => p.uid === uid);
+    if (p) petBoost += p.boost;
+  }
+  return vMult + petBoost;
+}
+
+function formatDist(d) {
+  if (d >= 1000000) return (d/1000000).toFixed(2) + 'M';
+  if (d >= 1000) return (d/1000).toFixed(1) + 'km';
+  return Math.floor(d) + 'm';
+}
+
+function formatNum(n) {
+  if (n >= 1000000000) return (n/1000000000).toFixed(1) + 'B';
+  if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n/1000).toFixed(1) + 'k';
+  return String(n);
+}
+
+// ===== UI UPDATE =====
+function updateUI() {
+  document.getElementById('wins-counter').textContent = formatNum(G.wins);
+  document.getElementById('speed-counter').textContent = formatNum(G.speed);
+  document.getElementById('player-name-tag').textContent = G.name || 'Racer';
+  document.getElementById('player-racer-name').textContent = G.name || 'You';
+  document.getElementById('race-pos-name').textContent = G.name || 'You';
+
+  // Vehicle icon
+  const v = VEHICLES.find(v => v.id === G.equippedVehicle);
+  document.getElementById('player-vehicle-icon').textContent = v ? v.icon : '🛴';
+  document.getElementById('player-avatar').textContent = v ? v.icon : '🏎️';
+
+  // Speed bar
+  const maxSpeed = 10000;
+  const pct = Math.min(100, (G.speed / maxSpeed) * 100);
+  document.getElementById('speed-bar-inner').style.width = pct + '%';
+  document.getElementById('speed-val').textContent = formatNum(G.speed);
+
+  // Tap power label
+  const power = getTapPower();
+  document.getElementById('tap-power-label').textContent = `+${power} Speed per tap`;
+
+  // Equipped pets display
+  const epDiv = document.getElementById('equipped-pets-display');
+  epDiv.innerHTML = '';
+  for (const uid of G.equippedPets) {
+    const p = G.pets.find(p => p.uid === uid);
+    if (p) {
+      const d = document.createElement('div');
+      d.className = 'mini-pet';
+      d.textContent = p.icon;
+      d.title = `${p.name} +${p.boost}`;
+      epDiv.appendChild(d);
+    }
+  }
+}
+
+// ===== PHASE TIMER =====
+function startTimer() {
+  if (timerInterval) clearInterval(timerInterval);
+  G.timer = G.trainingTime;
+  G.phase = 'training';
+  G.speed = 0;
+  updatePhaseUI();
+  updateUI();
+
+  timerInterval = setInterval(() => {
+    G.timer--;
+    updatePhaseUI();
+    if (G.timer <= 0) {
+      clearInterval(timerInterval);
+      startRace();
+    }
+  }, 1000);
+}
+
+function updatePhaseUI() {
+  const lbl = document.getElementById('phase-label');
+  const cnt = document.getElementById('phase-countdown');
+  const tapBtn = document.getElementById('tap-btn');
+
+  if (G.phase === 'training') {
+    lbl.textContent = 'NEXT RACE IN';
+    cnt.textContent = G.timer + 's';
+    cnt.className = '';
+    tapBtn.classList.remove('disabled');
+  } else {
+    lbl.textContent = '🏁 RACE TIME LEFT';
+    cnt.textContent = G.timer + 's';
+    cnt.className = 'race-mode';
+    tapBtn.classList.add('disabled');
+  }
+}
+
+// ===== TAPPING =====
+function handleTap(e) {
+  if (G.phase !== 'training') return;
+  e.preventDefault();
+
+  const power = getTapPower();
+  G.speed += power;
+  updateUI();
+  saveGame();
+
+  // Floating text
+  const area = document.getElementById('training-zone');
+  const rect = area.getBoundingClientRect();
+
+  let x, y;
+  if (e.touches && e.touches.length > 0) {
+    x = e.touches[0].clientX - rect.left;
+    y = e.touches[0].clientY - rect.top;
+  } else {
+    x = (e.clientX || rect.width / 2) - rect.left;
+    y = (e.clientY || rect.height / 2) - rect.top;
+  }
+
+  const ft = document.createElement('div');
+  ft.className = 'float-text';
+  ft.textContent = `+${power}`;
+  ft.style.left = (x - 20 + Math.random() * 40) + 'px';
+  ft.style.top = (y - 20) + 'px';
+  area.appendChild(ft);
+  setTimeout(() => ft.remove(), 900);
+}
+
+// ===== RACE =====
+function startRace() {
+  G.phase = 'race';
+  G.timer = G.raceTime;
+
+  // Reset race state
+  raceState.playerDist = 0;
+  raceState.botDists = [0, 0, 0];
+  raceState.milestonePassed = [];
+  raceState.winsThisRace = 0;
+  raceState.cameraX = 0;
+
+  // Bot speeds: scale to be competitive
+  const playerSpeed = Math.max(G.speed, 10);
+  const variance = 0.25;
+  raceState.botSpeeds = [
+    playerSpeed * (0.7 + Math.random() * variance * 2),
+    playerSpeed * (0.8 + Math.random() * variance * 2),
+    playerSpeed * (0.65 + Math.random() * variance * 2),
+  ];
+
+  // Show race zone
+  document.getElementById('training-zone').style.display = 'none';
+  document.getElementById('race-zone').classList.add('active');
+
+  buildRaceTrack();
+  positionRacers();
+  updatePhaseUI();
+
+  // Race loop
+  raceState.raceInterval = setInterval(() => {
+    G.timer--;
+    updatePhaseUI();
+    updateRace();
+
+    if (G.timer <= 0) {
+      endRace();
+    }
+  }, 1000);
+}
+
+function buildRaceTrack() {
+  const track = document.getElementById('race-track');
+  // Remove old milestones/checkered
+  track.querySelectorAll('.milestone, .checkered-line').forEach(el => el.remove());
+
+  const wrapperW = document.getElementById('race-canvas-wrapper').offsetWidth;
+  const wrapperH = document.getElementById('race-canvas-wrapper').offsetHeight;
+
+  track.style.width = TRACK_WORLD_LENGTH + 'px';
+  track.style.height = wrapperH + 'px';
+
+  // Update sky/stars/ground/road heights
+  track.querySelectorAll('.sky, .stars, .ground, .road').forEach(el => {
+    el.style.height = '';
+  });
+
+  // Stars
+  const starsLayer = document.getElementById('stars-layer');
+  starsLayer.innerHTML = '';
+  for (let i = 0; i < 80; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = 1 + Math.random() * 2;
+    s.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}%;top:${Math.random()*100}%;animation-delay:${Math.random()*2}s;animation-duration:${1.5+Math.random()*2}s`;
+    starsLayer.appendChild(s);
+  }
+
+  // Start line
+  const startLine = document.createElement('div');
+  startLine.className = 'checkered-line';
+  startLine.style.left = '60px';
+  track.appendChild(startLine);
+
+  // Finish line
+  const finishLine = document.createElement('div');
+  finishLine.className = 'checkered-line';
+  finishLine.style.left = (TRACK_WORLD_LENGTH - 40) + 'px';
+  track.appendChild(finishLine);
+
+  // Milestone markers
+  MILESTONES.forEach(m => {
+    const pct = m.dist / TRACK_REAL_MAX;
+    const px = 80 + pct * (TRACK_WORLD_LENGTH - 120);
+    const el = document.createElement('div');
+    el.className = 'milestone';
+    el.style.left = px + 'px';
+    el.innerHTML = `<div class="flag">🏆 ${m.label}</div><div class="pole"></div>`;
+    track.appendChild(el);
+  });
+}
+
+function distToPixel(dist) {
+  const pct = Math.min(dist / TRACK_REAL_MAX, 1);
+  return 80 + pct * (TRACK_WORLD_LENGTH - 120);
+}
+
+function positionRacers() {
+  const wrapper = document.getElementById('race-canvas-wrapper');
+  const wrapperH = wrapper.offsetHeight;
+  const roadBottom = wrapperH * 0.22;
+  const roadH = wrapperH * 0.28;
+
+  // Vertical positions (stagger slightly)
+  const yPos = [
+    roadBottom + roadH * 0.15,
+    roadBottom + roadH * 0.35,
+    roadBottom + roadH * 0.55,
+    roadBottom + roadH * 0.72,
+  ];
+
+  const ids = ['player-racer', 'bot1-racer', 'bot2-racer', 'bot3-racer'];
+  ids.forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.style.bottom = yPos[i] + 'px';
+    el.style.position = 'absolute';
+  });
+}
+
+function updateRace() {
+  const playerSpeedPerSec = Math.max(G.speed * 0.05, 1);
+
+  raceState.playerDist += playerSpeedPerSec;
+  raceState.botDists[0] += raceState.botSpeeds[0] * 0.05;
+  raceState.botDists[1] += raceState.botSpeeds[1] * 0.05;
+  raceState.botDists[2] += raceState.botSpeeds[2] * 0.05;
+
+  // Check milestones
+  MILESTONES.forEach((m, idx) => {
+    if (!raceState.milestonePassed.includes(idx) && raceState.playerDist >= m.dist) {
+      raceState.milestonePassed.push(idx);
+      G.wins += m.wins;
+      raceState.winsThisRace += m.wins;
+      saveGame();
+      updateUI();
+      showMilestonePopup(`🏆 ${m.label}! +${formatNum(m.wins)} Wins!`);
+    }
+  });
+
+  // If player reaches max
+  if (raceState.playerDist >= TRACK_REAL_MAX) {
+    endRace();
+    return;
+  }
+
+  // Update visuals
+  updateRaceVisuals();
+  updateLeaderboard();
+}
+
+function updateRaceVisuals() {
+  const wrapper = document.getElementById('race-canvas-wrapper');
+  const wrapperW = wrapper.offsetWidth;
+
+  const playerPx = distToPixel(raceState.playerDist);
+  const targetCameraX = playerPx - wrapperW * 0.3;
+  raceState.cameraX = Math.max(0, Math.min(targetCameraX, TRACK_WORLD_LENGTH - wrapperW));
+
+  document.getElementById('race-track').style.transform = `translateX(${-raceState.cameraX}px)`;
+
+  // Position racers relative to track
+  const playerEl = document.getElementById('player-racer');
+  playerEl.style.left = playerPx + 'px';
+  playerEl.style.transform = `translateX(${-raceState.cameraX}px)`;
+
+  const botIds = ['bot1-racer', 'bot2-racer', 'bot3-racer'];
+  botIds.forEach((id, i) => {
+    const px = distToPixel(raceState.botDists[i]);
+    const el = document.getElementById(id);
+    el.style.left = px + 'px';
+    el.style.transform = `translateX(${-raceState.cameraX}px)`;
+  });
+}
+
+function updateLeaderboard() {
+  const racers = [
+    { name: G.name || 'You', dist: raceState.playerDist, isPlayer: true },
+    { name: 'Guest932', dist: raceState.botDists[0] },
+    { name: 'ProRacer', dist: raceState.botDists[1] },
+    { name: 'BloxBoy',  dist: raceState.botDists[2] },
+  ];
+  racers.sort((a, b) => b.dist - a.dist);
+
+  const cards = ['player-pos-card', 'bot1-pos-card', 'bot2-pos-card', 'bot3-pos-card'];
+  const posDiv = document.getElementById('race-positions');
+  posDiv.innerHTML = '';
+  racers.forEach((r, i) => {
+    const card = document.createElement('div');
+    card.className = 'pos-card' + (r.isPlayer ? ' player-pos' : '');
+    card.innerHTML = `<span class="pos-num">#${i+1}</span> ${r.name} <span style="color:var(--green)">${formatDist(r.dist)}</span>`;
+    posDiv.appendChild(card);
+  });
+}
+
+function endRace() {
+  if (raceState.raceInterval) {
+    clearInterval(raceState.raceInterval);
+    raceState.raceInterval = null;
+  }
+
+  // Show result
+  document.getElementById('race-wins-earned').textContent = `+${formatNum(raceState.winsThisRace)} 🏆 Wins`;
+  document.getElementById('race-end-msg').textContent = `Distance: ${formatDist(raceState.playerDist)} • Back to training!`;
+  document.getElementById('race-end-overlay').classList.add('active');
+}
+
+function closeRaceEnd() {
+  document.getElementById('race-end-overlay').classList.remove('active');
+  document.getElementById('race-zone').classList.remove('active');
+  document.getElementById('training-zone').style.display = '';
+  startTimer();
+}
+
+// ===== SHOP =====
+function renderShop() {
+  const grid = document.getElementById('shop-grid');
+  grid.innerHTML = '';
+  VEHICLES.forEach(v => {
+    const owned = G.ownedVehicles.includes(v.id);
+    const equipped = G.equippedVehicle === v.id;
+    const el = document.createElement('div');
+    el.className = 'shop-item' + (equipped ? ' equipped' : owned ? ' owned' : '');
+    el.innerHTML = `
+      <div class="item-icon">${v.icon}</div>
+      <div class="item-name">${v.name}</div>
+      <div class="item-mult">✨ ${v.mult}x Multiplier</div>
+      ${v.cost === 0 ? `<span class="item-badge badge-free">FREE</span>` :
+        equipped ? `<span class="item-badge badge-equipped">✅ Equipped</span>` :
+        owned ? `<span class="item-badge badge-owned">✔ Owned</span>` :
+        `<div class="item-price">🏆 ${formatNum(v.cost)}</div>`}
+    `;
+    el.onclick = () => buyOrEquipVehicle(v.id);
+    grid.appendChild(el);
+  });
+}
+
+function buyOrEquipVehicle(id) {
+  const v = VEHICLES.find(v => v.id === id);
+  if (!v) return;
+  if (G.equippedVehicle === id) return;
+  if (G.ownedVehicles.includes(id)) {
+    G.equippedVehicle = id;
+    saveGame(); updateUI(); renderShop();
+    showNotif(`🏎️ ${v.name} equipped!`);
+    return;
+  }
+  if (G.wins < v.cost) { showNotif(`❌ Need ${formatNum(v.cost)} Wins!`); return; }
+  G.wins -= v.cost;
+  G.ownedVehicles.push(id);
+  G.equippedVehicle = id;
+  saveGame(); updateUI(); renderShop();
+  showNotif(`🎉 ${v.name} purchased & equipped!`);
+}
+
+// ===== EGGS =====
+function hatchEgg(type) {
+  const cost = type === 'common' ? 15 : 100;
+  if (G.wins < cost) { showNotif(`❌ Need ${cost} Wins to hatch!`); return; }
+
+  G.wins -= cost;
+  saveGame(); updateUI();
+  closeModal('eggs-modal');
+
+  const pool = PET_POOLS[type];
+  const roll = Math.random();
+  let cumulative = 0;
+  let chosen = pool[pool.length - 1]; // fallback
+  for (const pet of pool) {
+    cumulative += pet.chance;
+    if (roll < cumulative) { chosen = pet; break; }
+  }
+  // For rare egg, if no rare pet rolled, give dog as fallback
+  if (type === 'rare' && roll >= 0.10) {
+    chosen = PET_POOLS.common[0];
+  }
+
+  const newPet = { uid: 'p' + (++petUidCounter), ...chosen };
+  G.pets.push(newPet);
+  saveGame();
+
+  // Show hatch overlay
+  const overlay = document.getElementById('hatch-overlay');
+  overlay.classList.add('active');
+  const eggEl = document.getElementById('hatch-egg-anim');
+  eggEl.textContent = type === 'common' ? '🥚' : '🔮';
+  eggEl.style.display = 'block';
+
+  document.getElementById('hatch-result-icon').style.display = 'none';
+  document.getElementById('hatch-result-name').style.display = 'none';
+  document.getElementById('hatch-result-boost').style.display = 'none';
+  document.getElementById('hatch-result-rarity').style.display = 'none';
+  document.getElementById('hatch-ok-btn').style.display = 'none';
+
+  setTimeout(() => {
+    eggEl.style.display = 'none';
+    const ri = document.getElementById('hatch-result-icon');
+    ri.textContent = chosen.icon; ri.style.display = 'block';
+    const rn = document.getElementById('hatch-result-name');
+    rn.textContent = chosen.name; rn.style.display = 'block';
+    const rb = document.getElementById('hatch-result-boost');
+    rb.textContent = `⚡ +${chosen.boost} Click Boost`; rb.style.display = 'block';
+    const rr = document.getElementById('hatch-result-rarity');
+    rr.textContent = chosen.rarity + ' Pet'; rr.style.display = 'block';
+    document.getElementById('hatch-ok-btn').style.display = 'block';
+  }, 1600);
+}
+
+function closeHatchOverlay() {
+  document.getElementById('hatch-overlay').classList.remove('active');
+  renderInventory();
+  updateUI();
+}
+
+// ===== INVENTORY =====
+function renderInventory() {
+  // Equipped grid
+  const eqGrid = document.getElementById('equipped-grid');
+  eqGrid.innerHTML = '';
+  const eqTitle = document.querySelector('#equipped-section .inv-section-title');
+  eqTitle.textContent = `⚡ EQUIPPED PETS (${G.equippedPets.length}/3)`;
+
+  G.equippedPets.forEach(uid => {
+    const p = G.pets.find(p => p.uid === uid);
+    if (!p) return;
+    const el = createPetCard(p, true);
+    eqGrid.appendChild(el);
+  });
+  if (G.equippedPets.length === 0) {
+    eqGrid.innerHTML = '<div class="inv-empty" style="grid-column:1/-1">No pets equipped yet</div>';
+  }
+
+  // All pets grid
+  const ownGrid = document.getElementById('owned-grid');
+  ownGrid.innerHTML = '';
+  if (G.pets.length === 0) {
+    ownGrid.innerHTML = '<div class="inv-empty" style="grid-column:1/-1">No pets yet! Hatch some eggs 🥚</div>';
+    return;
+  }
+  G.pets.forEach(p => {
+    const el = createPetCard(p, G.equippedPets.includes(p.uid));
+    ownGrid.appendChild(el);
+  

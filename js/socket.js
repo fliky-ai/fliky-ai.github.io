@@ -1,91 +1,72 @@
-// ============ СЕТЕВОЕ ПОДКЛЮЧЕНИЕ И СОКЕТЫ ============
-let socket = null;
-let isConnected = false;
+// ============ ИНИЦИАЛИЗАЦИЯ И ПОДКЛЮЧЕНИЕ СОКЕТОВ ============
+let socket;
 
-function initSocket() {
-    console.log('🔌 Инициализация Socket.io...');
+// Инициализируем Telegram WebApp SDK, если открыли через Mini App
+const tg = window.Telegram ? window.Telegram.WebApp : null;
+
+document.addEventListener("DOMContentLoaded", () => {
+    // Разворачиваем Mini App внутри ТГ на максимум
+    if (tg) {
+        tg.expand();
+        tg.ready();
+        
+        // Передаем данные юзера из ТГ в глобальное состояние (из config.js)
+        if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+            tgUser = tg.initDataUnsafe.user;
+        }
+    }
     
-    const serverUrl = window.CONFIG?.SERVER_URL || 'http://localhost:5000';
+    connectToServer();
+});
+
+function connectToServer() {
+    // Берем SOCKET_URL прямо из твоего глобального CONFIG
+    const serverUrl = CONFIG.SOCKET_URL || "https://a38499-be46.m.jrnm.app";
+    
+    console.log("🔌 Попытка подключения к серверу сокетов: " + serverUrl);
+    
     socket = io(serverUrl, {
-        transports: ['websocket'],
-        autoConnect: true,
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000
+        transports: ['websocket', 'polling'],
+        reconnectionAttempts: CONFIG.MAX_RECONNECT_ATTEMPTS || 5,
+        timeout: 10000
     });
 
+    // Успешный коннект
     socket.on('connect', () => {
-        console.log('🟢 Подключено к серверу DICEGRAM!');
-        isConnected = true;
-        window.isConnected = true;
-
-        const loadingScreen = document.getElementById('loading-screen');
-        if (loadingScreen) loadingScreen.style.display = 'none';
-
-        // Проверяем сохраненную сессию
-        const savedUser = localStorage.getItem('dicegram_user');
-        if (savedUser) {
-            try {
-                const user = JSON.parse(savedUser);
-                if (user && user.id) {
-                    window.MY_ID = user.id;
-                    window.MY_USERNAME = user.username;
-                    
-                    // Перекидываем сразу в приложение, если авторизован
-                    showAuthScreen('main');
-                    if (typeof initProfile === 'function') initProfile();
-                    return;
-                }
-            } catch (e) {
-                localStorage.removeItem('dicegram_user');
-            }
-        }
-
-        // Если сессии нет — принудительно открываем экран выбора "Войти / Создать аккаунт"
+        console.log("🟢 Успешно подключено к бэкенду DICEGRAM! ID сессии:", socket.id);
+        
+        // Прячем загрузочный экран и открываем выбор (Войти / Регистрация)
+        document.getElementById("loading-screen").style.display = "none";
         showAuthScreen('choice');
     });
 
-    socket.on('disconnect', () => {
-        console.log('🔴 Соединение с сервером разорвано');
-        isConnected = false;
-        window.isConnected = false;
-        
-        const statusEl = document.getElementById('global-status');
-        if (statusEl) {
-            statusEl.innerText = "Соединение разорвано...";
-            statusEl.style.display = 'inline';
-        }
-    });
-
+    // Ошибка подключения
     socket.on('connect_error', (error) => {
-        console.error('⚠️ Ошибка подключения:', error);
-        const errEl = document.getElementById('loading-error');
-        const reconnectBtn = document.getElementById('reconnect-btn');
-        if (errEl) errEl.style.display = 'block';
-        if (reconnectBtn) reconnectBtn.style.display = 'block';
+        console.error("❌ Ошибка сокет-соединения:", error);
+        document.getElementById("loader").style.display = "none";
+        document.getElementById("loading-error").style.display = "block";
+        document.getElementById("reconnect-btn").style.display = "block";
     });
 
-    window.socket = socket;
+    // Потеря связи с сервером
+    socket.on('disconnect', (reason) => {
+        console.warn("🔴 Соединение разорвано по причине:", reason);
+    });
+
+    // Слушаем приветственный автоответ от DICEGRAM SUPPORT при успешной регистрации
+    socket.on('welcome_notification', (data) => {
+        alert(`🔔 Сообщение от ${data.sender_name}:\n\n${data.text}`);
+    });
 }
 
+// Функция ручного перезапуска, если хост долго спал
 function reconnect() {
-    const errEl = document.getElementById('loading-error');
-    const reconnectBtn = document.getElementById('reconnect-btn');
-    if (errEl) errEl.style.display = 'none';
-    if (reconnectBtn) reconnectBtn.style.display = 'none';
-    
+    document.getElementById("loader").style.display = "block";
+    document.getElementById("loading-error").style.display = "none";
+    document.getElementById("reconnect-btn").style.display = "none";
     if (socket) {
         socket.connect();
     } else {
-        initSocket();
+        connectToServer();
     }
 }
-
-// Запуск сокетов при загрузке скрипта
-document.addEventListener('DOMContentLoaded', () => {
-    initSocket();
-});
-
-window.initSocket = initSocket;
-window.reconnect = reconnect;
-

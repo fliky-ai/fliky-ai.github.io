@@ -1,4 +1,4 @@
-here<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
@@ -26,6 +26,7 @@ here<!DOCTYPE html>
   --radius-sm:10px;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html{background:var(--bg);height:100%;overflow:hidden;}
 body{
   font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Segoe UI,Roboto,sans-serif;
   background:var(--bg);
@@ -35,6 +36,8 @@ body{
   display:flex;
   flex-direction:column;
   -webkit-font-smoothing:antialiased;
+  position:relative;
+  z-index:1;
 }
 ::-webkit-scrollbar{width:0;height:0;}
 
@@ -247,7 +250,7 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
 .chat-list-time{font-size:10.5px;color:var(--text-faint);}
 .unread-badge{min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--accent);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;}
 
-.thread-body{flex:1;overflow-y:auto;padding:14px 14px 8px 14px;display:flex;flex-direction:column;gap:8px;}
+.thread-body{flex:1;overflow-y:auto;padding:14px 14px 8px 14px;display:flex;flex-direction:column;gap:8px;min-height:0;}
 .bubble{max-width:78%;padding:9px 13px;border-radius:16px;font-size:14px;line-height:1.4;word-wrap:break-word;}
 .bubble.in{align-self:flex-start;background:var(--card-2);border-bottom-left-radius:4px;}
 .bubble.out{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px;}
@@ -365,7 +368,8 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
           <label class="field-label">Токен</label>
           <input type="text" id="detail-token" readonly />
         </div>
-        <button class="btn danger" onclick="deleteBotConfirm()">Отключить и удалить бота</button>
+        <button class="btn secondary" id="detail-disable-btn" onclick="toggleActiveBot()" style="margin-bottom:10px;">Отключить бота</button>
+        <button class="btn danger" onclick="deleteBotConfirm()">Удалить бота из студии</button>
       </div>
 
       <div id="detail-commands" style="display:none;">
@@ -403,6 +407,7 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
         <p>Как только кто-то напишет твоему боту,<br>переписка появится здесь.</p>
       </div>
     </div>
+    <button class="fab" id="chats-fab" onclick="openStartChatPrompt()">✎</button>
   </div>
 
   <!-- ============ TAB: CHAT THREAD (screen inside Чаты) ============ -->
@@ -419,7 +424,7 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
       </div>
     </div>
     <div class="thread-body" id="thread-body"></div>
-    <div class="thread-input-bar">
+    <div class="thread-input-bar" style="margin-bottom:84px;flex-shrink:0;">
       <input type="text" id="thread-input" placeholder="Написать от имени бота…" />
       <button class="send-btn" onclick="sendThreadMessage()">
         <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
@@ -429,21 +434,21 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
 
   <!-- ============ TAB: GLOBAL CHAT ============ -->
   <div id="tab-global" class="tab-content" style="padding-bottom:0;">
-    <div class="screen-header" style="padding-bottom:8px;">
+    <div class="screen-header" style="padding-bottom:8px;flex-shrink:0;">
       <div>
         <div class="screen-title">Чат Студии</div>
         <div class="screen-sub">Общаемся с другими разработчиками DarkGram</div>
       </div>
     </div>
-    <div class="screen-body" id="global-messages" style="flex:1;padding-top:0;"></div>
-    <div id="gc-preview" class="preview-strip" style="display:none;">
+    <div id="global-messages" style="flex:1;overflow-y:auto;padding:0 16px;min-height:0;"></div>
+    <div id="gc-preview" class="preview-strip" style="display:none;flex-shrink:0;">
       <img id="gc-preview-img" src="" />
       <span>Фото готово к отправке</span>
       <button class="icon-btn" onclick="clearGlobalAttachment()">
         <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
     </div>
-    <div class="gc-input-bar">
+    <div class="gc-input-bar" style="flex-shrink:0;margin-bottom:84px;">
       <button class="attach-btn" onclick="document.getElementById('gc-file-input').click()">
         <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 3h5v5"/><path d="M10 14L21 3"/></svg>
       </button>
@@ -569,7 +574,13 @@ function initials(name){ return (name || "?").trim().charAt(0).toUpperCase() || 
 
 // ---------- INIT ----------
 window.addEventListener('DOMContentLoaded', async () => {
-  if (tg) tg.expand();
+  if (tg) { try { tg.expand(); } catch(e){} }
+
+  // Рендерим профиль и пустой список ботов СРАЗУ из локальных данных,
+  // чтобы экран никогда не оставался пустым, даже если бэкенд недоступен.
+  try { renderProfile(); } catch(e) { console.error('renderProfile fail', e); }
+  try { renderBotsList(); } catch(e) { console.error('renderBotsList fail', e); }
+
   try {
     const res = await fetch(`${BACKEND_URL}/api/init`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -579,12 +590,14 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (data.success) {
       if (data.user) currentUser = data.user;
       userBots = data.bots || [];
-      renderProfile();
-      renderBotsList();
+    } else {
+      console.error("init: сервер ответил success=false", data.message);
     }
   } catch (e) {
-    console.error("Ошибка загрузки:", e);
+    console.error("Ошибка загрузки init:", e);
   } finally {
+    try { renderProfile(); } catch(e) { console.error('renderProfile fail', e); }
+    try { renderBotsList(); } catch(e) { console.error('renderBotsList fail', e); }
     document.getElementById('loader').style.display = 'none';
   }
 });
@@ -634,7 +647,7 @@ function renderBotsList(){
   sub.innerText = `${userBots.length} ${userBots.length === 1 ? 'бот' : 'бота'} · ${userBots.filter(b=>b.is_active).length} активно`;
 
   listEl.innerHTML = userBots.map(b => `
-    <div class="bot-row" onclick="openBotDetail('${b.token}')">
+    <div class="bot-row" data-token="${escapeAttr(b.token)}">
       <div class="bot-avatar">${b.avatar ? `<img src="${b.avatar}" style="width:100%;height:100%;border-radius:14px;object-fit:cover;">` : initials(b.name)}</div>
       <div class="bot-row-info">
         <div class="bot-row-name">${escapeHtml(b.name || 'Без имени')}</div>
@@ -643,6 +656,10 @@ function renderBotsList(){
       <div class="chevron"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
     </div>
   `).join('');
+
+  listEl.querySelectorAll('.bot-row').forEach(row => {
+    row.addEventListener('click', () => openBotDetail(row.dataset.token));
+  });
 }
 
 function findBot(token){ return userBots.find(b => b.token === token); }
@@ -714,10 +731,12 @@ function updateDetailStatusUI(b){
   const dot = document.getElementById('detail-status-dot');
   const txt = document.getElementById('detail-status-text');
   const toggle = document.getElementById('detail-toggle');
+  const disableBtn = document.getElementById('detail-disable-btn');
   pill.className = 'status-pill ' + (b.is_active ? 'on' : 'off');
   dot.className = 'status-dot ' + (b.is_active ? '' : 'off');
   txt.innerText = b.is_active ? 'Бот включён' : 'Бот выключен';
   toggle.className = 'switch ' + (b.is_active ? 'on' : '');
+  if (disableBtn) disableBtn.innerText = b.is_active ? 'Отключить бота' : 'Включить бота';
 }
 
 async function toggleActiveBot(){
@@ -736,7 +755,7 @@ async function toggleActiveBot(){
 }
 
 function deleteBotConfirm(){
-  if(!confirm("Удалить бота из студии? Сам бот в DarkGram останется, но перестанет отвечать на команды.")) return;
+  if(!confirm("Удалить бота из студии? Все команды и история чатов будут потеряны. Сам бот в DarkGram (токен) останется существовать, но перестанет отвечать.")) return;
   deleteBot();
 }
 async function deleteBot(){
@@ -774,9 +793,13 @@ function renderCommands(){
         <div class="cmd-name">${escapeHtml(cmd)}</div>
         <div class="cmd-hint">JavaScript / BJS</div>
       </div>
-      <button class="btn sm secondary" onclick="openEditor('${escapeHtml(cmd)}')">Изменить</button>
+      <button class="btn sm secondary" data-cmd="${escapeAttr(cmd)}">Изменить</button>
     </div>
   `).join('');
+
+  list.querySelectorAll('.cmd-item button[data-cmd]').forEach(btn => {
+    btn.addEventListener('click', () => openEditor(btn.dataset.cmd));
+  });
 }
 
 function createNewCommandPrompt(){
@@ -901,7 +924,11 @@ async function loadAllBotChats(){
   empty.style.display = 'none';
 
   list.innerHTML = allChats.map(c => `
-    <div class="chat-list-row" onclick='openThread(${JSON.stringify(c.bot_token)}, ${c.chat_id}, ${JSON.stringify(c.user_name)}, ${JSON.stringify(c.username||"")})'>
+    <div class="chat-list-row"
+         data-bot-token="${escapeAttr(c.bot_token)}"
+         data-chat-id="${escapeAttr(c.chat_id)}"
+         data-user-name="${escapeAttr(c.user_name)}"
+         data-username="${escapeAttr(c.username || '')}">
       <div class="user-avatar">${initials(c.user_name)}</div>
       <div class="chat-list-info">
         <div class="chat-list-name">${escapeHtml(c.user_name)}</div>
@@ -913,6 +940,37 @@ async function loadAllBotChats(){
       </div>
     </div>
   `).join('');
+
+  list.querySelectorAll('.chat-list-row').forEach(row => {
+    row.addEventListener('click', () => {
+      openThread(
+        row.dataset.botToken,
+        Number(row.dataset.chatId),
+        row.dataset.userName,
+        row.dataset.username
+      );
+    });
+  });
+}
+
+function openStartChatPrompt(){
+  if(userBots.length === 0){
+    alert("Сначала подключи хотя бы одного бота во вкладке «Боты».");
+    return;
+  }
+  const chatId = prompt(
+    "Введи chat_id пользователя, чтобы написать ему первым.\n\n" +
+    "Важно: по правилам Bot API бот технически не может написать человеку, который ни разу не начинал с ним диалог (нет /start) — сначала пользователь должен хотя бы раз написать боту, тогда его chat_id появится в списке чатов автоматически.\n\n" +
+    "Если у тебя уже есть chat_id (например из другого источника), введи его здесь:"
+  );
+  if(!chatId || !/^-?\d+$/.test(chatId.trim())) return;
+
+  const botToken = userBots.length === 1
+    ? userBots[0].token
+    : prompt("У тебя несколько ботов. Вставь токен бота, от имени которого писать:", userBots[0].token);
+  if(!botToken) return;
+
+  openThread(botToken, Number(chatId.trim()), 'Пользователь ' + chatId.trim(), '');
 }
 
 function updateChatsBadge(n){
@@ -1034,6 +1092,10 @@ async function sendGlobalMsg(){
 function escapeHtml(str){
   if(str === undefined || str === null) return '';
   return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+}
+function escapeAttr(str){
+  // Для использования внутри HTML-атрибутов (data-*) — экранирует кавычки строго
+  return escapeHtml(str);
 }
 </script>
 </body>

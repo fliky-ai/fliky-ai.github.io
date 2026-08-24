@@ -80,6 +80,7 @@ body{
 .btn.danger{background:rgba(255,84,112,0.14);color:var(--danger);}
 .btn.ghost{background:transparent;color:var(--accent);}
 .btn.sm{width:auto;padding:8px 14px;font-size:12.5px;border-radius:9px;}
+.btn:disabled{opacity:0.5;cursor:not-allowed;}
 input,textarea{
   width:100%;padding:12px 14px;background:var(--code-bg);border:1px solid var(--border);
   border-radius:var(--radius-sm);color:var(--text);font-size:14px;outline:none;
@@ -223,7 +224,6 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
   padding:5px 10px;border-radius:8px;color:var(--accent-2);margin:4px 6px 0 0;cursor:pointer;
 }
 
-/* ========== НОВЫЙ СТИЛЬ ДЛЯ ЧАТОВ ========== */
 .chat-list-row{
   display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);
   border-radius:var(--radius);padding:12px 14px;margin-bottom:8px;cursor:pointer;
@@ -294,6 +294,17 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
 .info-line:last-child{border-bottom:none;}
 .info-line span:first-child{color:var(--text-sub);}
 .info-line span:last-child{font-weight:600;}
+
+/* Registration styles */
+.reg-container{max-width:400px;margin:0 auto;padding-top:30px;}
+.reg-title{font-size:24px;font-weight:800;text-align:center;margin-bottom:8px;}
+.reg-sub{text-align:center;color:var(--text-sub);font-size:14px;margin-bottom:28px;}
+.input-group{margin-bottom:16px;}
+.input-group label{font-size:12px;font-weight:700;color:var(--text-sub);display:block;margin-bottom:4px;}
+.input-group .hint{font-size:11px;color:var(--text-faint);margin-top:4px;}
+.input-group .status{font-size:12px;margin-top:4px;display:flex;align-items:center;gap:6px;}
+.input-group .status.valid{color:var(--success);}
+.input-group .status.invalid{color:var(--danger);}
 </style>
 </head>
 <body>
@@ -305,8 +316,32 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
 
 <div id="app">
 
+  <!-- ============ REGISTRATION SCREEN ============ -->
+  <div id="tab-register" class="tab-content active">
+    <div class="reg-container">
+      <div class="reg-title">🚀 Добро пожаловать!</div>
+      <div class="reg-sub">Создай свой профиль в DarkGram</div>
+
+      <div class="input-group">
+        <label>Юзернейм</label>
+        <input type="text" id="reg-username" placeholder="например: john_doe" />
+        <div class="hint">Только латиница, цифры и _. Минимум 3 символа</div>
+        <div class="status" id="reg-username-status"></div>
+      </div>
+
+      <div class="input-group">
+        <label>Как тебя называть?</label>
+        <input type="text" id="reg-displayname" placeholder="Например: John" />
+        <div class="hint">Это имя будут видеть другие пользователи</div>
+      </div>
+
+      <button class="btn" id="reg-btn" disabled onclick="registerUser()">Зарегистрироваться</button>
+      <div id="reg-error" style="color:var(--danger);font-size:13px;margin-top:12px;text-align:center;display:none;"></div>
+    </div>
+  </div>
+
   <!-- ============ TAB: BOTS ============ -->
-  <div id="tab-bots" class="tab-content active">
+  <div id="tab-bots" class="tab-content">
     <div class="screen-header">
       <div>
         <div class="screen-title">Боты</div>
@@ -478,8 +513,8 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
     </div>
     <div class="screen-body">
       <div class="card" style="margin-top:16px;">
-        <div class="info-line"><span>ID в DarkGram</span><span id="prof-id">0</span></div>
         <div class="info-line"><span>Юзернейм</span><span id="prof-user2">—</span></div>
+        <div class="info-line"><span>Отображаемое имя</span><span id="prof-displayname">—</span></div>
       </div>
     </div>
   </div>
@@ -557,9 +592,10 @@ const tg = window.Telegram?.WebApp;
 
 let currentUser = {
   user_id: tg?.initDataUnsafe?.user?.id || 1234567,
-  username: tg?.initDataUnsafe?.user?.username || "user",
-  first_name: tg?.initDataUnsafe?.user?.first_name || "Разработчик",
-  photo_url: tg?.initDataUnsafe?.user?.photo_url || ""
+  username: "",
+  display_name: "",
+  photo_url: "",
+  registered: false
 };
 
 let userBots = [];
@@ -567,16 +603,13 @@ let activeBotToken = null;
 let activeChatId = null;
 let currentEditCmd = null;
 let globalAttachmentBase64 = null;
-let chatsPollTimer = null;
+let checkingUsername = false;
 
 function initials(name){ return (name || "?").trim().charAt(0).toUpperCase() || "?"; }
 
 // ---------- INIT ----------
 window.addEventListener('DOMContentLoaded', async () => {
   if (tg) { try { tg.expand(); } catch(e){} }
-
-  try { renderProfile(); } catch(e) { console.error('renderProfile fail', e); }
-  try { renderBotsList(); } catch(e) { console.error('renderBotsList fail', e); }
 
   try {
     const res = await fetch(`${BACKEND_URL}/api/init`, {
@@ -585,43 +618,152 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
     const data = await res.json();
     if (data.success) {
-      if (data.user) currentUser = data.user;
+      currentUser = data.user;
       userBots = data.bots || [];
-    } else {
-      console.error("init: сервер ответил success=false", data.message);
+      
+      if (!currentUser.registered) {
+        // Показываем экран регистрации
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.getElementById('tab-register').classList.add('active');
+        document.getElementById('loader').style.display = 'none';
+        return;
+      }
     }
   } catch (e) {
     console.error("Ошибка загрузки init:", e);
-  } finally {
-    try { renderProfile(); } catch(e) { console.error('renderProfile fail', e); }
-    try { renderBotsList(); } catch(e) { console.error('renderBotsList fail', e); }
-    document.getElementById('loader').style.display = 'none';
+  }
+
+  document.getElementById('loader').style.display = 'none';
+  renderProfile();
+  renderBotsList();
+  switchTab('bots', document.getElementById('nav-bots'));
+});
+
+// ---------- REGISTRATION ----------
+document.getElementById('reg-username').addEventListener('input', async function() {
+  const username = this.value.trim().toLowerCase();
+  const statusEl = document.getElementById('reg-username-status');
+  const btn = document.getElementById('reg-btn');
+  
+  if (username.length < 3) {
+    statusEl.className = 'status invalid';
+    statusEl.innerHTML = '❌ Минимум 3 символа';
+    btn.disabled = true;
+    return;
+  }
+  
+  if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(username)) {
+    statusEl.className = 'status invalid';
+    statusEl.innerHTML = '❌ Только латиница, цифры и _, должен начинаться с буквы';
+    btn.disabled = true;
+    return;
+  }
+  
+  statusEl.className = 'status';
+  statusEl.innerHTML = '⏳ Проверка...';
+  btn.disabled = true;
+  
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/check_username`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username })
+    });
+    const data = await res.json();
+    if (data.success) {
+      statusEl.className = 'status valid';
+      statusEl.innerHTML = '✅ ' + data.message;
+      btn.disabled = false;
+    } else {
+      statusEl.className = 'status invalid';
+      statusEl.innerHTML = '❌ ' + data.message;
+      btn.disabled = true;
+    }
+  } catch(e) {
+    statusEl.className = 'status invalid';
+    statusEl.innerHTML = '❌ Ошибка проверки';
+    btn.disabled = true;
   }
 });
+
+document.getElementById('reg-displayname').addEventListener('input', function() {
+  const btn = document.getElementById('reg-btn');
+  const username = document.getElementById('reg-username').value.trim();
+  const displayName = this.value.trim();
+  if (username && displayName && !btn.disabled) {
+    btn.disabled = false;
+  } else {
+    btn.disabled = true;
+  }
+});
+
+async function registerUser() {
+  const username = document.getElementById('reg-username').value.trim().toLowerCase();
+  const displayName = document.getElementById('reg-displayname').value.trim();
+  const btn = document.getElementById('reg-btn');
+  const errorEl = document.getElementById('reg-error');
+  
+  btn.disabled = true;
+  btn.innerText = '⏳ Регистрация...';
+  errorEl.style.display = 'none';
+  
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/register`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        user_id: currentUser.user_id, 
+        username, 
+        display_name: displayName,
+        photo_url: currentUser.photo_url || ""
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      currentUser.registered = true;
+      currentUser.username = username;
+      currentUser.display_name = displayName;
+      document.getElementById('tab-register').classList.remove('active');
+      renderProfile();
+      renderBotsList();
+      switchTab('bots', document.getElementById('nav-bots'));
+    } else {
+      errorEl.style.display = 'block';
+      errorEl.innerText = '❌ ' + data.message;
+      btn.disabled = false;
+      btn.innerText = 'Зарегистрироваться';
+    }
+  } catch(e) {
+    errorEl.style.display = 'block';
+    errorEl.innerText = '❌ Ошибка соединения';
+    btn.disabled = false;
+    btn.innerText = 'Зарегистрироваться';
+  }
+}
 
 // ---------- TABS ----------
 function switchTab(tabId, el) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById(`tab-${tabId}`).classList.add('active');
-  el.classList.add('active');
+  const tabEl = document.getElementById(`tab-${tabId}`);
+  if (tabEl) tabEl.classList.add('active');
+  if (el) el.classList.add('active');
   if (tabId === 'chats') loadAllBotChats();
   if (tabId === 'global') loadGlobalChat();
 }
 
 // ---------- PROFILE ----------
 function renderProfile(){
-  document.getElementById('prof-name').innerText = currentUser.first_name;
-  document.getElementById('prof-user').innerText = "@" + (currentUser.username || "id" + currentUser.user_id);
-  document.getElementById('prof-user2').innerText = "@" + (currentUser.username || "—");
-  document.getElementById('prof-id').innerText = currentUser.darkgram_id ?? '—';
+  document.getElementById('prof-name').innerText = currentUser.display_name || currentUser.username || 'Пользователь';
+  document.getElementById('prof-user').innerText = "@" + (currentUser.username || 'username');
+  document.getElementById('prof-user2').innerText = "@" + (currentUser.username || '—');
+  document.getElementById('prof-displayname').innerText = currentUser.display_name || '—';
   document.getElementById('prof-bots-count').innerText = userBots.length;
   document.getElementById('prof-active-count').innerText = userBots.filter(b => b.is_active).length;
 
   const cont = document.getElementById('prof-avatar-container');
-  cont.innerHTML = currentUser.photo_url
-    ? `<img src="${currentUser.photo_url}" class="profile-avatar" />`
-    : `<div class="profile-avatar">${initials(currentUser.first_name)}</div>`;
+  const avatarUrl = currentUser.photo_url || '';
+  cont.innerHTML = avatarUrl
+    ? `<img src="${avatarUrl}" class="profile-avatar" />`
+    : `<div class="profile-avatar">${initials(currentUser.display_name || currentUser.username || 'U')}</div>`;
 }
 
 // ---------- BOTS LIST ----------
@@ -882,7 +1024,7 @@ async function loadBotLogs(){
 }
 
 // ============================================================
-//                🔥 НОВЫЙ РАЗДЕЛ ЧАТОВ
+//                🔥 ЧАТЫ
 // ============================================================
 
 async function loadAllBotChats(){
@@ -935,7 +1077,14 @@ async function loadAllBotChats(){
   sub.innerText = `${allChats.length} чатов · ${totalUnread} непрочитанных`;
 
   list.innerHTML = allChats.map(c => {
-    const avatarUrl = c.user_avatar && c.user_avatar.startsWith('/uploads') ? BACKEND_URL + c.user_avatar : c.user_avatar;
+    let avatarUrl = c.user_avatar || '';
+    if(avatarUrl && !avatarUrl.startsWith('http') && !avatarUrl.startsWith('/')) {
+      avatarUrl = '/' + avatarUrl;
+    }
+    if(avatarUrl && avatarUrl.startsWith('/uploads')) {
+      avatarUrl = BACKEND_URL + avatarUrl;
+    }
+    
     return `
     <div class="chat-list-row"
          data-bot-token="${escapeAttr(c.bot_token)}"
@@ -944,7 +1093,7 @@ async function loadAllBotChats(){
          data-user-username="${escapeAttr(c.username || '')}"
          data-user-avatar="${escapeAttr(avatarUrl || '')}">
       ${avatarUrl
-        ? `<img src="${avatarUrl}" class="user-avatar" style="object-fit:cover;">`
+        ? `<img src="${avatarUrl}" class="user-avatar" style="object-fit:cover;" onerror="this.style.display='none';this.parentElement.innerHTML='<div class=\\'user-avatar\\'>${initials(c.user_name)}</div>'">`
         : `<div class="user-avatar">${initials(c.user_name)}</div>`
       }
       <div class="chat-list-info">
@@ -993,7 +1142,7 @@ async function openThread(botToken, chatId, userName, username, userAvatar){
 
   const avatarEl = document.getElementById('thread-avatar');
   if(userAvatar){
-    avatarEl.innerHTML = `<img src="${userAvatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
+    avatarEl.innerHTML = `<img src="${userAvatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.innerText='${initials(userName)}';this.parentElement.style.background='linear-gradient(135deg,#5b6cff,#9b5bff)'">`;
   } else {
     avatarEl.innerText = initials(userName);
     avatarEl.style.background = 'linear-gradient(135deg,#5b6cff,#9b5bff)';
@@ -1050,7 +1199,6 @@ async function sendThreadMessage(){
   if(!text) return;
   input.value = '';
 
-  // Добавляем сообщение в интерфейс локально
   const body = document.getElementById('thread-body');
   body.innerHTML += `
     <div class="bubble out">
@@ -1140,7 +1288,7 @@ function handleAvatarUpload(event){
       });
       const data = await res.json();
       if(data.success){
-        currentUser.photo_url = data.avatar_url.startsWith('http') ? data.avatar_url : `${BACKEND_URL}${data.avatar_url}`;
+        currentUser.photo_url = data.avatar_url.startsWith('http') ? data.avatar_url : BACKEND_URL + data.avatar_url;
         renderProfile();
       } else {
         alert(data.message || "Не удалось загрузить фото");
@@ -1164,7 +1312,7 @@ function escapeAttr(str){
   return String(str || '').replace(/"/g, '&quot;');
 }
 
-// Авто-обновление чатов каждые 5 секунд
+// Авто-обновление чатов
 setInterval(() => {
   if (document.getElementById('tab-chats').classList.contains('active')) {
     loadAllBotChats();

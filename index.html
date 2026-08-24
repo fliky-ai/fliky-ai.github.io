@@ -1,398 +1,1040 @@
-<!DOCTYPE html>
+here<!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DarkGram Bot Studio</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <style>
-        :root {
-            --bg: #0b0f19;
-            --card: #151d2a;
-            --accent: #3b82f6;
-            --accent-hover: #1d4ed8;
-            --text: #f8fafc;
-            --text-sub: #94a3b8;
-            --border: #1e293b;
-            --success: #22c55e;
-            --code-bg: #050811;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>DarkGram Bot Studio</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{
+  --bg:#0a0e17;
+  --bg-elevated:#0d1220;
+  --card:#131a26;
+  --card-2:#171f2e;
+  --accent:#5b6cff;
+  --accent-2:#7c8bff;
+  --accent-dim:rgba(91,108,255,0.14);
+  --text:#eef1fb;
+  --text-sub:#8891a8;
+  --text-faint:#525c74;
+  --border:#1d2536;
+  --success:#2dd4a7;
+  --danger:#ff5470;
+  --warn:#ffb84d;
+  --code-bg:#080b13;
+  --radius:16px;
+  --radius-sm:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Segoe UI,Roboto,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  height:100vh;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  -webkit-font-smoothing:antialiased;
+}
+::-webkit-scrollbar{width:0;height:0;}
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
-        body { background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+/* ---------- LOADER ---------- */
+#loader{
+  position:fixed;inset:0;background:var(--bg);z-index:999;
+  display:flex;flex-direction:column;justify-content:center;align-items:center;gap:16px;
+}
+.logo-mark{
+  width:56px;height:56px;border-radius:18px;
+  background:linear-gradient(135deg,var(--accent),#9b5bff);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:22px;color:#fff;
+  box-shadow:0 0 40px rgba(91,108,255,0.35);
+  animation:pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.06);}}
+.loader-sub{font-size:13px;color:var(--text-sub);letter-spacing:.2px;}
 
-        #loader {
-            position: fixed; inset: 0; background: var(--bg); z-index: 999;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-        }
-        .spinner {
-            width: 40px; height: 40px; border: 4px solid var(--border);
-            border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
+/* ---------- LAYOUT ---------- */
+#app{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;}
+.tab-content{flex:1;display:none;overflow-y:auto;padding-bottom:84px;}
+.tab-content.active{display:flex;flex-direction:column;}
+.screen-header{
+  padding:18px 18px 14px 18px;
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;background:linear-gradient(var(--bg) 70%, transparent);
+  z-index:5;
+}
+.screen-title{font-size:22px;font-weight:800;letter-spacing:-0.3px;}
+.screen-sub{font-size:12.5px;color:var(--text-sub);margin-top:2px;}
+.screen-body{padding:0 16px 16px 16px;flex:1;}
 
-        #app { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-        .tab-content { flex: 1; display: none; padding: 16px; overflow-y: auto; padding-bottom: 80px; }
-        .tab-content.active { display: block; }
+/* ---------- CARD / BTN / INPUT ---------- */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;}
+.btn{
+  width:100%;padding:13px;border:none;border-radius:var(--radius-sm);
+  background:var(--accent);color:#fff;font-weight:700;font-size:14.5px;cursor:pointer;
+  transition:transform .12s, opacity .12s;
+}
+.btn:active{transform:scale(0.97);opacity:.9;}
+.btn.secondary{background:var(--card-2);color:var(--text);border:1px solid var(--border);}
+.btn.danger{background:rgba(255,84,112,0.14);color:var(--danger);}
+.btn.ghost{background:transparent;color:var(--accent);}
+.btn.sm{width:auto;padding:8px 14px;font-size:12.5px;border-radius:9px;}
+input,textarea{
+  width:100%;padding:12px 14px;background:var(--code-bg);border:1px solid var(--border);
+  border-radius:var(--radius-sm);color:var(--text);font-size:14px;outline:none;
+}
+input::placeholder,textarea::placeholder{color:var(--text-faint);}
+input:focus,textarea:focus{border-color:var(--accent);}
+.mono{font-family:"SF Mono",Menlo,Consolas,monospace;color:#8fd6ff;font-size:12.5px;}
+label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-spacing:.4px;text-transform:uppercase;display:block;margin-bottom:6px;}
 
-        .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
-        .btn { width: 100%; padding: 12px; border: none; border-radius: 10px; background: var(--accent); color: white; font-weight: 600; font-size: 14px; cursor: pointer; }
-        .btn:active { background: var(--accent-hover); }
-        input, textarea { width: 100%; padding: 12px; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; color: #38bdf8; font-family: monospace; font-size: 13px; outline: none; }
+/* ---------- BOTTOM NAV ---------- */
+.bottom-nav{
+  position:fixed;bottom:0;left:0;right:0;height:76px;
+  background:rgba(13,18,32,0.92);backdrop-filter:blur(18px);
+  border-top:1px solid var(--border);
+  display:flex;justify-content:space-around;align-items:center;z-index:50;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-faint);padding:8px 0;position:relative;}
+.nav-item .nav-glyph{
+  width:26px;height:26px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+  background:transparent;transition:background .15s, transform .15s;
+}
+.nav-item.active{color:var(--accent-2);}
+.nav-item.active .nav-glyph{background:var(--accent-dim);transform:translateY(-1px);}
+.nav-item svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.nav-label{font-size:10px;font-weight:600;}
+.nav-badge{
+  position:absolute;top:2px;right:22%;min-width:15px;height:15px;padding:0 4px;border-radius:8px;
+  background:var(--danger);color:#fff;font-size:9.5px;font-weight:800;display:flex;align-items:center;justify-content:center;
+}
 
-        .sub-nav { display: flex; gap: 8px; margin-bottom: 14px; }
-        .sub-btn { flex: 1; padding: 10px; background: var(--card); border: 1px solid var(--border); color: var(--text-sub); border-radius: 8px; font-weight: 600; text-align: center; }
-        .sub-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+/* ---------- BOTS LIST ---------- */
+.empty-state{text-align:center;padding:60px 24px;color:var(--text-sub);}
+.empty-state .glyph{
+  width:64px;height:64px;border-radius:20px;margin:0 auto 18px auto;
+  background:var(--card-2);display:flex;align-items:center;justify-content:center;
+}
+.empty-state h3{color:var(--text);font-size:17px;margin-bottom:6px;}
+.empty-state p{font-size:13px;line-height:1.5;margin-bottom:20px;}
 
-        .bottom-nav {
-            position: fixed; bottom: 0; left: 0; right: 0; height: 65px; background: #0f172a;
-            border-top: 1px solid var(--border); display: flex; justify-content: space-around; align-items: center; z-index: 10;
-        }
-        .nav-item { flex: 1; text-align: center; color: var(--text-sub); font-size: 11px; text-decoration: none; padding: 8px 0; }
-        .nav-item.active { color: var(--accent); font-weight: bold; }
-        .nav-icon { font-size: 18px; display: block; margin-bottom: 2px; }
+.bot-row{
+  display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);
+  border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;cursor:pointer;transition:background .15s;
+}
+.bot-row:active{background:var(--card-2);}
+.bot-avatar{
+  width:48px;height:48px;border-radius:14px;flex-shrink:0;object-fit:cover;
+  background:linear-gradient(135deg,var(--accent),#9b5bff);
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#fff;
+}
+.bot-row-info{flex:1;min-width:0;}
+.bot-row-name{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bot-row-sub{font-size:12.5px;color:var(--text-sub);margin-top:2px;display:flex;align-items:center;gap:5px;}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--success);flex-shrink:0;}
+.status-dot.off{background:var(--text-faint);}
+.chevron{color:var(--text-faint);flex-shrink:0;}
 
-        .cmd-item { background: var(--code-bg); padding: 12px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
-        
-        /* МОДАЛЬНЫЙ ПОЛНОЭКРАННЫЙ РЕДАКТОР */
-        #editor-modal {
-            display: none; position: fixed; inset: 0; background: var(--bg); z-index: 1000;
-            flex-direction: column; padding: 16px;
-        }
-        #editor-modal.active { display: flex; }
-        .editor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-        .editor-header h3 { font-size: 16px; }
-        .close-btn { background: transparent; border: none; color: var(--text-sub); font-size: 20px; cursor: pointer; }
-        
-        .chat-msg { background: var(--card); padding: 10px 14px; border-radius: 10px; margin-bottom: 8px; font-size: 13px; display: flex; gap: 10px; }
-        .avatar-img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: bold; }
-        
-        .user-avatar-large { width: 70px; height: 70px; border-radius: 50%; margin: 0 auto 10px auto; object-fit: cover; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: bold; }
-    </style>
+.fab{
+  position:fixed;right:18px;bottom:98px;width:54px;height:54px;border-radius:17px;
+  background:linear-gradient(135deg,var(--accent),#9b5bff);color:#fff;font-size:26px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;z-index:40;
+  box-shadow:0 8px 24px rgba(91,108,255,0.4);
+}
+.fab:active{transform:scale(0.94);}
+
+/* ---------- BOT DETAIL ---------- */
+.detail-back{display:flex;align-items:center;gap:10px;padding:16px;cursor:pointer;}
+.detail-back svg{width:20px;height:20px;stroke:var(--text);fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
+.detail-back span{font-size:14px;color:var(--text-sub);font-weight:600;}
+
+.bot-hero{display:flex;flex-direction:column;align-items:center;padding:8px 16px 20px 16px;text-align:center;}
+.bot-hero-avatar{
+  width:80px;height:80px;border-radius:24px;margin-bottom:12px;object-fit:cover;
+  background:linear-gradient(135deg,var(--accent),#9b5bff);
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:30px;color:#fff;
+}
+.bot-hero-name{font-size:19px;font-weight:800;}
+.bot-hero-user{font-size:13.5px;color:var(--accent-2);margin-top:3px;}
+.status-pill{
+  display:inline-flex;align-items:center;gap:6px;margin-top:12px;padding:6px 14px;border-radius:20px;
+  background:var(--card-2);border:1px solid var(--border);font-size:12.5px;font-weight:700;
+}
+.status-pill.on{color:var(--success);}
+.status-pill.off{color:var(--text-faint);}
+
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:2px 0;}
+.switch{width:46px;height:27px;border-radius:14px;background:var(--card-2);border:1px solid var(--border);position:relative;cursor:pointer;flex-shrink:0;transition:background .2s;}
+.switch.on{background:var(--accent);border-color:var(--accent);}
+.switch-knob{position:absolute;top:2px;left:2px;width:21px;height:21px;border-radius:50%;background:#fff;transition:transform .2s;}
+.switch.on .switch-knob{transform:translateX(19px);}
+
+.grid-tabs{display:flex;gap:8px;padding:0 16px 14px 16px;}
+.grid-tab{
+  flex:1;padding:10px 6px;background:var(--card);border:1px solid var(--border);border-radius:12px;
+  text-align:center;font-size:12px;font-weight:700;color:var(--text-sub);cursor:pointer;
+}
+.grid-tab.active{background:var(--accent-dim);color:var(--accent-2);border-color:var(--accent);}
+
+.error-banner{
+  background:rgba(255,84,112,0.1);border:1px solid rgba(255,84,112,0.3);color:var(--danger);
+  border-radius:var(--radius-sm);padding:12px 14px;font-size:12.5px;margin-bottom:12px;line-height:1.5;
+}
+
+/* ---------- COMMANDS ---------- */
+.cmd-item{
+  display:flex;justify-content:space-between;align-items:center;background:var(--card);
+  border:1px solid var(--border);border-radius:var(--radius-sm);padding:13px 14px;margin-bottom:8px;
+}
+.cmd-name{font-family:"SF Mono",Menlo,monospace;font-weight:700;font-size:14px;color:var(--accent-2);}
+.cmd-hint{font-size:11px;color:var(--text-faint);margin-top:2px;}
+
+/* ---------- LOGS ---------- */
+.log-row{
+  display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:12.5px;
+}
+.log-row:last-child{border-bottom:none;}
+.log-dot{width:7px;height:7px;border-radius:50%;margin-top:5px;flex-shrink:0;}
+.log-dot.info{background:var(--accent-2);}
+.log-dot.error{background:var(--danger);}
+.log-text{flex:1;color:var(--text);line-height:1.5;}
+.log-time{color:var(--text-faint);font-size:10.5px;margin-top:2px;}
+
+/* ---------- MODALS (full screen) ---------- */
+.modal{
+  display:none;position:fixed;inset:0;background:var(--bg);z-index:200;
+  flex-direction:column;
+}
+.modal.active{display:flex;}
+.modal-header{
+  display:flex;align-items:center;gap:12px;padding:16px;border-bottom:1px solid var(--border);
+}
+.modal-header h3{font-size:16px;font-weight:700;flex:1;}
+.icon-btn{
+  width:34px;height:34px;border-radius:10px;background:var(--card-2);border:none;
+  display:flex;align-items:center;justify-content:center;color:var(--text-sub);cursor:pointer;flex-shrink:0;
+}
+.icon-btn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
+.modal-body{flex:1;overflow-y:auto;padding:16px;}
+.modal-footer{padding:14px 16px;border-top:1px solid var(--border);display:flex;gap:8px;}
+
+#editor-code{
+  flex:1;width:100%;resize:none;min-height:260px;font-size:13px;line-height:1.55;
+}
+.editor-hint{font-size:11.5px;color:var(--text-faint);margin-top:8px;line-height:1.5;}
+.snippet-btn{
+  display:inline-block;font-size:11px;background:var(--card-2);border:1px solid var(--border);
+  padding:5px 10px;border-radius:8px;color:var(--accent-2);margin:4px 6px 0 0;cursor:pointer;
+}
+
+/* ---------- CHAT THREAD ---------- */
+.chat-list-row{
+  display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);
+  border-radius:var(--radius);padding:12px 14px;margin-bottom:8px;cursor:pointer;
+}
+.chat-list-row:active{background:var(--card-2);}
+.user-avatar{
+  width:46px;height:46px;border-radius:50%;flex-shrink:0;object-fit:cover;
+  background:linear-gradient(135deg,#5b6cff,#9b5bff);
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;
+}
+.chat-list-info{flex:1;min-width:0;}
+.chat-list-name{font-size:14.5px;font-weight:700;}
+.chat-list-msg{font-size:12.5px;color:var(--text-sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+.chat-list-meta{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;}
+.chat-list-time{font-size:10.5px;color:var(--text-faint);}
+.unread-badge{min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--accent);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;}
+
+.thread-body{flex:1;overflow-y:auto;padding:14px 14px 8px 14px;display:flex;flex-direction:column;gap:8px;}
+.bubble{max-width:78%;padding:9px 13px;border-radius:16px;font-size:14px;line-height:1.4;word-wrap:break-word;}
+.bubble.in{align-self:flex-start;background:var(--card-2);border-bottom-left-radius:4px;}
+.bubble.out{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px;}
+.bubble-time{font-size:9.5px;opacity:.6;margin-top:3px;display:block;}
+.thread-input-bar{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--border);align-items:center;}
+.thread-input-bar input{flex:1;border-radius:20px;padding:11px 16px;}
+.send-btn{
+  width:42px;height:42px;border-radius:50%;background:var(--accent);border:none;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;
+}
+.send-btn svg{width:18px;height:18px;fill:currentColor;}
+
+/* ---------- GLOBAL CHAT ---------- */
+.gc-msg{display:flex;gap:10px;padding:10px 0;align-items:flex-start;}
+.gc-avatar{width:38px;height:38px;border-radius:50%;flex-shrink:0;object-fit:cover;background:linear-gradient(135deg,var(--accent),#9b5bff);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;}
+.gc-content{flex:1;min-width:0;}
+.gc-name{font-size:12.5px;font-weight:700;color:var(--accent-2);}
+.gc-uname{font-size:11px;color:var(--text-faint);font-weight:400;margin-left:4px;}
+.gc-bubble{background:var(--card);border:1px solid var(--border);border-radius:14px;border-top-left-radius:4px;padding:9px 13px;margin-top:4px;font-size:13.5px;line-height:1.45;}
+.gc-image{max-width:220px;border-radius:12px;margin-top:6px;display:block;}
+.gc-input-bar{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--border);align-items:center;position:sticky;bottom:0;background:var(--bg);}
+.gc-input-bar input{flex:1;border-radius:20px;padding:11px 16px;}
+.attach-btn{width:42px;height:42px;border-radius:50%;background:var(--card-2);border:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-sub);}
+.attach-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.preview-strip{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--card-2);}
+.preview-strip img{width:36px;height:36px;border-radius:8px;object-fit:cover;}
+.preview-strip span{font-size:11.5px;color:var(--text-sub);flex:1;}
+
+/* ---------- PROFILE ---------- */
+.profile-hero{display:flex;flex-direction:column;align-items:center;padding:26px 16px 20px 16px;text-align:center;}
+.profile-avatar{
+  width:92px;height:92px;border-radius:28px;object-fit:cover;margin-bottom:14px;
+  background:linear-gradient(135deg,var(--accent),#9b5bff);
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:34px;color:#fff;
+  box-shadow:0 10px 30px rgba(91,108,255,0.25);
+}
+.profile-name{font-size:20px;font-weight:800;}
+.profile-user{font-size:13.5px;color:var(--accent-2);margin-top:3px;}
+.stat-row{display:flex;gap:10px;padding:0 16px;}
+.stat-box{flex:1;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center;}
+.stat-num{font-size:22px;font-weight:800;color:var(--accent-2);}
+.stat-label{font-size:11px;color:var(--text-sub);margin-top:4px;font-weight:600;}
+.info-line{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);font-size:13.5px;}
+.info-line:last-child{border-bottom:none;}
+.info-line span:first-child{color:var(--text-sub);}
+.info-line span:last-child{font-weight:600;}
+</style>
 </head>
 <body>
 
-    <div id="loader">
-        <div class="spinner"></div>
-        <p style="margin-top: 14px; font-size: 13px; color: var(--text-sub);">Синхронизация профиля DarkGram...</p>
+<div id="loader">
+  <div class="logo-mark">DG</div>
+  <div class="loader-sub">Синхронизация профиля DarkGram…</div>
+</div>
+
+<div id="app">
+
+  <!-- ============ TAB: BOTS ============ -->
+  <div id="tab-bots" class="tab-content active">
+    <div class="screen-header">
+      <div>
+        <div class="screen-title">Боты</div>
+        <div class="screen-sub" id="bots-count-sub">Загрузка…</div>
+      </div>
+    </div>
+    <div class="screen-body">
+      <div id="bots-list-view"></div>
+      <div id="bots-empty" class="empty-state" style="display:none;">
+        <div class="glyph">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5b6cff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="3"/><circle cx="8.5" cy="14" r="1.2" fill="#5b6cff"/><circle cx="15.5" cy="14" r="1.2" fill="#5b6cff"/><path d="M12 8V4"/><circle cx="12" cy="3" r="1"/></svg>
+        </div>
+        <h3>Пока нет ботов</h3>
+        <p>Подключи бота по токену из @BotFather —<br>он появится здесь как карточка.</p>
+        <button class="btn" onclick="openAddBotModal()">+ Подключить бота</button>
+      </div>
+    </div>
+    <button class="fab" id="bots-fab" onclick="openAddBotModal()" style="display:none;">+</button>
+  </div>
+
+  <!-- ============ TAB: BOT DETAIL (внутри вкладки Боты, отдельный экран) ============ -->
+  <div id="tab-bot-detail" class="tab-content">
+    <div class="detail-back" onclick="closeBotDetail()">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      <span>Боты</span>
+    </div>
+    <div class="bot-hero">
+      <div class="bot-hero-avatar" id="detail-avatar">?</div>
+      <div class="bot-hero-name" id="detail-name">—</div>
+      <div class="bot-hero-user" id="detail-user">@—</div>
+      <div class="status-pill" id="detail-status-pill">
+        <span class="status-dot" id="detail-status-dot"></span>
+        <span id="detail-status-text">—</span>
+      </div>
     </div>
 
-    <div id="app">
-        
-        <!-- 1. Вкладка БОТЫ -->
-        <div id="tab-bots" class="tab-content active">
-            <div id="no-bot-view" class="card" style="text-align: center; padding: 30px 16px;">
-                <h3>🤖 У вас еще нет бота</h3>
-                <p style="font-size: 13px; color: var(--text-sub); margin: 10px 0 20px 0;">Вставьте токен из BotFather для подключения</p>
-                <input type="text" id="new-token-input" placeholder="1780243205:jrHuqyP25..." style="margin-bottom: 12px;" />
-                <button class="btn" onclick="createBot()">+ Сохранить и подключить</button>
-            </div>
-
-            <div id="has-bot-view" style="display: none;">
-                <div class="sub-nav">
-                    <div id="sub-btn-overview" class="sub-btn active" onclick="switchSubTab('overview')">Обзор</div>
-                    <div id="sub-btn-commands" class="sub-btn" onclick="switchSubTab('commands')">JS Команды</div>
-                </div>
-
-                <div id="sub-overview">
-                    <div class="card">
-                        <h2 id="bot-name-display" style="font-size: 18px;">Имя Бота</h2>
-                        <p id="bot-username-display" style="font-size: 13px; color: var(--accent); margin-top: 2px;">@bot_username</p>
-                        <hr style="border-color: var(--border); margin: 12px 0;" />
-                        <label style="font-size: 11px; color: var(--text-sub);">ТОКЕН</label>
-                        <input type="text" id="bot-token-display" readonly style="margin-top:4px;" />
-                    </div>
-                </div>
-
-                <div id="sub-commands" style="display: none;">
-                    <div class="card">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                            <h3>Список команд</h3>
-                            <button class="btn" style="width: auto; padding: 6px 12px; font-size: 12px;" onclick="createNewCommandPrompt()">+ Новая команда</button>
-                        </div>
-                        <div id="commands-list"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 2. Вкладка ЧАТЫ -->
-        <div id="tab-chats" class="tab-content">
-            <h3>💬 Чаты твоего бота</h3>
-            <p style="font-size: 12px; color: var(--text-sub); margin-bottom: 12px;">Пользователи, которые общались с твоим ботом.</p>
-            <div id="chats-list"></div>
-        </div>
-
-        <!-- 3. Вкладка ВСЕМИРНЫЙ ЧАТ -->
-        <div id="tab-global" class="tab-content">
-            <h3>🌐 Всемирный чат разработчиков</h3>
-            <div id="global-messages" style="margin: 12px 0;"></div>
-            <div style="display: flex; gap: 8px;">
-                <input type="text" id="global-msg-input" placeholder="Написать всем..." />
-                <button class="btn" style="width: auto; padding: 0 16px;" onclick="sendGlobalMsg()">Отправить</button>
-            </div>
-        </div>
-
-        <!-- 4. Вкладка ПРОФИЛЬ -->
-        <div id="tab-profile" class="tab-content">
-            <div class="card" style="text-align: center;">
-                <div id="prof-avatar-container"></div>
-                <h3 id="prof-name">Загрузка...</h3>
-                <p id="prof-user" style="font-size: 13px; color: var(--accent); margin-top: 2px;">@username</p>
-                <hr style="border-color: var(--border); margin: 14px 0;" />
-                <div style="display: flex; justify-content: space-around; font-size: 12px; color: var(--text-sub);">
-                    <div>ID: <b id="prof-id" style="color: var(--text);">0</b></div>
-                    <div>Ботов создано: <b id="prof-bots-count" style="color: var(--text);">0</b></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ПОЛНОЭКРАННЫЙ JS-РЕДАКТОР -->
-        <div id="editor-modal">
-            <div class="editor-header">
-                <h3 id="editor-title">Редактирование</h3>
-                <button class="close-btn" onclick="closeEditor()">✕</button>
-            </div>
-            <label style="font-size: 11px; color: var(--text-sub); margin-bottom: 4px;">КОД КОМАНДЫ (JavaScript / BJS)</label>
-            <textarea id="full-js-code" style="flex: 1; resize: none;" placeholder="Напишите JS скрипт..."></textarea>
-            <div style="display: flex; gap: 8px; margin-top: 12px;">
-                <button class="btn" onclick="saveEditorCode()">Сохранить скрипт</button>
-            </div>
-        </div>
-
-        <!-- НИЖНЯЯ НАВИГАЦИЯ -->
-        <div class="bottom-nav">
-            <div class="nav-item active" onclick="switchTab('bots', this)">
-                <span class="nav-icon">🤖</span> Боты
-            </div>
-            <div class="nav-item" onclick="switchTab('chats', this)">
-                <span class="nav-icon">💬</span> Чаты
-            </div>
-            <div class="nav-item" onclick="switchTab('global', this)">
-                <span class="nav-icon">🌐</span> Чат Студии
-            </div>
-            <div class="nav-item" onclick="switchTab('profile', this)">
-                <span class="nav-icon">👤</span> Профиль
-            </div>
-        </div>
+    <div class="grid-tabs">
+      <div class="grid-tab active" id="dtab-overview" onclick="switchDetailTab('overview')">Обзор</div>
+      <div class="grid-tab" id="dtab-commands" onclick="switchDetailTab('commands')">Команды</div>
+      <div class="grid-tab" id="dtab-logs" onclick="switchDetailTab('logs')">Логи</div>
     </div>
 
-    <script>
-        const BACKEND_URL = "https://a48794-5d18.e.jrnm.app"; 
-        const tg = window.Telegram?.WebApp;
+    <div class="screen-body" style="padding-top:0;">
+      <div id="detail-overview">
+        <div id="detail-error-banner" class="error-banner" style="display:none;"></div>
+        <div class="card">
+          <div class="toggle-row">
+            <div>
+              <div style="font-weight:700;font-size:14.5px;">Бот активен</div>
+              <div style="font-size:12px;color:var(--text-sub);margin-top:2px;">Опрос сообщений и выполнение команд</div>
+            </div>
+            <div class="switch" id="detail-toggle" onclick="toggleActiveBot()"><div class="switch-knob"></div></div>
+          </div>
+        </div>
+        <div class="card">
+          <label class="field-label">Токен</label>
+          <input type="text" id="detail-token" readonly />
+        </div>
+        <button class="btn danger" onclick="deleteBotConfirm()">Отключить и удалить бота</button>
+      </div>
 
-        // Автоматическое извлечение реальных данных Telegram/DarkGram
-        let currentUser = {
-            user_id: tg?.initDataUnsafe?.user?.id || 1234567,
-            username: tg?.initDataUnsafe?.user?.username || "user",
-            first_name: tg?.initDataUnsafe?.user?.first_name || "Разработчик",
-            photo_url: tg?.initDataUnsafe?.user?.photo_url || ""
-        };
+      <div id="detail-commands" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div style="font-weight:700;font-size:14.5px;">Список команд</div>
+          <button class="btn sm" onclick="createNewCommandPrompt()">+ Команда</button>
+        </div>
+        <div id="commands-list"></div>
+      </div>
 
-        let userBot = null;
-        let currentEditCmd = null;
+      <div id="detail-logs" style="display:none;">
+        <div class="card" style="padding:6px 14px;">
+          <div id="logs-list"></div>
+          <div id="logs-empty" style="text-align:center;color:var(--text-faint);font-size:12.5px;padding:20px 0;display:none;">Логов пока нет</div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-        window.addEventListener('DOMContentLoaded', async () => {
-            if (tg) tg.expand();
+  <!-- ============ TAB: CHATS (list) ============ -->
+  <div id="tab-chats" class="tab-content">
+    <div class="screen-header">
+      <div>
+        <div class="screen-title">Чаты</div>
+        <div class="screen-sub">Диалоги с пользователями твоего бота</div>
+      </div>
+    </div>
+    <div class="screen-body">
+      <div id="chats-list"></div>
+      <div id="chats-empty" class="empty-state" style="display:none;">
+        <div class="glyph">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#5b6cff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
+        </div>
+        <h3>Диалогов пока нет</h3>
+        <p>Как только кто-то напишет твоему боту,<br>переписка появится здесь.</p>
+      </div>
+    </div>
+  </div>
 
-            try {
-                const res = await fetch(`${BACKEND_URL}/api/init`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(currentUser)
-                });
-                const data = await res.json();
-                
-                if (data.success) {
-                    if (data.user) currentUser = data.user;
-                    userBot = data.bot;
-                    renderApp();
-                }
-            } catch (e) {
-                console.error("Ошибка загрузки:", e);
-            } finally {
-                document.getElementById('loader').style.display = 'none';
-            }
-        });
+  <!-- ============ TAB: CHAT THREAD (screen inside Чаты) ============ -->
+  <div id="tab-chat-thread" class="tab-content" style="padding-bottom:0;">
+    <div class="detail-back" onclick="closeThread()">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      <span>Чаты</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;padding:0 16px 12px 16px;">
+      <div class="user-avatar" id="thread-avatar">?</div>
+      <div>
+        <div style="font-weight:700;font-size:15px;" id="thread-name">—</div>
+        <div style="font-size:11.5px;color:var(--text-sub);" id="thread-username">—</div>
+      </div>
+    </div>
+    <div class="thread-body" id="thread-body"></div>
+    <div class="thread-input-bar">
+      <input type="text" id="thread-input" placeholder="Написать от имени бота…" />
+      <button class="send-btn" onclick="sendThreadMessage()">
+        <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+      </button>
+    </div>
+  </div>
 
-        function renderApp() {
-            // Профиль с авой
-            document.getElementById('prof-name').innerText = currentUser.first_name;
-            document.getElementById('prof-user').innerText = "@" + (currentUser.username || "id");
-            document.getElementById('prof-id').innerText = currentUser.user_id;
-            document.getElementById('prof-bots-count').innerText = userBot ? 1 : 0;
+  <!-- ============ TAB: GLOBAL CHAT ============ -->
+  <div id="tab-global" class="tab-content" style="padding-bottom:0;">
+    <div class="screen-header" style="padding-bottom:8px;">
+      <div>
+        <div class="screen-title">Чат Студии</div>
+        <div class="screen-sub">Общаемся с другими разработчиками DarkGram</div>
+      </div>
+    </div>
+    <div class="screen-body" id="global-messages" style="flex:1;padding-top:0;"></div>
+    <div id="gc-preview" class="preview-strip" style="display:none;">
+      <img id="gc-preview-img" src="" />
+      <span>Фото готово к отправке</span>
+      <button class="icon-btn" onclick="clearGlobalAttachment()">
+        <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="gc-input-bar">
+      <button class="attach-btn" onclick="document.getElementById('gc-file-input').click()">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 3h5v5"/><path d="M10 14L21 3"/></svg>
+      </button>
+      <input type="file" id="gc-file-input" accept="image/*" style="display:none;" onchange="handleGlobalFile(event)" />
+      <input type="text" id="global-msg-input" placeholder="Написать всем…" />
+      <button class="send-btn" onclick="sendGlobalMsg()">
+        <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+      </button>
+    </div>
+  </div>
 
-            const avatarCont = document.getElementById('prof-avatar-container');
-            if (currentUser.photo_url) {
-                avatarCont.innerHTML = `<img src="${currentUser.photo_url}" class="user-avatar-large" />`;
-            } else {
-                avatarCont.innerHTML = `<div class="user-avatar-large">${currentUser.first_name[0] || '👤'}</div>`;
-            }
+  <!-- ============ TAB: PROFILE ============ -->
+  <div id="tab-profile" class="tab-content">
+    <div class="profile-hero">
+      <div id="prof-avatar-container"></div>
+      <div class="profile-name" id="prof-name">Загрузка…</div>
+      <div class="profile-user" id="prof-user">@username</div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-box">
+        <div class="stat-num" id="prof-bots-count">0</div>
+        <div class="stat-label">БОТОВ СОЗДАНО</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="prof-active-count">0</div>
+        <div class="stat-label">АКТИВНЫХ</div>
+      </div>
+    </div>
+    <div class="screen-body">
+      <div class="card" style="margin-top:16px;">
+        <div class="info-line"><span>ID в DarkGram</span><span id="prof-id">0</span></div>
+        <div class="info-line"><span>Юзернейм</span><span id="prof-user2">—</span></div>
+      </div>
+    </div>
+  </div>
 
-            // Бот
-            if (userBot) {
-                document.getElementById('no-bot-view').style.display = 'none';
-                document.getElementById('has-bot-view').style.display = 'block';
-                document.getElementById('bot-name-display').innerText = userBot.name;
-                document.getElementById('bot-username-display').innerText = "@" + userBot.username;
-                document.getElementById('bot-token-display').value = userBot.token;
-                renderCommands();
-            } else {
-                document.getElementById('no-bot-view').style.display = 'block';
-                document.getElementById('has-bot-view').style.display = 'none';
-            }
-        }
+  <!-- ============ MODAL: ADD BOT ============ -->
+  <div id="add-bot-modal" class="modal">
+    <div class="modal-header">
+      <button class="icon-btn" onclick="closeAddBotModal()">
+        <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+      <h3>Новый бот</h3>
+    </div>
+    <div class="modal-body">
+      <label class="field-label">Токен из @BotFather</label>
+      <input type="text" id="new-token-input" placeholder="1780243205:jrHuqyP25…" />
+      <p class="editor-hint">Создай бота через @BotFather в DarkGram командой /newbot, скопируй токен и вставь сюда.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="createBot()">Подключить бота</button>
+    </div>
+  </div>
 
-        async function createBot() {
-            const token = document.getElementById('new-token-input').value.trim();
-            if(!token) return alert("Введите токен!");
+  <!-- ============ MODAL: COMMAND EDITOR ============ -->
+  <div id="editor-modal" class="modal">
+    <div class="modal-header">
+      <button class="icon-btn" onclick="closeEditor()">
+        <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+      <h3 id="editor-title">Команда</h3>
+      <button class="icon-btn danger" onclick="deleteCommandConfirm()" style="color:var(--danger);">
+        <svg viewBox="0 0 24 24" stroke="var(--danger)"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;">
+      <label class="field-label">Код команды (JavaScript / BJS)</label>
+      <textarea id="editor-code" spellcheck="false" placeholder='var text = "Привет!";&#10;Api.sendMessage({ text: text });'></textarea>
+      <div class="editor-hint">
+        Доступно: <b>Api.sendMessage(payload)</b>, <b>Api.sendPhoto(payload)</b>, переменные <b>bot.name</b>, <b>user</b>, <b>chat</b>, <b>args</b>. Выполняется реальный JS — можно использовать переменные, условия, циклы, конкатенацию строк.
+        <div style="margin-top:8px;">
+          <span class="snippet-btn" onclick="insertSnippet('text')">+ текст</span>
+          <span class="snippet-btn" onclick="insertSnippet('buttons')">+ кнопки</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="saveEditorCode()">Сохранить</button>
+    </div>
+  </div>
 
-            document.getElementById('loader').style.display = 'flex';
-            try {
-                const res = await fetch(`${BACKEND_URL}/api/create_bot`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token: token, user_id: currentUser.user_id })
-                });
-                const data = await res.json();
-                if(data.success) {
-                    userBot = data.bot;
-                    renderApp();
-                } else {
-                    alert(data.message);
-                }
-            } catch(e) {
-                alert("Ошибка подключения!");
-            } finally {
-                document.getElementById('loader').style.display = 'none';
-            }
-        }
+</div>
 
-        function renderCommands() {
-            const list = document.getElementById('commands-list');
-            list.innerHTML = '';
-            for (let cmd in userBot.commands) {
-                list.innerHTML += `
-                    <div class="cmd-item">
-                        <div>
-                            <b>${cmd}</b>
-                            <div style="font-size:11px; color: var(--text-sub);">JavaScript</div>
-                        </div>
-                        <button class="btn" style="width:auto; padding: 4px 10px; font-size: 11px;" onclick="openEditor('${cmd}')">Изменить</button>
-                    </div>
-                `;
-            }
-        }
+<div class="bottom-nav">
+  <div class="nav-item active" id="nav-bots" onclick="switchTab('bots', this)">
+    <div class="nav-glyph"><svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="12" rx="3"/><circle cx="8.5" cy="14" r="1" fill="currentColor"/><circle cx="15.5" cy="14" r="1" fill="currentColor"/><path d="M12 8V4"/><circle cx="12" cy="3" r="1" fill="currentColor"/></svg></div>
+    <div class="nav-label">Боты</div>
+  </div>
+  <div class="nav-item" id="nav-chats" onclick="switchTab('chats', this)">
+    <div class="nav-glyph"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg></div>
+    <div class="nav-label">Чаты</div>
+    <div class="nav-badge" id="chats-badge" style="display:none;">0</div>
+  </div>
+  <div class="nav-item" id="nav-global" onclick="switchTab('global', this)">
+    <div class="nav-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18 14 14 0 010-18z"/></svg></div>
+    <div class="nav-label">Студия</div>
+  </div>
+  <div class="nav-item" id="nav-profile" onclick="switchTab('profile', this)">
+    <div class="nav-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg></div>
+    <div class="nav-label">Профиль</div>
+  </div>
+</div>
 
-        function openEditor(cmd) {
-            currentEditCmd = cmd;
-            document.getElementById('editor-title').innerText = `Команда: ${cmd}`;
-            document.getElementById('full-js-code').value = userBot.commands[cmd] || '';
-            document.getElementById('editor-modal').classList.add('active');
-        }
+<script>
+const BACKEND_URL = "https://a48794-5d18.e.jrnm.app";
+const tg = window.Telegram?.WebApp;
 
-        function closeEditor() {
-            document.getElementById('editor-modal').classList.remove('active');
-        }
+let currentUser = {
+  user_id: tg?.initDataUnsafe?.user?.id || 1234567,
+  username: tg?.initDataUnsafe?.user?.username || "user",
+  first_name: tg?.initDataUnsafe?.user?.first_name || "Разработчик",
+  photo_url: tg?.initDataUnsafe?.user?.photo_url || ""
+};
 
-        function createNewCommandPrompt() {
-            const cmdName = prompt("Введите имя команды (например /start или /help):");
-            if (cmdName) {
-                if(!userBot.commands) userBot.commands = {};
-                userBot.commands[cmdName] = 'var text = "Ответ бота";\nApi.sendMessage({ text: text });';
-                renderCommands();
-                openEditor(cmdName);
-            }
-        }
+let userBots = [];
+let activeBotToken = null;   // токен бота, открытого в детальном экране
+let activeChatId = null;     // chat_id открытого треда
+let currentEditCmd = null;
+let globalAttachmentBase64 = null;
+let chatsPollTimer = null;
 
-        async function saveEditorCode() {
-            if(!currentEditCmd) return;
-            userBot.commands[currentEditCmd] = document.getElementById('full-js-code').value;
+function initials(name){ return (name || "?").trim().charAt(0).toUpperCase() || "?"; }
 
-            await fetch(`${BACKEND_URL}/api/save_commands`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token: userBot.token, commands: userBot.commands })
-            });
+// ---------- INIT ----------
+window.addEventListener('DOMContentLoaded', async () => {
+  if (tg) tg.expand();
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/init`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(currentUser)
+    });
+    const data = await res.json();
+    if (data.success) {
+      if (data.user) currentUser = data.user;
+      userBots = data.bots || [];
+      renderProfile();
+      renderBotsList();
+    }
+  } catch (e) {
+    console.error("Ошибка загрузки:", e);
+  } finally {
+    document.getElementById('loader').style.display = 'none';
+  }
+});
 
-            closeEditor();
-            renderCommands();
-            alert("Код успешно сохранен!");
-        }
+// ---------- TABS ----------
+function switchTab(tabId, el) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(`tab-${tabId}`).classList.add('active');
+  el.classList.add('active');
+  if (tabId === 'chats') loadAllBotChats();
+  if (tabId === 'global') loadGlobalChat();
+}
 
-        function switchTab(tabId, el) {
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-            document.getElementById(`tab-${tabId}`).classList.add('active');
-            el.classList.add('active');
+// ---------- PROFILE ----------
+function renderProfile(){
+  document.getElementById('prof-name').innerText = currentUser.first_name;
+  document.getElementById('prof-user').innerText = "@" + (currentUser.username || "id" + currentUser.user_id);
+  document.getElementById('prof-user2').innerText = "@" + (currentUser.username || "—");
+  document.getElementById('prof-id').innerText = currentUser.user_id;
+  document.getElementById('prof-bots-count').innerText = userBots.length;
+  document.getElementById('prof-active-count').innerText = userBots.filter(b => b.is_active).length;
 
-            if(tabId === 'chats') loadBotChats();
-            if(tabId === 'global') loadGlobalChat();
-        }
+  const cont = document.getElementById('prof-avatar-container');
+  cont.innerHTML = currentUser.photo_url
+    ? `<img src="${currentUser.photo_url}" class="profile-avatar" />`
+    : `<div class="profile-avatar">${initials(currentUser.first_name)}</div>`;
+}
 
-        function switchSubTab(sub) {
-            document.getElementById('sub-overview').style.display = sub === 'overview' ? 'block' : 'none';
-            document.getElementById('sub-commands').style.display = sub === 'commands' ? 'block' : 'none';
-            document.getElementById('sub-btn-overview').className = `sub-btn ${sub === 'overview' ? 'active' : ''}`;
-            document.getElementById('sub-btn-commands').className = `sub-btn ${sub === 'commands' ? 'active' : ''}`;
-        }
+// ---------- BOTS LIST ----------
+function renderBotsList(){
+  const listEl = document.getElementById('bots-list-view');
+  const emptyEl = document.getElementById('bots-empty');
+  const fab = document.getElementById('bots-fab');
+  const sub = document.getElementById('bots-count-sub');
 
-        async function loadBotChats() {
-            if(!userBot) return;
-            const res = await fetch(`${BACKEND_URL}/api/get_bot_chats`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token: userBot.token })
-            });
-            const data = await res.json();
-            const list = document.getElementById('chats-list');
-            
-            if(data.success && data.chats.length > 0) {
-                list.innerHTML = data.chats.map(c => `
-                    <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <b>${c.user_name}</b> (ID: ${c.chat_id})
-                            <div style="font-size:12px; color:var(--text-sub); margin-top:2px;">${c.last_message}</div>
-                        </div>
-                        <div style="font-size:10px; color:var(--text-sub);">${c.updated_at.split(' ')[1] || ''}</div>
-                    </div>
-                `).join('');
-            } else {
-                list.innerHTML = '<p style="font-size: 13px; color: var(--text-sub); text-align: center;">Диалогов пока нет</p>';
-            }
-        }
+  if (userBots.length === 0){
+    listEl.innerHTML = '';
+    emptyEl.style.display = 'block';
+    fab.style.display = 'none';
+    sub.innerText = 'Нет подключённых ботов';
+    return;
+  }
 
-        async function loadGlobalChat() {
-            const res = await fetch(`${BACKEND_URL}/api/get_global_chat`, { method: 'POST' });
-            const data = await res.json();
-            if(data.success) {
-                const cont = document.getElementById('global-messages');
-                cont.innerHTML = data.messages.map(m => `
-                    <div class="chat-msg">
-                        ${m.photo_url ? `<img src="${m.photo_url}" class="avatar-img"/>` : `<div class="avatar-img">${m.first_name[0]}</div>`}
-                        <div>
-                            <div style="font-size:11px; color:var(--accent); font-weight:bold;">${m.first_name} (@${m.username})</div>
-                            <div>${m.text}</div>
-                        </div>
-                    </div>
-                `).join('');
-            }
-        }
+  emptyEl.style.display = 'none';
+  fab.style.display = 'flex';
+  sub.innerText = `${userBots.length} ${userBots.length === 1 ? 'бот' : 'бота'} · ${userBots.filter(b=>b.is_active).length} активно`;
 
-        async function sendGlobalMsg() {
-            const input = document.getElementById('global-msg-input');
-            const txt = input.value.trim();
-            if(!txt) return;
+  listEl.innerHTML = userBots.map(b => `
+    <div class="bot-row" onclick="openBotDetail('${b.token}')">
+      <div class="bot-avatar">${b.avatar ? `<img src="${b.avatar}" style="width:100%;height:100%;border-radius:14px;object-fit:cover;">` : initials(b.name)}</div>
+      <div class="bot-row-info">
+        <div class="bot-row-name">${escapeHtml(b.name || 'Без имени')}</div>
+        <div class="bot-row-sub"><span class="status-dot ${b.is_active ? '' : 'off'}"></span>@${escapeHtml(b.username || '')} · ${b.is_active ? 'включен' : 'выключен'}</div>
+      </div>
+      <div class="chevron"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+    </div>
+  `).join('');
+}
 
-            await fetch(`${BACKEND_URL}/api/send_global_chat`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...currentUser, message: txt })
-            });
-            input.value = '';
-            loadGlobalChat();
-        }
-    </script>
+function findBot(token){ return userBots.find(b => b.token === token); }
+
+// ---------- ADD BOT MODAL ----------
+function openAddBotModal(){ document.getElementById('add-bot-modal').classList.add('active'); }
+function closeAddBotModal(){ document.getElementById('add-bot-modal').classList.remove('active'); document.getElementById('new-token-input').value=''; }
+
+async function createBot(){
+  const token = document.getElementById('new-token-input').value.trim();
+  if(!token) return alert("Введите токен!");
+  document.getElementById('loader').style.display = 'flex';
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/create_bot`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, user_id: currentUser.user_id })
+    });
+    const data = await res.json();
+    if(data.success){
+      userBots.push(data.bot);
+      closeAddBotModal();
+      renderBotsList();
+      renderProfile();
+    } else {
+      alert(data.message);
+    }
+  } catch(e){
+    alert("Ошибка подключения!");
+  } finally {
+    document.getElementById('loader').style.display = 'none';
+  }
+}
+
+// ---------- BOT DETAIL ----------
+function openBotDetail(token){
+  activeBotToken = token;
+  const b = findBot(token);
+  if(!b) return;
+
+  document.getElementById('detail-avatar').innerHTML = b.avatar ? `<img src="${b.avatar}" style="width:100%;height:100%;border-radius:24px;object-fit:cover;">` : initials(b.name);
+  document.getElementById('detail-name').innerText = b.name || 'Без имени';
+  document.getElementById('detail-user').innerText = '@' + (b.username || '');
+  document.getElementById('detail-token').value = b.token;
+
+  updateDetailStatusUI(b);
+
+  const errBanner = document.getElementById('detail-error-banner');
+  if (b.last_error) {
+    errBanner.style.display = 'block';
+    errBanner.innerText = '⚠ ' + b.last_error;
+  } else {
+    errBanner.style.display = 'none';
+  }
+
+  switchDetailTab('overview');
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-bot-detail').classList.add('active');
+  renderCommands();
+}
+
+function closeBotDetail(){
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-bots').classList.add('active');
+  activeBotToken = null;
+}
+
+function updateDetailStatusUI(b){
+  const pill = document.getElementById('detail-status-pill');
+  const dot = document.getElementById('detail-status-dot');
+  const txt = document.getElementById('detail-status-text');
+  const toggle = document.getElementById('detail-toggle');
+  pill.className = 'status-pill ' + (b.is_active ? 'on' : 'off');
+  dot.className = 'status-dot ' + (b.is_active ? '' : 'off');
+  txt.innerText = b.is_active ? 'Бот включён' : 'Бот выключен';
+  toggle.className = 'switch ' + (b.is_active ? 'on' : '');
+}
+
+async function toggleActiveBot(){
+  const b = findBot(activeBotToken);
+  if(!b) return;
+  b.is_active = !b.is_active;
+  updateDetailStatusUI(b);
+  renderBotsList();
+  renderProfile();
+  try {
+    await fetch(`${BACKEND_URL}/api/toggle_bot`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: b.token, is_active: b.is_active })
+    });
+  } catch(e){}
+}
+
+function deleteBotConfirm(){
+  if(!confirm("Удалить бота из студии? Сам бот в DarkGram останется, но перестанет отвечать на команды.")) return;
+  deleteBot();
+}
+async function deleteBot(){
+  try {
+    await fetch(`${BACKEND_URL}/api/delete_bot`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: activeBotToken })
+    });
+  } catch(e){}
+  userBots = userBots.filter(b => b.token !== activeBotToken);
+  closeBotDetail();
+  renderBotsList();
+  renderProfile();
+}
+
+function switchDetailTab(tab){
+  ['overview','commands','logs'].forEach(t => {
+    document.getElementById('detail-'+t).style.display = (t===tab) ? 'block' : 'none';
+    document.getElementById('dtab-'+t).classList.toggle('active', t===tab);
+  });
+  if(tab === 'logs') loadBotLogs();
+}
+
+// ---------- COMMANDS ----------
+function renderCommands(){
+  const b = findBot(activeBotToken);
+  const list = document.getElementById('commands-list');
+  if(!b || !b.commands || Object.keys(b.commands).length === 0){
+    list.innerHTML = '<p style="font-size:13px;color:var(--text-faint);text-align:center;padding:20px 0;">Команд пока нет</p>';
+    return;
+  }
+  list.innerHTML = Object.keys(b.commands).map(cmd => `
+    <div class="cmd-item">
+      <div>
+        <div class="cmd-name">${escapeHtml(cmd)}</div>
+        <div class="cmd-hint">JavaScript / BJS</div>
+      </div>
+      <button class="btn sm secondary" onclick="openEditor('${escapeHtml(cmd)}')">Изменить</button>
+    </div>
+  `).join('');
+}
+
+function createNewCommandPrompt(){
+  const cmdName = prompt("Введите имя команды (например /start или /help):");
+  if (!cmdName) return;
+  const b = findBot(activeBotToken);
+  if(!b.commands) b.commands = {};
+  b.commands[cmdName] = 'var text = "Ответ бота";\nApi.sendMessage({ text: text });';
+  renderCommands();
+  openEditor(cmdName);
+}
+
+function openEditor(cmd){
+  currentEditCmd = cmd;
+  const b = findBot(activeBotToken);
+  document.getElementById('editor-title').innerText = cmd;
+  document.getElementById('editor-code').value = b.commands[cmd] || '';
+  document.getElementById('editor-modal').classList.add('active');
+}
+function closeEditor(){ document.getElementById('editor-modal').classList.remove('active'); }
+
+function insertSnippet(type){
+  const ta = document.getElementById('editor-code');
+  const snippets = {
+    text: '\nvar text = "Твой текст здесь";\nApi.sendMessage({ text: text, parse_mode: "Markdown" });\n',
+    buttons: `
+var buttons = [
+  [ { text: "➕ Добавить бота в чат", url: "https://t.me/" + bot.name + "?startgroup=true" } ],
+  [ { text: "💬 Наш чат", url: "https://t.me/example" } ]
+];
+Api.sendMessage({ text: text, parse_mode: "Markdown", reply_markup: { inline_keyboard: buttons } });
+`
+  };
+  ta.value += snippets[type];
+}
+
+async function saveEditorCode(){
+  if(!currentEditCmd) return;
+  const b = findBot(activeBotToken);
+  b.commands[currentEditCmd] = document.getElementById('editor-code').value;
+  await fetch(`${BACKEND_URL}/api/save_commands`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: b.token, commands: b.commands })
+  });
+  closeEditor();
+  renderCommands();
+}
+
+function deleteCommandConfirm(){
+  if(!currentEditCmd) return;
+  if(!confirm(`Удалить команду ${currentEditCmd}?`)) return;
+  const b = findBot(activeBotToken);
+  delete b.commands[currentEditCmd];
+  fetch(`${BACKEND_URL}/api/save_commands`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: b.token, commands: b.commands })
+  });
+  closeEditor();
+  renderCommands();
+}
+
+// ---------- LOGS ----------
+async function loadBotLogs(){
+  const list = document.getElementById('logs-list');
+  const empty = document.getElementById('logs-empty');
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/get_bot_logs`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: activeBotToken })
+    });
+    const data = await res.json();
+    if(data.success && data.logs.length){
+      empty.style.display = 'none';
+      list.innerHTML = data.logs.map(l => `
+        <div class="log-row">
+          <div class="log-dot ${l.level}"></div>
+          <div class="log-text">${escapeHtml(l.message)}<div class="log-time">${l.time}</div></div>
+        </div>
+      `).join('');
+    } else {
+      list.innerHTML = '';
+      empty.style.display = 'block';
+    }
+  } catch(e){}
+}
+
+// ---------- CHATS LIST (all bots combined) ----------
+async function loadAllBotChats(){
+  const list = document.getElementById('chats-list');
+  const empty = document.getElementById('chats-empty');
+  if(userBots.length === 0){
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    updateChatsBadge(0);
+    return;
+  }
+
+  let allChats = [];
+  for(const b of userBots){
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/get_bot_chats`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: b.token })
+      });
+      const data = await res.json();
+      if(data.success){
+        data.chats.forEach(c => allChats.push({...c, bot_token: b.token, bot_name: b.name}));
+      }
+    } catch(e){}
+  }
+
+  allChats.sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at));
+
+  const totalUnread = allChats.reduce((s,c) => s + (c.unread||0), 0);
+  updateChatsBadge(totalUnread);
+
+  if(allChats.length === 0){
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  list.innerHTML = allChats.map(c => `
+    <div class="chat-list-row" onclick='openThread(${JSON.stringify(c.bot_token)}, ${c.chat_id}, ${JSON.stringify(c.user_name)}, ${JSON.stringify(c.username||"")})'>
+      <div class="user-avatar">${initials(c.user_name)}</div>
+      <div class="chat-list-info">
+        <div class="chat-list-name">${escapeHtml(c.user_name)}</div>
+        <div class="chat-list-msg">${escapeHtml(c.last_message || '')}</div>
+      </div>
+      <div class="chat-list-meta">
+        <div class="chat-list-time">${(c.updated_at||'').split(' ')[1]?.slice(0,5) || ''}</div>
+        ${c.unread ? `<div class="unread-badge">${c.unread}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateChatsBadge(n){
+  const el = document.getElementById('chats-badge');
+  if(n > 0){ el.style.display='flex'; el.innerText = n > 99 ? '99+' : n; }
+  else { el.style.display = 'none'; }
+}
+
+// ---------- CHAT THREAD ----------
+async function openThread(botToken, chatId, userName, username){
+  activeBotToken = botToken;
+  activeChatId = chatId;
+  document.getElementById('thread-avatar').innerText = initials(userName);
+  document.getElementById('thread-name').innerText = userName;
+  document.getElementById('thread-username').innerText = username ? '@'+username : 'ID '+chatId;
+
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-chat-thread').classList.add('active');
+
+  await loadThreadMessages();
+}
+
+function closeThread(){
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-chats').classList.add('active');
+  activeChatId = null;
+  loadAllBotChats();
+}
+
+async function loadThreadMessages(){
+  const body = document.getElementById('thread-body');
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/get_chat_messages`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: activeBotToken, chat_id: activeChatId })
+    });
+    const data = await res.json();
+    if(data.success){
+      body.innerHTML = data.messages.map(m => `
+        <div class="bubble ${m.direction === 'out' ? 'out' : 'in'}">
+          ${escapeHtml(m.text)}
+          <span class="bubble-time">${(m.time||'').split(' ')[1]?.slice(0,5) || ''}</span>
+        </div>
+      `).join('');
+      body.scrollTop = body.scrollHeight;
+    }
+  } catch(e){}
+}
+
+async function sendThreadMessage(){
+  const input = document.getElementById('thread-input');
+  const text = input.value.trim();
+  if(!text) return;
+  input.value = '';
+  try {
+    await fetch(`${BACKEND_URL}/api/send_owner_message`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: activeBotToken, chat_id: activeChatId, text })
+    });
+  } catch(e){}
+  await loadThreadMessages();
+}
+
+// ---------- GLOBAL CHAT ----------
+async function loadGlobalChat(){
+  const res = await fetch(`${BACKEND_URL}/api/get_global_chat`, { method: 'POST' });
+  const data = await res.json();
+  if(data.success){
+    const cont = document.getElementById('global-messages');
+    cont.innerHTML = data.messages.map(m => `
+      <div class="gc-msg">
+        ${m.photo_url ? `<img src="${m.photo_url}" class="gc-avatar" style="border-radius:50%;object-fit:cover;">` : `<div class="gc-avatar">${initials(m.first_name)}</div>`}
+        <div class="gc-content">
+          <div class="gc-name">${escapeHtml(m.first_name)}<span class="gc-uname">@${escapeHtml(m.username||'')}</span></div>
+          <div class="gc-bubble">
+            ${m.text ? escapeHtml(m.text) : ''}
+            ${m.attachment ? `<img src="${BACKEND_URL}${m.attachment}" class="gc-image">` : ''}
+          </div>
+        </div>
+      </div>
+    `).join('');
+    cont.scrollTop = cont.scrollHeight;
+  }
+}
+
+function handleGlobalFile(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    globalAttachmentBase64 = e.target.result;
+    document.getElementById('gc-preview-img').src = e.target.result;
+    document.getElementById('gc-preview').style.display = 'flex';
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearGlobalAttachment(){
+  globalAttachmentBase64 = null;
+  document.getElementById('gc-preview').style.display = 'none';
+  document.getElementById('gc-file-input').value = '';
+}
+
+async function sendGlobalMsg(){
+  const input = document.getElementById('global-msg-input');
+  const txt = input.value.trim();
+  if(!txt && !globalAttachmentBase64) return;
+
+  await fetch(`${BACKEND_URL}/api/send_global_chat`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...currentUser, message: txt, image_base64: globalAttachmentBase64 })
+  });
+  input.value = '';
+  clearGlobalAttachment();
+  loadGlobalChat();
+}
+
+// ---------- UTIL ----------
+function escapeHtml(str){
+  if(str === undefined || str === null) return '';
+  return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+}
+</script>
 </body>
 </html>
-

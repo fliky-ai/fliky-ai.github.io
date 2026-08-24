@@ -56,6 +56,14 @@ body{
 @keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.06);}}
 .loader-sub{font-size:13px;color:var(--text-sub);letter-spacing:.2px;}
 
+@keyframes fadeInUp{
+  from{opacity:0;transform:translateY(20px);}
+  to{opacity:1;transform:translateY(0);}
+}
+@keyframes spin{
+  to{transform:rotate(360deg);}
+}
+
 #app{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;}
 .tab-content{flex:1;display:none;overflow-y:auto;padding-bottom:84px;}
 .tab-content.active{display:flex;flex-direction:column;}
@@ -279,11 +287,22 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
 
 .profile-hero{display:flex;flex-direction:column;align-items:center;padding:26px 16px 20px 16px;text-align:center;}
 .profile-avatar{
-  width:92px;height:92px;border-radius:28px;object-fit:cover;margin-bottom:14px;
+  width:92px;height:92px;border-radius:50%;object-fit:cover;margin-bottom:14px;
   background:linear-gradient(135deg,var(--accent),#9b5bff);
   display:flex;align-items:center;justify-content:center;font-weight:800;font-size:34px;color:#fff;
   box-shadow:0 10px 30px rgba(91,108,255,0.25);
+  border:3px solid var(--accent);
 }
+.profile-avatar-wrap{
+  position:relative;cursor:pointer;
+}
+.profile-avatar-overlay{
+  position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.7);
+  padding:4px;border-radius:0 0 50% 50%;
+  font-size:10px;color:#fff;text-align:center;font-weight:600;
+  opacity:0;transition:opacity .2s;
+}
+.profile-avatar-wrap:hover .profile-avatar-overlay{opacity:1;}
 .profile-name{font-size:20px;font-weight:800;}
 .profile-user{font-size:13.5px;color:var(--accent-2);margin-top:3px;}
 .stat-row{display:flex;gap:10px;padding:0 16px;}
@@ -305,6 +324,17 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
 .input-group .status{font-size:12px;margin-top:4px;display:flex;align-items:center;gap:6px;}
 .input-group .status.valid{color:var(--success);}
 .input-group .status.invalid{color:var(--danger);}
+.input-group .status.checking{color:var(--warn);}
+
+/* Toast */
+.toast{
+  position:fixed;bottom:100px;left:50%;transform:translateX(-50%);
+  background:var(--card);color:var(--text);padding:12px 24px;
+  border-radius:12px;border:1px solid var(--accent);
+  font-size:14px;font-weight:600;z-index:999;
+  animation:fadeInUp 0.3s ease;
+  box-shadow:0 8px 32px rgba(0,0,0,0.5);
+}
 </style>
 </head>
 <body>
@@ -324,14 +354,14 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
 
       <div class="input-group">
         <label>Юзернейм</label>
-        <input type="text" id="reg-username" placeholder="например: john_doe" />
+        <input type="text" id="reg-username" placeholder="например: john_doe" autocomplete="off" />
         <div class="hint">Только латиница, цифры и _. Минимум 3 символа</div>
         <div class="status" id="reg-username-status"></div>
       </div>
 
       <div class="input-group">
         <label>Как тебя называть?</label>
-        <input type="text" id="reg-displayname" placeholder="Например: John" />
+        <input type="text" id="reg-displayname" placeholder="Например: John" autocomplete="off" />
         <div class="hint">Это имя будут видеть другие пользователи</div>
       </div>
 
@@ -494,10 +524,13 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
   <!-- ============ TAB: PROFILE ============ -->
   <div id="tab-profile" class="tab-content">
     <div class="profile-hero">
-      <div id="prof-avatar-container" style="position:relative;cursor:pointer;" onclick="document.getElementById('avatar-file-input').click()">
+      <div class="profile-avatar-wrap" onclick="document.getElementById('avatar-file-input').click()">
+        <div id="prof-avatar-container">
+          <div class="profile-avatar">?</div>
+        </div>
+        <div class="profile-avatar-overlay">📷 Изменить</div>
       </div>
       <input type="file" id="avatar-file-input" accept="image/*" style="display:none;" onchange="handleAvatarUpload(event)" />
-      <div style="font-size:11px;color:var(--accent-2);font-weight:700;margin-top:-6px;margin-bottom:8px;">Изменить фото</div>
       <div class="profile-name" id="prof-name">Загрузка…</div>
       <div class="profile-user" id="prof-user">@username</div>
     </div>
@@ -567,7 +600,7 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
 </div>
 
 <div class="bottom-nav">
-  <div class="nav-item active" id="nav-bots" onclick="switchTab('bots', this)">
+  <div class="nav-item" id="nav-bots" onclick="switchTab('bots', this)">
     <div class="nav-glyph"><svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="12" rx="3"/><circle cx="8.5" cy="14" r="1" fill="currentColor"/><circle cx="15.5" cy="14" r="1" fill="currentColor"/><path d="M12 8V4"/><circle cx="12" cy="3" r="1" fill="currentColor"/></svg></div>
     <div class="nav-label">Боты</div>
   </div>
@@ -595,7 +628,13 @@ let currentUser = {
   username: "",
   display_name: "",
   photo_url: "",
-  registered: false
+  registered: false,
+  gram_balance: 0,
+  stars_balance: 0,
+  skin_name: "Обычная одежда",
+  skin_url: "https://img.black-m.ru/upltg/69946f256651e0R79033696.jpg",
+  premium_until: 0,
+  fps_boost: false
 };
 
 let userBots = [];
@@ -603,9 +642,25 @@ let activeBotToken = null;
 let activeChatId = null;
 let currentEditCmd = null;
 let globalAttachmentBase64 = null;
-let checkingUsername = false;
+let checkTimeout = null;
 
 function initials(name){ return (name || "?").trim().charAt(0).toUpperCase() || "?"; }
+
+// ---------- TOAST ----------
+function showToast(text, type = 'success'){
+  const old = document.querySelector('.toast');
+  if(old) old.remove();
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.style.borderColor = type === 'success' ? 'var(--success)' : 'var(--danger)';
+  toast.textContent = text;
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transition = 'opacity 0.3s';
+    setTimeout(() => toast.remove(), 300);
+  }, 2500);
+}
 
 // ---------- INIT ----------
 window.addEventListener('DOMContentLoaded', async () => {
@@ -614,15 +669,14 @@ window.addEventListener('DOMContentLoaded', async () => {
   try {
     const res = await fetch(`${BACKEND_URL}/api/init`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(currentUser)
+      body: JSON.stringify({ user_id: currentUser.user_id })
     });
     const data = await res.json();
     if (data.success) {
-      currentUser = data.user;
+      currentUser = { ...currentUser, ...data.user };
       userBots = data.bots || [];
       
       if (!currentUser.registered) {
-        // Показываем экран регистрации
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         document.getElementById('tab-register').classList.add('active');
         document.getElementById('loader').style.display = 'none';
@@ -630,7 +684,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       }
     }
   } catch (e) {
-    console.error("Ошибка загрузки init:", e);
+    console.error("Ошибка загрузки:", e);
   }
 
   document.getElementById('loader').style.display = 'none';
@@ -640,10 +694,13 @@ window.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ---------- REGISTRATION ----------
-document.getElementById('reg-username').addEventListener('input', async function() {
+document.getElementById('reg-username').addEventListener('input', function() {
   const username = this.value.trim().toLowerCase();
   const statusEl = document.getElementById('reg-username-status');
   const btn = document.getElementById('reg-btn');
+  const displayName = document.getElementById('reg-displayname').value.trim();
+  
+  if (checkTimeout) clearTimeout(checkTimeout);
   
   if (username.length < 3) {
     statusEl.className = 'status invalid';
@@ -659,44 +716,47 @@ document.getElementById('reg-username').addEventListener('input', async function
     return;
   }
   
-  statusEl.className = 'status';
+  statusEl.className = 'status checking';
   statusEl.innerHTML = '⏳ Проверка...';
   btn.disabled = true;
   
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/check_username`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username })
-    });
-    const data = await res.json();
-    if (data.success) {
-      statusEl.className = 'status valid';
-      statusEl.innerHTML = '✅ ' + data.message;
-      btn.disabled = false;
-    } else {
+  checkTimeout = setTimeout(async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/check_username`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username })
+      });
+      const data = await res.json();
+      if (data.success) {
+        statusEl.className = 'status valid';
+        statusEl.innerHTML = '✅ ' + data.message;
+        if (displayName) btn.disabled = false;
+      } else {
+        statusEl.className = 'status invalid';
+        statusEl.innerHTML = '❌ ' + data.message;
+        btn.disabled = true;
+      }
+    } catch(e) {
       statusEl.className = 'status invalid';
-      statusEl.innerHTML = '❌ ' + data.message;
+      statusEl.innerHTML = '❌ Ошибка проверки';
       btn.disabled = true;
     }
-  } catch(e) {
-    statusEl.className = 'status invalid';
-    statusEl.innerHTML = '❌ Ошибка проверки';
-    btn.disabled = true;
-  }
+  }, 500);
 });
 
 document.getElementById('reg-displayname').addEventListener('input', function() {
   const btn = document.getElementById('reg-btn');
   const username = document.getElementById('reg-username').value.trim();
   const displayName = this.value.trim();
-  if (username && displayName && !btn.disabled) {
+  const status = document.getElementById('reg-username-status');
+  if (username && displayName && status.className === 'status valid') {
     btn.disabled = false;
   } else {
     btn.disabled = true;
   }
 });
 
-async function registerUser() {
+async function registerUser(){
   const username = document.getElementById('reg-username').value.trim().toLowerCase();
   const displayName = document.getElementById('reg-displayname').value.trim();
   const btn = document.getElementById('reg-btn');
@@ -725,6 +785,7 @@ async function registerUser() {
       renderProfile();
       renderBotsList();
       switchTab('bots', document.getElementById('nav-bots'));
+      showToast('✅ Регистрация успешна!');
     } else {
       errorEl.style.display = 'block';
       errorEl.innerText = '❌ ' + data.message;
@@ -761,9 +822,11 @@ function renderProfile(){
 
   const cont = document.getElementById('prof-avatar-container');
   const avatarUrl = currentUser.photo_url || '';
-  cont.innerHTML = avatarUrl
-    ? `<img src="${avatarUrl}" class="profile-avatar" />`
-    : `<div class="profile-avatar">${initials(currentUser.display_name || currentUser.username || 'U')}</div>`;
+  if(avatarUrl){
+    cont.innerHTML = `<img src="${avatarUrl}?t=${Date.now()}" class="profile-avatar" onerror="this.style.display='none';this.parentElement.innerHTML='<div class=\\'profile-avatar\\'>${initials(currentUser.display_name || currentUser.username || 'U')}</div>'">`;
+  } else {
+    cont.innerHTML = `<div class="profile-avatar">${initials(currentUser.display_name || currentUser.username || 'U')}</div>`;
+  }
 }
 
 // ---------- BOTS LIST ----------
@@ -809,7 +872,7 @@ function closeAddBotModal(){ document.getElementById('add-bot-modal').classList.
 
 async function createBot(){
   const token = document.getElementById('new-token-input').value.trim();
-  if(!token) return alert("Введите токен!");
+  if(!token) return showToast('❌ Введите токен!', 'error');
   document.getElementById('loader').style.display = 'flex';
   try {
     const res = await fetch(`${BACKEND_URL}/api/create_bot`, {
@@ -822,11 +885,12 @@ async function createBot(){
       closeAddBotModal();
       renderBotsList();
       renderProfile();
+      showToast('✅ Бот подключён!');
     } else {
-      alert(data.message);
+      showToast('❌ ' + data.message, 'error');
     }
   } catch(e){
-    alert("Ошибка подключения!");
+    showToast('❌ Ошибка подключения!', 'error');
   } finally {
     document.getElementById('loader').style.display = 'none';
   }
@@ -888,11 +952,12 @@ async function toggleActiveBot(){
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: b.token, is_active: b.is_active })
     });
+    showToast(b.is_active ? '✅ Бот включён' : '⏸ Бот выключен');
   } catch(e){}
 }
 
 function deleteBotConfirm(){
-  if(!confirm("Удалить бота из студии? Все команды и история чатов будут потеряны. Сам бот в DarkGram (токен) останется существовать.")) return;
+  if(!confirm("Удалить бота из студии?")) return;
   deleteBot();
 }
 async function deleteBot(){
@@ -906,6 +971,7 @@ async function deleteBot(){
   closeBotDetail();
   renderBotsList();
   renderProfile();
+  showToast('🗑 Бот удалён');
 }
 
 function switchDetailTab(tab){
@@ -964,8 +1030,8 @@ function insertSnippet(type){
     text: '\nvar text = "Твой текст здесь";\nApi.sendMessage({ text: text, parse_mode: "Markdown" });\n',
     buttons: `
 var buttons = [
-  [ { text: "➕ Добавить бота в чат", url: "https://t.me/" + bot.name + "?startgroup=true" } ],
-  [ { text: "💬 Наш чат", url: "https://t.me/example" } ]
+  [ { text: "➕ Кнопка", callback_data: "btn1" } ],
+  [ { text: "🔗 Ссылка", url: "https://example.com" } ]
 ];
 Api.sendMessage({ text: text, parse_mode: "Markdown", reply_markup: { inline_keyboard: buttons } });
 `
@@ -983,6 +1049,7 @@ async function saveEditorCode(){
   });
   closeEditor();
   renderCommands();
+  showToast('✅ Команда сохранена!');
 }
 
 function deleteCommandConfirm(){
@@ -996,6 +1063,7 @@ function deleteCommandConfirm(){
   });
   closeEditor();
   renderCommands();
+  showToast('🗑 Команда удалена');
 }
 
 // ---------- LOGS ----------
@@ -1023,10 +1091,7 @@ async function loadBotLogs(){
   } catch(e){}
 }
 
-// ============================================================
-//                🔥 ЧАТЫ
-// ============================================================
-
+// ---------- CHATS ----------
 async function loadAllBotChats(){
   const list = document.getElementById('chats-list');
   const empty = document.getElementById('chats-empty');
@@ -1093,7 +1158,7 @@ async function loadAllBotChats(){
          data-user-username="${escapeAttr(c.username || '')}"
          data-user-avatar="${escapeAttr(avatarUrl || '')}">
       ${avatarUrl
-        ? `<img src="${avatarUrl}" class="user-avatar" style="object-fit:cover;" onerror="this.style.display='none';this.parentElement.innerHTML='<div class=\\'user-avatar\\'>${initials(c.user_name)}</div>'">`
+        ? `<img src="${avatarUrl}?t=${Date.now()}" class="user-avatar" style="object-fit:cover;" onerror="this.style.display='none';this.parentElement.innerHTML='<div class=\\'user-avatar\\'>${initials(c.user_name)}</div>'">`
         : `<div class="user-avatar">${initials(c.user_name)}</div>`
       }
       <div class="chat-list-info">
@@ -1142,7 +1207,7 @@ async function openThread(botToken, chatId, userName, username, userAvatar){
 
   const avatarEl = document.getElementById('thread-avatar');
   if(userAvatar){
-    avatarEl.innerHTML = `<img src="${userAvatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.innerText='${initials(userName)}';this.parentElement.style.background='linear-gradient(135deg,#5b6cff,#9b5bff)'">`;
+    avatarEl.innerHTML = `<img src="${userAvatar}?t=${Date.now()}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.innerText='${initials(userName)}';this.parentElement.style.background='linear-gradient(135deg,#5b6cff,#9b5bff)'">`;
   } else {
     avatarEl.innerText = initials(userName);
     avatarEl.style.background = 'linear-gradient(135deg,#5b6cff,#9b5bff)';
@@ -1267,40 +1332,56 @@ async function sendGlobalMsg(){
 
   await fetch(`${BACKEND_URL}/api/send_global_chat`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...currentUser, message: txt, image_base64: globalAttachmentBase64 })
+    body: JSON.stringify({ user_id: currentUser.user_id, message: txt, image_base64: globalAttachmentBase64 })
   });
   input.value = '';
   clearGlobalAttachment();
   loadGlobalChat();
+  showToast('✅ Сообщение отправлено!');
 }
 
+// ---------- AVATAR UPLOAD ----------
 function handleAvatarUpload(event){
   const file = event.target.files[0];
   if(!file) return;
+  
   const reader = new FileReader();
-  reader.onload = async function(e){
-    const base64 = e.target.result;
-    document.getElementById('loader').style.display = 'flex';
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/upload_avatar`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: currentUser.user_id, image_base64: base64 })
-      });
-      const data = await res.json();
-      if(data.success){
-        currentUser.photo_url = data.avatar_url.startsWith('http') ? data.avatar_url : BACKEND_URL + data.avatar_url;
-        renderProfile();
-      } else {
-        alert(data.message || "Не удалось загрузить фото");
-      }
-    } catch(err){
-      alert("Ошибка загрузки фото");
-    } finally {
-      document.getElementById('loader').style.display = 'none';
-      document.getElementById('avatar-file-input').value = '';
-    }
+  reader.onload = function(e){
+    // Показываем превью с анимацией загрузки
+    const avatarContainer = document.getElementById('prof-avatar-container');
+    avatarContainer.innerHTML = `
+      <div style="position:relative;width:92px;height:92px;border-radius:50%;background:var(--card-2);display:flex;align-items:center;justify-content:center;border:3px solid var(--accent);">
+        <div style="width:40px;height:40px;border:3px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+      </div>
+    `;
+    
+    uploadAvatar(e.target.result);
   };
   reader.readAsDataURL(file);
+}
+
+async function uploadAvatar(base64){
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/upload_avatar`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: currentUser.user_id, image_base64: base64 })
+    });
+    const data = await res.json();
+    if(data.success){
+      const url = data.avatar_url.startsWith('http') ? data.avatar_url : BACKEND_URL + data.avatar_url;
+      currentUser.photo_url = url;
+      renderProfile();
+      showToast('✅ Аватарка обновлена!');
+    } else {
+      showToast('❌ ' + data.message, 'error');
+      renderProfile();
+    }
+  } catch(err){
+    showToast('❌ Ошибка загрузки фото', 'error');
+    renderProfile();
+  } finally {
+    document.getElementById('avatar-file-input').value = '';
+  }
 }
 
 // ---------- UTIL ----------

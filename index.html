@@ -463,7 +463,10 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
   <!-- ============ TAB: PROFILE ============ -->
   <div id="tab-profile" class="tab-content">
     <div class="profile-hero">
-      <div id="prof-avatar-container"></div>
+      <div id="prof-avatar-container" style="position:relative;cursor:pointer;" onclick="document.getElementById('avatar-file-input').click()">
+      </div>
+      <input type="file" id="avatar-file-input" accept="image/*" style="display:none;" onchange="handleAvatarUpload(event)" />
+      <div style="font-size:11px;color:var(--accent-2);font-weight:700;margin-top:-6px;margin-bottom:8px;">Изменить фото</div>
       <div class="profile-name" id="prof-name">Загрузка…</div>
       <div class="profile-user" id="prof-user">@username</div>
     </div>
@@ -617,7 +620,7 @@ function renderProfile(){
   document.getElementById('prof-name').innerText = currentUser.first_name;
   document.getElementById('prof-user').innerText = "@" + (currentUser.username || "id" + currentUser.user_id);
   document.getElementById('prof-user2').innerText = "@" + (currentUser.username || "—");
-  document.getElementById('prof-id').innerText = currentUser.user_id;
+  document.getElementById('prof-id').innerText = currentUser.darkgram_id ?? '—';
   document.getElementById('prof-bots-count').innerText = userBots.length;
   document.getElementById('prof-active-count').innerText = userBots.filter(b => b.is_active).length;
 
@@ -1086,6 +1089,35 @@ async function sendGlobalMsg(){
   input.value = '';
   clearGlobalAttachment();
   loadGlobalChat();
+}
+
+function handleAvatarUpload(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async function(e){
+    const base64 = e.target.result;
+    document.getElementById('loader').style.display = 'flex';
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/upload_avatar`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: currentUser.user_id, image_base64: base64 })
+      });
+      const data = await res.json();
+      if(data.success){
+        currentUser.photo_url = data.avatar_url.startsWith('http') ? data.avatar_url : `${BACKEND_URL}${data.avatar_url}`;
+        renderProfile();
+      } else {
+        alert(data.message || "Не удалось загрузить фото");
+      }
+    } catch(err){
+      alert("Ошибка загрузки фото");
+    } finally {
+      document.getElementById('loader').style.display = 'none';
+      document.getElementById('avatar-file-input').value = '';
+    }
+  };
+  reader.readAsDataURL(file);
 }
 
 // ---------- UTIL ----------

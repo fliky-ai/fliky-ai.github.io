@@ -7,151 +7,138 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
-            --bg: #0f172a;
-            --card: #1e293b;
+            --bg: #0b0f19;
+            --card: #151d2a;
             --accent: #3b82f6;
-            --accent-hover: #2563eb;
+            --accent-hover: #1d4ed8;
             --text: #f8fafc;
             --text-sub: #94a3b8;
-            --border: #334155;
+            --border: #1e293b;
             --success: #22c55e;
-            --code-bg: #090d16;
+            --code-bg: #050811;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
         body { background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
-        /* СПЛЭШ-ЭКРАН ЗАГРУЗКИ */
         #loader {
             position: fixed; inset: 0; background: var(--bg); z-index: 999;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
         }
         .spinner {
-            width: 45px; height: 45px; border: 4px solid var(--border);
+            width: 40px; height: 40px; border: 4px solid var(--border);
             border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* ОСНОВНОЙ КОНТЕЙНЕР */
         #app { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
         .tab-content { flex: 1; display: none; padding: 16px; overflow-y: auto; padding-bottom: 80px; }
         .tab-content.active { display: block; }
 
-        /* КАРТОЧКИ И ЭЛЕМЕНТЫ */
-        .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
         .btn { width: 100%; padding: 12px; border: none; border-radius: 10px; background: var(--accent); color: white; font-weight: 600; font-size: 14px; cursor: pointer; }
         .btn:active { background: var(--accent-hover); }
-        input, textarea { width: 100%; padding: 12px; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; color: #38bdf8; font-family: monospace; font-size: 13px; outline: none; margin-top: 6px; }
+        input, textarea { width: 100%; padding: 12px; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; color: #38bdf8; font-family: monospace; font-size: 13px; outline: none; }
 
-        /* ПАНЕЛЬ ПЕРЕКЛЮЧЕНИЯ В БОТЕ (Обзор / Команды) */
         .sub-nav { display: flex; gap: 8px; margin-bottom: 14px; }
         .sub-btn { flex: 1; padding: 10px; background: var(--card); border: 1px solid var(--border); color: var(--text-sub); border-radius: 8px; font-weight: 600; text-align: center; }
         .sub-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
 
-        /* ВЕРХНЕЕ МЕНЮ НАВИГАЦИИ (НИЗ) */
         .bottom-nav {
-            position: fixed; bottom: 0; left: 0; right: 0; height: 65px; background: #161f32;
-            border-top: 1px solid var(--border); display: flex; justify-content: space-around; align-items: center;
+            position: fixed; bottom: 0; left: 0; right: 0; height: 65px; background: #0f172a;
+            border-top: 1px solid var(--border); display: flex; justify-content: space-around; align-items: center; z-index: 10;
         }
         .nav-item { flex: 1; text-align: center; color: var(--text-sub); font-size: 11px; text-decoration: none; padding: 8px 0; }
         .nav-item.active { color: var(--accent); font-weight: bold; }
         .nav-icon { font-size: 18px; display: block; margin-bottom: 2px; }
 
-        /* СПИСОК КОМАНД */
         .cmd-item { background: var(--code-bg); padding: 12px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
         
-        /* ЧАТ СООБЩЕСТВА */
-        .chat-msg { background: var(--card); padding: 10px 14px; border-radius: 10px; margin-bottom: 8px; font-size: 13px; }
-        .chat-author { font-size: 11px; color: var(--accent); font-weight: bold; margin-bottom: 2px; }
-
-        /* АВАТАР */
-        .avatar { width: 60px; height: 60px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 24px; margin: 0 auto 12px auto; }
+        /* МОДАЛЬНЫЙ ПОЛНОЭКРАННЫЙ РЕДАКТОР */
+        #editor-modal {
+            display: none; position: fixed; inset: 0; background: var(--bg); z-index: 1000;
+            flex-direction: column; padding: 16px;
+        }
+        #editor-modal.active { display: flex; }
+        .editor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .editor-header h3 { font-size: 16px; }
+        .close-btn { background: transparent; border: none; color: var(--text-sub); font-size: 20px; cursor: pointer; }
+        
+        .chat-msg { background: var(--card); padding: 10px 14px; border-radius: 10px; margin-bottom: 8px; font-size: 13px; display: flex; gap: 10px; }
+        .avatar-img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        
+        .user-avatar-large { width: 70px; height: 70px; border-radius: 50%; margin: 0 auto 10px auto; object-fit: cover; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <!-- Экран загрузки -->
     <div id="loader">
         <div class="spinner"></div>
-        <p style="margin-top: 14px; font-size: 13px; color: var(--text-sub);">Загрузка данных DarkGram...</p>
+        <p style="margin-top: 14px; font-size: 13px; color: var(--text-sub);">Синхронизация профиля DarkGram...</p>
     </div>
 
     <div id="app">
         
-        <!-- ВКЛАДКА 1: БОТЫ / БОТ-СТУДИЯ -->
+        <!-- 1. Вкладка БОТЫ -->
         <div id="tab-bots" class="tab-content active">
-            <!-- Если бота еще нет -->
             <div id="no-bot-view" class="card" style="text-align: center; padding: 30px 16px;">
-                <h3>🤖 У вас пока нет бота</h3>
-                <p style="font-size: 13px; color: var(--text-sub); margin: 10px 0 20px 0;">Создайте своего первого бота для DarkGram в несколько кликов.</p>
-                <input type="text" id="new-token-input" placeholder="Вставьте токен из BotFather" style="margin-bottom: 12px;" />
-                <button class="btn" onclick="createBot()">+ Создать бота</button>
+                <h3>🤖 У вас еще нет бота</h3>
+                <p style="font-size: 13px; color: var(--text-sub); margin: 10px 0 20px 0;">Вставьте токен из BotFather для подключения</p>
+                <input type="text" id="new-token-input" placeholder="1780243205:jrHuqyP25..." style="margin-bottom: 12px;" />
+                <button class="btn" onclick="createBot()">+ Сохранить и подключить</button>
             </div>
 
-            <!-- Если бот создан -->
             <div id="has-bot-view" style="display: none;">
                 <div class="sub-nav">
                     <div id="sub-btn-overview" class="sub-btn active" onclick="switchSubTab('overview')">Обзор</div>
                     <div id="sub-btn-commands" class="sub-btn" onclick="switchSubTab('commands')">JS Команды</div>
                 </div>
 
-                <!-- Подвкладка 1: Обзор -->
                 <div id="sub-overview">
                     <div class="card">
-                        <h2 id="bot-name-display" style="font-size: 18px;">Мой Бот</h2>
-                        <p id="bot-username-display" style="font-size: 13px; color: var(--accent); margin-top: 2px;">@username_bot</p>
+                        <h2 id="bot-name-display" style="font-size: 18px;">Имя Бота</h2>
+                        <p id="bot-username-display" style="font-size: 13px; color: var(--accent); margin-top: 2px;">@bot_username</p>
                         <hr style="border-color: var(--border); margin: 12px 0;" />
-                        <label style="font-size: 11px; color: var(--text-sub);">ТОКЕН БОТА</label>
-                        <input type="text" id="bot-token-display" readonly />
+                        <label style="font-size: 11px; color: var(--text-sub);">ТОКЕН</label>
+                        <input type="text" id="bot-token-display" readonly style="margin-top:4px;" />
                     </div>
                 </div>
 
-                <!-- Подвкладка 2: Команды (JS Редактор) -->
                 <div id="sub-commands" style="display: none;">
                     <div class="card">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                             <h3>Список команд</h3>
-                            <button class="btn" style="width: auto; padding: 6px 12px; font-size: 12px;" onclick="showAddCmdModal()">+ Новая</button>
+                            <button class="btn" style="width: auto; padding: 6px 12px; font-size: 12px;" onclick="createNewCommandPrompt()">+ Новая команда</button>
                         </div>
                         <div id="commands-list"></div>
-                    </div>
-
-                    <!-- Редактор JS кода -->
-                    <div id="editor-card" class="card" style="display: none;">
-                        <h4 id="editing-cmd-title">Редактирование</h4>
-                        <label style="font-size: 11px; color: var(--text-sub); margin-top: 8px;">JS СКРИПТ (Bots.Business Style)</label>
-                        <textarea id="js-code-input" rows="6" placeholder="Bot.sendMessage('Привет мир!');"></textarea>
-                        <button class="btn" style="margin-top: 10px;" onclick="saveCurrentCommand()">Сохранить скрипт</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- ВКЛАДКА 2: ЧАТЫ БОТА -->
+        <!-- 2. Вкладка ЧАТЫ -->
         <div id="tab-chats" class="tab-content">
             <h3>💬 Чаты твоего бота</h3>
-            <p style="font-size: 12px; color: var(--text-sub); margin-bottom: 12px;">Пользователи, общавшиеся с твоим ботом.</p>
-            <div id="chats-list" class="card">
-                <p style="font-size: 13px; color: var(--text-sub); text-align: center;">Пока нет активных диалогов</p>
-            </div>
+            <p style="font-size: 12px; color: var(--text-sub); margin-bottom: 12px;">Пользователи, которые общались с твоим ботом.</p>
+            <div id="chats-list"></div>
         </div>
 
-        <!-- ВКЛАДКА 3: ВСЕМИРНЫЙ ЧАТ -->
+        <!-- 3. Вкладка ВСЕМИРНЫЙ ЧАТ -->
         <div id="tab-global" class="tab-content">
             <h3>🌐 Всемирный чат разработчиков</h3>
             <div id="global-messages" style="margin: 12px 0;"></div>
-            <div style="display: flex; gap: 8px; position: sticky; bottom: 0;">
-                <input type="text" id="global-msg-input" placeholder="Написать в чат..." style="margin-top: 0;" />
-                <button class="btn" style="width: auto; padding: 0 16px;" onclick="sendGlobalMsg()">Send</button>
+            <div style="display: flex; gap: 8px;">
+                <input type="text" id="global-msg-input" placeholder="Написать всем..." />
+                <button class="btn" style="width: auto; padding: 0 16px;" onclick="sendGlobalMsg()">Отправить</button>
             </div>
         </div>
 
-        <!-- ВКЛАДКА 4: ПРОФИЛЬ -->
+        <!-- 4. Вкладка ПРОФИЛЬ -->
         <div id="tab-profile" class="tab-content">
             <div class="card" style="text-align: center;">
-                <div class="avatar" id="prof-avatar">👤</div>
-                <h3 id="prof-name">Пользователь</h3>
-                <p id="prof-user" style="font-size: 13px; color: var(--accent);">@username</p>
+                <div id="prof-avatar-container"></div>
+                <h3 id="prof-name">Загрузка...</h3>
+                <p id="prof-user" style="font-size: 13px; color: var(--accent); margin-top: 2px;">@username</p>
                 <hr style="border-color: var(--border); margin: 14px 0;" />
                 <div style="display: flex; justify-content: space-around; font-size: 12px; color: var(--text-sub);">
                     <div>ID: <b id="prof-id" style="color: var(--text);">0</b></div>
@@ -160,7 +147,20 @@
             </div>
         </div>
 
-        <!-- НИЖНЕЕ МЕНЮ (4 КНОПКИ) -->
+        <!-- ПОЛНОЭКРАННЫЙ JS-РЕДАКТОР -->
+        <div id="editor-modal">
+            <div class="editor-header">
+                <h3 id="editor-title">Редактирование</h3>
+                <button class="close-btn" onclick="closeEditor()">✕</button>
+            </div>
+            <label style="font-size: 11px; color: var(--text-sub); margin-bottom: 4px;">КОД КОМАНДЫ (JavaScript / BJS)</label>
+            <textarea id="full-js-code" style="flex: 1; resize: none;" placeholder="Напишите JS скрипт..."></textarea>
+            <div style="display: flex; gap: 8px; margin-top: 12px;">
+                <button class="btn" onclick="saveEditorCode()">Сохранить скрипт</button>
+            </div>
+        </div>
+
+        <!-- НИЖНЯЯ НАВИГАЦИЯ -->
         <div class="bottom-nav">
             <div class="nav-item active" onclick="switchTab('bots', this)">
                 <span class="nav-icon">🤖</span> Боты
@@ -178,18 +178,22 @@
     </div>
 
     <script>
-        const BACKEND_URL = "https://a48794-5d18.e.jrnm.app"; // Адрес твоего JustRunMy.App
+        const BACKEND_URL = "https://a48794-5d18.e.jrnm.app"; 
         const tg = window.Telegram?.WebApp;
 
-        let currentUser = { user_id: 123456, username: "dev_user", first_name: "Разработчик" };
-        let userBot = null;
-        let activeEditCmd = null;
+        // Автоматическое извлечение реальных данных Telegram/DarkGram
+        let currentUser = {
+            user_id: tg?.initDataUnsafe?.user?.id || 1234567,
+            username: tg?.initDataUnsafe?.user?.username || "user",
+            first_name: tg?.initDataUnsafe?.user?.first_name || "Разработчик",
+            photo_url: tg?.initDataUnsafe?.user?.photo_url || ""
+        };
 
-        // Инициализация при входе
+        let userBot = null;
+        let currentEditCmd = null;
+
         window.addEventListener('DOMContentLoaded', async () => {
-            if (tg?.initDataUnsafe?.user) {
-                currentUser = tg.initDataUnsafe.user;
-            }
+            if (tg) tg.expand();
 
             try {
                 const res = await fetch(`${BACKEND_URL}/api/init`, {
@@ -200,25 +204,32 @@
                 const data = await res.json();
                 
                 if (data.success) {
+                    if (data.user) currentUser = data.user;
                     userBot = data.bot;
                     renderApp();
                 }
             } catch (e) {
-                console.error("Ошибка загрузки data", e);
+                console.error("Ошибка загрузки:", e);
             } finally {
                 document.getElementById('loader').style.display = 'none';
             }
         });
 
         function renderApp() {
-            // Отрисовка профиля
+            // Профиль с авой
             document.getElementById('prof-name').innerText = currentUser.first_name;
             document.getElementById('prof-user').innerText = "@" + (currentUser.username || "id");
             document.getElementById('prof-id').innerText = currentUser.user_id;
-            document.getElementById('prof-avatar').innerText = currentUser.first_name[0] || "👤";
             document.getElementById('prof-bots-count').innerText = userBot ? 1 : 0;
 
-            // Отрисовка бота
+            const avatarCont = document.getElementById('prof-avatar-container');
+            if (currentUser.photo_url) {
+                avatarCont.innerHTML = `<img src="${currentUser.photo_url}" class="user-avatar-large" />`;
+            } else {
+                avatarCont.innerHTML = `<div class="user-avatar-large">${currentUser.first_name[0] || '👤'}</div>`;
+            }
+
+            // Бот
             if (userBot) {
                 document.getElementById('no-bot-view').style.display = 'none';
                 document.getElementById('has-bot-view').style.display = 'block';
@@ -251,7 +262,7 @@
                     alert(data.message);
                 }
             } catch(e) {
-                alert("Ошибка соединения с сервером");
+                alert("Ошибка подключения!");
             } finally {
                 document.getElementById('loader').style.display = 'none';
             }
@@ -265,53 +276,57 @@
                     <div class="cmd-item">
                         <div>
                             <b>${cmd}</b>
-                            <div style="font-size:11px; color: var(--text-sub);">JS Script</div>
+                            <div style="font-size:11px; color: var(--text-sub);">JavaScript</div>
                         </div>
-                        <button class="btn" style="width:auto; padding: 4px 10px; font-size: 11px;" onclick="editCommand('${cmd}')">Изменить</button>
+                        <button class="btn" style="width:auto; padding: 4px 10px; font-size: 11px;" onclick="openEditor('${cmd}')">Изменить</button>
                     </div>
                 `;
             }
         }
 
-        function editCommand(cmd) {
-            activeEditCmd = cmd;
-            document.getElementById('editing-cmd-title').innerText = `Редактирование: ${cmd}`;
-            document.getElementById('js-code-input').value = userBot.commands[cmd];
-            document.getElementById('editor-card').style.display = 'block';
+        function openEditor(cmd) {
+            currentEditCmd = cmd;
+            document.getElementById('editor-title').innerText = `Команда: ${cmd}`;
+            document.getElementById('full-js-code').value = userBot.commands[cmd] || '';
+            document.getElementById('editor-modal').classList.add('active');
         }
 
-        function showAddCmdModal() {
-            const cmdName = prompt("Введите имя команды (например /help):");
+        function closeEditor() {
+            document.getElementById('editor-modal').classList.remove('active');
+        }
+
+        function createNewCommandPrompt() {
+            const cmdName = prompt("Введите имя команды (например /start или /help):");
             if (cmdName) {
                 if(!userBot.commands) userBot.commands = {};
-                userBot.commands[cmdName] = "Bot.sendMessage('Новая команда');";
+                userBot.commands[cmdName] = 'var text = "Ответ бота";\nApi.sendMessage({ text: text });';
                 renderCommands();
-                editCommand(cmdName);
+                openEditor(cmdName);
             }
         }
 
-        async function saveCurrentCommand() {
-            if(!activeEditCmd) return;
-            userBot.commands[activeEditCmd] = document.getElementById('js-code-input').value;
-            
+        async function saveEditorCode() {
+            if(!currentEditCmd) return;
+            userBot.commands[currentEditCmd] = document.getElementById('full-js-code').value;
+
             await fetch(`${BACKEND_URL}/api/save_commands`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ token: userBot.token, commands: userBot.commands })
             });
 
-            alert("Скрипт сохранен!");
-            document.getElementById('editor-card').style.display = 'none';
+            closeEditor();
             renderCommands();
+            alert("Код успешно сохранен!");
         }
 
-        // Переключение вкладок
         function switchTab(tabId, el) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             document.getElementById(`tab-${tabId}`).classList.add('active');
             el.classList.add('active');
 
+            if(tabId === 'chats') loadBotChats();
             if(tabId === 'global') loadGlobalChat();
         }
 
@@ -322,7 +337,31 @@
             document.getElementById('sub-btn-commands').className = `sub-btn ${sub === 'commands' ? 'active' : ''}`;
         }
 
-        // Работа с глобальным чатом
+        async function loadBotChats() {
+            if(!userBot) return;
+            const res = await fetch(`${BACKEND_URL}/api/get_bot_chats`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: userBot.token })
+            });
+            const data = await res.json();
+            const list = document.getElementById('chats-list');
+            
+            if(data.success && data.chats.length > 0) {
+                list.innerHTML = data.chats.map(c => `
+                    <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <b>${c.user_name}</b> (ID: ${c.chat_id})
+                            <div style="font-size:12px; color:var(--text-sub); margin-top:2px;">${c.last_message}</div>
+                        </div>
+                        <div style="font-size:10px; color:var(--text-sub);">${c.updated_at.split(' ')[1] || ''}</div>
+                    </div>
+                `).join('');
+            } else {
+                list.innerHTML = '<p style="font-size: 13px; color: var(--text-sub); text-align: center;">Диалогов пока нет</p>';
+            }
+        }
+
         async function loadGlobalChat() {
             const res = await fetch(`${BACKEND_URL}/api/get_global_chat`, { method: 'POST' });
             const data = await res.json();
@@ -330,8 +369,11 @@
                 const cont = document.getElementById('global-messages');
                 cont.innerHTML = data.messages.map(m => `
                     <div class="chat-msg">
-                        <div class="chat-author">${m.first_name} (@${m.username})</div>
-                        <div>${m.text}</div>
+                        ${m.photo_url ? `<img src="${m.photo_url}" class="avatar-img"/>` : `<div class="avatar-img">${m.first_name[0]}</div>`}
+                        <div>
+                            <div style="font-size:11px; color:var(--accent); font-weight:bold;">${m.first_name} (@${m.username})</div>
+                            <div>${m.text}</div>
+                        </div>
                     </div>
                 `).join('');
             }
@@ -353,3 +395,4 @@
     </script>
 </body>
 </html>
+

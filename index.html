@@ -3,306 +3,352 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DarkGram Bot Builder</title>
+    <title>DarkGram Bot Studio</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
-            --bg: #090d16;
-            --card: #151c2c;
+            --bg: #0f172a;
+            --card: #1e293b;
             --accent: #3b82f6;
-            --accent-active: #1d4ed8;
+            --accent-hover: #2563eb;
             --text: #f8fafc;
             --text-sub: #94a3b8;
+            --border: #334155;
             --success: #22c55e;
-            --danger: #ef4444;
-            --border: #1e293b;
+            --code-bg: #090d16;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            -webkit-tap-highlight-color: transparent;
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
+        body { background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* СПЛЭШ-ЭКРАН ЗАГРУЗКИ */
+        #loader {
+            position: fixed; inset: 0; background: var(--bg); z-index: 999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
         }
-
-        body {
-            background-color: var(--bg);
-            color: var(--text);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
+        .spinner {
+            width: 45px; height: 45px; border: 4px solid var(--border);
+            border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite;
         }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        #pc-blocked {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: var(--bg);
-            z-index: 9999;
-            padding: 24px;
-            text-align: center;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
+        /* ОСНОВНОЙ КОНТЕЙНЕР */
+        #app { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .tab-content { flex: 1; display: none; padding: 16px; overflow-y: auto; padding-bottom: 80px; }
+        .tab-content.active { display: block; }
+
+        /* КАРТОЧКИ И ЭЛЕМЕНТЫ */
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 10px; background: var(--accent); color: white; font-weight: 600; font-size: 14px; cursor: pointer; }
+        .btn:active { background: var(--accent-hover); }
+        input, textarea { width: 100%; padding: 12px; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; color: #38bdf8; font-family: monospace; font-size: 13px; outline: none; margin-top: 6px; }
+
+        /* ПАНЕЛЬ ПЕРЕКЛЮЧЕНИЯ В БОТЕ (Обзор / Команды) */
+        .sub-nav { display: flex; gap: 8px; margin-bottom: 14px; }
+        .sub-btn { flex: 1; padding: 10px; background: var(--card); border: 1px solid var(--border); color: var(--text-sub); border-radius: 8px; font-weight: 600; text-align: center; }
+        .sub-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+        /* ВЕРХНЕЕ МЕНЮ НАВИГАЦИИ (НИЗ) */
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 0; right: 0; height: 65px; background: #161f32;
+            border-top: 1px solid var(--border); display: flex; justify-content: space-around; align-items: center;
         }
+        .nav-item { flex: 1; text-align: center; color: var(--text-sub); font-size: 11px; text-decoration: none; padding: 8px 0; }
+        .nav-item.active { color: var(--accent); font-weight: bold; }
+        .nav-icon { font-size: 18px; display: block; margin-bottom: 2px; }
 
-        @media (min-width: 768px) {
-            #pc-blocked { display: flex; }
-            #app-container { display: none !important; }
-        }
+        /* СПИСОК КОМАНД */
+        .cmd-item { background: var(--code-bg); padding: 12px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        
+        /* ЧАТ СООБЩЕСТВА */
+        .chat-msg { background: var(--card); padding: 10px 14px; border-radius: 10px; margin-bottom: 8px; font-size: 13px; }
+        .chat-author { font-size: 11px; color: var(--accent); font-weight: bold; margin-bottom: 2px; }
 
-        #app-container {
-            flex: 1;
-            padding: 16px;
-            max-width: 480px;
-            margin: 0 auto;
-            width: 100%;
-        }
-
-        .header {
-            text-align: center;
-            margin: 12px 0 20px 0;
-        }
-
-        .header h1 {
-            font-size: 20px;
-            font-weight: 700;
-        }
-
-        .header p {
-            font-size: 13px;
-            color: var(--text-sub);
-            margin-top: 2px;
-        }
-
-        .card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 16px;
-            margin-bottom: 14px;
-        }
-
-        .form-group {
-            margin-bottom: 14px;
-        }
-
-        label {
-            display: block;
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text-sub);
-            margin-bottom: 6px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        input, textarea {
-            width: 100%;
-            padding: 12px;
-            background: #0d1322;
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            color: var(--text);
-            font-size: 14px;
-            outline: none;
-        }
-
-        input:focus, textarea:focus {
-            border-color: var(--accent);
-        }
-
-        .btn {
-            width: 100%;
-            padding: 14px;
-            border: none;
-            border-radius: 10px;
-            background: var(--accent);
-            color: white;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-        }
-
-        .btn:active {
-            background: var(--accent-active);
-        }
-
-        .btn-success { background: var(--success); }
-
-        .badge {
-            background: #1e293b;
-            padding: 8px 12px;
-            border-radius: 20px;
-            font-size: 13px;
-            display: inline-block;
-            margin-top: 6px;
-        }
-
-        .step { display: none; }
-        .step.active { display: block; }
-
-        .hint {
-            font-size: 11px;
-            color: var(--text-sub);
-            margin-top: 6px;
-        }
-
-        .status {
-            font-size: 13px;
-            text-align: center;
-            margin-top: 10px;
-            word-break: break-word;
-        }
-        .status.error { color: var(--danger); }
-        .status.success { color: var(--success); }
+        /* АВАТАР */
+        .avatar { width: 60px; height: 60px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 24px; margin: 0 auto 12px auto; }
     </style>
 </head>
 <body>
 
-    <div id="pc-blocked">
-        📱
-        <h3 style="margin-top: 10px;">Доступно только в DarkGram</h3>
-        <p style="color: var(--text-sub); font-size: 14px; margin-top: 6px;">Откройте Mini App с мобильного устройства.</p>
+    <!-- Экран загрузки -->
+    <div id="loader">
+        <div class="spinner"></div>
+        <p style="margin-top: 14px; font-size: 13px; color: var(--text-sub);">Загрузка данных DarkGram...</p>
     </div>
 
-    <div id="app-container">
-        <div class="header">
-            <h1>⚡️ DarkGram Bot Builder</h1>
-            <p>Конструктор ботов без программирования</p>
-        </div>
+    <div id="app">
+        
+        <!-- ВКЛАДКА 1: БОТЫ / БОТ-СТУДИЯ -->
+        <div id="tab-bots" class="tab-content active">
+            <!-- Если бота еще нет -->
+            <div id="no-bot-view" class="card" style="text-align: center; padding: 30px 16px;">
+                <h3>🤖 У вас пока нет бота</h3>
+                <p style="font-size: 13px; color: var(--text-sub); margin: 10px 0 20px 0;">Создайте своего первого бота для DarkGram в несколько кликов.</p>
+                <input type="text" id="new-token-input" placeholder="Вставьте токен из BotFather" style="margin-bottom: 12px;" />
+                <button class="btn" onclick="createBot()">+ Создать бота</button>
+            </div>
 
-        <!-- ШАГ 1: ТОКЕН -->
-        <div id="step-1" class="step active">
-            <div class="card">
-                <div class="form-group">
-                    <label>Токен бота из @BotFather</label>
-                    <input type="text" id="bot-token" placeholder="1780243205:jrHuqyP25OCglOGq..." />
-                    <div class="hint">Создайте бота через @BotFather в DarkGram и вставьте токен сюда.</div>
+            <!-- Если бот создан -->
+            <div id="has-bot-view" style="display: none;">
+                <div class="sub-nav">
+                    <div id="sub-btn-overview" class="sub-btn active" onclick="switchSubTab('overview')">Обзор</div>
+                    <div id="sub-btn-commands" class="sub-btn" onclick="switchSubTab('commands')">JS Команды</div>
                 </div>
-                <button class="btn" id="btn-check" onclick="checkToken()">Подключить бота</button>
-                <div id="status-1" class="status"></div>
+
+                <!-- Подвкладка 1: Обзор -->
+                <div id="sub-overview">
+                    <div class="card">
+                        <h2 id="bot-name-display" style="font-size: 18px;">Мой Бот</h2>
+                        <p id="bot-username-display" style="font-size: 13px; color: var(--accent); margin-top: 2px;">@username_bot</p>
+                        <hr style="border-color: var(--border); margin: 12px 0;" />
+                        <label style="font-size: 11px; color: var(--text-sub);">ТОКЕН БОТА</label>
+                        <input type="text" id="bot-token-display" readonly />
+                    </div>
+                </div>
+
+                <!-- Подвкладка 2: Команды (JS Редактор) -->
+                <div id="sub-commands" style="display: none;">
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h3>Список команд</h3>
+                            <button class="btn" style="width: auto; padding: 6px 12px; font-size: 12px;" onclick="showAddCmdModal()">+ Новая</button>
+                        </div>
+                        <div id="commands-list"></div>
+                    </div>
+
+                    <!-- Редактор JS кода -->
+                    <div id="editor-card" class="card" style="display: none;">
+                        <h4 id="editing-cmd-title">Редактирование</h4>
+                        <label style="font-size: 11px; color: var(--text-sub); margin-top: 8px;">JS СКРИПТ (Bots.Business Style)</label>
+                        <textarea id="js-code-input" rows="6" placeholder="Bot.sendMessage('Привет мир!');"></textarea>
+                        <button class="btn" style="margin-top: 10px;" onclick="saveCurrentCommand()">Сохранить скрипт</button>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- ШАГ 2: НАСТРОЙКА КОМАНД -->
-        <div id="step-2" class="step">
-            <div class="card">
-                <div style="font-size: 13px; color: var(--text-sub);">Бот найден:</div>
-                <div id="bot-badge" class="badge"></div>
-            </div>
-
-            <div class="card">
-                <div class="form-group">
-                    <label>Команда</label>
-                    <input type="text" id="cmd-name" value="/start" readonly />
-                </div>
-                <div class="form-group">
-                    <label>Текст ответа</label>
-                    <textarea id="cmd-text" rows="5" placeholder="Привет! <b>Добро пожаловать</b> в мой новый бот!"></textarea>
-                    <div class="hint">Поддерживается HTML разметка (&lt;b&gt;, &lt;i&gt;, &lt;code&gt;, &lt;a&gt;)</div>
-                </div>
-                <button class="btn btn-success" onclick="saveBot()">🚀 Сохранить и запустить</button>
-                <div id="status-2" class="status"></div>
+        <!-- ВКЛАДКА 2: ЧАТЫ БОТА -->
+        <div id="tab-chats" class="tab-content">
+            <h3>💬 Чаты твоего бота</h3>
+            <p style="font-size: 12px; color: var(--text-sub); margin-bottom: 12px;">Пользователи, общавшиеся с твоим ботом.</p>
+            <div id="chats-list" class="card">
+                <p style="font-size: 13px; color: var(--text-sub); text-align: center;">Пока нет активных диалогов</p>
             </div>
         </div>
 
-        <!-- ШАГ 3: УСПЕХ -->
-        <div id="step-3" class="step">
-            <div class="card" style="text-align: center; padding: 24px 16px;">
-                <h2 style="color: var(--success); font-size: 22px;">🎉 Готово!</h2>
-                <p style="margin-top: 8px; font-size: 14px; color: var(--text-sub);">Ваш бот в DarkGram настроен и готов принимать сообщения!</p>
-                <button class="btn" style="margin-top: 20px;" onclick="resetForm()">Настроить другого бота</button>
+        <!-- ВКЛАДКА 3: ВСЕМИРНЫЙ ЧАТ -->
+        <div id="tab-global" class="tab-content">
+            <h3>🌐 Всемирный чат разработчиков</h3>
+            <div id="global-messages" style="margin: 12px 0;"></div>
+            <div style="display: flex; gap: 8px; position: sticky; bottom: 0;">
+                <input type="text" id="global-msg-input" placeholder="Написать в чат..." style="margin-top: 0;" />
+                <button class="btn" style="width: auto; padding: 0 16px;" onclick="sendGlobalMsg()">Send</button>
+            </div>
+        </div>
+
+        <!-- ВКЛАДКА 4: ПРОФИЛЬ -->
+        <div id="tab-profile" class="tab-content">
+            <div class="card" style="text-align: center;">
+                <div class="avatar" id="prof-avatar">👤</div>
+                <h3 id="prof-name">Пользователь</h3>
+                <p id="prof-user" style="font-size: 13px; color: var(--accent);">@username</p>
+                <hr style="border-color: var(--border); margin: 14px 0;" />
+                <div style="display: flex; justify-content: space-around; font-size: 12px; color: var(--text-sub);">
+                    <div>ID: <b id="prof-id" style="color: var(--text);">0</b></div>
+                    <div>Ботов создано: <b id="prof-bots-count" style="color: var(--text);">0</b></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- НИЖНЕЕ МЕНЮ (4 КНОПКИ) -->
+        <div class="bottom-nav">
+            <div class="nav-item active" onclick="switchTab('bots', this)">
+                <span class="nav-icon">🤖</span> Боты
+            </div>
+            <div class="nav-item" onclick="switchTab('chats', this)">
+                <span class="nav-icon">💬</span> Чаты
+            </div>
+            <div class="nav-item" onclick="switchTab('global', this)">
+                <span class="nav-icon">🌐</span> Чат Студии
+            </div>
+            <div class="nav-item" onclick="switchTab('profile', this)">
+                <span class="nav-icon">👤</span> Профиль
             </div>
         </div>
     </div>
 
     <script>
-        const BACKEND_URL = "https://a48794-5d18.e.jrnm.app"; 
-        let currentBot = null;
+        const BACKEND_URL = "https://a48794-5d18.e.jrnm.app"; // Адрес твоего JustRunMy.App
+        const tg = window.Telegram?.WebApp;
 
-        async function checkToken() {
-            const token = document.getElementById('bot-token').value.trim();
-            const status = document.getElementById('status-1');
+        let currentUser = { user_id: 123456, username: "dev_user", first_name: "Разработчик" };
+        let userBot = null;
+        let activeEditCmd = null;
 
-            if (!token) {
-                status.className = "status error";
-                status.innerText = "Укажите токен!";
-                return;
+        // Инициализация при входе
+        window.addEventListener('DOMContentLoaded', async () => {
+            if (tg?.initDataUnsafe?.user) {
+                currentUser = tg.initDataUnsafe.user;
             }
 
-            status.className = "status";
-            status.innerText = "Проверка токена в DarkGram...";
-
             try {
-                const res = await fetch(`${BACKEND_URL}/api/check_token`, {
+                const res = await fetch(`${BACKEND_URL}/api/init`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token: token })
+                    body: JSON.stringify(currentUser)
                 });
-
                 const data = await res.json();
-
+                
                 if (data.success) {
-                    currentBot = { token: token, username: data.username, name: data.first_name };
-                    document.getElementById('bot-badge').innerText = `🤖 ${data.first_name} (@${data.username})`;
-                    
-                    document.getElementById('step-1').classList.remove('active');
-                    document.getElementById('step-2').classList.add('active');
-                } else {
-                    status.className = "status error";
-                    status.innerText = data.message || "Ошибка токена!";
+                    userBot = data.bot;
+                    renderApp();
                 }
-            } catch (err) {
-                status.className = "status error";
-                status.innerText = "Ошибка подключения: " + err.message;
+            } catch (e) {
+                console.error("Ошибка загрузки data", e);
+            } finally {
+                document.getElementById('loader').style.display = 'none';
+            }
+        });
+
+        function renderApp() {
+            // Отрисовка профиля
+            document.getElementById('prof-name').innerText = currentUser.first_name;
+            document.getElementById('prof-user').innerText = "@" + (currentUser.username || "id");
+            document.getElementById('prof-id').innerText = currentUser.user_id;
+            document.getElementById('prof-avatar').innerText = currentUser.first_name[0] || "👤";
+            document.getElementById('prof-bots-count').innerText = userBot ? 1 : 0;
+
+            // Отрисовка бота
+            if (userBot) {
+                document.getElementById('no-bot-view').style.display = 'none';
+                document.getElementById('has-bot-view').style.display = 'block';
+                document.getElementById('bot-name-display').innerText = userBot.name;
+                document.getElementById('bot-username-display').innerText = "@" + userBot.username;
+                document.getElementById('bot-token-display').value = userBot.token;
+                renderCommands();
+            } else {
+                document.getElementById('no-bot-view').style.display = 'block';
+                document.getElementById('has-bot-view').style.display = 'none';
             }
         }
 
-        async function saveBot() {
-            const text = document.getElementById('cmd-text').value.trim();
-            const status = document.getElementById('status-2');
+        async function createBot() {
+            const token = document.getElementById('new-token-input').value.trim();
+            if(!token) return alert("Введите токен!");
 
-            if (!text) {
-                status.className = "status error";
-                status.innerText = "Введите ответ бота!";
-                return;
-            }
-
-            const payload = {
-                token: currentBot.token,
-                username: currentBot.username,
-                name: currentBot.name,
-                commands: { "/start": text }
-            };
-
+            document.getElementById('loader').style.display = 'flex';
             try {
-                const res = await fetch(`${BACKEND_URL}/api/save_bot`, {
+                const res = await fetch(`${BACKEND_URL}/api/create_bot`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({ token: token, user_id: currentUser.user_id })
                 });
-
                 const data = await res.json();
-
-                if (data.success) {
-                    document.getElementById('step-2').classList.remove('active');
-                    document.getElementById('step-3').classList.add('active');
+                if(data.success) {
+                    userBot = data.bot;
+                    renderApp();
                 } else {
-                    status.className = "status error";
-                    status.innerText = data.message || "Ошибка сохранения!";
+                    alert(data.message);
                 }
-            } catch (err) {
-                status.className = "status error";
-                status.innerText = "Ошибка запроса: " + err.message;
+            } catch(e) {
+                alert("Ошибка соединения с сервером");
+            } finally {
+                document.getElementById('loader').style.display = 'none';
             }
         }
 
-        function resetForm() {
-            document.getElementById('bot-token').value = '';
-            document.getElementById('cmd-text').value = '';
-            document.getElementById('step-3').classList.remove('active');
-            document.getElementById('step-1').classList.add('active');
+        function renderCommands() {
+            const list = document.getElementById('commands-list');
+            list.innerHTML = '';
+            for (let cmd in userBot.commands) {
+                list.innerHTML += `
+                    <div class="cmd-item">
+                        <div>
+                            <b>${cmd}</b>
+                            <div style="font-size:11px; color: var(--text-sub);">JS Script</div>
+                        </div>
+                        <button class="btn" style="width:auto; padding: 4px 10px; font-size: 11px;" onclick="editCommand('${cmd}')">Изменить</button>
+                    </div>
+                `;
+            }
+        }
+
+        function editCommand(cmd) {
+            activeEditCmd = cmd;
+            document.getElementById('editing-cmd-title').innerText = `Редактирование: ${cmd}`;
+            document.getElementById('js-code-input').value = userBot.commands[cmd];
+            document.getElementById('editor-card').style.display = 'block';
+        }
+
+        function showAddCmdModal() {
+            const cmdName = prompt("Введите имя команды (например /help):");
+            if (cmdName) {
+                if(!userBot.commands) userBot.commands = {};
+                userBot.commands[cmdName] = "Bot.sendMessage('Новая команда');";
+                renderCommands();
+                editCommand(cmdName);
+            }
+        }
+
+        async function saveCurrentCommand() {
+            if(!activeEditCmd) return;
+            userBot.commands[activeEditCmd] = document.getElementById('js-code-input').value;
+            
+            await fetch(`${BACKEND_URL}/api/save_commands`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: userBot.token, commands: userBot.commands })
+            });
+
+            alert("Скрипт сохранен!");
+            document.getElementById('editor-card').style.display = 'none';
+            renderCommands();
+        }
+
+        // Переключение вкладок
+        function switchTab(tabId, el) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+            el.classList.add('active');
+
+            if(tabId === 'global') loadGlobalChat();
+        }
+
+        function switchSubTab(sub) {
+            document.getElementById('sub-overview').style.display = sub === 'overview' ? 'block' : 'none';
+            document.getElementById('sub-commands').style.display = sub === 'commands' ? 'block' : 'none';
+            document.getElementById('sub-btn-overview').className = `sub-btn ${sub === 'overview' ? 'active' : ''}`;
+            document.getElementById('sub-btn-commands').className = `sub-btn ${sub === 'commands' ? 'active' : ''}`;
+        }
+
+        // Работа с глобальным чатом
+        async function loadGlobalChat() {
+            const res = await fetch(`${BACKEND_URL}/api/get_global_chat`, { method: 'POST' });
+            const data = await res.json();
+            if(data.success) {
+                const cont = document.getElementById('global-messages');
+                cont.innerHTML = data.messages.map(m => `
+                    <div class="chat-msg">
+                        <div class="chat-author">${m.first_name} (@${m.username})</div>
+                        <div>${m.text}</div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        async function sendGlobalMsg() {
+            const input = document.getElementById('global-msg-input');
+            const txt = input.value.trim();
+            if(!txt) return;
+
+            await fetch(`${BACKEND_URL}/api/send_global_chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...currentUser, message: txt })
+            });
+            input.value = '';
+            loadGlobalChat();
         }
     </script>
 </body>

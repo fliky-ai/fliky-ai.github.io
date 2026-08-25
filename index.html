@@ -38,7 +38,6 @@ body{
 @keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.06);}}
 .loader-sub{font-size:13px;color:var(--text-sub);letter-spacing:.2px;}
 
-/* ---------- REGISTRATION SCREEN ---------- */
 #register-screen{position:fixed;inset:0;background:var(--bg);z-index:500;display:none;flex-direction:column;}
 #register-screen.active{display:flex;}
 .reg-hero{padding:48px 24px 20px 24px;text-align:center;}
@@ -58,7 +57,6 @@ body{
 .reg-footer{padding:16px 24px;padding-bottom:calc(24px + env(safe-area-inset-bottom));}
 .reg-back-link{font-size:12.5px;color:var(--text-sub);text-align:center;margin-top:14px;cursor:pointer;}
 
-/* ---------- LAYOUT ---------- */
 #app{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;}
 .tab-content{flex:1;display:none;overflow-y:auto;padding-bottom:84px;}
 .tab-content.active{display:flex;flex-direction:column;}
@@ -76,6 +74,7 @@ body{
 .btn.success{background:rgba(45,212,167,0.14);color:var(--success);}
 .btn.ghost{background:transparent;color:var(--accent);}
 .btn.sm{width:auto;padding:8px 14px;font-size:12.5px;border-radius:9px;}
+.btn.admin{background:linear-gradient(135deg,#f7971e,#ffd200);color:#1a1a2e;font-weight:800;}
 input,textarea,select{width:100%;padding:12px 14px;background:var(--code-bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:14px;outline:none;}
 input::placeholder,textarea::placeholder{color:var(--text-faint);}
 input:focus,textarea:focus,select:focus{border-color:var(--accent);}
@@ -124,7 +123,6 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
 .grid-tab.active{background:var(--accent-dim);color:var(--accent-2);border-color:var(--accent);}
 .error-banner{background:rgba(255,84,112,0.1);border:1px solid rgba(255,84,112,0.3);color:var(--danger);border-radius:var(--radius-sm);padding:12px 14px;font-size:12.5px;margin-bottom:12px;line-height:1.5;white-space:pre-wrap;}
 
-/* ---------- TERMINAL / RUN TAB ---------- */
 .run-controls{display:flex;gap:8px;margin-bottom:12px;}
 .run-controls .btn{flex:1;}
 #terminal-output{
@@ -133,6 +131,8 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
   color:#a9e8ff;white-space:pre-wrap;word-break:break-word;height:260px;overflow-y:auto;margin-bottom:12px;
 }
 .term-line-err{color:var(--danger);}
+.term-line-warn{color:var(--warn);}
+.term-line-info{color:var(--accent-2);}
 .term-empty{color:var(--text-faint);text-align:center;padding:30px 0;font-family:inherit;}
 .runtime-switch{display:flex;gap:8px;margin-bottom:12px;}
 .runtime-opt{flex:1;padding:10px;text-align:center;background:var(--card);border:1px solid var(--border);border-radius:12px;font-size:13px;font-weight:700;color:var(--text-sub);cursor:pointer;}
@@ -203,6 +203,10 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
 .info-line span:first-child{color:var(--text-sub);}
 .info-line span:last-child{font-weight:600;}
 .edit-link{color:var(--accent-2);font-size:12px;font-weight:700;cursor:pointer;}
+.admin-panel{background:linear-gradient(135deg, #1a1a2e, #16213e);border:1px solid #f7971e;border-radius:var(--radius);padding:16px;margin-top:12px;}
+.admin-panel h3{color:#ffd200;font-size:16px;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.admin-panel .btn{margin-top:8px;}
+.admin-panel .btn:first-child{margin-top:0;}
 </style>
 </head>
 <body>
@@ -220,7 +224,6 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
     <p id="reg-sub">Создай аккаунт DarkGram Bot Studio, чтобы подключать и запускать своих ботов.</p>
   </div>
   <div class="reg-body">
-    <!-- Шаг 1: юзернейм -->
     <div class="reg-step active" id="reg-step-username">
       <div>
         <label class="field-label">Придумай юзернейм</label>
@@ -231,7 +234,6 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
         <div class="reg-status-msg hint" id="reg-username-status">3-20 символов: латиница, цифры, _</div>
       </div>
     </div>
-    <!-- Шаг 2: отображаемое имя -->
     <div class="reg-step" id="reg-step-name">
       <div>
         <label class="field-label">Как тебя показывать другим</label>
@@ -294,7 +296,6 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
     </div>
 
     <div class="screen-body" style="padding-top:0;">
-      <!-- OVERVIEW -->
       <div id="detail-overview">
         <div id="detail-error-banner" class="error-banner" style="display:none;"></div>
         <div class="card">
@@ -302,6 +303,7 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
             <div>
               <div style="font-weight:700;font-size:14.5px;">Статус бота</div>
               <div style="font-size:12px;color:var(--text-sub);margin-top:2px;" id="detail-runtime-label">telebot</div>
+              <div style="font-size:11px;color:var(--text-faint);margin-top:2px;" id="detail-restart-info">⏰ 24ч до отключения</div>
             </div>
             <div class="status-pill" id="detail-status-pill-2" style="margin-top:0;">
               <span class="status-dot" id="detail-status-dot-2"></span>
@@ -321,14 +323,13 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
         <button class="btn danger" onclick="deleteBotConfirm()">Удалить бота из студии</button>
       </div>
 
-      <!-- TERMINAL -->
       <div id="detail-terminal" style="display:none;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
           <div style="font-weight:700;font-size:14.5px;">Код бота (Python)</div>
           <button class="btn sm secondary" onclick="openCodeEditor()">✎ Открыть редактор</button>
         </div>
 
-        <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:var(--text-sub);">Живой лог (как в Pydroid3)</div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:var(--text-sub);">Живой лог</div>
         <div id="terminal-output"><div class="term-empty">Бот не запущен — нажми «Запустить» на вкладке Обзор</div></div>
         <button class="btn sm secondary" onclick="loadTerminalLog()" style="width:100%;margin-bottom:16px;">↻ Обновить лог</button>
 
@@ -450,6 +451,27 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
           <span>Юзернейм</span>
           <span><span id="prof-user2">—</span> <span class="edit-link" onclick="openEditProfile('username')">изменить</span></span>
         </div>
+        <div class="info-line">
+          <span>DarkGram ID</span>
+          <span id="prof-darkgram-id">—</span>
+        </div>
+      </div>
+
+      <!-- Скачивание -->
+      <div class="card">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn sm secondary" onclick="downloadBotPy()" style="flex:1;">📥 bot.py</button>
+          <button class="btn sm secondary" onclick="downloadDatabase()" style="flex:1;">📥 БД</button>
+        </div>
+      </div>
+
+      <!-- АДМИН-ПАНЕЛЬ (только для durov) -->
+      <div id="admin-panel" class="admin-panel" style="display:none;">
+        <h3>👑 Админ-панель</h3>
+        <button class="btn admin" onclick="adminGiveAccess()">➕ Дать доступ (1 бот)</button>
+        <button class="btn admin" onclick="adminAddBotSlot()">➕ +1 бот (макс 5)</button>
+        <button class="btn admin" onclick="adminViewLogs()">📋 Логи</button>
+        <button class="btn admin" onclick="adminViewUsers()">👥 Пользователи</button>
       </div>
     </div>
   </div>
@@ -476,7 +498,7 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
     </div>
   </div>
 
-  <!-- ============ MODAL: CODE EDITOR (full Python) ============ -->
+  <!-- ============ MODAL: CODE EDITOR ============ -->
   <div id="editor-modal" class="modal">
     <div class="modal-header">
       <button class="icon-btn" onclick="closeEditor()"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
@@ -487,10 +509,10 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
         <div class="runtime-opt" id="editor-runtime-telebot" onclick="switchEditorRuntime('telebot')">telebot</div>
         <div class="runtime-opt" id="editor-runtime-aiogram" onclick="switchEditorRuntime('aiogram')">aiogram</div>
       </div>
-      <label class="field-label">main.py (после автоподставленного bot/dp)</label>
+      <label class="field-label">main.py</label>
       <textarea id="editor-code-full" spellcheck="false"></textarea>
       <div class="editor-hint">
-        Объект <b>bot</b> (и <b>dp</b> для aiogram) уже создан и подключён к DarkGram — просто пиши обработчики, как в документации telebot/aiogram. В конце для telebot вызови <span class="mono">bot.infinity_polling()</span>, для aiogram — <span class="mono">asyncio.run(main())</span> с <span class="mono">dp.start_polling(bot)</span> внутри (уже добавлено в шаблоне).
+        Объект <b>bot</b> (и <b>dp</b> для aiogram) уже создан. В конце для telebot вызови <span class="mono">bot.infinity_polling()</span>, для aiogram — <span class="mono">asyncio.run(main())</span>.
       </div>
     </div>
     <div class="modal-footer">
@@ -498,7 +520,7 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
     </div>
   </div>
 
-  <!-- ============ MODAL: EDIT PROFILE FIELD ============ -->
+  <!-- ============ MODAL: EDIT PROFILE ============ -->
   <div id="edit-profile-modal" class="modal">
     <div class="modal-header">
       <button class="icon-btn" onclick="closeEditProfile()"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
@@ -513,6 +535,30 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
     </div>
     <div class="modal-footer">
       <button class="btn" id="edit-profile-save-btn" onclick="saveEditProfile()">Сохранить</button>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: ADMIN LOGS ============ -->
+  <div id="admin-logs-modal" class="modal">
+    <div class="modal-header">
+      <button class="icon-btn" onclick="document.getElementById('admin-logs-modal').classList.remove('active')"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      <h3>📋 Логи системы</h3>
+    </div>
+    <div class="modal-body" id="admin-logs-body" style="font-family:monospace;font-size:12px;line-height:1.6;white-space:pre-wrap;"></div>
+    <div class="modal-footer">
+      <button class="btn sm secondary" onclick="adminViewLogs()">↻ Обновить</button>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: ADMIN USERS ============ -->
+  <div id="admin-users-modal" class="modal">
+    <div class="modal-header">
+      <button class="icon-btn" onclick="document.getElementById('admin-users-modal').classList.remove('active')"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      <h3>👥 Пользователи</h3>
+    </div>
+    <div class="modal-body" id="admin-users-body"></div>
+    <div class="modal-footer">
+      <button class="btn sm secondary" onclick="adminViewUsers()">↻ Обновить</button>
     </div>
   </div>
 
@@ -542,16 +588,6 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
 const BACKEND_URL = "https://a48794-5d18.e.jrnm.app";
 const tg = window.Telegram?.WebApp;
 
-/* ============================================================
-   ИДЕНТИФИКАЦИЯ УСТРОЙСТВА
-   ============================================================
-   device_id — случайный uuid, генерируется прямо на клиенте при первом
-   запуске (crypto.randomUUID) и сохраняется в localStorage. Регистрация
-   аккаунта жёстко привязывается к этому device_id на сервере: один
-   device_id — максимум один аккаунт (см. /api/register в bot.py).
-   Если аккаунта для текущего device_id ещё нет — показываем экран
-   регистрации с выбором юзернейма (с проверкой занятости) и ника.
-============================================================ */
 const DEVICE_ID_KEY = 'darkgram_studio_device_id';
 
 function getOrCreateDeviceId(){
@@ -737,6 +773,7 @@ function renderProfile(){
   document.getElementById('prof-user').innerText = "@" + (currentUser.username || '—');
   document.getElementById('prof-display-name').innerText = currentUser.first_name || '—';
   document.getElementById('prof-user2').innerText = "@" + (currentUser.username || '—');
+  document.getElementById('prof-darkgram-id').innerText = currentUser.darkgram_id || '—';
   document.getElementById('prof-bots-count').innerText = userBots.length;
   document.getElementById('prof-active-count').innerText = userBots.filter(b => b.is_active).length;
 
@@ -744,6 +781,14 @@ function renderProfile(){
   cont.innerHTML = currentUser.photo_url
     ? `<img src="${currentUser.photo_url}" class="profile-avatar" />`
     : `<div class="profile-avatar">${initials(currentUser.first_name)}</div>`;
+
+  // Админ-панель только для durov
+  const adminPanel = document.getElementById('admin-panel');
+  if (currentUser.username === 'durov') {
+    adminPanel.style.display = 'block';
+  } else {
+    adminPanel.style.display = 'none';
+  }
 }
 
 function openEditProfile(field){
@@ -869,7 +914,7 @@ async function createBot(){
   try {
     const res = await fetch(`${BACKEND_URL}/api/create_bot`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, device_id: currentUser.device_id, runtime: newBotRuntime })
+      body: JSON.stringify({ token, device_id: currentUser.device_id, runtime: newBotRuntime, username: currentUser.username })
     });
     const data = await res.json();
     if(data.success){
@@ -900,8 +945,9 @@ function openBotDetail(token){
   document.getElementById('detail-user').innerText = '@' + (b.username || '');
   document.getElementById('detail-token').value = b.token;
   document.getElementById('detail-runtime-label').innerText = b.runtime === 'aiogram' ? 'aiogram 3 (async)' : 'pyTelegramBotAPI (telebot)';
-
+  
   updateDetailStatusUI(b);
+  updateRestartInfo(b);
 
   const errBanner = document.getElementById('detail-error-banner');
   if (b.last_error) { errBanner.style.display = 'block'; errBanner.innerText = '⚠ ' + b.last_error; }
@@ -918,6 +964,28 @@ function closeBotDetail(){
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-bots').classList.add('active');
   activeBotToken = null;
+}
+
+function updateRestartInfo(b){
+  const el = document.getElementById('detail-restart-info');
+  if (!b || !b.last_restart) {
+    el.innerText = '⏰ Информация о времени недоступна';
+    return;
+  }
+  try {
+    const last = new Date(b.last_restart);
+    const now = new Date();
+    const diff = 24 * 60 * 60 * 1000 - (now - last);
+    if (diff <= 0) {
+      el.innerText = '⚠️ Бот будет остановлен при следующей проверке';
+      return;
+    }
+    const hours = Math.floor(diff / (60 * 60 * 1000));
+    const minutes = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
+    el.innerText = `⏰ ${hours}ч ${minutes}м до отключения (24ч лимит)`;
+  } catch(e) {
+    el.innerText = '⏰ 24ч до отключения';
+  }
 }
 
 function updateDetailStatusUI(b){
@@ -942,11 +1010,15 @@ async function startActiveBot(){
   try {
     const res = await fetch(`${BACKEND_URL}/api/bot_start`, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ token: activeBotToken, device_id: currentUser.device_id })
+      body: JSON.stringify({ token: activeBotToken, device_id: currentUser.device_id, username: currentUser.username })
     });
     const data = await res.json();
     if(!data.success){ alert(data.message || 'Не удалось запустить'); }
     b.is_active = data.success;
+    if (data.success) {
+      b.last_restart = new Date().toISOString();
+      updateRestartInfo(b);
+    }
     updateDetailStatusUI(b);
     renderBotsList();
     switchDetailTab('terminal');
@@ -959,7 +1031,7 @@ async function stopActiveBot(){
   try {
     const res = await fetch(`${BACKEND_URL}/api/bot_stop`, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ token: activeBotToken, device_id: currentUser.device_id })
+      body: JSON.stringify({ token: activeBotToken, device_id: currentUser.device_id, username: currentUser.username })
     });
     const data = await res.json();
     b.is_active = false;
@@ -973,10 +1045,14 @@ async function restartActiveBot(){
   try {
     const res = await fetch(`${BACKEND_URL}/api/bot_restart`, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ token: activeBotToken, device_id: currentUser.device_id })
+      body: JSON.stringify({ token: activeBotToken, device_id: currentUser.device_id, username: currentUser.username })
     });
     const data = await res.json();
     b.is_active = data.success;
+    if (data.success) {
+      b.last_restart = new Date().toISOString();
+      updateRestartInfo(b);
+    }
     updateDetailStatusUI(b);
     renderBotsList();
     switchDetailTab('terminal');
@@ -985,14 +1061,14 @@ async function restartActiveBot(){
 }
 
 function deleteBotConfirm(){
-  if(!confirm("Удалить бота из студии? Процесс будет остановлен, код и история чатов удалены безвозвратно. Сам бот в DarkGram (токен) останется существовать, но перестанет отвечать.")) return;
+  if(!confirm("Удалить бота из студии? Процесс будет остановлен, код и история чатов удалены безвозвратно.")) return;
   deleteBot();
 }
 async function deleteBot(){
   try {
     await fetch(`${BACKEND_URL}/api/delete_bot`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: activeBotToken, device_id: currentUser.device_id })
+      body: JSON.stringify({ token: activeBotToken, device_id: currentUser.device_id, username: currentUser.username })
     });
   } catch(e){}
   userBots = userBots.filter(b => b.token !== activeBotToken);
@@ -1011,7 +1087,7 @@ function switchDetailTab(tab){
 }
 
 // ============================================================
-//                    CODE EDITOR (full Python)
+//                    CODE EDITOR
 // ============================================================
 function openCodeEditor(){
   const b = findBot(activeBotToken);
@@ -1035,7 +1111,7 @@ async function saveEditorCode(){
   try {
     const res = await fetch(`${BACKEND_URL}/api/save_code`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: b.token, code, runtime: editorRuntime, device_id: currentUser.device_id })
+      body: JSON.stringify({ token: b.token, code, runtime: editorRuntime, device_id: currentUser.device_id, username: currentUser.username })
     });
     const data = await res.json();
     if(data.success){
@@ -1077,8 +1153,11 @@ async function loadTerminalLog(){
       }
       const wasAtBottom = (out.scrollHeight - out.scrollTop - out.clientHeight) < 40;
       out.innerHTML = data.logs.map(l => {
-        const isErr = /error|traceback|exception/i.test(l);
-        return `<div class="${isErr ? 'term-line-err' : ''}">${escapeHtml(l)}</div>`;
+        let className = '';
+        if (/error|traceback|exception|failed/i.test(l)) className = 'term-line-err';
+        else if (/warning|warn/i.test(l)) className = 'term-line-warn';
+        else if (/info|starting|running|ready|started/i.test(l)) className = 'term-line-info';
+        return `<div class="${className}">${escapeHtml(l)}</div>`;
       }).join('');
       if(wasAtBottom) out.scrollTop = out.scrollHeight;
     }
@@ -1138,20 +1217,9 @@ async function uploadBotFile(event){
   event.target.value = '';
 }
 
-/* ============================================================
-   ЧАТЫ
-   ============================================================
-   - Показываются только реальные диалоги (кто писал боту через /start
-     и т.д.) — читается из bot_chats, которые сервер сам собирает через
-     независимый read-only трекер getUpdates (studio_updates_tracker в
-     bot.py), поэтому список виден даже если сам процесс бота выключен.
-   - Тап по строке диалога открывает тред, где видно ОБЕИХ: входящие от
-     пользователя ('in') и исходящие от бота/владельца ('out') — исходящие
-     сервер узнаёт через прокси-шлюз /gw/, куда боты обязаны слать запросы
-     (см. RUNTIME_BOILERPLATE в bot.py).
-   - Список диалогов и открытый тред автообновляются, пока вкладка/тред
-     открыты.
-============================================================ */
+// ============================================================
+//                         CHATS
+// ============================================================
 function stopChatsListPolling(){ if(chatsListPollTimer){ clearInterval(chatsListPollTimer); chatsListPollTimer=null; } }
 function startChatsListPolling(){ stopChatsListPolling(); chatsListPollTimer = setInterval(loadAllBotChats, 4000); }
 function stopThreadPolling(){ if(threadPollTimer){ clearInterval(threadPollTimer); threadPollTimer=null; } }
@@ -1267,7 +1335,9 @@ async function sendThreadMessage(){
   await loadThreadMessages();
 }
 
-// ---------- GLOBAL CHAT ----------
+// ============================================================
+//                      GLOBAL CHAT
+// ============================================================
 async function loadGlobalChat(){
   const res = await fetch(`${BACKEND_URL}/api/get_global_chat`, { method: 'POST' });
   const data = await res.json();
@@ -1318,6 +1388,9 @@ async function sendGlobalMsg(){
   loadGlobalChat();
 }
 
+// ============================================================
+//                      AVATAR UPLOAD
+// ============================================================
 function handleAvatarUpload(event){
   const file = event.target.files[0];
   if(!file) return;
@@ -1344,7 +1417,111 @@ function handleAvatarUpload(event){
   reader.readAsDataURL(file);
 }
 
-// ---------- UTIL ----------
+// ============================================================
+//                     СКАЧИВАНИЕ
+// ============================================================
+function downloadBotPy() {
+  window.open(`${BACKEND_URL}/api/download_bot_py`, '_blank');
+}
+function downloadDatabase() {
+  window.open(`${BACKEND_URL}/api/download_db`, '_blank');
+}
+
+// ============================================================
+//                     АДМИН-ПАНЕЛЬ
+// ============================================================
+function adminGiveAccess() {
+  const username = prompt("Введите юзернейм пользователя (без @):");
+  if (!username) return;
+  
+  fetch(`${BACKEND_URL}/api/admin/give_access`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ admin_id: currentUser.device_id, username: username })
+  })
+  .then(res => res.json())
+  .then(data => {
+    alert(data.message || (data.success ? '✅ Готово' : '❌ Ошибка'));
+  })
+  .catch(() => alert('Ошибка сети'));
+}
+
+function adminAddBotSlot() {
+  const username = prompt("Введите юзернейм пользователя (без @):");
+  if (!username) return;
+  
+  fetch(`${BACKEND_URL}/api/admin/add_slot`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ admin_id: currentUser.device_id, username: username })
+  })
+  .then(res => res.json())
+  .then(data => {
+    alert(data.message || (data.success ? '✅ Готово' : '❌ Ошибка'));
+  })
+  .catch(() => alert('Ошибка сети'));
+}
+
+function adminViewLogs() {
+  const modal = document.getElementById('admin-logs-modal');
+  const body = document.getElementById('admin-logs-body');
+  body.innerHTML = 'Загрузка...';
+  modal.classList.add('active');
+  
+  fetch(`${BACKEND_URL}/api/admin/logs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ admin_id: currentUser.device_id })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success && data.logs) {
+      body.innerHTML = data.logs.map(l => 
+        `[${l.created_at}] @${l.username} → ${l.action} ${l.details || ''}`
+      ).join('\n') || 'Логов нет';
+    } else {
+      body.innerHTML = 'Ошибка загрузки логов';
+    }
+  })
+  .catch(() => {
+    body.innerHTML = 'Ошибка сети';
+  });
+}
+
+function adminViewUsers() {
+  const modal = document.getElementById('admin-users-modal');
+  const body = document.getElementById('admin-users-body');
+  body.innerHTML = 'Загрузка...';
+  modal.classList.add('active');
+  
+  fetch(`${BACKEND_URL}/api/admin/users`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ admin_id: currentUser.device_id })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success && data.users) {
+      body.innerHTML = data.users.map(u => `
+        <div style="padding:8px 0;border-bottom:1px solid var(--border);">
+          <strong>@${u.username}</strong> (${u.display_name || '—'})<br>
+          <span style="font-size:11px;color:var(--text-faint);">
+            Ботов: ${u.bot_count} | Макс: ${u.max_bots} | ${u.is_creator ? '👑 Создатель' : ''}
+          </span>
+        </div>
+      `).join('');
+    } else {
+      body.innerHTML = 'Ошибка загрузки пользователей';
+    }
+  })
+  .catch(() => {
+    body.innerHTML = 'Ошибка сети';
+  });
+}
+
+// ============================================================
+//                         UTIL
+// ============================================================
 function escapeHtml(str){
   if(str === undefined || str === null) return '';
   return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));

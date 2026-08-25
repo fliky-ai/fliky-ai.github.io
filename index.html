@@ -8,7 +8,6 @@
 <style>
 :root{
   --bg:#0a0e17;
-  --bg-elevated:#0d1220;
   --card:#131a26;
   --card-2:#171f2e;
   --accent:#5b6cff;
@@ -29,243 +28,152 @@
 html{background:var(--bg);height:100%;overflow:hidden;}
 body{
   font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Segoe UI,Roboto,sans-serif;
-  background:var(--bg);
-  color:var(--text);
-  height:100vh;
-  overflow:hidden;
-  display:flex;
-  flex-direction:column;
-  -webkit-font-smoothing:antialiased;
-  position:relative;
-  z-index:1;
+  background:var(--bg);color:var(--text);height:100vh;overflow:hidden;
+  display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;position:relative;z-index:1;
 }
 ::-webkit-scrollbar{width:0;height:0;}
 
-#loader{
-  position:fixed;inset:0;background:var(--bg);z-index:999;
-  display:flex;flex-direction:column;justify-content:center;align-items:center;gap:16px;
-}
-.logo-mark{
-  width:56px;height:56px;border-radius:18px;
-  background:linear-gradient(135deg,var(--accent),#9b5bff);
-  display:flex;align-items:center;justify-content:center;
-  font-weight:800;font-size:22px;color:#fff;
-  box-shadow:0 0 40px rgba(91,108,255,0.35);
-  animation:pulse 1.6s ease-in-out infinite;
-}
+#loader{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:16px;}
+.logo-mark{width:56px;height:56px;border-radius:18px;background:linear-gradient(135deg,var(--accent),#9b5bff);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px;color:#fff;box-shadow:0 0 40px rgba(91,108,255,0.35);animation:pulse 1.6s ease-in-out infinite;}
 @keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.06);}}
 .loader-sub{font-size:13px;color:var(--text-sub);letter-spacing:.2px;}
 
-@keyframes fadeInUp{
-  from{opacity:0;transform:translateY(20px);}
-  to{opacity:1;transform:translateY(0);}
-}
-@keyframes spin{
-  to{transform:rotate(360deg);}
-}
+/* ---------- REGISTRATION SCREEN ---------- */
+#register-screen{position:fixed;inset:0;background:var(--bg);z-index:500;display:none;flex-direction:column;}
+#register-screen.active{display:flex;}
+.reg-hero{padding:48px 24px 20px 24px;text-align:center;}
+.reg-hero .logo-mark{margin:0 auto 18px auto;width:64px;height:64px;font-size:26px;animation:none;}
+.reg-hero h1{font-size:22px;font-weight:800;margin-bottom:8px;}
+.reg-hero p{font-size:13.5px;color:var(--text-sub);line-height:1.5;}
+.reg-body{flex:1;padding:8px 24px;display:flex;flex-direction:column;overflow-y:auto;}
+.reg-step{display:none;flex-direction:column;gap:14px;flex:1;}
+.reg-step.active{display:flex;}
+.reg-input-wrap{position:relative;}
+.reg-input-wrap input{padding-right:44px;font-size:16px;padding-top:14px;padding-bottom:14px;}
+.reg-status-icon{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:16px;}
+.reg-status-msg{font-size:12.5px;padding:2px 4px;min-height:18px;}
+.reg-status-msg.ok{color:var(--success);}
+.reg-status-msg.err{color:var(--danger);}
+.reg-status-msg.hint{color:var(--text-faint);}
+.reg-footer{padding:16px 24px;padding-bottom:calc(24px + env(safe-area-inset-bottom));}
+.reg-back-link{font-size:12.5px;color:var(--text-sub);text-align:center;margin-top:14px;cursor:pointer;}
 
+/* ---------- LAYOUT ---------- */
 #app{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;}
 .tab-content{flex:1;display:none;overflow-y:auto;padding-bottom:84px;}
 .tab-content.active{display:flex;flex-direction:column;}
-.screen-header{
-  padding:18px 18px 14px 18px;
-  display:flex;align-items:center;justify-content:space-between;
-  position:sticky;top:0;background:linear-gradient(var(--bg) 70%, transparent);
-  z-index:5;
-}
+.screen-header{padding:18px 18px 14px 18px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:linear-gradient(var(--bg) 70%, transparent);z-index:5;}
 .screen-title{font-size:22px;font-weight:800;letter-spacing:-0.3px;}
 .screen-sub{font-size:12.5px;color:var(--text-sub);margin-top:2px;}
 .screen-body{padding:0 16px 16px 16px;flex:1;}
 
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;}
-.btn{
-  width:100%;padding:13px;border:none;border-radius:var(--radius-sm);
-  background:var(--accent);color:#fff;font-weight:700;font-size:14.5px;cursor:pointer;
-  transition:transform .12s, opacity .12s;
-}
+.btn{width:100%;padding:13px;border:none;border-radius:var(--radius-sm);background:var(--accent);color:#fff;font-weight:700;font-size:14.5px;cursor:pointer;transition:transform .12s, opacity .12s;}
 .btn:active{transform:scale(0.97);opacity:.9;}
+.btn:disabled{opacity:.45;}
 .btn.secondary{background:var(--card-2);color:var(--text);border:1px solid var(--border);}
 .btn.danger{background:rgba(255,84,112,0.14);color:var(--danger);}
+.btn.success{background:rgba(45,212,167,0.14);color:var(--success);}
 .btn.ghost{background:transparent;color:var(--accent);}
 .btn.sm{width:auto;padding:8px 14px;font-size:12.5px;border-radius:9px;}
-.btn:disabled{opacity:0.5;cursor:not-allowed;}
-input,textarea{
-  width:100%;padding:12px 14px;background:var(--code-bg);border:1px solid var(--border);
-  border-radius:var(--radius-sm);color:var(--text);font-size:14px;outline:none;
-}
+input,textarea,select{width:100%;padding:12px 14px;background:var(--code-bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:14px;outline:none;}
 input::placeholder,textarea::placeholder{color:var(--text-faint);}
-input:focus,textarea:focus{border-color:var(--accent);}
+input:focus,textarea:focus,select:focus{border-color:var(--accent);}
 .mono{font-family:"SF Mono",Menlo,Consolas,monospace;color:#8fd6ff;font-size:12.5px;}
 label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-spacing:.4px;text-transform:uppercase;display:block;margin-bottom:6px;}
 
-.bottom-nav{
-  position:fixed;bottom:0;left:0;right:0;height:76px;
-  background:rgba(13,18,32,0.92);backdrop-filter:blur(18px);
-  border-top:1px solid var(--border);
-  display:flex;justify-content:space-around;align-items:center;z-index:50;
-  padding-bottom:env(safe-area-inset-bottom);
-}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;height:76px;background:rgba(13,18,32,0.92);backdrop-filter:blur(18px);border-top:1px solid var(--border);display:flex;justify-content:space-around;align-items:center;z-index:50;padding-bottom:env(safe-area-inset-bottom);}
 .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-faint);padding:8px 0;position:relative;}
-.nav-item .nav-glyph{
-  width:26px;height:26px;border-radius:9px;display:flex;align-items:center;justify-content:center;
-  background:transparent;transition:background .15s, transform .15s;
-}
+.nav-item .nav-glyph{width:26px;height:26px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:transparent;transition:background .15s, transform .15s;}
 .nav-item.active{color:var(--accent-2);}
 .nav-item.active .nav-glyph{background:var(--accent-dim);transform:translateY(-1px);}
 .nav-item svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
 .nav-label{font-size:10px;font-weight:600;}
-.nav-badge{
-  position:absolute;top:2px;right:22%;min-width:15px;height:15px;padding:0 4px;border-radius:8px;
-  background:var(--danger);color:#fff;font-size:9.5px;font-weight:800;display:flex;align-items:center;justify-content:center;
-}
+.nav-badge{position:absolute;top:2px;right:22%;min-width:15px;height:15px;padding:0 4px;border-radius:8px;background:var(--danger);color:#fff;font-size:9.5px;font-weight:800;display:flex;align-items:center;justify-content:center;}
 
-.bot-row{
-  display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);
-  border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;cursor:pointer;transition:background .15s;
-}
+.empty-state{text-align:center;padding:60px 24px;color:var(--text-sub);}
+.empty-state .glyph{width:64px;height:64px;border-radius:20px;margin:0 auto 18px auto;background:var(--card-2);display:flex;align-items:center;justify-content:center;}
+.empty-state h3{color:var(--text);font-size:17px;margin-bottom:6px;}
+.empty-state p{font-size:13px;line-height:1.5;margin-bottom:20px;}
+
+.bot-row{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;cursor:pointer;transition:background .15s;}
 .bot-row:active{background:var(--card-2);}
-.bot-avatar{
-  width:48px;height:48px;border-radius:14px;flex-shrink:0;object-fit:cover;
-  background:linear-gradient(135deg,var(--accent),#9b5bff);
-  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#fff;
-}
+.bot-avatar{width:48px;height:48px;border-radius:14px;flex-shrink:0;object-fit:cover;background:linear-gradient(135deg,var(--accent),#9b5bff);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#fff;}
 .bot-row-info{flex:1;min-width:0;}
 .bot-row-name{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .bot-row-sub{font-size:12.5px;color:var(--text-sub);margin-top:2px;display:flex;align-items:center;gap:5px;}
 .status-dot{width:7px;height:7px;border-radius:50%;background:var(--success);flex-shrink:0;}
 .status-dot.off{background:var(--text-faint);}
 .chevron{color:var(--text-faint);flex-shrink:0;}
-
-.fab{
-  position:fixed;right:18px;bottom:98px;width:54px;height:54px;border-radius:17px;
-  background:linear-gradient(135deg,var(--accent),#9b5bff);color:#fff;font-size:26px;font-weight:700;
-  display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;z-index:40;
-  box-shadow:0 8px 24px rgba(91,108,255,0.4);
-}
+.fab{position:fixed;right:18px;bottom:98px;width:54px;height:54px;border-radius:17px;background:linear-gradient(135deg,var(--accent),#9b5bff);color:#fff;font-size:26px;font-weight:700;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;z-index:40;box-shadow:0 8px 24px rgba(91,108,255,0.4);}
 .fab:active{transform:scale(0.94);}
-
-.empty-state{text-align:center;padding:60px 24px;color:var(--text-sub);}
-.empty-state .glyph{
-  width:64px;height:64px;border-radius:20px;margin:0 auto 18px auto;
-  background:var(--card-2);display:flex;align-items:center;justify-content:center;
-}
-.empty-state h3{color:var(--text);font-size:17px;margin-bottom:6px;}
-.empty-state p{font-size:13px;line-height:1.5;margin-bottom:20px;}
 
 .detail-back{display:flex;align-items:center;gap:10px;padding:16px;cursor:pointer;}
 .detail-back svg{width:20px;height:20px;stroke:var(--text);fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
 .detail-back span{font-size:14px;color:var(--text-sub);font-weight:600;}
-
 .bot-hero{display:flex;flex-direction:column;align-items:center;padding:8px 16px 20px 16px;text-align:center;}
-.bot-hero-avatar{
-  width:80px;height:80px;border-radius:24px;margin-bottom:12px;object-fit:cover;
-  background:linear-gradient(135deg,var(--accent),#9b5bff);
-  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:30px;color:#fff;
-}
+.bot-hero-avatar{width:80px;height:80px;border-radius:24px;margin-bottom:12px;object-fit:cover;background:linear-gradient(135deg,var(--accent),#9b5bff);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:30px;color:#fff;}
 .bot-hero-name{font-size:19px;font-weight:800;}
 .bot-hero-user{font-size:13.5px;color:var(--accent-2);margin-top:3px;}
-.status-pill{
-  display:inline-flex;align-items:center;gap:6px;margin-top:12px;padding:6px 14px;border-radius:20px;
-  background:var(--card-2);border:1px solid var(--border);font-size:12.5px;font-weight:700;
-}
+.status-pill{display:inline-flex;align-items:center;gap:6px;margin-top:12px;padding:6px 14px;border-radius:20px;background:var(--card-2);border:1px solid var(--border);font-size:12.5px;font-weight:700;}
 .status-pill.on{color:var(--success);}
 .status-pill.off{color:var(--text-faint);}
 
-.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:2px 0;}
-.switch{width:46px;height:27px;border-radius:14px;background:var(--card-2);border:1px solid var(--border);position:relative;cursor:pointer;flex-shrink:0;transition:background .2s;}
-.switch.on{background:var(--accent);border-color:var(--accent);}
-.switch-knob{position:absolute;top:2px;left:2px;width:21px;height:21px;border-radius:50%;background:#fff;transition:transform .2s;}
-.switch.on .switch-knob{transform:translateX(19px);}
-
 .grid-tabs{display:flex;gap:8px;padding:0 16px 14px 16px;}
-.grid-tab{
-  flex:1;padding:10px 6px;background:var(--card);border:1px solid var(--border);border-radius:12px;
-  text-align:center;font-size:12px;font-weight:700;color:var(--text-sub);cursor:pointer;
-}
+.grid-tab{flex:1;padding:10px 6px;background:var(--card);border:1px solid var(--border);border-radius:12px;text-align:center;font-size:12px;font-weight:700;color:var(--text-sub);cursor:pointer;}
 .grid-tab.active{background:var(--accent-dim);color:var(--accent-2);border-color:var(--accent);}
+.error-banner{background:rgba(255,84,112,0.1);border:1px solid rgba(255,84,112,0.3);color:var(--danger);border-radius:var(--radius-sm);padding:12px 14px;font-size:12.5px;margin-bottom:12px;line-height:1.5;white-space:pre-wrap;}
 
-.error-banner{
-  background:rgba(255,84,112,0.1);border:1px solid rgba(255,84,112,0.3);color:var(--danger);
-  border-radius:var(--radius-sm);padding:12px 14px;font-size:12.5px;margin-bottom:12px;line-height:1.5;
+/* ---------- TERMINAL / RUN TAB ---------- */
+.run-controls{display:flex;gap:8px;margin-bottom:12px;}
+.run-controls .btn{flex:1;}
+#terminal-output{
+  background:var(--code-bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:12px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:11.5px;line-height:1.6;
+  color:#a9e8ff;white-space:pre-wrap;word-break:break-word;height:260px;overflow-y:auto;margin-bottom:12px;
 }
+.term-line-err{color:var(--danger);}
+.term-empty{color:var(--text-faint);text-align:center;padding:30px 0;font-family:inherit;}
+.runtime-switch{display:flex;gap:8px;margin-bottom:12px;}
+.runtime-opt{flex:1;padding:10px;text-align:center;background:var(--card);border:1px solid var(--border);border-radius:12px;font-size:13px;font-weight:700;color:var(--text-sub);cursor:pointer;}
+.runtime-opt.active{background:var(--accent-dim);color:var(--accent-2);border-color:var(--accent);}
+#editor-code-full{min-height:280px;font-size:12.5px;line-height:1.55;}
+.file-chip{display:flex;align-items:center;gap:8px;background:var(--card-2);border:1px solid var(--border);border-radius:9px;padding:8px 10px;margin-bottom:6px;font-size:12px;}
+.file-chip .fname{flex:1;color:var(--text);font-family:"SF Mono",Menlo,monospace;}
+.file-chip .fsize{color:var(--text-faint);}
+.pkg-input-row{display:flex;gap:8px;}
+.pkg-input-row input{flex:1;}
 
-.cmd-item{
-  display:flex;justify-content:space-between;align-items:center;background:var(--card);
-  border:1px solid var(--border);border-radius:var(--radius-sm);padding:13px 14px;margin-bottom:8px;
-}
-.cmd-name{font-family:"SF Mono",Menlo,monospace;font-weight:700;font-size:14px;color:var(--accent-2);}
-.cmd-hint{font-size:11px;color:var(--text-faint);margin-top:2px;}
-
-.log-row{
-  display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:12.5px;
-}
-.log-row:last-child{border-bottom:none;}
-.log-dot{width:7px;height:7px;border-radius:50%;margin-top:5px;flex-shrink:0;}
-.log-dot.info{background:var(--accent-2);}
-.log-dot.error{background:var(--danger);}
-.log-text{flex:1;color:var(--text);line-height:1.5;}
-.log-time{color:var(--text-faint);font-size:10.5px;margin-top:2px;}
-
-.modal{
-  display:none;position:fixed;inset:0;background:var(--bg);z-index:200;
-  flex-direction:column;
-}
+.modal{display:none;position:fixed;inset:0;background:var(--bg);z-index:200;flex-direction:column;}
 .modal.active{display:flex;}
-.modal-header{
-  display:flex;align-items:center;gap:12px;padding:16px;border-bottom:1px solid var(--border);
-}
+.modal-header{display:flex;align-items:center;gap:12px;padding:16px;border-bottom:1px solid var(--border);}
 .modal-header h3{font-size:16px;font-weight:700;flex:1;}
-.icon-btn{
-  width:34px;height:34px;border-radius:10px;background:var(--card-2);border:none;
-  display:flex;align-items:center;justify-content:center;color:var(--text-sub);cursor:pointer;flex-shrink:0;
-}
+.icon-btn{width:34px;height:34px;border-radius:10px;background:var(--card-2);border:none;display:flex;align-items:center;justify-content:center;color:var(--text-sub);cursor:pointer;flex-shrink:0;}
 .icon-btn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
 .modal-body{flex:1;overflow-y:auto;padding:16px;}
 .modal-footer{padding:14px 16px;border-top:1px solid var(--border);display:flex;gap:8px;}
 
-#editor-code{
-  flex:1;width:100%;resize:none;min-height:260px;font-size:13px;line-height:1.55;
-}
-.editor-hint{font-size:11.5px;color:var(--text-faint);margin-top:8px;line-height:1.5;}
-.snippet-btn{
-  display:inline-block;font-size:11px;background:var(--card-2);border:1px solid var(--border);
-  padding:5px 10px;border-radius:8px;color:var(--accent-2);margin:4px 6px 0 0;cursor:pointer;
-}
-
-.chat-list-row{
-  display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);
-  border-radius:var(--radius);padding:12px 14px;margin-bottom:8px;cursor:pointer;
-}
+.chat-list-row{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:8px;cursor:pointer;}
 .chat-list-row:active{background:var(--card-2);}
-.user-avatar{
-  width:46px;height:46px;border-radius:50%;flex-shrink:0;object-fit:cover;
-  background:linear-gradient(135deg,#5b6cff,#9b5bff);
-  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;
-}
+.user-avatar{width:46px;height:46px;border-radius:50%;flex-shrink:0;object-fit:cover;background:linear-gradient(135deg,#5b6cff,#9b5bff);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;}
 .chat-list-info{flex:1;min-width:0;}
 .chat-list-name{font-size:14.5px;font-weight:700;}
 .chat-list-msg{font-size:12.5px;color:var(--text-sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
 .chat-list-meta{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;}
 .chat-list-time{font-size:10.5px;color:var(--text-faint);}
 .unread-badge{min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--accent);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;}
-.chat-bot-label{font-size:9px;color:var(--text-faint);background:var(--card-2);padding:2px 8px;border-radius:10px;display:inline-block;margin-top:2px;}
+.chat-bot-tag{font-size:10px;color:var(--text-faint);background:var(--card-2);border:1px solid var(--border);padding:2px 7px;border-radius:7px;margin-left:5px;flex-shrink:0;}
 
 .thread-body{flex:1;overflow-y:auto;padding:14px 14px 8px 14px;display:flex;flex-direction:column;gap:8px;min-height:0;}
 .bubble{max-width:78%;padding:9px 13px;border-radius:16px;font-size:14px;line-height:1.4;word-wrap:break-word;}
 .bubble.in{align-self:flex-start;background:var(--card-2);border-bottom-left-radius:4px;}
 .bubble.out{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px;}
 .bubble-time{font-size:9.5px;opacity:.6;margin-top:3px;display:block;}
-
-.thread-input-bar{
-  display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--border);align-items:center;
-  background:var(--bg);position:sticky;bottom:0;margin-bottom:84px;
-}
+.thread-input-bar{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--border);align-items:center;}
 .thread-input-bar input{flex:1;border-radius:20px;padding:11px 16px;}
-.send-btn{
-  width:42px;height:42px;border-radius:50%;background:var(--accent);border:none;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;
-}
+.send-btn{width:42px;height:42px;border-radius:50%;background:var(--accent);border:none;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;}
 .send-btn svg{width:18px;height:18px;fill:currentColor;}
+.thread-empty{text-align:center;color:var(--text-faint);font-size:12.5px;padding:40px 24px;}
 
 .gc-msg{display:flex;gap:10px;padding:10px 0;align-items:flex-start;}
 .gc-avatar{width:38px;height:38px;border-radius:50%;flex-shrink:0;object-fit:cover;background:linear-gradient(135deg,var(--accent),#9b5bff);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;}
@@ -274,10 +182,7 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
 .gc-uname{font-size:11px;color:var(--text-faint);font-weight:400;margin-left:4px;}
 .gc-bubble{background:var(--card);border:1px solid var(--border);border-radius:14px;border-top-left-radius:4px;padding:9px 13px;margin-top:4px;font-size:13.5px;line-height:1.45;}
 .gc-image{max-width:220px;border-radius:12px;margin-top:6px;display:block;}
-.gc-input-bar{
-  display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--border);align-items:center;
-  position:sticky;bottom:0;background:var(--bg);margin-bottom:84px;
-}
+.gc-input-bar{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--border);align-items:center;position:sticky;bottom:0;background:var(--bg);}
 .gc-input-bar input{flex:1;border-radius:20px;padding:11px 16px;}
 .attach-btn{width:42px;height:42px;border-radius:50%;background:var(--card-2);border:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-sub);}
 .attach-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
@@ -286,23 +191,7 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
 .preview-strip span{font-size:11.5px;color:var(--text-sub);flex:1;}
 
 .profile-hero{display:flex;flex-direction:column;align-items:center;padding:26px 16px 20px 16px;text-align:center;}
-.profile-avatar{
-  width:92px;height:92px;border-radius:50%;object-fit:cover;margin-bottom:14px;
-  background:linear-gradient(135deg,var(--accent),#9b5bff);
-  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:34px;color:#fff;
-  box-shadow:0 10px 30px rgba(91,108,255,0.25);
-  border:3px solid var(--accent);
-}
-.profile-avatar-wrap{
-  position:relative;cursor:pointer;
-}
-.profile-avatar-overlay{
-  position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.7);
-  padding:4px;border-radius:0 0 50% 50%;
-  font-size:10px;color:#fff;text-align:center;font-weight:600;
-  opacity:0;transition:opacity .2s;
-}
-.profile-avatar-wrap:hover .profile-avatar-overlay{opacity:1;}
+.profile-avatar{width:92px;height:92px;border-radius:28px;object-fit:cover;margin-bottom:14px;background:linear-gradient(135deg,var(--accent),#9b5bff);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:34px;color:#fff;box-shadow:0 10px 30px rgba(91,108,255,0.25);}
 .profile-name{font-size:20px;font-weight:800;}
 .profile-user{font-size:13.5px;color:var(--accent-2);margin-top:3px;}
 .stat-row{display:flex;gap:10px;padding:0 16px;}
@@ -313,28 +202,7 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
 .info-line:last-child{border-bottom:none;}
 .info-line span:first-child{color:var(--text-sub);}
 .info-line span:last-child{font-weight:600;}
-
-/* Registration styles */
-.reg-container{max-width:400px;margin:0 auto;padding-top:30px;}
-.reg-title{font-size:24px;font-weight:800;text-align:center;margin-bottom:8px;}
-.reg-sub{text-align:center;color:var(--text-sub);font-size:14px;margin-bottom:28px;}
-.input-group{margin-bottom:16px;}
-.input-group label{font-size:12px;font-weight:700;color:var(--text-sub);display:block;margin-bottom:4px;}
-.input-group .hint{font-size:11px;color:var(--text-faint);margin-top:4px;}
-.input-group .status{font-size:12px;margin-top:4px;display:flex;align-items:center;gap:6px;}
-.input-group .status.valid{color:var(--success);}
-.input-group .status.invalid{color:var(--danger);}
-.input-group .status.checking{color:var(--warn);}
-
-/* Toast */
-.toast{
-  position:fixed;bottom:100px;left:50%;transform:translateX(-50%);
-  background:var(--card);color:var(--text);padding:12px 24px;
-  border-radius:12px;border:1px solid var(--accent);
-  font-size:14px;font-weight:600;z-index:999;
-  animation:fadeInUp 0.3s ease;
-  box-shadow:0 8px 32px rgba(0,0,0,0.5);
-}
+.edit-link{color:var(--accent-2);font-size:12px;font-weight:700;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -344,34 +212,46 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
   <div class="loader-sub">Синхронизация профиля DarkGram…</div>
 </div>
 
-<div id="app">
-
-  <!-- ============ REGISTRATION SCREEN ============ -->
-  <div id="tab-register" class="tab-content active">
-    <div class="reg-container">
-      <div class="reg-title">🚀 Добро пожаловать!</div>
-      <div class="reg-sub">Создай свой профиль в DarkGram</div>
-
-      <div class="input-group">
-        <label>Юзернейм</label>
-        <input type="text" id="reg-username" placeholder="например: john_doe" autocomplete="off" />
-        <div class="hint">Только латиница, цифры и _. Минимум 3 символа</div>
-        <div class="status" id="reg-username-status"></div>
+<!-- ============ REGISTRATION SCREEN ============ -->
+<div id="register-screen">
+  <div class="reg-hero">
+    <div class="logo-mark">DG</div>
+    <h1 id="reg-title">Добро пожаловать</h1>
+    <p id="reg-sub">Создай аккаунт DarkGram Bot Studio, чтобы подключать и запускать своих ботов.</p>
+  </div>
+  <div class="reg-body">
+    <!-- Шаг 1: юзернейм -->
+    <div class="reg-step active" id="reg-step-username">
+      <div>
+        <label class="field-label">Придумай юзернейм</label>
+        <div class="reg-input-wrap">
+          <input type="text" id="reg-username-input" placeholder="my_username" autocomplete="off" oninput="onUsernameInput()" />
+          <span class="reg-status-icon" id="reg-username-icon"></span>
+        </div>
+        <div class="reg-status-msg hint" id="reg-username-status">3-20 символов: латиница, цифры, _</div>
       </div>
-
-      <div class="input-group">
-        <label>Как тебя называть?</label>
-        <input type="text" id="reg-displayname" placeholder="Например: John" autocomplete="off" />
-        <div class="hint">Это имя будут видеть другие пользователи</div>
+    </div>
+    <!-- Шаг 2: отображаемое имя -->
+    <div class="reg-step" id="reg-step-name">
+      <div>
+        <label class="field-label">Как тебя показывать другим</label>
+        <div class="reg-input-wrap">
+          <input type="text" id="reg-name-input" placeholder="Например: Александр" autocomplete="off" />
+        </div>
+        <div class="reg-status-msg hint">Это имя увидят в общем чате студии</div>
       </div>
-
-      <button class="btn" id="reg-btn" disabled onclick="registerUser()">Зарегистрироваться</button>
-      <div id="reg-error" style="color:var(--danger);font-size:13px;margin-top:12px;text-align:center;display:none;"></div>
     </div>
   </div>
+  <div class="reg-footer">
+    <button class="btn" id="reg-next-btn" onclick="regGoNext()" disabled>Далее</button>
+    <div class="reg-back-link" id="reg-back-link" style="display:none;" onclick="regGoBack()">← Назад</div>
+  </div>
+</div>
+
+<div id="app">
 
   <!-- ============ TAB: BOTS ============ -->
-  <div id="tab-bots" class="tab-content">
+  <div id="tab-bots" class="tab-content active">
     <div class="screen-header">
       <div>
         <div class="screen-title">Боты</div>
@@ -410,22 +290,30 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
 
     <div class="grid-tabs">
       <div class="grid-tab active" id="dtab-overview" onclick="switchDetailTab('overview')">Обзор</div>
-      <div class="grid-tab" id="dtab-commands" onclick="switchDetailTab('commands')">Команды</div>
-      <div class="grid-tab" id="dtab-logs" onclick="switchDetailTab('logs')">Логи</div>
+      <div class="grid-tab" id="dtab-terminal" onclick="switchDetailTab('terminal')">Terminal</div>
     </div>
 
     <div class="screen-body" style="padding-top:0;">
+      <!-- OVERVIEW -->
       <div id="detail-overview">
         <div id="detail-error-banner" class="error-banner" style="display:none;"></div>
         <div class="card">
-          <div class="toggle-row">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
             <div>
-              <div style="font-weight:700;font-size:14.5px;">Бот активен</div>
-              <div style="font-size:12px;color:var(--text-sub);margin-top:2px;">Опрос сообщений и выполнение команд</div>
+              <div style="font-weight:700;font-size:14.5px;">Статус бота</div>
+              <div style="font-size:12px;color:var(--text-sub);margin-top:2px;" id="detail-runtime-label">telebot</div>
             </div>
-            <div class="switch" id="detail-toggle" onclick="toggleActiveBot()"><div class="switch-knob"></div></div>
+            <div class="status-pill" id="detail-status-pill-2" style="margin-top:0;">
+              <span class="status-dot" id="detail-status-dot-2"></span>
+              <span id="detail-status-text-2">—</span>
+            </div>
           </div>
         </div>
+        <div class="run-controls">
+          <button class="btn success" id="detail-start-btn" onclick="startActiveBot()">▶ Запустить</button>
+          <button class="btn danger" id="detail-stop-btn" onclick="stopActiveBot()">■ Остановить</button>
+        </div>
+        <button class="btn secondary" onclick="restartActiveBot()" style="margin-bottom:12px;">↻ Перезапустить</button>
         <div class="card">
           <label class="field-label">Токен</label>
           <input type="text" id="detail-token" readonly />
@@ -433,18 +321,31 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
         <button class="btn danger" onclick="deleteBotConfirm()">Удалить бота из студии</button>
       </div>
 
-      <div id="detail-commands" style="display:none;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <div style="font-weight:700;font-size:14.5px;">Список команд</div>
-          <button class="btn sm" onclick="createNewCommandPrompt()">+ Команда</button>
+      <!-- TERMINAL -->
+      <div id="detail-terminal" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div style="font-weight:700;font-size:14.5px;">Код бота (Python)</div>
+          <button class="btn sm secondary" onclick="openCodeEditor()">✎ Открыть редактор</button>
         </div>
-        <div id="commands-list"></div>
-      </div>
 
-      <div id="detail-logs" style="display:none;">
-        <div class="card" style="padding:6px 14px;">
-          <div id="logs-list"></div>
-          <div id="logs-empty" style="text-align:center;color:var(--text-faint);font-size:12.5px;padding:20px 0;display:none;">Логов пока нет</div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:var(--text-sub);">Живой лог (как в Pydroid3)</div>
+        <div id="terminal-output"><div class="term-empty">Бот не запущен — нажми «Запустить» на вкладке Обзор</div></div>
+        <button class="btn sm secondary" onclick="loadTerminalLog()" style="width:100%;margin-bottom:16px;">↻ Обновить лог</button>
+
+        <div class="card">
+          <label class="field-label">Установить библиотеку (pip)</label>
+          <div class="pkg-input-row">
+            <input type="text" id="pkg-name-input" placeholder="например: requests" />
+            <button class="btn sm" onclick="installPackage()">Установить</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <label class="field-label">Файлы бота (база данных, json, csv…)</label>
+          <div id="bot-files-list"></div>
+          <button class="btn sm secondary" onclick="document.getElementById('bot-file-input').click()" style="margin-top:6px;">+ Загрузить файл</button>
+          <input type="file" id="bot-file-input" style="display:none;" onchange="uploadBotFile(event)" />
+          <p class="editor-hint" style="margin-top:8px;">Файл сохраняется в рабочую папку бота — обращайся к нему в коде просто по имени, например <span class="mono">open("data.db")</span>.</p>
         </div>
       </div>
     </div>
@@ -455,7 +356,7 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
     <div class="screen-header">
       <div>
         <div class="screen-title">Чаты</div>
-        <div class="screen-sub" id="chats-sub">Пользователи, которые написали твоим ботам</div>
+        <div class="screen-sub">Диалоги с пользователями твоих ботов</div>
       </div>
     </div>
     <div class="screen-body">
@@ -464,8 +365,8 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
         <div class="glyph">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#5b6cff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
         </div>
-        <h3>Нет диалогов</h3>
-        <p>Когда кто-то напишет твоему боту,<br>чат появится здесь автоматически.</p>
+        <h3>Диалогов пока нет</h3>
+        <p>Как только кто-то напишет твоему боту<br>(например /start), переписка появится здесь.</p>
       </div>
     </div>
   </div>
@@ -481,12 +382,11 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
       <div>
         <div style="font-weight:700;font-size:15px;" id="thread-name">—</div>
         <div style="font-size:11.5px;color:var(--text-sub);" id="thread-username">—</div>
-        <div style="font-size:9px;color:var(--text-faint);margin-top:2px;" id="thread-bot-label"></div>
       </div>
     </div>
     <div class="thread-body" id="thread-body"></div>
-    <div class="thread-input-bar">
-      <input type="text" id="thread-input" placeholder="Написать от имени бота…" />
+    <div class="thread-input-bar" style="margin-bottom:84px;flex-shrink:0;">
+      <input type="text" id="thread-input" placeholder="Написать от имени бота…" onkeydown="if(event.key==='Enter')sendThreadMessage()" />
       <button class="send-btn" onclick="sendThreadMessage()">
         <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
       </button>
@@ -509,12 +409,12 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
         <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
     </div>
-    <div class="gc-input-bar">
+    <div class="gc-input-bar" style="flex-shrink:0;margin-bottom:84px;">
       <button class="attach-btn" onclick="document.getElementById('gc-file-input').click()">
         <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 3h5v5"/><path d="M10 14L21 3"/></svg>
       </button>
       <input type="file" id="gc-file-input" accept="image/*" style="display:none;" onchange="handleGlobalFile(event)" />
-      <input type="text" id="global-msg-input" placeholder="Написать всем…" />
+      <input type="text" id="global-msg-input" placeholder="Написать всем…" onkeydown="if(event.key==='Enter')sendGlobalMsg()" />
       <button class="send-btn" onclick="sendGlobalMsg()">
         <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
       </button>
@@ -524,13 +424,9 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
   <!-- ============ TAB: PROFILE ============ -->
   <div id="tab-profile" class="tab-content">
     <div class="profile-hero">
-      <div class="profile-avatar-wrap" onclick="document.getElementById('avatar-file-input').click()">
-        <div id="prof-avatar-container">
-          <div class="profile-avatar">?</div>
-        </div>
-        <div class="profile-avatar-overlay">📷 Изменить</div>
-      </div>
+      <div id="prof-avatar-container" style="position:relative;cursor:pointer;" onclick="document.getElementById('avatar-file-input').click()"></div>
       <input type="file" id="avatar-file-input" accept="image/*" style="display:none;" onchange="handleAvatarUpload(event)" />
+      <div style="font-size:11px;color:var(--accent-2);font-weight:700;margin-top:-6px;margin-bottom:8px;">Изменить фото</div>
       <div class="profile-name" id="prof-name">Загрузка…</div>
       <div class="profile-user" id="prof-user">@username</div>
     </div>
@@ -546,8 +442,14 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
     </div>
     <div class="screen-body">
       <div class="card" style="margin-top:16px;">
-        <div class="info-line"><span>Юзернейм</span><span id="prof-user2">—</span></div>
-        <div class="info-line"><span>Отображаемое имя</span><span id="prof-displayname">—</span></div>
+        <div class="info-line">
+          <span>Ник</span>
+          <span><span id="prof-display-name">—</span> <span class="edit-link" onclick="openEditProfile('name')">изменить</span></span>
+        </div>
+        <div class="info-line">
+          <span>Юзернейм</span>
+          <span><span id="prof-user2">—</span> <span class="edit-link" onclick="openEditProfile('username')">изменить</span></span>
+        </div>
       </div>
     </div>
   </div>
@@ -555,41 +457,40 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
   <!-- ============ MODAL: ADD BOT ============ -->
   <div id="add-bot-modal" class="modal">
     <div class="modal-header">
-      <button class="icon-btn" onclick="closeAddBotModal()">
-        <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
-      </button>
+      <button class="icon-btn" onclick="closeAddBotModal()"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
       <h3>Новый бот</h3>
     </div>
     <div class="modal-body">
       <label class="field-label">Токен из @BotFather</label>
-      <input type="text" id="new-token-input" placeholder="1780243205:jrHuqyP25…" />
-      <p class="editor-hint">Создай бота через @BotFather в DarkGram командой /newbot, скопируй токен и вставь сюда.</p>
+      <input type="text" id="new-token-input" placeholder="1780243205:jrHuqyP25…" style="margin-bottom:16px;" />
+
+      <label class="field-label">Библиотека для написания бота</label>
+      <div class="runtime-switch">
+        <div class="runtime-opt active" id="runtime-opt-telebot" onclick="selectNewBotRuntime('telebot')">pyTelegramBotAPI<br><span style="font-weight:400;font-size:11px;">(telebot)</span></div>
+        <div class="runtime-opt" id="runtime-opt-aiogram" onclick="selectNewBotRuntime('aiogram')">aiogram 3<br><span style="font-weight:400;font-size:11px;">(async)</span></div>
+      </div>
+      <p class="editor-hint">Создай бота через @BotFather в DarkGram командой /newbot, скопируй токен и вставь сюда. Библиотеку можно сменить позже в редакторе кода.</p>
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="createBot()">Подключить бота</button>
     </div>
   </div>
 
-  <!-- ============ MODAL: COMMAND EDITOR ============ -->
+  <!-- ============ MODAL: CODE EDITOR (full Python) ============ -->
   <div id="editor-modal" class="modal">
     <div class="modal-header">
-      <button class="icon-btn" onclick="closeEditor()">
-        <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
-      </button>
-      <h3 id="editor-title">Команда</h3>
-      <button class="icon-btn danger" onclick="deleteCommandConfirm()" style="color:var(--danger);">
-        <svg viewBox="0 0 24 24" stroke="var(--danger)"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>
-      </button>
+      <button class="icon-btn" onclick="closeEditor()"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      <h3>Код бота</h3>
     </div>
     <div class="modal-body" style="display:flex;flex-direction:column;">
-      <label class="field-label">Код команды (JavaScript / BJS)</label>
-      <textarea id="editor-code" spellcheck="false" placeholder='var text = "Привет!";&#10;Api.sendMessage({ text: text });'></textarea>
+      <div class="runtime-switch">
+        <div class="runtime-opt" id="editor-runtime-telebot" onclick="switchEditorRuntime('telebot')">telebot</div>
+        <div class="runtime-opt" id="editor-runtime-aiogram" onclick="switchEditorRuntime('aiogram')">aiogram</div>
+      </div>
+      <label class="field-label">main.py (после автоподставленного bot/dp)</label>
+      <textarea id="editor-code-full" spellcheck="false"></textarea>
       <div class="editor-hint">
-        Доступно: <b>Api.sendMessage(payload)</b>, <b>Api.sendPhoto(payload)</b>, переменные <b>bot.name</b>, <b>user</b>, <b>chat</b>, <b>args</b>. Выполняется реальный JS — можно использовать переменные, условия, циклы, конкатенацию строк.
-        <div style="margin-top:8px;">
-          <span class="snippet-btn" onclick="insertSnippet('text')">+ текст</span>
-          <span class="snippet-btn" onclick="insertSnippet('buttons')">+ кнопки</span>
-        </div>
+        Объект <b>bot</b> (и <b>dp</b> для aiogram) уже создан и подключён к DarkGram — просто пиши обработчики, как в документации telebot/aiogram. В конце для telebot вызови <span class="mono">bot.infinity_polling()</span>, для aiogram — <span class="mono">asyncio.run(main())</span> с <span class="mono">dp.start_polling(bot)</span> внутри (уже добавлено в шаблоне).
       </div>
     </div>
     <div class="modal-footer">
@@ -597,10 +498,28 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
     </div>
   </div>
 
+  <!-- ============ MODAL: EDIT PROFILE FIELD ============ -->
+  <div id="edit-profile-modal" class="modal">
+    <div class="modal-header">
+      <button class="icon-btn" onclick="closeEditProfile()"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      <h3 id="edit-profile-title">Изменить</h3>
+    </div>
+    <div class="modal-body">
+      <div class="reg-input-wrap">
+        <input type="text" id="edit-profile-input" oninput="onEditProfileInput()" />
+        <span class="reg-status-icon" id="edit-profile-icon"></span>
+      </div>
+      <div class="reg-status-msg hint" id="edit-profile-status"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" id="edit-profile-save-btn" onclick="saveEditProfile()">Сохранить</button>
+    </div>
+  </div>
+
 </div>
 
 <div class="bottom-nav">
-  <div class="nav-item" id="nav-bots" onclick="switchTab('bots', this)">
+  <div class="nav-item active" id="nav-bots" onclick="switchTab('bots', this)">
     <div class="nav-glyph"><svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="12" rx="3"/><circle cx="8.5" cy="14" r="1" fill="currentColor"/><circle cx="15.5" cy="14" r="1" fill="currentColor"/><path d="M12 8V4"/><circle cx="12" cy="3" r="1" fill="currentColor"/></svg></div>
     <div class="nav-label">Боты</div>
   </div>
@@ -623,44 +542,46 @@ label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-sp
 const BACKEND_URL = "https://a48794-5d18.e.jrnm.app";
 const tg = window.Telegram?.WebApp;
 
-let currentUser = {
-  user_id: tg?.initDataUnsafe?.user?.id || 1234567,
-  username: "",
-  display_name: "",
-  photo_url: "",
-  registered: false,
-  gram_balance: 0,
-  stars_balance: 0,
-  skin_name: "Обычная одежда",
-  skin_url: "https://img.black-m.ru/upltg/69946f256651e0R79033696.jpg",
-  premium_until: 0,
-  fps_boost: false
-};
+/* ============================================================
+   ИДЕНТИФИКАЦИЯ УСТРОЙСТВА
+   ============================================================
+   device_id — случайный uuid, генерируется прямо на клиенте при первом
+   запуске (crypto.randomUUID) и сохраняется в localStorage. Регистрация
+   аккаунта жёстко привязывается к этому device_id на сервере: один
+   device_id — максимум один аккаунт (см. /api/register в bot.py).
+   Если аккаунта для текущего device_id ещё нет — показываем экран
+   регистрации с выбором юзернейма (с проверкой занятости) и ника.
+============================================================ */
+const DEVICE_ID_KEY = 'darkgram_studio_device_id';
 
+function getOrCreateDeviceId(){
+  try {
+    let id = localStorage.getItem(DEVICE_ID_KEY);
+    if (!id) {
+      id = (crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2)));
+      localStorage.setItem(DEVICE_ID_KEY, id);
+    }
+    return id;
+  } catch(e) {
+    return 'fallback-' + Date.now();
+  }
+}
+
+let currentUser = { device_id: getOrCreateDeviceId(), darkgram_id: null, username: '', first_name: '', photo_url: '' };
 let userBots = [];
 let activeBotToken = null;
 let activeChatId = null;
-let currentEditCmd = null;
 let globalAttachmentBase64 = null;
-let checkTimeout = null;
+let chatsListPollTimer = null;
+let threadPollTimer = null;
+let terminalPollTimer = null;
+let newBotRuntime = 'telebot';
+let editorRuntime = 'telebot';
+let editProfileField = null;
+let usernameCheckTimer = null;
+let regUsernameValid = false;
 
 function initials(name){ return (name || "?").trim().charAt(0).toUpperCase() || "?"; }
-
-// ---------- TOAST ----------
-function showToast(text, type = 'success'){
-  const old = document.querySelector('.toast');
-  if(old) old.remove();
-  const toast = document.createElement('div');
-  toast.className = 'toast';
-  toast.style.borderColor = type === 'success' ? 'var(--success)' : 'var(--danger)';
-  toast.textContent = text;
-  document.body.appendChild(toast);
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transition = 'opacity 0.3s';
-    setTimeout(() => toast.remove(), 300);
-  }, 2500);
-}
 
 // ---------- INIT ----------
 window.addEventListener('DOMContentLoaded', async () => {
@@ -669,167 +590,233 @@ window.addEventListener('DOMContentLoaded', async () => {
   try {
     const res = await fetch(`${BACKEND_URL}/api/init`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: currentUser.user_id })
+      body: JSON.stringify({ device_id: currentUser.device_id })
     });
     const data = await res.json();
-    if (data.success) {
-      currentUser = { ...currentUser, ...data.user };
+
+    document.getElementById('loader').style.display = 'none';
+
+    if (data.success && data.needs_registration) {
+      document.getElementById('register-screen').classList.add('active');
+      return;
+    }
+    if (data.success && data.user) {
+      currentUser = data.user;
       userBots = data.bots || [];
-      
-      if (!currentUser.registered) {
-        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-        document.getElementById('tab-register').classList.add('active');
-        document.getElementById('loader').style.display = 'none';
-        return;
-      }
+      renderProfile();
+      renderBotsList();
     }
   } catch (e) {
-    console.error("Ошибка загрузки:", e);
+    console.error("Ошибка загрузки init:", e);
+    document.getElementById('loader').style.display = 'none';
+    document.getElementById('register-screen').classList.add('active');
   }
-
-  document.getElementById('loader').style.display = 'none';
-  renderProfile();
-  renderBotsList();
-  switchTab('bots', document.getElementById('nav-bots'));
 });
 
-// ---------- REGISTRATION ----------
-document.getElementById('reg-username').addEventListener('input', function() {
-  const username = this.value.trim().toLowerCase();
-  const statusEl = document.getElementById('reg-username-status');
-  const btn = document.getElementById('reg-btn');
-  const displayName = document.getElementById('reg-displayname').value.trim();
-  
-  if (checkTimeout) clearTimeout(checkTimeout);
-  
-  if (username.length < 3) {
-    statusEl.className = 'status invalid';
-    statusEl.innerHTML = '❌ Минимум 3 символа';
-    btn.disabled = true;
-    return;
+// ============================================================
+//                       РЕГИСТРАЦИЯ
+// ============================================================
+function onUsernameInput(){
+  const val = document.getElementById('reg-username-input').value.trim();
+  const icon = document.getElementById('reg-username-icon');
+  const status = document.getElementById('reg-username-status');
+  const nextBtn = document.getElementById('reg-next-btn');
+
+  regUsernameValid = false;
+  nextBtn.disabled = true;
+  icon.innerText = '';
+  clearTimeout(usernameCheckTimer);
+
+  if (!val) { status.className = 'reg-status-msg hint'; status.innerText = '3-20 символов: латиница, цифры, _'; return; }
+  if (!/^[a-zA-Z0-9_]{3,20}$/.test(val)) {
+    status.className = 'reg-status-msg err'; status.innerText = 'Только латиница, цифры и _, от 3 до 20 символов'; icon.innerText='✕'; return;
   }
-  
-  if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(username)) {
-    statusEl.className = 'status invalid';
-    statusEl.innerHTML = '❌ Только латиница, цифры и _, должен начинаться с буквы';
-    btn.disabled = true;
-    return;
-  }
-  
-  statusEl.className = 'status checking';
-  statusEl.innerHTML = '⏳ Проверка...';
-  btn.disabled = true;
-  
-  checkTimeout = setTimeout(async () => {
+
+  status.className = 'reg-status-msg hint'; status.innerText = 'Проверяю…';
+  usernameCheckTimer = setTimeout(async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/check_username`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username })
+        body: JSON.stringify({ username: val })
       });
       const data = await res.json();
-      if (data.success) {
-        statusEl.className = 'status valid';
-        statusEl.innerHTML = '✅ ' + data.message;
-        if (displayName) btn.disabled = false;
+      if (data.success && data.available) {
+        status.className = 'reg-status-msg ok'; status.innerText = 'Свободно ✓'; icon.innerText = '✓';
+        regUsernameValid = true; nextBtn.disabled = false;
       } else {
-        statusEl.className = 'status invalid';
-        statusEl.innerHTML = '❌ ' + data.message;
-        btn.disabled = true;
+        status.className = 'reg-status-msg err'; status.innerText = data.message || 'Занято'; icon.innerText = '✕';
       }
     } catch(e) {
-      statusEl.className = 'status invalid';
-      statusEl.innerHTML = '❌ Ошибка проверки';
-      btn.disabled = true;
+      status.className = 'reg-status-msg err'; status.innerText = 'Ошибка проверки, попробуй ещё раз';
     }
-  }, 500);
-});
+  }, 400);
+}
 
-document.getElementById('reg-displayname').addEventListener('input', function() {
-  const btn = document.getElementById('reg-btn');
-  const username = document.getElementById('reg-username').value.trim();
-  const displayName = this.value.trim();
-  const status = document.getElementById('reg-username-status');
-  if (username && displayName && status.className === 'status valid') {
-    btn.disabled = false;
-  } else {
-    btn.disabled = true;
+function regGoNext(){
+  const step1Active = document.getElementById('reg-step-username').classList.contains('active');
+  if (step1Active) {
+    if (!regUsernameValid) return;
+    document.getElementById('reg-step-username').classList.remove('active');
+    document.getElementById('reg-step-name').classList.add('active');
+    document.getElementById('reg-title').innerText = 'Почти готово';
+    document.getElementById('reg-sub').innerText = 'Как тебя будут видеть другие пользователи студии';
+    document.getElementById('reg-next-btn').innerText = 'Создать аккаунт';
+    document.getElementById('reg-back-link').style.display = 'block';
+    document.getElementById('reg-name-input').value = document.getElementById('reg-username-input').value;
+    checkNameStep();
+    document.getElementById('reg-name-input').oninput = checkNameStep;
+    return;
   }
-});
+  finishRegistration();
+}
 
-async function registerUser(){
-  const username = document.getElementById('reg-username').value.trim().toLowerCase();
-  const displayName = document.getElementById('reg-displayname').value.trim();
-  const btn = document.getElementById('reg-btn');
-  const errorEl = document.getElementById('reg-error');
-  
-  btn.disabled = true;
-  btn.innerText = '⏳ Регистрация...';
-  errorEl.style.display = 'none';
-  
+function checkNameStep(){
+  const val = document.getElementById('reg-name-input').value.trim();
+  document.getElementById('reg-next-btn').disabled = val.length === 0;
+}
+
+function regGoBack(){
+  document.getElementById('reg-step-name').classList.remove('active');
+  document.getElementById('reg-step-username').classList.add('active');
+  document.getElementById('reg-title').innerText = 'Добро пожаловать';
+  document.getElementById('reg-sub').innerText = 'Создай аккаунт DarkGram Bot Studio, чтобы подключать и запускать своих ботов.';
+  document.getElementById('reg-next-btn').innerText = 'Далее';
+  document.getElementById('reg-back-link').style.display = 'none';
+  document.getElementById('reg-next-btn').disabled = !regUsernameValid;
+}
+
+async function finishRegistration(){
+  const username = document.getElementById('reg-username-input').value.trim();
+  const displayName = document.getElementById('reg-name-input').value.trim();
+  const btn = document.getElementById('reg-next-btn');
+  btn.disabled = true; btn.innerText = 'Создаём…';
+
   try {
     const res = await fetch(`${BACKEND_URL}/api/register`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        user_id: currentUser.user_id, 
-        username, 
-        display_name: displayName,
-        photo_url: currentUser.photo_url || ""
-      })
+      body: JSON.stringify({ device_id: currentUser.device_id, username, display_name: displayName })
     });
     const data = await res.json();
     if (data.success) {
-      currentUser.registered = true;
-      currentUser.username = username;
-      currentUser.display_name = displayName;
-      document.getElementById('tab-register').classList.remove('active');
+      currentUser = data.user;
+      userBots = [];
+      document.getElementById('register-screen').classList.remove('active');
       renderProfile();
       renderBotsList();
-      switchTab('bots', document.getElementById('nav-bots'));
-      showToast('✅ Регистрация успешна!');
     } else {
-      errorEl.style.display = 'block';
-      errorEl.innerText = '❌ ' + data.message;
-      btn.disabled = false;
-      btn.innerText = 'Зарегистрироваться';
+      alert(data.message || 'Не удалось создать аккаунт');
+      btn.disabled = false; btn.innerText = 'Создать аккаунт';
     }
   } catch(e) {
-    errorEl.style.display = 'block';
-    errorEl.innerText = '❌ Ошибка соединения';
-    btn.disabled = false;
-    btn.innerText = 'Зарегистрироваться';
+    alert('Ошибка сети, попробуй ещё раз');
+    btn.disabled = false; btn.innerText = 'Создать аккаунт';
   }
 }
 
-// ---------- TABS ----------
+// ============================================================
+//                          TABS
+// ============================================================
 function switchTab(tabId, el) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  const tabEl = document.getElementById(`tab-${tabId}`);
-  if (tabEl) tabEl.classList.add('active');
-  if (el) el.classList.add('active');
-  if (tabId === 'chats') loadAllBotChats();
+  document.getElementById(`tab-${tabId}`).classList.add('active');
+  el.classList.add('active');
+
+  stopChatsListPolling();
+  stopThreadPolling();
+
+  if (tabId === 'chats') { loadAllBotChats(); startChatsListPolling(); }
   if (tabId === 'global') loadGlobalChat();
 }
 
-// ---------- PROFILE ----------
+// ============================================================
+//                         PROFILE
+// ============================================================
 function renderProfile(){
-  document.getElementById('prof-name').innerText = currentUser.display_name || currentUser.username || 'Пользователь';
-  document.getElementById('prof-user').innerText = "@" + (currentUser.username || 'username');
+  document.getElementById('prof-name').innerText = currentUser.first_name;
+  document.getElementById('prof-user').innerText = "@" + (currentUser.username || '—');
+  document.getElementById('prof-display-name').innerText = currentUser.first_name || '—';
   document.getElementById('prof-user2').innerText = "@" + (currentUser.username || '—');
-  document.getElementById('prof-displayname').innerText = currentUser.display_name || '—';
   document.getElementById('prof-bots-count').innerText = userBots.length;
   document.getElementById('prof-active-count').innerText = userBots.filter(b => b.is_active).length;
 
   const cont = document.getElementById('prof-avatar-container');
-  const avatarUrl = currentUser.photo_url || '';
-  if(avatarUrl){
-    cont.innerHTML = `<img src="${avatarUrl}?t=${Date.now()}" class="profile-avatar" onerror="this.style.display='none';this.parentElement.innerHTML='<div class=\\'profile-avatar\\'>${initials(currentUser.display_name || currentUser.username || 'U')}</div>'">`;
-  } else {
-    cont.innerHTML = `<div class="profile-avatar">${initials(currentUser.display_name || currentUser.username || 'U')}</div>`;
-  }
+  cont.innerHTML = currentUser.photo_url
+    ? `<img src="${currentUser.photo_url}" class="profile-avatar" />`
+    : `<div class="profile-avatar">${initials(currentUser.first_name)}</div>`;
 }
 
-// ---------- BOTS LIST ----------
+function openEditProfile(field){
+  editProfileField = field;
+  const modal = document.getElementById('edit-profile-modal');
+  const title = document.getElementById('edit-profile-title');
+  const input = document.getElementById('edit-profile-input');
+  const status = document.getElementById('edit-profile-status');
+  document.getElementById('edit-profile-icon').innerText = '';
+  status.className = 'reg-status-msg hint';
+
+  if (field === 'username') {
+    title.innerText = 'Изменить юзернейм';
+    input.value = currentUser.username || '';
+    status.innerText = '3-20 символов: латиница, цифры, _';
+  } else {
+    title.innerText = 'Изменить ник';
+    input.value = currentUser.first_name || '';
+    status.innerText = 'Отображаемое имя в студии';
+  }
+  modal.classList.add('active');
+}
+function closeEditProfile(){ document.getElementById('edit-profile-modal').classList.remove('active'); }
+
+function onEditProfileInput(){
+  if (editProfileField !== 'username') return;
+  const val = document.getElementById('edit-profile-input').value.trim();
+  const icon = document.getElementById('edit-profile-icon');
+  const status = document.getElementById('edit-profile-status');
+  clearTimeout(usernameCheckTimer);
+
+  if (!/^[a-zA-Z0-9_]{3,20}$/.test(val)) {
+    status.className='reg-status-msg err'; status.innerText='Только латиница, цифры и _, 3-20 символов'; icon.innerText='✕'; return;
+  }
+  if (val.toLowerCase() === (currentUser.username||'').toLowerCase()) {
+    status.className='reg-status-msg hint'; status.innerText='Это твой текущий юзернейм'; icon.innerText=''; return;
+  }
+  status.className='reg-status-msg hint'; status.innerText='Проверяю…';
+  usernameCheckTimer = setTimeout(async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/check_username`, {
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username: val })
+      });
+      const data = await res.json();
+      if (data.success && data.available) { status.className='reg-status-msg ok'; status.innerText='Свободно ✓'; icon.innerText='✓'; }
+      else { status.className='reg-status-msg err'; status.innerText=data.message||'Занято'; icon.innerText='✕'; }
+    } catch(e){}
+  }, 400);
+}
+
+async function saveEditProfile(){
+  const val = document.getElementById('edit-profile-input').value.trim();
+  if (!val) return;
+  const payload = { device_id: currentUser.device_id };
+  if (editProfileField === 'username') {
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(val)) return alert('Некорректный юзернейм');
+    payload.username = val;
+  } else {
+    payload.display_name = val;
+  }
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/update_profile`, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.success) { currentUser = data.user; renderProfile(); closeEditProfile(); }
+    else alert(data.message || 'Не удалось сохранить');
+  } catch(e) { alert('Ошибка сети'); }
+}
+
+// ============================================================
+//                        BOTS LIST
+// ============================================================
 function renderBotsList(){
   const listEl = document.getElementById('bots-list-view');
   const emptyEl = document.getElementById('bots-empty');
@@ -853,7 +840,7 @@ function renderBotsList(){
       <div class="bot-avatar">${b.avatar ? `<img src="${b.avatar}" style="width:100%;height:100%;border-radius:14px;object-fit:cover;">` : initials(b.name)}</div>
       <div class="bot-row-info">
         <div class="bot-row-name">${escapeHtml(b.name || 'Без имени')}</div>
-        <div class="bot-row-sub"><span class="status-dot ${b.is_active ? '' : 'off'}"></span>@${escapeHtml(b.username || '')} · ${b.is_active ? 'включен' : 'выключен'}</div>
+        <div class="bot-row-sub"><span class="status-dot ${b.is_active ? '' : 'off'}"></span>@${escapeHtml(b.username || '')} · ${b.is_active ? 'запущен' : 'остановлен'}</div>
       </div>
       <div class="chevron"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
     </div>
@@ -866,18 +853,23 @@ function renderBotsList(){
 
 function findBot(token){ return userBots.find(b => b.token === token); }
 
-// ---------- ADD BOT MODAL ----------
-function openAddBotModal(){ document.getElementById('add-bot-modal').classList.add('active'); }
+// ---------- ADD BOT ----------
+function openAddBotModal(){ newBotRuntime='telebot'; selectNewBotRuntime('telebot'); document.getElementById('add-bot-modal').classList.add('active'); }
 function closeAddBotModal(){ document.getElementById('add-bot-modal').classList.remove('active'); document.getElementById('new-token-input').value=''; }
+function selectNewBotRuntime(rt){
+  newBotRuntime = rt;
+  document.getElementById('runtime-opt-telebot').classList.toggle('active', rt==='telebot');
+  document.getElementById('runtime-opt-aiogram').classList.toggle('active', rt==='aiogram');
+}
 
 async function createBot(){
   const token = document.getElementById('new-token-input').value.trim();
-  if(!token) return showToast('❌ Введите токен!', 'error');
+  if(!token) return alert("Введите токен!");
   document.getElementById('loader').style.display = 'flex';
   try {
     const res = await fetch(`${BACKEND_URL}/api/create_bot`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, user_id: currentUser.user_id })
+      body: JSON.stringify({ token, device_id: currentUser.device_id, runtime: newBotRuntime })
     });
     const data = await res.json();
     if(data.success){
@@ -885,18 +877,19 @@ async function createBot(){
       closeAddBotModal();
       renderBotsList();
       renderProfile();
-      showToast('✅ Бот подключён!');
     } else {
-      showToast('❌ ' + data.message, 'error');
+      alert(data.message);
     }
   } catch(e){
-    showToast('❌ Ошибка подключения!', 'error');
+    alert("Ошибка подключения!");
   } finally {
     document.getElementById('loader').style.display = 'none';
   }
 }
 
-// ---------- BOT DETAIL ----------
+// ============================================================
+//                       BOT DETAIL
+// ============================================================
 function openBotDetail(token){
   activeBotToken = token;
   const b = findBot(token);
@@ -906,204 +899,268 @@ function openBotDetail(token){
   document.getElementById('detail-name').innerText = b.name || 'Без имени';
   document.getElementById('detail-user').innerText = '@' + (b.username || '');
   document.getElementById('detail-token').value = b.token;
+  document.getElementById('detail-runtime-label').innerText = b.runtime === 'aiogram' ? 'aiogram 3 (async)' : 'pyTelegramBotAPI (telebot)';
 
   updateDetailStatusUI(b);
 
   const errBanner = document.getElementById('detail-error-banner');
-  if (b.last_error) {
-    errBanner.style.display = 'block';
-    errBanner.innerText = '⚠ ' + b.last_error;
-  } else {
-    errBanner.style.display = 'none';
-  }
+  if (b.last_error) { errBanner.style.display = 'block'; errBanner.innerText = '⚠ ' + b.last_error; }
+  else { errBanner.style.display = 'none'; }
 
   switchDetailTab('overview');
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-bot-detail').classList.add('active');
-  renderCommands();
+  loadBotFilesList();
 }
 
 function closeBotDetail(){
+  stopTerminalPolling();
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-bots').classList.add('active');
   activeBotToken = null;
 }
 
 function updateDetailStatusUI(b){
-  const pill = document.getElementById('detail-status-pill');
-  const dot = document.getElementById('detail-status-dot');
-  const txt = document.getElementById('detail-status-text');
-  const toggle = document.getElementById('detail-toggle');
-  pill.className = 'status-pill ' + (b.is_active ? 'on' : 'off');
-  dot.className = 'status-dot ' + (b.is_active ? '' : 'off');
-  txt.innerText = b.is_active ? 'Бот включён' : 'Бот выключен';
-  toggle.className = 'switch ' + (b.is_active ? 'on' : '');
+  [
+    ['detail-status-pill','detail-status-dot','detail-status-text'],
+    ['detail-status-pill-2','detail-status-dot-2','detail-status-text-2']
+  ].forEach(([pillId,dotId,txtId]) => {
+    const pill = document.getElementById(pillId);
+    const dot = document.getElementById(dotId);
+    const txt = document.getElementById(txtId);
+    pill.className = 'status-pill ' + (b.is_active ? 'on' : 'off');
+    dot.className = 'status-dot ' + (b.is_active ? '' : 'off');
+    txt.innerText = b.is_active ? 'Запущен' : 'Остановлен';
+  });
+  document.getElementById('detail-start-btn').disabled = b.is_active;
+  document.getElementById('detail-stop-btn').disabled = !b.is_active;
 }
 
-async function toggleActiveBot(){
-  const b = findBot(activeBotToken);
-  if(!b) return;
-  b.is_active = !b.is_active;
-  updateDetailStatusUI(b);
-  renderBotsList();
-  renderProfile();
+async function startActiveBot(){
+  const b = findBot(activeBotToken); if(!b) return;
+  document.getElementById('detail-start-btn').disabled = true;
   try {
-    await fetch(`${BACKEND_URL}/api/toggle_bot`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: b.token, is_active: b.is_active })
+    const res = await fetch(`${BACKEND_URL}/api/bot_start`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ token: activeBotToken, device_id: currentUser.device_id })
     });
-    showToast(b.is_active ? '✅ Бот включён' : '⏸ Бот выключен');
-  } catch(e){}
+    const data = await res.json();
+    if(!data.success){ alert(data.message || 'Не удалось запустить'); }
+    b.is_active = data.success;
+    updateDetailStatusUI(b);
+    renderBotsList();
+    switchDetailTab('terminal');
+    startTerminalPolling();
+  } catch(e){ alert('Ошибка сети'); }
+}
+
+async function stopActiveBot(){
+  const b = findBot(activeBotToken); if(!b) return;
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/bot_stop`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ token: activeBotToken, device_id: currentUser.device_id })
+    });
+    const data = await res.json();
+    b.is_active = false;
+    updateDetailStatusUI(b);
+    renderBotsList();
+  } catch(e){ alert('Ошибка сети'); }
+}
+
+async function restartActiveBot(){
+  const b = findBot(activeBotToken); if(!b) return;
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/bot_restart`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ token: activeBotToken, device_id: currentUser.device_id })
+    });
+    const data = await res.json();
+    b.is_active = data.success;
+    updateDetailStatusUI(b);
+    renderBotsList();
+    switchDetailTab('terminal');
+    startTerminalPolling();
+  } catch(e){ alert('Ошибка сети'); }
 }
 
 function deleteBotConfirm(){
-  if(!confirm("Удалить бота из студии?")) return;
+  if(!confirm("Удалить бота из студии? Процесс будет остановлен, код и история чатов удалены безвозвратно. Сам бот в DarkGram (токен) останется существовать, но перестанет отвечать.")) return;
   deleteBot();
 }
 async function deleteBot(){
   try {
     await fetch(`${BACKEND_URL}/api/delete_bot`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: activeBotToken })
+      body: JSON.stringify({ token: activeBotToken, device_id: currentUser.device_id })
     });
   } catch(e){}
   userBots = userBots.filter(b => b.token !== activeBotToken);
   closeBotDetail();
   renderBotsList();
   renderProfile();
-  showToast('🗑 Бот удалён');
 }
 
 function switchDetailTab(tab){
-  ['overview','commands','logs'].forEach(t => {
+  ['overview','terminal'].forEach(t => {
     document.getElementById('detail-'+t).style.display = (t===tab) ? 'block' : 'none';
     document.getElementById('dtab-'+t).classList.toggle('active', t===tab);
   });
-  if(tab === 'logs') loadBotLogs();
+  if (tab === 'terminal') { loadTerminalLog(); startTerminalPolling(); loadBotFilesList(); }
+  else { stopTerminalPolling(); }
 }
 
-// ---------- COMMANDS ----------
-function renderCommands(){
+// ============================================================
+//                    CODE EDITOR (full Python)
+// ============================================================
+function openCodeEditor(){
   const b = findBot(activeBotToken);
-  const list = document.getElementById('commands-list');
-  if(!b || !b.commands || Object.keys(b.commands).length === 0){
-    list.innerHTML = '<p style="font-size:13px;color:var(--text-faint);text-align:center;padding:20px 0;">Команд пока нет</p>';
-    return;
-  }
-  list.innerHTML = Object.keys(b.commands).map(cmd => `
-    <div class="cmd-item">
-      <div>
-        <div class="cmd-name">${escapeHtml(cmd)}</div>
-        <div class="cmd-hint">JavaScript / BJS</div>
-      </div>
-      <button class="btn sm secondary" data-cmd="${escapeAttr(cmd)}">Изменить</button>
-    </div>
-  `).join('');
-
-  list.querySelectorAll('.cmd-item button[data-cmd]').forEach(btn => {
-    btn.addEventListener('click', () => openEditor(btn.dataset.cmd));
-  });
-}
-
-function createNewCommandPrompt(){
-  const cmdName = prompt("Введите имя команды (например /start или /help):");
-  if (!cmdName) return;
-  const b = findBot(activeBotToken);
-  if(!b.commands) b.commands = {};
-  b.commands[cmdName] = 'var text = "Ответ бота";\nApi.sendMessage({ text: text });';
-  renderCommands();
-  openEditor(cmdName);
-}
-
-function openEditor(cmd){
-  currentEditCmd = cmd;
-  const b = findBot(activeBotToken);
-  document.getElementById('editor-title').innerText = cmd;
-  document.getElementById('editor-code').value = b.commands[cmd] || '';
+  if(!b) return;
+  editorRuntime = b.runtime || 'telebot';
+  document.getElementById('editor-code-full').value = b.code || '';
+  updateEditorRuntimeUI();
   document.getElementById('editor-modal').classList.add('active');
 }
 function closeEditor(){ document.getElementById('editor-modal').classList.remove('active'); }
-
-function insertSnippet(type){
-  const ta = document.getElementById('editor-code');
-  const snippets = {
-    text: '\nvar text = "Твой текст здесь";\nApi.sendMessage({ text: text, parse_mode: "Markdown" });\n',
-    buttons: `
-var buttons = [
-  [ { text: "➕ Кнопка", callback_data: "btn1" } ],
-  [ { text: "🔗 Ссылка", url: "https://example.com" } ]
-];
-Api.sendMessage({ text: text, parse_mode: "Markdown", reply_markup: { inline_keyboard: buttons } });
-`
-  };
-  ta.value += snippets[type];
+function switchEditorRuntime(rt){ editorRuntime = rt; updateEditorRuntimeUI(); }
+function updateEditorRuntimeUI(){
+  document.getElementById('editor-runtime-telebot').classList.toggle('active', editorRuntime==='telebot');
+  document.getElementById('editor-runtime-aiogram').classList.toggle('active', editorRuntime==='aiogram');
 }
 
 async function saveEditorCode(){
-  if(!currentEditCmd) return;
   const b = findBot(activeBotToken);
-  b.commands[currentEditCmd] = document.getElementById('editor-code').value;
-  await fetch(`${BACKEND_URL}/api/save_commands`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: b.token, commands: b.commands })
-  });
-  closeEditor();
-  renderCommands();
-  showToast('✅ Команда сохранена!');
+  if(!b) return;
+  const code = document.getElementById('editor-code-full').value;
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/save_code`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: b.token, code, runtime: editorRuntime, device_id: currentUser.device_id })
+    });
+    const data = await res.json();
+    if(data.success){
+      b.code = code;
+      b.runtime = editorRuntime;
+      document.getElementById('detail-runtime-label').innerText = editorRuntime === 'aiogram' ? 'aiogram 3 (async)' : 'pyTelegramBotAPI (telebot)';
+      closeEditor();
+    } else {
+      alert(data.message || 'Не удалось сохранить');
+    }
+  } catch(e){ alert('Ошибка сети'); }
 }
 
-function deleteCommandConfirm(){
-  if(!currentEditCmd) return;
-  if(!confirm(`Удалить команду ${currentEditCmd}?`)) return;
-  const b = findBot(activeBotToken);
-  delete b.commands[currentEditCmd];
-  fetch(`${BACKEND_URL}/api/save_commands`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: b.token, commands: b.commands })
-  });
-  closeEditor();
-  renderCommands();
-  showToast('🗑 Команда удалена');
-}
+// ============================================================
+//                    TERMINAL / LOGS / PACKAGES / FILES
+// ============================================================
+function stopTerminalPolling(){ if(terminalPollTimer){ clearInterval(terminalPollTimer); terminalPollTimer=null; } }
+function startTerminalPolling(){ stopTerminalPolling(); terminalPollTimer = setInterval(loadTerminalLog, 2500); }
 
-// ---------- LOGS ----------
-async function loadBotLogs(){
-  const list = document.getElementById('logs-list');
-  const empty = document.getElementById('logs-empty');
+async function loadTerminalLog(){
+  if (!activeBotToken) return;
+  const out = document.getElementById('terminal-output');
   try {
     const res = await fetch(`${BACKEND_URL}/api/get_bot_logs`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: activeBotToken })
     });
     const data = await res.json();
-    if(data.success && data.logs.length){
-      empty.style.display = 'none';
-      list.innerHTML = data.logs.map(l => `
-        <div class="log-row">
-          <div class="log-dot ${l.level}"></div>
-          <div class="log-text">${escapeHtml(l.message)}<div class="log-time">${l.time}</div></div>
-        </div>
-      `).join('');
-    } else {
-      list.innerHTML = '';
-      empty.style.display = 'block';
+    if(data.success){
+      const b = findBot(activeBotToken);
+      if (b && b.is_active !== data.is_active) {
+        b.is_active = data.is_active;
+        updateDetailStatusUI(b);
+        renderBotsList();
+      }
+      if(!data.logs || data.logs.length === 0){
+        out.innerHTML = '<div class="term-empty">Лог пуст — запусти бота, чтобы увидеть вывод</div>';
+        return;
+      }
+      const wasAtBottom = (out.scrollHeight - out.scrollTop - out.clientHeight) < 40;
+      out.innerHTML = data.logs.map(l => {
+        const isErr = /error|traceback|exception/i.test(l);
+        return `<div class="${isErr ? 'term-line-err' : ''}">${escapeHtml(l)}</div>`;
+      }).join('');
+      if(wasAtBottom) out.scrollTop = out.scrollHeight;
     }
   } catch(e){}
 }
 
-// ---------- CHATS ----------
+async function installPackage(){
+  const input = document.getElementById('pkg-name-input');
+  const pkg = input.value.trim();
+  if(!pkg) return;
+  input.disabled = true;
+  const out = document.getElementById('terminal-output');
+  out.innerHTML += `<div>$ pip install ${escapeHtml(pkg)}…</div>`;
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/install_package`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: activeBotToken, device_id: currentUser.device_id, package: pkg })
+    });
+    const data = await res.json();
+    await loadTerminalLog();
+    if(!data.success) alert('Не удалось установить: ' + (data.message || 'ошибка pip'));
+    else input.value = '';
+  } catch(e){ alert('Ошибка сети'); }
+  input.disabled = false;
+}
+
+async function loadBotFilesList(){
+  if (!activeBotToken) return;
+  const list = document.getElementById('bot-files-list');
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/list_bot_files`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: activeBotToken })
+    });
+    const data = await res.json();
+    if(data.success){
+      if(data.files.length === 0){ list.innerHTML = '<p style="font-size:12px;color:var(--text-faint);">Файлов нет</p>'; return; }
+      list.innerHTML = data.files.map(f => `
+        <div class="file-chip"><span class="fname">${escapeHtml(f.name)}</span><span class="fsize">${(f.size/1024).toFixed(1)} КБ</span></div>
+      `).join('');
+    }
+  } catch(e){}
+}
+
+async function uploadBotFile(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const fd = new FormData();
+  fd.append('token', activeBotToken);
+  fd.append('device_id', currentUser.device_id);
+  fd.append('file', file);
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/upload_bot_file`, { method: 'POST', body: fd });
+    const data = await res.json();
+    if(data.success){ loadBotFilesList(); } else { alert(data.message || 'Не удалось загрузить файл'); }
+  } catch(e){ alert('Ошибка сети'); }
+  event.target.value = '';
+}
+
+/* ============================================================
+   ЧАТЫ
+   ============================================================
+   - Показываются только реальные диалоги (кто писал боту через /start
+     и т.д.) — читается из bot_chats, которые сервер сам собирает через
+     независимый read-only трекер getUpdates (studio_updates_tracker в
+     bot.py), поэтому список виден даже если сам процесс бота выключен.
+   - Тап по строке диалога открывает тред, где видно ОБЕИХ: входящие от
+     пользователя ('in') и исходящие от бота/владельца ('out') — исходящие
+     сервер узнаёт через прокси-шлюз /gw/, куда боты обязаны слать запросы
+     (см. RUNTIME_BOILERPLATE в bot.py).
+   - Список диалогов и открытый тред автообновляются, пока вкладка/тред
+     открыты.
+============================================================ */
+function stopChatsListPolling(){ if(chatsListPollTimer){ clearInterval(chatsListPollTimer); chatsListPollTimer=null; } }
+function startChatsListPolling(){ stopChatsListPolling(); chatsListPollTimer = setInterval(loadAllBotChats, 4000); }
+function stopThreadPolling(){ if(threadPollTimer){ clearInterval(threadPollTimer); threadPollTimer=null; } }
+function startThreadPolling(){ stopThreadPolling(); threadPollTimer = setInterval(loadThreadMessages, 3000); }
+
 async function loadAllBotChats(){
   const list = document.getElementById('chats-list');
   const empty = document.getElementById('chats-empty');
-  const sub = document.getElementById('chats-sub');
-
-  if(userBots.length === 0){
-    list.innerHTML = '';
-    empty.style.display = 'block';
-    sub.innerText = 'Сначала подключи ботов во вкладке "Боты"';
-    updateChatsBadge(0);
-    return;
-  }
+  if(userBots.length === 0){ list.innerHTML=''; empty.style.display='block'; updateChatsBadge(0); return; }
 
   let allChats = [];
   for(const b of userBots){
@@ -1113,149 +1170,85 @@ async function loadAllBotChats(){
         body: JSON.stringify({ token: b.token })
       });
       const data = await res.json();
-      if(data.success && data.chats.length){
-        data.chats.forEach(c => {
-          allChats.push({
-            ...c,
-            bot_token: b.token,
-            bot_name: b.name,
-            bot_username: b.username
-          });
-        });
-      }
+      if(data.success) data.chats.forEach(c => allChats.push({...c, bot_token: b.token, bot_name: b.name}));
     } catch(e){}
   }
 
   allChats.sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at));
+  updateChatsBadge(allChats.reduce((s,c) => s + (c.unread||0), 0));
 
-  const totalUnread = allChats.reduce((s,c) => s + (c.unread||0), 0);
-  updateChatsBadge(totalUnread);
-
-  if(allChats.length === 0){
-    list.innerHTML = '';
-    empty.style.display = 'block';
-    sub.innerText = 'Пока никто не написал твоим ботам';
-    return;
-  }
-
+  if(allChats.length === 0){ list.innerHTML=''; empty.style.display='block'; return; }
   empty.style.display = 'none';
-  sub.innerText = `${allChats.length} чатов · ${totalUnread} непрочитанных`;
+  const showBotTag = userBots.length > 1;
 
-  list.innerHTML = allChats.map(c => {
-    let avatarUrl = c.user_avatar || '';
-    if(avatarUrl && !avatarUrl.startsWith('http') && !avatarUrl.startsWith('/')) {
-      avatarUrl = '/' + avatarUrl;
-    }
-    if(avatarUrl && avatarUrl.startsWith('/uploads')) {
-      avatarUrl = BACKEND_URL + avatarUrl;
-    }
-    
-    return `
-    <div class="chat-list-row"
-         data-bot-token="${escapeAttr(c.bot_token)}"
-         data-chat-id="${escapeAttr(c.chat_id)}"
-         data-user-name="${escapeAttr(c.user_name)}"
-         data-user-username="${escapeAttr(c.username || '')}"
-         data-user-avatar="${escapeAttr(avatarUrl || '')}">
-      ${avatarUrl
-        ? `<img src="${avatarUrl}?t=${Date.now()}" class="user-avatar" style="object-fit:cover;" onerror="this.style.display='none';this.parentElement.innerHTML='<div class=\\'user-avatar\\'>${initials(c.user_name)}</div>'">`
-        : `<div class="user-avatar">${initials(c.user_name)}</div>`
-      }
+  list.innerHTML = allChats.map(c => `
+    <div class="chat-list-row" data-bot-token="${escapeAttr(c.bot_token)}" data-chat-id="${escapeAttr(c.chat_id)}" data-user-name="${escapeAttr(c.user_name)}" data-username="${escapeAttr(c.username || '')}">
+      <div class="user-avatar">${initials(c.user_name)}</div>
       <div class="chat-list-info">
-        <div class="chat-list-name">${escapeHtml(c.user_name)}</div>
+        <div class="chat-list-name">${escapeHtml(c.user_name)}${c.username ? ' <span style="color:var(--text-faint);font-weight:400;">@'+escapeHtml(c.username)+'</span>' : ''}</div>
         <div class="chat-list-msg">${escapeHtml(c.last_message || '')}</div>
-        <div class="chat-bot-label">🤖 @${escapeHtml(c.bot_username || '')}</div>
       </div>
       <div class="chat-list-meta">
-        <div class="chat-list-time">${formatTime(c.updated_at)}</div>
-        ${c.unread ? `<div class="unread-badge">${c.unread}</div>` : ''}
+        <div class="chat-list-time">${(c.updated_at||'').split(' ')[1]?.slice(0,5) || ''}</div>
+        ${c.unread ? `<div class="unread-badge">${c.unread}</div>` : (showBotTag ? `<div class="chat-bot-tag">${escapeHtml(c.bot_name||'')}</div>` : '')}
       </div>
     </div>
-  `}).join('');
+  `).join('');
 
   list.querySelectorAll('.chat-list-row').forEach(row => {
-    row.addEventListener('click', () => {
-      openThread(
-        row.dataset.botToken,
-        Number(row.dataset.chatId),
-        row.dataset.userName,
-        row.dataset.userUsername || '',
-        row.dataset.userAvatar || ''
-      );
-    });
+    row.addEventListener('click', () => openThread(row.dataset.botToken, Number(row.dataset.chatId), row.dataset.userName, row.dataset.username));
   });
-}
-
-function formatTime(dateStr){
-  if(!dateStr) return '';
-  try {
-    const d = new Date(dateStr);
-    return d.toLocaleTimeString('ru', { hour:'2-digit', minute:'2-digit' });
-  } catch(e){ return ''; }
 }
 
 function updateChatsBadge(n){
   const el = document.getElementById('chats-badge');
-  if(n > 0){ el.style.display='flex'; el.innerText = n > 99 ? '99+' : n; }
-  else { el.style.display = 'none'; }
+  if(n > 0){ el.style.display='flex'; el.innerText = n > 99 ? '99+' : n; } else { el.style.display = 'none'; }
 }
 
-// ---------- CHAT THREAD ----------
-async function openThread(botToken, chatId, userName, username, userAvatar){
+async function openThread(botToken, chatId, userName, username){
   activeBotToken = botToken;
   activeChatId = chatId;
-
-  const avatarEl = document.getElementById('thread-avatar');
-  if(userAvatar){
-    avatarEl.innerHTML = `<img src="${userAvatar}?t=${Date.now()}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.innerText='${initials(userName)}';this.parentElement.style.background='linear-gradient(135deg,#5b6cff,#9b5bff)'">`;
-  } else {
-    avatarEl.innerText = initials(userName);
-    avatarEl.style.background = 'linear-gradient(135deg,#5b6cff,#9b5bff)';
-  }
-
+  document.getElementById('thread-avatar').innerText = initials(userName);
   document.getElementById('thread-name').innerText = userName;
   document.getElementById('thread-username').innerText = username ? '@'+username : 'ID '+chatId;
 
-  const bot = findBot(botToken);
-  document.getElementById('thread-bot-label').innerText = bot ? '🤖 @' + (bot.username || '') : '';
-
+  stopChatsListPolling();
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-chat-thread').classList.add('active');
 
   await loadThreadMessages();
+  startThreadPolling();
 }
 
 function closeThread(){
+  stopThreadPolling();
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-chats').classList.add('active');
   activeChatId = null;
   loadAllBotChats();
+  startChatsListPolling();
 }
 
 async function loadThreadMessages(){
   const body = document.getElementById('thread-body');
-  body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-faint);">Загрузка сообщений...</div>';
-
   try {
     const res = await fetch(`${BACKEND_URL}/api/get_chat_messages`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: activeBotToken, chat_id: activeChatId })
     });
     const data = await res.json();
-    if(data.success && data.messages.length){
+    if(data.success){
+      const wasAtBottom = (body.scrollHeight - body.scrollTop - body.clientHeight) < 60;
+      if(data.messages.length === 0){ body.innerHTML = '<div class="thread-empty">Сообщений пока нет</div>'; return; }
       body.innerHTML = data.messages.map(m => `
         <div class="bubble ${m.direction === 'out' ? 'out' : 'in'}">
-          ${escapeHtml(m.text || '')}
-          <span class="bubble-time">${formatTime(m.time)}</span>
+          ${escapeHtml(m.text)}
+          <span class="bubble-time">${(m.time||'').split(' ')[1]?.slice(0,5) || ''}</span>
         </div>
       `).join('');
-    } else {
-      body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-faint);">Нет сообщений в этом чате</div>';
+      if(wasAtBottom) body.scrollTop = body.scrollHeight;
     }
-    body.scrollTop = body.scrollHeight;
-  } catch(e){
-    body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--danger);">Ошибка загрузки чата</div>';
-  }
+  } catch(e){}
 }
 
 async function sendThreadMessage(){
@@ -1263,48 +1256,37 @@ async function sendThreadMessage(){
   const text = input.value.trim();
   if(!text) return;
   input.value = '';
-
-  const body = document.getElementById('thread-body');
-  body.innerHTML += `
-    <div class="bubble out">
-      ${escapeHtml(text)}
-      <span class="bubble-time">${new Date().toLocaleTimeString('ru', {hour:'2-digit',minute:'2-digit'})}</span>
-    </div>
-  `;
-  body.scrollTop = body.scrollHeight;
-
   try {
-    await fetch(`${BACKEND_URL}/api/send_owner_message`, {
+    const res = await fetch(`${BACKEND_URL}/api/send_owner_message`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: activeBotToken, chat_id: activeChatId, text })
     });
-  } catch(e){
-    console.error('Ошибка отправки:', e);
-  }
+    const data = await res.json();
+    if(!data.success) alert(data.message || 'Не удалось отправить');
+  } catch(e){}
+  await loadThreadMessages();
 }
 
 // ---------- GLOBAL CHAT ----------
 async function loadGlobalChat(){
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/get_global_chat`, { method: 'POST' });
-    const data = await res.json();
-    if(data.success){
-      const cont = document.getElementById('global-messages');
-      cont.innerHTML = data.messages.map(m => `
-        <div class="gc-msg">
-          ${m.photo_url ? `<img src="${m.photo_url}" class="gc-avatar" style="border-radius:50%;object-fit:cover;">` : `<div class="gc-avatar">${initials(m.first_name)}</div>`}
-          <div class="gc-content">
-            <div class="gc-name">${escapeHtml(m.first_name)}<span class="gc-uname">@${escapeHtml(m.username||'')}</span></div>
-            <div class="gc-bubble">
-              ${m.text ? escapeHtml(m.text) : ''}
-              ${m.attachment ? `<img src="${BACKEND_URL}${m.attachment}" class="gc-image">` : ''}
-            </div>
+  const res = await fetch(`${BACKEND_URL}/api/get_global_chat`, { method: 'POST' });
+  const data = await res.json();
+  if(data.success){
+    const cont = document.getElementById('global-messages');
+    cont.innerHTML = data.messages.map(m => `
+      <div class="gc-msg">
+        ${m.photo_url ? `<img src="${m.photo_url}" class="gc-avatar" style="border-radius:50%;object-fit:cover;">` : `<div class="gc-avatar">${initials(m.first_name)}</div>`}
+        <div class="gc-content">
+          <div class="gc-name">${escapeHtml(m.first_name)}<span class="gc-uname">@${escapeHtml(m.username||'')}</span></div>
+          <div class="gc-bubble">
+            ${m.text ? escapeHtml(m.text) : ''}
+            ${m.attachment ? `<img src="${BACKEND_URL}${m.attachment}" class="gc-image">` : ''}
           </div>
         </div>
-      `).join('');
-      cont.scrollTop = cont.scrollHeight;
-    }
-  } catch(e){}
+      </div>
+    `).join('');
+    cont.scrollTop = cont.scrollHeight;
+  }
 }
 
 function handleGlobalFile(event){
@@ -1318,70 +1300,48 @@ function handleGlobalFile(event){
   };
   reader.readAsDataURL(file);
 }
-
 function clearGlobalAttachment(){
   globalAttachmentBase64 = null;
   document.getElementById('gc-preview').style.display = 'none';
   document.getElementById('gc-file-input').value = '';
 }
-
 async function sendGlobalMsg(){
   const input = document.getElementById('global-msg-input');
   const txt = input.value.trim();
   if(!txt && !globalAttachmentBase64) return;
-
   await fetch(`${BACKEND_URL}/api/send_global_chat`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ user_id: currentUser.user_id, message: txt, image_base64: globalAttachmentBase64 })
+    body: JSON.stringify({ device_id: currentUser.device_id, message: txt, image_base64: globalAttachmentBase64 })
   });
   input.value = '';
   clearGlobalAttachment();
   loadGlobalChat();
-  showToast('✅ Сообщение отправлено!');
 }
 
-// ---------- AVATAR UPLOAD ----------
 function handleAvatarUpload(event){
   const file = event.target.files[0];
   if(!file) return;
-  
   const reader = new FileReader();
-  reader.onload = function(e){
-    // Показываем превью с анимацией загрузки
-    const avatarContainer = document.getElementById('prof-avatar-container');
-    avatarContainer.innerHTML = `
-      <div style="position:relative;width:92px;height:92px;border-radius:50%;background:var(--card-2);display:flex;align-items:center;justify-content:center;border:3px solid var(--accent);">
-        <div style="width:40px;height:40px;border:3px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
-      </div>
-    `;
-    
-    uploadAvatar(e.target.result);
+  reader.onload = async function(e){
+    const base64 = e.target.result;
+    document.getElementById('loader').style.display = 'flex';
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/upload_avatar`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device_id: currentUser.device_id, image_base64: base64 })
+      });
+      const data = await res.json();
+      if(data.success){
+        currentUser.photo_url = data.avatar_url.startsWith('http') ? data.avatar_url : `${BACKEND_URL}${data.avatar_url}`;
+        renderProfile();
+      } else { alert(data.message || "Не удалось загрузить фото"); }
+    } catch(err){ alert("Ошибка загрузки фото"); }
+    finally {
+      document.getElementById('loader').style.display = 'none';
+      document.getElementById('avatar-file-input').value = '';
+    }
   };
   reader.readAsDataURL(file);
-}
-
-async function uploadAvatar(base64){
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/upload_avatar`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: currentUser.user_id, image_base64: base64 })
-    });
-    const data = await res.json();
-    if(data.success){
-      const url = data.avatar_url.startsWith('http') ? data.avatar_url : BACKEND_URL + data.avatar_url;
-      currentUser.photo_url = url;
-      renderProfile();
-      showToast('✅ Аватарка обновлена!');
-    } else {
-      showToast('❌ ' + data.message, 'error');
-      renderProfile();
-    }
-  } catch(err){
-    showToast('❌ Ошибка загрузки фото', 'error');
-    renderProfile();
-  } finally {
-    document.getElementById('avatar-file-input').value = '';
-  }
 }
 
 // ---------- UTIL ----------
@@ -1389,16 +1349,7 @@ function escapeHtml(str){
   if(str === undefined || str === null) return '';
   return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
 }
-function escapeAttr(str){
-  return String(str || '').replace(/"/g, '&quot;');
-}
-
-// Авто-обновление чатов
-setInterval(() => {
-  if (document.getElementById('tab-chats').classList.contains('active')) {
-    loadAllBotChats();
-  }
-}, 5000);
+function escapeAttr(str){ return escapeHtml(str); }
 </script>
 </body>
 </html>

@@ -3,1530 +3,886 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>DarkGram Bot Studio</title>
+<title>Bot Constructor</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-:root{
-  --bg:#0a0e17;
-  --card:#131a26;
-  --card-2:#171f2e;
-  --accent:#5b6cff;
-  --accent-2:#7c8bff;
-  --accent-dim:rgba(91,108,255,0.14);
-  --text:#eef1fb;
-  --text-sub:#8891a8;
-  --text-faint:#525c74;
-  --border:#1d2536;
-  --success:#2dd4a7;
-  --danger:#ff5470;
-  --warn:#ffb84d;
-  --code-bg:#080b13;
-  --radius:16px;
-  --radius-sm:10px;
-}
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-html{background:var(--bg);height:100%;overflow:hidden;}
-body{
-  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Segoe UI,Roboto,sans-serif;
-  background:var(--bg);color:var(--text);height:100vh;overflow:hidden;
-  display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;position:relative;z-index:1;
-}
-::-webkit-scrollbar{width:0;height:0;}
+  :root{
+    --bg:#0f1115; --bg2:#161923; --card:#1c202b; --card2:#232838;
+    --accent:#5b8cff; --accent2:#7aa2ff; --text:#f2f3f7; --muted:#8b93a7;
+    --danger:#ff5c5c; --success:#3ddc84; --warn:#ffb84d; --border:#2a2f3d;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    overflow-x:hidden;
+  }
+  #app{ min-height:100vh; padding-bottom:78px; }
+  .screen{ display:none; padding:16px; animation:fadeIn .18s ease; }
+  .screen.active{ display:block; }
+  @keyframes fadeIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
 
-#loader{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:16px;}
-.logo-mark{width:56px;height:56px;border-radius:18px;background:linear-gradient(135deg,var(--accent),#9b5bff);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px;color:#fff;box-shadow:0 0 40px rgba(91,108,255,0.35);animation:pulse 1.6s ease-in-out infinite;}
-@keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.06);}}
-.loader-sub{font-size:13px;color:var(--text-sub);letter-spacing:.2px;}
+  .topbar{
+    position:sticky; top:0; z-index:5; background:linear-gradient(180deg, var(--bg) 70%, transparent);
+    padding:14px 4px 10px; display:flex; align-items:center; gap:10px;
+  }
+  .topbar h1{ font-size:20px; margin:0; font-weight:700; }
+  .topbar .back{
+    width:34px; height:34px; border-radius:10px; background:var(--card);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; border:1px solid var(--border);
+  }
 
-#register-screen{position:fixed;inset:0;background:var(--bg);z-index:500;display:none;flex-direction:column;}
-#register-screen.active{display:flex;}
-.reg-hero{padding:48px 24px 20px 24px;text-align:center;}
-.reg-hero .logo-mark{margin:0 auto 18px auto;width:64px;height:64px;font-size:26px;animation:none;}
-.reg-hero h1{font-size:22px;font-weight:800;margin-bottom:8px;}
-.reg-hero p{font-size:13.5px;color:var(--text-sub);line-height:1.5;}
-.reg-body{flex:1;padding:8px 24px;display:flex;flex-direction:column;overflow-y:auto;}
-.reg-step{display:none;flex-direction:column;gap:14px;flex:1;}
-.reg-step.active{display:flex;}
-.reg-input-wrap{position:relative;}
-.reg-input-wrap input{padding-right:44px;font-size:16px;padding-top:14px;padding-bottom:14px;}
-.reg-status-icon{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:16px;}
-.reg-status-msg{font-size:12.5px;padding:2px 4px;min-height:18px;}
-.reg-status-msg.ok{color:var(--success);}
-.reg-status-msg.err{color:var(--danger);}
-.reg-status-msg.hint{color:var(--text-faint);}
-.reg-footer{padding:16px 24px;padding-bottom:calc(24px + env(safe-area-inset-bottom));}
-.reg-back-link{font-size:12.5px;color:var(--text-sub);text-align:center;margin-top:14px;cursor:pointer;}
+  /* ---------- Bottom nav ---------- */
+  .bottom-nav{
+    position:fixed; left:0; right:0; bottom:0; z-index:20;
+    background:rgba(22,25,35,.92); backdrop-filter:blur(14px);
+    border-top:1px solid var(--border);
+    display:flex; padding:8px 6px calc(8px + env(safe-area-inset-bottom));
+  }
+  .nav-item{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;
+    padding:6px 0; border-radius:14px; cursor:pointer; color:var(--muted);
+    transition:color .15s;
+  }
+  .nav-item.active{ color:var(--accent2); }
+  .nav-item svg{ width:22px; height:22px; }
+  .nav-item span{ font-size:11px; font-weight:600; }
 
-#app{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;}
-.tab-content{flex:1;display:none;overflow-y:auto;padding-bottom:84px;}
-.tab-content.active{display:flex;flex-direction:column;}
-.screen-header{padding:18px 18px 14px 18px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:linear-gradient(var(--bg) 70%, transparent);z-index:5;}
-.screen-title{font-size:22px;font-weight:800;letter-spacing:-0.3px;}
-.screen-sub{font-size:12.5px;color:var(--text-sub);margin-top:2px;}
-.screen-body{padding:0 16px 16px 16px;flex:1;}
+  /* ---------- Cards / lists ---------- */
+  .empty-state{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:60px 20px; text-align:center; color:var(--muted); gap:10px;
+  }
+  .empty-state .icon{ font-size:44px; opacity:.5; }
+  .bot-card{
+    background:var(--card); border:1px solid var(--border); border-radius:16px;
+    padding:14px 16px; display:flex; align-items:center; gap:12px; margin-bottom:10px;
+    cursor:pointer; transition:transform .1s;
+  }
+  .bot-card:active{ transform:scale(.98); }
+  .bot-avatar{
+    width:46px; height:46px; border-radius:13px; background:linear-gradient(135deg,var(--accent),#8a5bff);
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:18px; flex-shrink:0;
+  }
+  .bot-info{ flex:1; min-width:0; }
+  .bot-info .name{ font-weight:700; font-size:15px; margin-bottom:2px; }
+  .bot-info .sub{ font-size:12.5px; color:var(--muted); }
+  .status-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .status-dot.on{ background:var(--success); box-shadow:0 0 8px var(--success); }
+  .status-dot.off{ background:#555; }
 
-.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;}
-.btn{width:100%;padding:13px;border:none;border-radius:var(--radius-sm);background:var(--accent);color:#fff;font-weight:700;font-size:14.5px;cursor:pointer;transition:transform .12s, opacity .12s;}
-.btn:active{transform:scale(0.97);opacity:.9;}
-.btn:disabled{opacity:.45;}
-.btn.secondary{background:var(--card-2);color:var(--text);border:1px solid var(--border);}
-.btn.danger{background:rgba(255,84,112,0.14);color:var(--danger);}
-.btn.success{background:rgba(45,212,167,0.14);color:var(--success);}
-.btn.ghost{background:transparent;color:var(--accent);}
-.btn.sm{width:auto;padding:8px 14px;font-size:12.5px;border-radius:9px;}
-.btn.admin{background:linear-gradient(135deg,#f7971e,#ffd200);color:#1a1a2e;font-weight:800;}
-input,textarea,select{width:100%;padding:12px 14px;background:var(--code-bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:14px;outline:none;}
-input::placeholder,textarea::placeholder{color:var(--text-faint);}
-input:focus,textarea:focus,select:focus{border-color:var(--accent);}
-.mono{font-family:"SF Mono",Menlo,Consolas,monospace;color:#8fd6ff;font-size:12.5px;}
-label.field-label{font-size:11px;font-weight:700;color:var(--text-sub);letter-spacing:.4px;text-transform:uppercase;display:block;margin-bottom:6px;}
+  .fab{
+    position:fixed; right:18px; bottom:92px; z-index:15;
+    width:56px; height:56px; border-radius:50%;
+    background:linear-gradient(135deg,var(--accent),#7c5bff);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 8px 24px rgba(91,140,255,.4); cursor:pointer; border:none;
+    font-size:28px; color:#fff; font-weight:300;
+  }
+  .fab:active{ transform:scale(.94); }
 
-.bottom-nav{position:fixed;bottom:0;left:0;right:0;height:76px;background:rgba(13,18,32,0.92);backdrop-filter:blur(18px);border-top:1px solid var(--border);display:flex;justify-content:space-around;align-items:center;z-index:50;padding-bottom:env(safe-area-inset-bottom);}
-.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-faint);padding:8px 0;position:relative;}
-.nav-item .nav-glyph{width:26px;height:26px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:transparent;transition:background .15s, transform .15s;}
-.nav-item.active{color:var(--accent-2);}
-.nav-item.active .nav-glyph{background:var(--accent-dim);transform:translateY(-1px);}
-.nav-item svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
-.nav-label{font-size:10px;font-weight:600;}
-.nav-badge{position:absolute;top:2px;right:22%;min-width:15px;height:15px;padding:0 4px;border-radius:8px;background:var(--danger);color:#fff;font-size:9.5px;font-weight:800;display:flex;align-items:center;justify-content:center;}
+  /* ---------- Forms ---------- */
+  .field{ margin-bottom:16px; }
+  .field label{ display:block; font-size:13px; color:var(--muted); margin-bottom:6px; font-weight:600; }
+  .field input, .field textarea, .field select{
+    width:100%; background:var(--card2); border:1px solid var(--border); border-radius:12px;
+    padding:12px 14px; color:var(--text); font-size:15px; font-family:inherit; outline:none;
+  }
+  .field textarea{ resize:vertical; min-height:120px; font-family:"SF Mono",Menlo,Consolas,monospace; font-size:13.5px; line-height:1.5; }
+  .field input:focus, .field textarea:focus, .field select:focus{ border-color:var(--accent); }
+  .btn{
+    display:block; width:100%; text-align:center; padding:14px; border-radius:12px; border:none;
+    font-size:15px; font-weight:700; cursor:pointer; background:var(--accent); color:#fff; margin-top:4px;
+  }
+  .btn:active{ opacity:.85; }
+  .btn.secondary{ background:var(--card2); color:var(--text); border:1px solid var(--border); }
+  .btn.danger{ background:rgba(255,92,92,.15); color:var(--danger); border:1px solid rgba(255,92,92,.3); }
+  .btn.small{ padding:9px; font-size:13px; width:auto; display:inline-block; padding-left:16px; padding-right:16px; }
+  .btn-row{ display:flex; gap:8px; }
+  .btn-row .btn{ flex:1; }
+  .hint{ font-size:12px; color:var(--muted); margin-top:4px; }
+  .error-box{ background:rgba(255,92,92,.12); border:1px solid rgba(255,92,92,.3); color:#ff8a8a; padding:10px 14px; border-radius:10px; font-size:13.5px; margin-bottom:14px; display:none; }
+  .success-box{ background:rgba(61,220,132,.12); border:1px solid rgba(61,220,132,.3); color:#5eeba3; padding:10px 14px; border-radius:10px; font-size:13.5px; margin-bottom:14px; display:none; }
 
-.empty-state{text-align:center;padding:60px 24px;color:var(--text-sub);}
-.empty-state .glyph{width:64px;height:64px;border-radius:20px;margin:0 auto 18px auto;background:var(--card-2);display:flex;align-items:center;justify-content:center;}
-.empty-state h3{color:var(--text);font-size:17px;margin-bottom:6px;}
-.empty-state p{font-size:13px;line-height:1.5;margin-bottom:20px;}
+  /* ---------- Bot detail screen ---------- */
+  .bot-header{ display:flex; align-items:center; gap:14px; margin-bottom:18px; }
+  .bot-header .bot-avatar{ width:58px; height:58px; font-size:22px; border-radius:16px; }
+  .bot-header h2{ margin:0 0 3px; font-size:19px; }
+  .bot-header .username{ color:var(--muted); font-size:13.5px; }
+  .status-pill{
+    display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:20px;
+    font-size:12.5px; font-weight:700; margin-top:6px;
+  }
+  .status-pill.on{ background:rgba(61,220,132,.15); color:var(--success); }
+  .status-pill.off{ background:rgba(255,255,255,.08); color:var(--muted); }
 
-.bot-row{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;cursor:pointer;transition:background .15s;}
-.bot-row:active{background:var(--card-2);}
-.bot-avatar{width:48px;height:48px;border-radius:14px;flex-shrink:0;object-fit:cover;background:linear-gradient(135deg,var(--accent),#9b5bff);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#fff;}
-.bot-row-info{flex:1;min-width:0;}
-.bot-row-name{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.bot-row-sub{font-size:12.5px;color:var(--text-sub);margin-top:2px;display:flex;align-items:center;gap:5px;}
-.status-dot{width:7px;height:7px;border-radius:50%;background:var(--success);flex-shrink:0;}
-.status-dot.off{background:var(--text-faint);}
-.chevron{color:var(--text-faint);flex-shrink:0;}
-.fab{position:fixed;right:18px;bottom:98px;width:54px;height:54px;border-radius:17px;background:linear-gradient(135deg,var(--accent),#9b5bff);color:#fff;font-size:26px;font-weight:700;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;z-index:40;box-shadow:0 8px 24px rgba(91,108,255,0.4);}
-.fab:active{transform:scale(0.94);}
+  .control-btns{ display:flex; gap:8px; margin-bottom:20px; }
+  .control-btn{
+    flex:1; padding:13px 4px; border-radius:14px; border:1px solid var(--border); background:var(--card);
+    display:flex; flex-direction:column; align-items:center; gap:5px; cursor:pointer; color:var(--text);
+  }
+  .control-btn .ico{ font-size:19px; }
+  .control-btn span{ font-size:11.5px; font-weight:700; }
+  .control-btn.run{ color:var(--success); }
+  .control-btn.stop{ color:var(--danger); }
+  .control-btn.restart{ color:var(--warn); }
 
-.detail-back{display:flex;align-items:center;gap:10px;padding:16px;cursor:pointer;}
-.detail-back svg{width:20px;height:20px;stroke:var(--text);fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
-.detail-back span{font-size:14px;color:var(--text-sub);font-weight:600;}
-.bot-hero{display:flex;flex-direction:column;align-items:center;padding:8px 16px 20px 16px;text-align:center;}
-.bot-hero-avatar{width:80px;height:80px;border-radius:24px;margin-bottom:12px;object-fit:cover;background:linear-gradient(135deg,var(--accent),#9b5bff);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:30px;color:#fff;}
-.bot-hero-name{font-size:19px;font-weight:800;}
-.bot-hero-user{font-size:13.5px;color:var(--accent-2);margin-top:3px;}
-.status-pill{display:inline-flex;align-items:center;gap:6px;margin-top:12px;padding:6px 14px;border-radius:20px;background:var(--card-2);border:1px solid var(--border);font-size:12.5px;font-weight:700;}
-.status-pill.on{color:var(--success);}
-.status-pill.off{color:var(--text-faint);}
+  .tabs{
+    display:flex; gap:6px; overflow-x:auto; margin-bottom:16px; padding-bottom:2px;
+    scrollbar-width:none;
+  }
+  .tabs::-webkit-scrollbar{ display:none; }
+  .tab{
+    flex-shrink:0; padding:9px 15px; border-radius:20px; background:var(--card);
+    border:1px solid var(--border); font-size:13px; font-weight:600; color:var(--muted); cursor:pointer;
+  }
+  .tab.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
 
-.grid-tabs{display:flex;gap:8px;padding:0 16px 14px 16px;}
-.grid-tab{flex:1;padding:10px 6px;background:var(--card);border:1px solid var(--border);border-radius:12px;text-align:center;font-size:12px;font-weight:700;color:var(--text-sub);cursor:pointer;}
-.grid-tab.active{background:var(--accent-dim);color:var(--accent-2);border-color:var(--accent);}
-.error-banner{background:rgba(255,84,112,0.1);border:1px solid rgba(255,84,112,0.3);color:var(--danger);border-radius:var(--radius-sm);padding:12px 14px;font-size:12.5px;margin-bottom:12px;line-height:1.5;white-space:pre-wrap;}
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; }
 
-.run-controls{display:flex;gap:8px;margin-bottom:12px;}
-.run-controls .btn{flex:1;}
-#terminal-output{
-  background:var(--code-bg);border:1px solid var(--border);border-radius:var(--radius-sm);
-  padding:12px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:11.5px;line-height:1.6;
-  color:#a9e8ff;white-space:pre-wrap;word-break:break-word;height:260px;overflow-y:auto;margin-bottom:12px;
-}
-.term-line-err{color:var(--danger);}
-.term-line-warn{color:var(--warn);}
-.term-line-info{color:var(--accent-2);}
-.term-empty{color:var(--text-faint);text-align:center;padding:30px 0;font-family:inherit;}
-.runtime-switch{display:flex;gap:8px;margin-bottom:12px;}
-.runtime-opt{flex:1;padding:10px;text-align:center;background:var(--card);border:1px solid var(--border);border-radius:12px;font-size:13px;font-weight:700;color:var(--text-sub);cursor:pointer;}
-.runtime-opt.active{background:var(--accent-dim);color:var(--accent-2);border-color:var(--accent);}
-#editor-code-full{min-height:280px;font-size:12.5px;line-height:1.55;}
-.file-chip{display:flex;align-items:center;gap:8px;background:var(--card-2);border:1px solid var(--border);border-radius:9px;padding:8px 10px;margin-bottom:6px;font-size:12px;}
-.file-chip .fname{flex:1;color:var(--text);font-family:"SF Mono",Menlo,monospace;}
-.file-chip .fsize{color:var(--text-faint);}
-.pkg-input-row{display:flex;gap:8px;}
-.pkg-input-row input{flex:1;}
+  .info-row{
+    display:flex; justify-content:space-between; align-items:center; padding:13px 0;
+    border-bottom:1px solid var(--border); gap:10px;
+  }
+  .info-row:last-child{ border-bottom:none; }
+  .info-row .k{ color:var(--muted); font-size:13.5px; }
+  .info-row .v{ font-weight:600; font-size:13.5px; text-align:right; word-break:break-all; }
+  .stat-grid{ display:flex; gap:10px; margin-bottom:18px; }
+  .stat-box{ flex:1; background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; text-align:center; }
+  .stat-box .num{ font-size:22px; font-weight:800; color:var(--accent2); }
+  .stat-box .lbl{ font-size:11.5px; color:var(--muted); margin-top:2px; }
 
-.modal{display:none;position:fixed;inset:0;background:var(--bg);z-index:200;flex-direction:column;}
-.modal.active{display:flex;}
-.modal-header{display:flex;align-items:center;gap:12px;padding:16px;border-bottom:1px solid var(--border);}
-.modal-header h3{font-size:16px;font-weight:700;flex:1;}
-.icon-btn{width:34px;height:34px;border-radius:10px;background:var(--card-2);border:none;display:flex;align-items:center;justify-content:center;color:var(--text-sub);cursor:pointer;flex-shrink:0;}
-.icon-btn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
-.modal-body{flex:1;overflow-y:auto;padding:16px;}
-.modal-footer{padding:14px 16px;border-top:1px solid var(--border);display:flex;gap:8px;}
+  .search-box{ margin-bottom:12px; }
+  .search-box input{
+    width:100%; background:var(--card2); border:1px solid var(--border); border-radius:12px;
+    padding:11px 14px; color:var(--text); font-size:14px; outline:none;
+  }
+  .cmd-item{
+    background:var(--card); border:1px solid var(--border); border-radius:14px; padding:13px 15px;
+    display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; cursor:pointer;
+  }
+  .cmd-item .trigger{ font-weight:700; font-size:14px; }
+  .cmd-item .type{ font-size:11px; color:var(--muted); margin-top:2px; }
+  .cmd-item .del{ color:var(--danger); font-size:18px; padding:6px; }
 
-.chat-list-row{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:8px;cursor:pointer;}
-.chat-list-row:active{background:var(--card-2);}
-.user-avatar{width:46px;height:46px;border-radius:50%;flex-shrink:0;object-fit:cover;background:linear-gradient(135deg,#5b6cff,#9b5bff);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;}
-.chat-list-info{flex:1;min-width:0;}
-.chat-list-name{font-size:14.5px;font-weight:700;}
-.chat-list-msg{font-size:12.5px;color:var(--text-sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
-.chat-list-meta{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;}
-.chat-list-time{font-size:10.5px;color:var(--text-faint);}
-.unread-badge{min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--accent);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;}
-.chat-bot-tag{font-size:10px;color:var(--text-faint);background:var(--card-2);border:1px solid var(--border);padding:2px 7px;border-radius:7px;margin-left:5px;flex-shrink:0;}
+  .lib-item{
+    display:flex; justify-content:space-between; align-items:center; background:var(--card);
+    border:1px solid var(--border); border-radius:14px; padding:13px 15px; margin-bottom:8px;
+  }
+  .lib-item .name{ font-weight:600; font-size:14px; }
+  .toggle{
+    width:46px; height:26px; border-radius:20px; background:#3a3f4d; position:relative; cursor:pointer; flex-shrink:0;
+    transition:background .2s;
+  }
+  .toggle.on{ background:var(--success); }
+  .toggle .knob{
+    width:20px; height:20px; border-radius:50%; background:#fff; position:absolute; top:3px; left:3px;
+    transition:left .2s;
+  }
+  .toggle.on .knob{ left:23px; }
 
-.thread-body{flex:1;overflow-y:auto;padding:14px 14px 8px 14px;display:flex;flex-direction:column;gap:8px;min-height:0;}
-.bubble{max-width:78%;padding:9px 13px;border-radius:16px;font-size:14px;line-height:1.4;word-wrap:break-word;}
-.bubble.in{align-self:flex-start;background:var(--card-2);border-bottom-left-radius:4px;}
-.bubble.out{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px;}
-.bubble-time{font-size:9.5px;opacity:.6;margin-top:3px;display:block;}
-.thread-input-bar{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--border);align-items:center;}
-.thread-input-bar input{flex:1;border-radius:20px;padding:11px 16px;}
-.send-btn{width:42px;height:42px;border-radius:50%;background:var(--accent);border:none;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;}
-.send-btn svg{width:18px;height:18px;fill:currentColor;}
-.thread-empty{text-align:center;color:var(--text-faint);font-size:12.5px;padding:40px 24px;}
+  .chat-item{
+    display:flex; align-items:center; gap:12px; background:var(--card); border:1px solid var(--border);
+    border-radius:14px; padding:12px 14px; margin-bottom:8px;
+  }
+  .chat-avatar{
+    width:38px; height:38px; border-radius:10px; background:var(--card2); display:flex; align-items:center;
+    justify-content:center; font-weight:700; flex-shrink:0;
+  }
+  .chat-info .name{ font-weight:600; font-size:14px; }
+  .chat-info .sub{ font-size:12px; color:var(--muted); }
 
-.gc-msg{display:flex;gap:10px;padding:10px 0;align-items:flex-start;}
-.gc-avatar{width:38px;height:38px;border-radius:50%;flex-shrink:0;object-fit:cover;background:linear-gradient(135deg,var(--accent),#9b5bff);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;}
-.gc-content{flex:1;min-width:0;}
-.gc-name{font-size:12.5px;font-weight:700;color:var(--accent-2);}
-.gc-uname{font-size:11px;color:var(--text-faint);font-weight:400;margin-left:4px;}
-.gc-bubble{background:var(--card);border:1px solid var(--border);border-radius:14px;border-top-left-radius:4px;padding:9px 13px;margin-top:4px;font-size:13.5px;line-height:1.45;}
-.gc-image{max-width:220px;border-radius:12px;margin-top:6px;display:block;}
-.gc-input-bar{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--border);align-items:center;position:sticky;bottom:0;background:var(--bg);}
-.gc-input-bar input{flex:1;border-radius:20px;padding:11px 16px;}
-.attach-btn{width:42px;height:42px;border-radius:50%;background:var(--card-2);border:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-sub);}
-.attach-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
-.preview-strip{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--card-2);}
-.preview-strip img{width:36px;height:36px;border-radius:8px;object-fit:cover;}
-.preview-strip span{font-size:11.5px;color:var(--text-sub);flex:1;}
+  .log-item{
+    background:var(--card); border:1px solid var(--border); border-left:3px solid var(--danger);
+    border-radius:10px; padding:11px 14px; margin-bottom:8px; font-size:12px; font-family:monospace;
+    white-space:pre-wrap; word-break:break-word; color:#ffb3b3; max-height:180px; overflow-y:auto;
+  }
+  .log-time{ color:var(--muted); font-family:inherit; font-size:11px; margin-bottom:4px; }
 
-.profile-hero{display:flex;flex-direction:column;align-items:center;padding:26px 16px 20px 16px;text-align:center;}
-.profile-avatar{width:92px;height:92px;border-radius:28px;object-fit:cover;margin-bottom:14px;background:linear-gradient(135deg,var(--accent),#9b5bff);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:34px;color:#fff;box-shadow:0 10px 30px rgba(91,108,255,0.25);}
-.profile-name{font-size:20px;font-weight:800;}
-.profile-user{font-size:13.5px;color:var(--accent-2);margin-top:3px;}
-.stat-row{display:flex;gap:10px;padding:0 16px;}
-.stat-box{flex:1;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center;}
-.stat-num{font-size:22px;font-weight:800;color:var(--accent-2);}
-.stat-label{font-size:11px;color:var(--text-sub);margin-top:4px;font-weight:600;}
-.info-line{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);font-size:13.5px;}
-.info-line:last-child{border-bottom:none;}
-.info-line span:first-child{color:var(--text-sub);}
-.info-line span:last-child{font-weight:600;}
-.edit-link{color:var(--accent-2);font-size:12px;font-weight:700;cursor:pointer;}
-.admin-panel{background:linear-gradient(135deg, #1a1a2e, #16213e);border:1px solid #f7971e;border-radius:var(--radius);padding:16px;margin-top:12px;}
-.admin-panel h3{color:#ffd200;font-size:16px;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
-.admin-panel .btn{margin-top:8px;}
-.admin-panel .btn:first-child{margin-top:0;}
+  /* ---------- Modal (full screen new bot / edit command) ---------- */
+  .modal{
+    position:fixed; inset:0; z-index:50; background:var(--bg);
+    transform:translateY(100%); transition:transform .25s ease; display:flex; flex-direction:column;
+  }
+  .modal.open{ transform:translateY(0); }
+  .modal-header{
+    display:flex; align-items:center; justify-content:space-between; padding:16px;
+    border-bottom:1px solid var(--border);
+  }
+  .modal-header h2{ margin:0; font-size:17px; }
+  .modal-close{ font-size:22px; color:var(--muted); cursor:pointer; padding:4px 8px; }
+  .modal-body{ padding:18px; overflow-y:auto; flex:1; }
+
+  .loader{
+    display:flex; align-items:center; justify-content:center; padding:40px; color:var(--muted); gap:10px; font-size:13.5px;
+  }
+  .spinner{
+    width:18px; height:18px; border-radius:50%; border:2px solid var(--border); border-top-color:var(--accent);
+    animation:spin .7s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  .profile-avatar{
+    width:84px; height:84px; border-radius:22px; margin:20px auto 14px; background:linear-gradient(135deg,var(--accent),#8a5bff);
+    display:flex; align-items:center; justify-content:center; font-size:32px; font-weight:800;
+  }
+  .center{ text-align:center; }
+  .toast{
+    position:fixed; bottom:100px; left:50%; transform:translateX(-50%);
+    background:var(--card2); border:1px solid var(--border); padding:11px 18px; border-radius:12px;
+    font-size:13.5px; z-index:100; opacity:0; transition:opacity .25s; pointer-events:none;
+  }
+  .toast.show{ opacity:1; }
 </style>
 </head>
 <body>
 
-<div id="loader">
-  <div class="logo-mark">DG</div>
-  <div class="loader-sub">Синхронизация профиля DarkGram…</div>
-</div>
-
-<!-- ============ REGISTRATION SCREEN ============ -->
-<div id="register-screen">
-  <div class="reg-hero">
-    <div class="logo-mark">DG</div>
-    <h1 id="reg-title">Добро пожаловать</h1>
-    <p id="reg-sub">Создай аккаунт DarkGram Bot Studio, чтобы подключать и запускать своих ботов.</p>
-  </div>
-  <div class="reg-body">
-    <div class="reg-step active" id="reg-step-username">
-      <div>
-        <label class="field-label">Придумай юзернейм</label>
-        <div class="reg-input-wrap">
-          <input type="text" id="reg-username-input" placeholder="my_username" autocomplete="off" oninput="onUsernameInput()" />
-          <span class="reg-status-icon" id="reg-username-icon"></span>
-        </div>
-        <div class="reg-status-msg hint" id="reg-username-status">3-20 символов: латиница, цифры, _</div>
-      </div>
-    </div>
-    <div class="reg-step" id="reg-step-name">
-      <div>
-        <label class="field-label">Как тебя показывать другим</label>
-        <div class="reg-input-wrap">
-          <input type="text" id="reg-name-input" placeholder="Например: Александр" autocomplete="off" />
-        </div>
-        <div class="reg-status-msg hint">Это имя увидят в общем чате студии</div>
-      </div>
-    </div>
-  </div>
-  <div class="reg-footer">
-    <button class="btn" id="reg-next-btn" onclick="regGoNext()" disabled>Далее</button>
-    <div class="reg-back-link" id="reg-back-link" style="display:none;" onclick="regGoBack()">← Назад</div>
-  </div>
-</div>
-
 <div id="app">
 
-  <!-- ============ TAB: BOTS ============ -->
-  <div id="tab-bots" class="tab-content active">
-    <div class="screen-header">
-      <div>
-        <div class="screen-title">Боты</div>
-        <div class="screen-sub" id="bots-count-sub">Загрузка…</div>
-      </div>
-    </div>
-    <div class="screen-body">
-      <div id="bots-list-view"></div>
-      <div id="bots-empty" class="empty-state" style="display:none;">
-        <div class="glyph">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5b6cff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="3"/><circle cx="8.5" cy="14" r="1.2" fill="#5b6cff"/><circle cx="15.5" cy="14" r="1.2" fill="#5b6cff"/><path d="M12 8V4"/><circle cx="12" cy="3" r="1"/></svg>
-        </div>
-        <h3>Пока нет ботов</h3>
-        <p>Подключи бота по токену из @BotFather —<br>он появится здесь как карточка.</p>
-        <button class="btn" onclick="openAddBotModal()">+ Подключить бота</button>
-      </div>
-    </div>
-    <button class="fab" id="bots-fab" onclick="openAddBotModal()" style="display:none;">+</button>
-  </div>
-
-  <!-- ============ TAB: BOT DETAIL ============ -->
-  <div id="tab-bot-detail" class="tab-content">
-    <div class="detail-back" onclick="closeBotDetail()">
-      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
-      <span>Боты</span>
-    </div>
-    <div class="bot-hero">
-      <div class="bot-hero-avatar" id="detail-avatar">?</div>
-      <div class="bot-hero-name" id="detail-name">—</div>
-      <div class="bot-hero-user" id="detail-user">@—</div>
-      <div class="status-pill" id="detail-status-pill">
-        <span class="status-dot" id="detail-status-dot"></span>
-        <span id="detail-status-text">—</span>
-      </div>
-    </div>
-
-    <div class="grid-tabs">
-      <div class="grid-tab active" id="dtab-overview" onclick="switchDetailTab('overview')">Обзор</div>
-      <div class="grid-tab" id="dtab-terminal" onclick="switchDetailTab('terminal')">Terminal</div>
-    </div>
-
-    <div class="screen-body" style="padding-top:0;">
-      <div id="detail-overview">
-        <div id="detail-error-banner" class="error-banner" style="display:none;"></div>
-        <div class="card">
-          <div style="display:flex;align-items:center;justify-content:space-between;">
-            <div>
-              <div style="font-weight:700;font-size:14.5px;">Статус бота</div>
-              <div style="font-size:12px;color:var(--text-sub);margin-top:2px;" id="detail-runtime-label">telebot</div>
-              <div style="font-size:11px;color:var(--text-faint);margin-top:2px;" id="detail-restart-info">⏰ 24ч до отключения</div>
-            </div>
-            <div class="status-pill" id="detail-status-pill-2" style="margin-top:0;">
-              <span class="status-dot" id="detail-status-dot-2"></span>
-              <span id="detail-status-text-2">—</span>
-            </div>
-          </div>
-        </div>
-        <div class="run-controls">
-          <button class="btn success" id="detail-start-btn" onclick="startActiveBot()">▶ Запустить</button>
-          <button class="btn danger" id="detail-stop-btn" onclick="stopActiveBot()">■ Остановить</button>
-        </div>
-        <button class="btn secondary" onclick="restartActiveBot()" style="margin-bottom:12px;">↻ Перезапустить</button>
-        <div class="card">
-          <label class="field-label">Токен</label>
-          <input type="text" id="detail-token" readonly />
-        </div>
-        <button class="btn danger" onclick="deleteBotConfirm()">Удалить бота из студии</button>
-      </div>
-
-      <div id="detail-terminal" style="display:none;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <div style="font-weight:700;font-size:14.5px;">Код бота (Python)</div>
-          <button class="btn sm secondary" onclick="openCodeEditor()">✎ Открыть редактор</button>
-        </div>
-
-        <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:var(--text-sub);">Живой лог</div>
-        <div id="terminal-output"><div class="term-empty">Бот не запущен — нажми «Запустить» на вкладке Обзор</div></div>
-        <button class="btn sm secondary" onclick="loadTerminalLog()" style="width:100%;margin-bottom:16px;">↻ Обновить лог</button>
-
-        <div class="card">
-          <label class="field-label">Установить библиотеку (pip)</label>
-          <div class="pkg-input-row">
-            <input type="text" id="pkg-name-input" placeholder="например: requests" />
-            <button class="btn sm" onclick="installPackage()">Установить</button>
-          </div>
-        </div>
-
-        <div class="card">
-          <label class="field-label">Файлы бота (база данных, json, csv…)</label>
-          <div id="bot-files-list"></div>
-          <button class="btn sm secondary" onclick="document.getElementById('bot-file-input').click()" style="margin-top:6px;">+ Загрузить файл</button>
-          <input type="file" id="bot-file-input" style="display:none;" onchange="uploadBotFile(event)" />
-          <p class="editor-hint" style="margin-top:8px;">Файл сохраняется в рабочую папку бота — обращайся к нему в коде просто по имени, например <span class="mono">open("data.db")</span>.</p>
-        </div>
-      </div>
+  <!-- ============== SCREEN: BOTS LIST ============== -->
+  <div class="screen active" id="screen-bots">
+    <div class="topbar"><h1>Боты</h1></div>
+    <div id="bots-list-container">
+      <div class="loader"><div class="spinner"></div> Загрузка...</div>
     </div>
   </div>
 
-  <!-- ============ TAB: CHATS ============ -->
-  <div id="tab-chats" class="tab-content">
-    <div class="screen-header">
+  <!-- ============== SCREEN: BOT DETAIL ============== -->
+  <div class="screen" id="screen-bot-detail">
+    <div class="topbar">
+      <div class="back" onclick="goToBotsList()">←</div>
+      <h1 style="font-size:16px;">Управление ботом</h1>
+    </div>
+
+    <div class="bot-header">
+      <div class="bot-avatar" id="detail-avatar">B</div>
       <div>
-        <div class="screen-title">Чаты</div>
-        <div class="screen-sub">Диалоги с пользователями твоих ботов</div>
+        <h2 id="detail-name">—</h2>
+        <div class="username" id="detail-username">@—</div>
+        <div class="status-pill off" id="detail-status-pill">Отключен</div>
       </div>
     </div>
-    <div class="screen-body">
+
+    <div class="control-btns">
+      <div class="control-btn run" onclick="controlBot('start')"><div class="ico">▶</div><span>Запустить</span></div>
+      <div class="control-btn stop" onclick="controlBot('stop')"><div class="ico">■</div><span>Остановить</span></div>
+      <div class="control-btn restart" onclick="controlBot('restart')"><div class="ico">↻</div><span>Перезапуск</span></div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="info" onclick="switchTab('info')">Info</div>
+      <div class="tab" data-tab="commands" onclick="switchTab('commands')">Commands</div>
+      <div class="tab" data-tab="library" onclick="switchTab('library')">Library</div>
+      <div class="tab" data-tab="database" onclick="switchTab('database')">Database</div>
+      <div class="tab" data-tab="chats" onclick="switchTab('chats')">Chats</div>
+      <div class="tab" data-tab="logs" onclick="switchTab('logs')">Logs</div>
+    </div>
+
+    <!-- INFO -->
+    <div class="tab-panel active" id="panel-info">
+      <div class="stat-grid">
+        <div class="stat-box"><div class="num" id="info-cmd-count">0</div><div class="lbl">Команд</div></div>
+        <div class="stat-box"><div class="num" id="info-users-count">0</div><div class="lbl">Пользователей</div></div>
+      </div>
+      <div style="background:var(--card); border:1px solid var(--border); border-radius:16px; padding:6px 16px;">
+        <div class="info-row"><div class="k">ID бота в системе</div><div class="v" id="info-id">—</div></div>
+        <div class="info-row"><div class="k">Telegram ID</div><div class="v" id="info-tg-id">—</div></div>
+        <div class="info-row">
+          <div class="k">Токен</div>
+          <div class="v" id="info-token" style="cursor:pointer;" onclick="toggleTokenVisibility()">••••••••</div>
+        </div>
+        <div class="info-row"><div class="k">Создан</div><div class="v" id="info-created">—</div></div>
+      </div>
+    </div>
+
+    <!-- COMMANDS -->
+    <div class="tab-panel" id="panel-commands">
+      <div class="search-box"><input type="text" placeholder="🔍 Поиск команды..." id="cmd-search" oninput="searchCommands()"></div>
+      <div id="commands-list"></div>
+    </div>
+
+    <!-- LIBRARY -->
+    <div class="tab-panel" id="panel-library">
+      <div id="library-list"></div>
+    </div>
+
+    <!-- DATABASE -->
+    <div class="tab-panel" id="panel-database">
+      <div class="hint" style="margin-bottom:16px;">У этого бота своя изолированная база данных SQLite (bot_{id}.db) — пользователи и данные хранятся отдельно от остальных ботов.</div>
+      <button class="btn secondary" onclick="downloadBotDb()">⬇ Скачать файл БД</button>
+      <button class="btn danger" style="margin-top:10px;" onclick="resetBotDb()">🗑 Удалить / Сбросить БД</button>
+    </div>
+
+    <!-- CHATS -->
+    <div class="tab-panel" id="panel-chats">
       <div id="chats-list"></div>
-      <div id="chats-empty" class="empty-state" style="display:none;">
-        <div class="glyph">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#5b6cff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
-        </div>
-        <h3>Диалогов пока нет</h3>
-        <p>Как только кто-то напишет твоему боту<br>(например /start), переписка появится здесь.</p>
-      </div>
+    </div>
+
+    <!-- LOGS -->
+    <div class="tab-panel" id="panel-logs">
+      <button class="btn secondary" style="margin-bottom:14px;" onclick="loadLogs()">↻ Обновить</button>
+      <div id="logs-list"></div>
     </div>
   </div>
 
-  <!-- ============ TAB: CHAT THREAD ============ -->
-  <div id="tab-chat-thread" class="tab-content" style="padding-bottom:0;">
-    <div class="detail-back" onclick="closeThread()">
-      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
-      <span>Чаты</span>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;padding:0 16px 12px 16px;">
-      <div class="user-avatar" id="thread-avatar">?</div>
-      <div>
-        <div style="font-weight:700;font-size:15px;" id="thread-name">—</div>
-        <div style="font-size:11.5px;color:var(--text-sub);" id="thread-username">—</div>
-      </div>
-    </div>
-    <div class="thread-body" id="thread-body"></div>
-    <div class="thread-input-bar" style="margin-bottom:84px;flex-shrink:0;">
-      <input type="text" id="thread-input" placeholder="Написать от имени бота…" onkeydown="if(event.key==='Enter')sendThreadMessage()" />
-      <button class="send-btn" onclick="sendThreadMessage()">
-        <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
-      </button>
+  <!-- ============== SCREEN: INFO ============== -->
+  <div class="screen" id="screen-info">
+    <div class="topbar"><h1>Информация</h1></div>
+    <div style="background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px; line-height:1.6; font-size:14px; color:var(--muted);">
+      <p style="color:var(--text); font-weight:700; margin-top:0;">Bot Constructor</p>
+      <p>Конструктор Telegram-ботов. Создавайте ботов, настраивайте команды на Python, управляйте базой данных и следите за пользователями и логами — всё в одном мини-приложении.</p>
+      <p>Каждый бот работает изолированно: своя база данных, свои библиотеки, свои логи. Запуск и остановка сохраняются даже после перезапуска сервера.</p>
     </div>
   </div>
 
-  <!-- ============ TAB: GLOBAL CHAT ============ -->
-  <div id="tab-global" class="tab-content" style="padding-bottom:0;">
-    <div class="screen-header" style="padding-bottom:8px;flex-shrink:0;">
-      <div>
-        <div class="screen-title">Чат Студии</div>
-        <div class="screen-sub">Общаемся с другими разработчиками DarkGram</div>
-      </div>
+  <!-- ============== SCREEN: PROFILE ============== -->
+  <div class="screen" id="screen-profile">
+    <div class="topbar"><h1>Профиль</h1></div>
+    <div class="center">
+      <div class="profile-avatar" id="profile-avatar">?</div>
+      <div style="font-weight:700; font-size:18px;" id="profile-name">—</div>
+      <div style="color:var(--muted); font-size:13.5px; margin-top:2px;" id="profile-username">@—</div>
     </div>
-    <div id="global-messages" style="flex:1;overflow-y:auto;padding:0 16px;min-height:0;"></div>
-    <div id="gc-preview" class="preview-strip" style="display:none;flex-shrink:0;">
-      <img id="gc-preview-img" src="" />
-      <span>Фото готово к отправке</span>
-      <button class="icon-btn" onclick="clearGlobalAttachment()">
-        <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
-      </button>
-    </div>
-    <div class="gc-input-bar" style="flex-shrink:0;margin-bottom:84px;">
-      <button class="attach-btn" onclick="document.getElementById('gc-file-input').click()">
-        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 3h5v5"/><path d="M10 14L21 3"/></svg>
-      </button>
-      <input type="file" id="gc-file-input" accept="image/*" style="display:none;" onchange="handleGlobalFile(event)" />
-      <input type="text" id="global-msg-input" placeholder="Написать всем…" onkeydown="if(event.key==='Enter')sendGlobalMsg()" />
-      <button class="send-btn" onclick="sendGlobalMsg()">
-        <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
-      </button>
-    </div>
-  </div>
-
-  <!-- ============ TAB: PROFILE ============ -->
-  <div id="tab-profile" class="tab-content">
-    <div class="profile-hero">
-      <div id="prof-avatar-container" style="position:relative;cursor:pointer;" onclick="document.getElementById('avatar-file-input').click()"></div>
-      <input type="file" id="avatar-file-input" accept="image/*" style="display:none;" onchange="handleAvatarUpload(event)" />
-      <div style="font-size:11px;color:var(--accent-2);font-weight:700;margin-top:-6px;margin-bottom:8px;">Изменить фото</div>
-      <div class="profile-name" id="prof-name">Загрузка…</div>
-      <div class="profile-user" id="prof-user">@username</div>
-    </div>
-    <div class="stat-row">
-      <div class="stat-box">
-        <div class="stat-num" id="prof-bots-count">0</div>
-        <div class="stat-label">БОТОВ СОЗДАНО</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-num" id="prof-active-count">0</div>
-        <div class="stat-label">АКТИВНЫХ</div>
-      </div>
-    </div>
-    <div class="screen-body">
-      <div class="card" style="margin-top:16px;">
-        <div class="info-line">
-          <span>Ник</span>
-          <span><span id="prof-display-name">—</span> <span class="edit-link" onclick="openEditProfile('name')">изменить</span></span>
-        </div>
-        <div class="info-line">
-          <span>Юзернейм</span>
-          <span><span id="prof-user2">—</span> <span class="edit-link" onclick="openEditProfile('username')">изменить</span></span>
-        </div>
-        <div class="info-line">
-          <span>DarkGram ID</span>
-          <span id="prof-darkgram-id">—</span>
-        </div>
-      </div>
-
-      <!-- Скачивание -->
-      <div class="card">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn sm secondary" onclick="downloadBotPy()" style="flex:1;">📥 bot.py</button>
-          <button class="btn sm secondary" onclick="downloadDatabase()" style="flex:1;">📥 БД</button>
-        </div>
-      </div>
-
-      <!-- АДМИН-ПАНЕЛЬ (только для durov) -->
-      <div id="admin-panel" class="admin-panel" style="display:none;">
-        <h3>👑 Админ-панель</h3>
-        <button class="btn admin" onclick="adminGiveAccess()">➕ Дать доступ (1 бот)</button>
-        <button class="btn admin" onclick="adminAddBotSlot()">➕ +1 бот (макс 5)</button>
-        <button class="btn admin" onclick="adminViewLogs()">📋 Логи</button>
-        <button class="btn admin" onclick="adminViewUsers()">👥 Пользователи</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ============ MODAL: ADD BOT ============ -->
-  <div id="add-bot-modal" class="modal">
-    <div class="modal-header">
-      <button class="icon-btn" onclick="closeAddBotModal()"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-      <h3>Новый бот</h3>
-    </div>
-    <div class="modal-body">
-      <label class="field-label">Токен из @BotFather</label>
-      <input type="text" id="new-token-input" placeholder="1780243205:jrHuqyP25…" style="margin-bottom:16px;" />
-
-      <label class="field-label">Библиотека для написания бота</label>
-      <div class="runtime-switch">
-        <div class="runtime-opt active" id="runtime-opt-telebot" onclick="selectNewBotRuntime('telebot')">pyTelegramBotAPI<br><span style="font-weight:400;font-size:11px;">(telebot)</span></div>
-        <div class="runtime-opt" id="runtime-opt-aiogram" onclick="selectNewBotRuntime('aiogram')">aiogram 3<br><span style="font-weight:400;font-size:11px;">(async)</span></div>
-      </div>
-      <p class="editor-hint">Создай бота через @BotFather в DarkGram командой /newbot, скопируй токен и вставь сюда. Библиотеку можно сменить позже в редакторе кода.</p>
-    </div>
-    <div class="modal-footer">
-      <button class="btn" onclick="createBot()">Подключить бота</button>
-    </div>
-  </div>
-
-  <!-- ============ MODAL: CODE EDITOR ============ -->
-  <div id="editor-modal" class="modal">
-    <div class="modal-header">
-      <button class="icon-btn" onclick="closeEditor()"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-      <h3>Код бота</h3>
-    </div>
-    <div class="modal-body" style="display:flex;flex-direction:column;">
-      <div class="runtime-switch">
-        <div class="runtime-opt" id="editor-runtime-telebot" onclick="switchEditorRuntime('telebot')">telebot</div>
-        <div class="runtime-opt" id="editor-runtime-aiogram" onclick="switchEditorRuntime('aiogram')">aiogram</div>
-      </div>
-      <label class="field-label">main.py</label>
-      <textarea id="editor-code-full" spellcheck="false"></textarea>
-      <div class="editor-hint">
-        Объект <b>bot</b> (и <b>dp</b> для aiogram) уже создан. В конце для telebot вызови <span class="mono">bot.infinity_polling()</span>, для aiogram — <span class="mono">asyncio.run(main())</span>.
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn" onclick="saveEditorCode()">Сохранить</button>
-    </div>
-  </div>
-
-  <!-- ============ MODAL: EDIT PROFILE ============ -->
-  <div id="edit-profile-modal" class="modal">
-    <div class="modal-header">
-      <button class="icon-btn" onclick="closeEditProfile()"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-      <h3 id="edit-profile-title">Изменить</h3>
-    </div>
-    <div class="modal-body">
-      <div class="reg-input-wrap">
-        <input type="text" id="edit-profile-input" oninput="onEditProfileInput()" />
-        <span class="reg-status-icon" id="edit-profile-icon"></span>
-      </div>
-      <div class="reg-status-msg hint" id="edit-profile-status"></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn" id="edit-profile-save-btn" onclick="saveEditProfile()">Сохранить</button>
-    </div>
-  </div>
-
-  <!-- ============ MODAL: ADMIN LOGS ============ -->
-  <div id="admin-logs-modal" class="modal">
-    <div class="modal-header">
-      <button class="icon-btn" onclick="document.getElementById('admin-logs-modal').classList.remove('active')"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-      <h3>📋 Логи системы</h3>
-    </div>
-    <div class="modal-body" id="admin-logs-body" style="font-family:monospace;font-size:12px;line-height:1.6;white-space:pre-wrap;"></div>
-    <div class="modal-footer">
-      <button class="btn sm secondary" onclick="adminViewLogs()">↻ Обновить</button>
-    </div>
-  </div>
-
-  <!-- ============ MODAL: ADMIN USERS ============ -->
-  <div id="admin-users-modal" class="modal">
-    <div class="modal-header">
-      <button class="icon-btn" onclick="document.getElementById('admin-users-modal').classList.remove('active')"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-      <h3>👥 Пользователи</h3>
-    </div>
-    <div class="modal-body" id="admin-users-body"></div>
-    <div class="modal-footer">
-      <button class="btn sm secondary" onclick="adminViewUsers()">↻ Обновить</button>
+    <div class="stat-grid" style="margin-top:24px;">
+      <div class="stat-box"><div class="num" id="profile-bots-count">0</div><div class="lbl">Ваших ботов</div></div>
     </div>
   </div>
 
 </div>
 
+<!-- ============== FAB (create bot) — only visible on bots screen ============== -->
+<button class="fab" id="fab-create-bot" onclick="openNewBotModal()">+</button>
+
+<!-- ============== BOTTOM NAV ============== -->
 <div class="bottom-nav">
-  <div class="nav-item active" id="nav-bots" onclick="switchTab('bots', this)">
-    <div class="nav-glyph"><svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="12" rx="3"/><circle cx="8.5" cy="14" r="1" fill="currentColor"/><circle cx="15.5" cy="14" r="1" fill="currentColor"/><path d="M12 8V4"/><circle cx="12" cy="3" r="1" fill="currentColor"/></svg></div>
-    <div class="nav-label">Боты</div>
+  <div class="nav-item active" data-screen="bots" onclick="switchScreen('bots')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="7" r="4"/></svg>
+    <span>Боты</span>
   </div>
-  <div class="nav-item" id="nav-chats" onclick="switchTab('chats', this)">
-    <div class="nav-glyph"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg></div>
-    <div class="nav-label">Чаты</div>
-    <div class="nav-badge" id="chats-badge" style="display:none;">0</div>
+  <div class="nav-item" data-screen="info" onclick="switchScreen('info')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    <span>Информация</span>
   </div>
-  <div class="nav-item" id="nav-global" onclick="switchTab('global', this)">
-    <div class="nav-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18 14 14 0 010-18z"/></svg></div>
-    <div class="nav-label">Студия</div>
-  </div>
-  <div class="nav-item" id="nav-profile" onclick="switchTab('profile', this)">
-    <div class="nav-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg></div>
-    <div class="nav-label">Профиль</div>
+  <div class="nav-item" data-screen="profile" onclick="switchScreen('profile')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    <span>Профиль</span>
   </div>
 </div>
+
+<!-- ============== MODAL: NEW BOT ============== -->
+<div class="modal" id="modal-new-bot">
+  <div class="modal-header">
+    <h2>New bot</h2>
+    <div class="modal-close" onclick="closeModal('modal-new-bot')">✕</div>
+  </div>
+  <div class="modal-body">
+    <div class="error-box" id="new-bot-error"></div>
+    <div class="field">
+      <label>Название бота</label>
+      <input type="text" id="new-bot-name" placeholder="Например: Мой магазин">
+    </div>
+    <div class="field">
+      <label>Токен от @BotFather</label>
+      <input type="text" id="new-bot-token" placeholder="123456789:AAE...">
+      <div class="hint">Получите токен у @BotFather командой /newbot</div>
+    </div>
+    <button class="btn" id="new-bot-submit" onclick="submitNewBot()">Создать</button>
+  </div>
+</div>
+
+<!-- ============== MODAL: NEW / EDIT COMMAND ============== -->
+<div class="modal" id="modal-command">
+  <div class="modal-header">
+    <h2 id="command-modal-title">Новая команда</h2>
+    <div class="modal-close" onclick="closeModal('modal-command')">✕</div>
+  </div>
+  <div class="modal-body">
+    <div class="error-box" id="command-error"></div>
+    <div class="field">
+      <label>Название / Триггер</label>
+      <input type="text" id="cmd-trigger" placeholder="/start, Привет, help...">
+    </div>
+    <div class="field">
+      <label>Тип срабатывания</label>
+      <select id="cmd-trigger-type">
+        <option value="exact">Точное совпадение</option>
+        <option value="contains">Содержит текст</option>
+        <option value="regex">Регулярное выражение</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Python Code</label>
+      <textarea id="cmd-code" placeholder="reply('Привет!')" spellcheck="false"></textarea>
+      <div class="hint">Доступно: bot, message, send(text), reply(text), db.get/set(key), requests, json, re, math, random, datetime, time, types</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn danger" id="cmd-delete-btn" style="display:none;" onclick="deleteCommand()">Удалить</button>
+      <button class="btn" onclick="submitCommand()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
 
 <script>
-const BACKEND_URL = "https://a48794-5d18.e.jrnm.app";
-const tg = window.Telegram?.WebApp;
+// ============================================================================
+// ИНИЦИАЛИЗАЦИЯ TELEGRAM WEBAPP
+// ============================================================================
+const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+if (tg) { tg.ready(); tg.expand(); }
 
-const DEVICE_ID_KEY = 'darkgram_studio_device_id';
+const API_BASE = ""; // тот же домен, что и index.html (VPS отдаёт оба файла)
+let CURRENT_BOT_ID = null;
+let ALL_COMMANDS = [];
+let EDITING_COMMAND_ID = null;
+let TOKEN_VISIBLE = false;
+let CURRENT_BOT_TOKEN_MASKED = "";
 
-function getOrCreateDeviceId(){
-  try {
-    let id = localStorage.getItem(DEVICE_ID_KEY);
-    if (!id) {
-      id = (crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2)));
-      localStorage.setItem(DEVICE_ID_KEY, id);
-    }
-    return id;
-  } catch(e) {
-    return 'fallback-' + Date.now();
-  }
+function getInitData() {
+  return tg && tg.initData ? tg.initData : "";
 }
 
-let currentUser = { device_id: getOrCreateDeviceId(), darkgram_id: null, username: '', first_name: '', photo_url: '' };
-let userBots = [];
-let activeBotToken = null;
-let activeChatId = null;
-let globalAttachmentBase64 = null;
-let chatsListPollTimer = null;
-let threadPollTimer = null;
-let terminalPollTimer = null;
-let newBotRuntime = 'telebot';
-let editorRuntime = 'telebot';
-let editProfileField = null;
-let usernameCheckTimer = null;
-let regUsernameValid = false;
-
-function initials(name){ return (name || "?").trim().charAt(0).toUpperCase() || "?"; }
-
-// ---------- INIT ----------
-window.addEventListener('DOMContentLoaded', async () => {
-  if (tg) { try { tg.expand(); } catch(e){} }
-
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/init`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ device_id: currentUser.device_id })
-    });
-    const data = await res.json();
-
-    document.getElementById('loader').style.display = 'none';
-
-    if (data.success && data.needs_registration) {
-      document.getElementById('register-screen').classList.add('active');
-      return;
-    }
-    if (data.success && data.user) {
-      currentUser = data.user;
-      userBots = data.bots || [];
-      renderProfile();
-      renderBotsList();
-    }
-  } catch (e) {
-    console.error("Ошибка загрузки init:", e);
-    document.getElementById('loader').style.display = 'none';
-    document.getElementById('register-screen').classList.add('active');
-  }
-});
-
-// ============================================================
-//                       РЕГИСТРАЦИЯ
-// ============================================================
-function onUsernameInput(){
-  const val = document.getElementById('reg-username-input').value.trim();
-  const icon = document.getElementById('reg-username-icon');
-  const status = document.getElementById('reg-username-status');
-  const nextBtn = document.getElementById('reg-next-btn');
-
-  regUsernameValid = false;
-  nextBtn.disabled = true;
-  icon.innerText = '';
-  clearTimeout(usernameCheckTimer);
-
-  if (!val) { status.className = 'reg-status-msg hint'; status.innerText = '3-20 символов: латиница, цифры, _'; return; }
-  if (!/^[a-zA-Z0-9_]{3,20}$/.test(val)) {
-    status.className = 'reg-status-msg err'; status.innerText = 'Только латиница, цифры и _, от 3 до 20 символов'; icon.innerText='✕'; return;
-  }
-
-  status.className = 'reg-status-msg hint'; status.innerText = 'Проверяю…';
-  usernameCheckTimer = setTimeout(async () => {
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/check_username`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: val })
-      });
-      const data = await res.json();
-      if (data.success && data.available) {
-        status.className = 'reg-status-msg ok'; status.innerText = 'Свободно ✓'; icon.innerText = '✓';
-        regUsernameValid = true; nextBtn.disabled = false;
-      } else {
-        status.className = 'reg-status-msg err'; status.innerText = data.message || 'Занято'; icon.innerText = '✕';
-      }
-    } catch(e) {
-      status.className = 'reg-status-msg err'; status.innerText = 'Ошибка проверки, попробуй ещё раз';
-    }
-  }, 400);
+async function api(path, options = {}) {
+  const headers = Object.assign(
+    { "Content-Type": "application/json", "X-Telegram-Init-Data": getInitData() },
+    options.headers || {}
+  );
+  const res = await fetch(API_BASE + path, Object.assign({}, options, { headers }));
+  let data;
+  try { data = await res.json(); } catch (e) { data = { ok: false, error: "Invalid server response" }; }
+  if (!res.ok && !data.error) data.error = "Ошибка запроса (" + res.status + ")";
+  return data;
 }
 
-function regGoNext(){
-  const step1Active = document.getElementById('reg-step-username').classList.contains('active');
-  if (step1Active) {
-    if (!regUsernameValid) return;
-    document.getElementById('reg-step-username').classList.remove('active');
-    document.getElementById('reg-step-name').classList.add('active');
-    document.getElementById('reg-title').innerText = 'Почти готово';
-    document.getElementById('reg-sub').innerText = 'Как тебя будут видеть другие пользователи студии';
-    document.getElementById('reg-next-btn').innerText = 'Создать аккаунт';
-    document.getElementById('reg-back-link').style.display = 'block';
-    document.getElementById('reg-name-input').value = document.getElementById('reg-username-input').value;
-    checkNameStep();
-    document.getElementById('reg-name-input').oninput = checkNameStep;
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+// ============================================================================
+// НАВИГАЦИЯ МЕЖДУ ЭКРАНАМИ
+// ============================================================================
+function switchScreen(name) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+  document.getElementById("screen-" + name).classList.add("active");
+  document.querySelector(`.nav-item[data-screen="${name}"]`).classList.add("active");
+  document.getElementById("fab-create-bot").style.display = (name === "bots") ? "flex" : "none";
+
+  if (name === "bots") loadBotsList();
+  if (name === "info") { /* статично */ }
+  if (name === "profile") loadProfile();
+}
+
+function goToBotsList() {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById("screen-bots").classList.add("active");
+  document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+  document.querySelector('.nav-item[data-screen="bots"]').classList.add("active");
+  document.getElementById("fab-create-bot").style.display = "flex";
+  loadBotsList();
+}
+
+// ============================================================================
+// МОДАЛКИ
+// ============================================================================
+function openModal(id) { document.getElementById(id).classList.add("open"); }
+function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+
+function openNewBotModal() {
+  document.getElementById("new-bot-name").value = "";
+  document.getElementById("new-bot-token").value = "";
+  document.getElementById("new-bot-error").style.display = "none";
+  openModal("modal-new-bot");
+}
+
+// ============================================================================
+// ЭКРАН: СПИСОК БОТОВ
+// ============================================================================
+async function loadBotsList() {
+  const container = document.getElementById("bots-list-container");
+  container.innerHTML = '<div class="loader"><div class="spinner"></div> Загрузка...</div>';
+  const data = await api("/api/bots");
+  if (!data.ok) {
+    container.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><div>${escapeHtml(data.error || "Ошибка доступа")}</div></div>`;
     return;
   }
-  finishRegistration();
-}
-
-function checkNameStep(){
-  const val = document.getElementById('reg-name-input').value.trim();
-  document.getElementById('reg-next-btn').disabled = val.length === 0;
-}
-
-function regGoBack(){
-  document.getElementById('reg-step-name').classList.remove('active');
-  document.getElementById('reg-step-username').classList.add('active');
-  document.getElementById('reg-title').innerText = 'Добро пожаловать';
-  document.getElementById('reg-sub').innerText = 'Создай аккаунт DarkGram Bot Studio, чтобы подключать и запускать своих ботов.';
-  document.getElementById('reg-next-btn').innerText = 'Далее';
-  document.getElementById('reg-back-link').style.display = 'none';
-  document.getElementById('reg-next-btn').disabled = !regUsernameValid;
-}
-
-async function finishRegistration(){
-  const username = document.getElementById('reg-username-input').value.trim();
-  const displayName = document.getElementById('reg-name-input').value.trim();
-  const btn = document.getElementById('reg-next-btn');
-  btn.disabled = true; btn.innerText = 'Создаём…';
-
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/register`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ device_id: currentUser.device_id, username, display_name: displayName })
-    });
-    const data = await res.json();
-    if (data.success) {
-      currentUser = data.user;
-      userBots = [];
-      document.getElementById('register-screen').classList.remove('active');
-      renderProfile();
-      renderBotsList();
-    } else {
-      alert(data.message || 'Не удалось создать аккаунт');
-      btn.disabled = false; btn.innerText = 'Создать аккаунт';
-    }
-  } catch(e) {
-    alert('Ошибка сети, попробуй ещё раз');
-    btn.disabled = false; btn.innerText = 'Создать аккаунт';
-  }
-}
-
-// ============================================================
-//                          TABS
-// ============================================================
-function switchTab(tabId, el) {
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById(`tab-${tabId}`).classList.add('active');
-  el.classList.add('active');
-
-  stopChatsListPolling();
-  stopThreadPolling();
-
-  if (tabId === 'chats') { loadAllBotChats(); startChatsListPolling(); }
-  if (tabId === 'global') loadGlobalChat();
-}
-
-// ============================================================
-//                         PROFILE
-// ============================================================
-function renderProfile(){
-  document.getElementById('prof-name').innerText = currentUser.first_name;
-  document.getElementById('prof-user').innerText = "@" + (currentUser.username || '—');
-  document.getElementById('prof-display-name').innerText = currentUser.first_name || '—';
-  document.getElementById('prof-user2').innerText = "@" + (currentUser.username || '—');
-  document.getElementById('prof-darkgram-id').innerText = currentUser.darkgram_id || '—';
-  document.getElementById('prof-bots-count').innerText = userBots.length;
-  document.getElementById('prof-active-count').innerText = userBots.filter(b => b.is_active).length;
-
-  const cont = document.getElementById('prof-avatar-container');
-  cont.innerHTML = currentUser.photo_url
-    ? `<img src="${currentUser.photo_url}" class="profile-avatar" />`
-    : `<div class="profile-avatar">${initials(currentUser.first_name)}</div>`;
-
-  // Админ-панель только для durov
-  const adminPanel = document.getElementById('admin-panel');
-  if (currentUser.username === 'durov') {
-    adminPanel.style.display = 'block';
-  } else {
-    adminPanel.style.display = 'none';
-  }
-}
-
-function openEditProfile(field){
-  editProfileField = field;
-  const modal = document.getElementById('edit-profile-modal');
-  const title = document.getElementById('edit-profile-title');
-  const input = document.getElementById('edit-profile-input');
-  const status = document.getElementById('edit-profile-status');
-  document.getElementById('edit-profile-icon').innerText = '';
-  status.className = 'reg-status-msg hint';
-
-  if (field === 'username') {
-    title.innerText = 'Изменить юзернейм';
-    input.value = currentUser.username || '';
-    status.innerText = '3-20 символов: латиница, цифры, _';
-  } else {
-    title.innerText = 'Изменить ник';
-    input.value = currentUser.first_name || '';
-    status.innerText = 'Отображаемое имя в студии';
-  }
-  modal.classList.add('active');
-}
-function closeEditProfile(){ document.getElementById('edit-profile-modal').classList.remove('active'); }
-
-function onEditProfileInput(){
-  if (editProfileField !== 'username') return;
-  const val = document.getElementById('edit-profile-input').value.trim();
-  const icon = document.getElementById('edit-profile-icon');
-  const status = document.getElementById('edit-profile-status');
-  clearTimeout(usernameCheckTimer);
-
-  if (!/^[a-zA-Z0-9_]{3,20}$/.test(val)) {
-    status.className='reg-status-msg err'; status.innerText='Только латиница, цифры и _, 3-20 символов'; icon.innerText='✕'; return;
-  }
-  if (val.toLowerCase() === (currentUser.username||'').toLowerCase()) {
-    status.className='reg-status-msg hint'; status.innerText='Это твой текущий юзернейм'; icon.innerText=''; return;
-  }
-  status.className='reg-status-msg hint'; status.innerText='Проверяю…';
-  usernameCheckTimer = setTimeout(async () => {
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/check_username`, {
-        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username: val })
-      });
-      const data = await res.json();
-      if (data.success && data.available) { status.className='reg-status-msg ok'; status.innerText='Свободно ✓'; icon.innerText='✓'; }
-      else { status.className='reg-status-msg err'; status.innerText=data.message||'Занято'; icon.innerText='✕'; }
-    } catch(e){}
-  }, 400);
-}
-
-async function saveEditProfile(){
-  const val = document.getElementById('edit-profile-input').value.trim();
-  if (!val) return;
-  const payload = { device_id: currentUser.device_id };
-  if (editProfileField === 'username') {
-    if (!/^[a-zA-Z0-9_]{3,20}$/.test(val)) return alert('Некорректный юзернейм');
-    payload.username = val;
-  } else {
-    payload.display_name = val;
-  }
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/update_profile`, {
-      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-    if (data.success) { currentUser = data.user; renderProfile(); closeEditProfile(); }
-    else alert(data.message || 'Не удалось сохранить');
-  } catch(e) { alert('Ошибка сети'); }
-}
-
-// ============================================================
-//                        BOTS LIST
-// ============================================================
-function renderBotsList(){
-  const listEl = document.getElementById('bots-list-view');
-  const emptyEl = document.getElementById('bots-empty');
-  const fab = document.getElementById('bots-fab');
-  const sub = document.getElementById('bots-count-sub');
-
-  if (userBots.length === 0){
-    listEl.innerHTML = '';
-    emptyEl.style.display = 'block';
-    fab.style.display = 'none';
-    sub.innerText = 'Нет подключённых ботов';
+  const bots = data.bots || [];
+  if (bots.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">🤖</div>
+        <div>У вас еще нету своего бота</div>
+      </div>`;
     return;
   }
-
-  emptyEl.style.display = 'none';
-  fab.style.display = 'flex';
-  sub.innerText = `${userBots.length} ${userBots.length === 1 ? 'бот' : 'бота'} · ${userBots.filter(b=>b.is_active).length} активно`;
-
-  listEl.innerHTML = userBots.map(b => `
-    <div class="bot-row" data-token="${escapeAttr(b.token)}">
-      <div class="bot-avatar">${b.avatar ? `<img src="${b.avatar}" style="width:100%;height:100%;border-radius:14px;object-fit:cover;">` : initials(b.name)}</div>
-      <div class="bot-row-info">
-        <div class="bot-row-name">${escapeHtml(b.name || 'Без имени')}</div>
-        <div class="bot-row-sub"><span class="status-dot ${b.is_active ? '' : 'off'}"></span>@${escapeHtml(b.username || '')} · ${b.is_active ? 'запущен' : 'остановлен'}</div>
+  container.innerHTML = bots.map(b => `
+    <div class="bot-card" onclick="openBotDetail(${b.id})">
+      <div class="bot-avatar">${escapeHtml((b.name || "B")[0].toUpperCase())}</div>
+      <div class="bot-info">
+        <div class="name">${escapeHtml(b.name)}</div>
+        <div class="sub">@${escapeHtml(b.bot_username || "—")} · ${b.commands_count} команд</div>
       </div>
-      <div class="chevron"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+      <div class="status-dot ${b.is_active ? "on" : "off"}"></div>
     </div>
-  `).join('');
-
-  listEl.querySelectorAll('.bot-row').forEach(row => {
-    row.addEventListener('click', () => openBotDetail(row.dataset.token));
-  });
+  `).join("");
 }
 
-function findBot(token){ return userBots.find(b => b.token === token); }
-
-// ---------- ADD BOT ----------
-function openAddBotModal(){ newBotRuntime='telebot'; selectNewBotRuntime('telebot'); document.getElementById('add-bot-modal').classList.add('active'); }
-function closeAddBotModal(){ document.getElementById('add-bot-modal').classList.remove('active'); document.getElementById('new-token-input').value=''; }
-function selectNewBotRuntime(rt){
-  newBotRuntime = rt;
-  document.getElementById('runtime-opt-telebot').classList.toggle('active', rt==='telebot');
-  document.getElementById('runtime-opt-aiogram').classList.toggle('active', rt==='aiogram');
-}
-
-async function createBot(){
-  const token = document.getElementById('new-token-input').value.trim();
-  if(!token) return alert("Введите токен!");
-  document.getElementById('loader').style.display = 'flex';
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/create_bot`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, device_id: currentUser.device_id, runtime: newBotRuntime, username: currentUser.username })
-    });
-    const data = await res.json();
-    if(data.success){
-      userBots.push(data.bot);
-      closeAddBotModal();
-      renderBotsList();
-      renderProfile();
-    } else {
-      alert(data.message);
-    }
-  } catch(e){
-    alert("Ошибка подключения!");
-  } finally {
-    document.getElementById('loader').style.display = 'none';
-  }
-}
-
-// ============================================================
-//                       BOT DETAIL
-// ============================================================
-function openBotDetail(token){
-  activeBotToken = token;
-  const b = findBot(token);
-  if(!b) return;
-
-  document.getElementById('detail-avatar').innerHTML = b.avatar ? `<img src="${b.avatar}" style="width:100%;height:100%;border-radius:24px;object-fit:cover;">` : initials(b.name);
-  document.getElementById('detail-name').innerText = b.name || 'Без имени';
-  document.getElementById('detail-user').innerText = '@' + (b.username || '');
-  document.getElementById('detail-token').value = b.token;
-  document.getElementById('detail-runtime-label').innerText = b.runtime === 'aiogram' ? 'aiogram 3 (async)' : 'pyTelegramBotAPI (telebot)';
-  
-  updateDetailStatusUI(b);
-  updateRestartInfo(b);
-
-  const errBanner = document.getElementById('detail-error-banner');
-  if (b.last_error) { errBanner.style.display = 'block'; errBanner.innerText = '⚠ ' + b.last_error; }
-  else { errBanner.style.display = 'none'; }
-
-  switchDetailTab('overview');
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-  document.getElementById('tab-bot-detail').classList.add('active');
-  loadBotFilesList();
-}
-
-function closeBotDetail(){
-  stopTerminalPolling();
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-  document.getElementById('tab-bots').classList.add('active');
-  activeBotToken = null;
-}
-
-function updateRestartInfo(b){
-  const el = document.getElementById('detail-restart-info');
-  if (!b || !b.last_restart) {
-    el.innerText = '⏰ Информация о времени недоступна';
+async function submitNewBot() {
+  const name = document.getElementById("new-bot-name").value.trim();
+  const token = document.getElementById("new-bot-token").value.trim();
+  const errorBox = document.getElementById("new-bot-error");
+  errorBox.style.display = "none";
+  if (!name || !token) {
+    errorBox.textContent = "Заполните оба поля";
+    errorBox.style.display = "block";
     return;
   }
-  try {
-    const last = new Date(b.last_restart);
-    const now = new Date();
-    const diff = 24 * 60 * 60 * 1000 - (now - last);
-    if (diff <= 0) {
-      el.innerText = '⚠️ Бот будет остановлен при следующей проверке';
-      return;
-    }
-    const hours = Math.floor(diff / (60 * 60 * 1000));
-    const minutes = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
-    el.innerText = `⏰ ${hours}ч ${minutes}м до отключения (24ч лимит)`;
-  } catch(e) {
-    el.innerText = '⏰ 24ч до отключения';
+  const btn = document.getElementById("new-bot-submit");
+  btn.textContent = "Проверка токена...";
+  btn.disabled = true;
+  const data = await api("/api/bots", { method: "POST", body: JSON.stringify({ name, token }) });
+  btn.textContent = "Создать";
+  btn.disabled = false;
+  if (!data.ok) {
+    errorBox.textContent = data.error || "Не удалось создать бота";
+    errorBox.style.display = "block";
+    return;
   }
+  closeModal("modal-new-bot");
+  showToast("Бот создан!");
+  loadBotsList();
 }
 
-function updateDetailStatusUI(b){
-  [
-    ['detail-status-pill','detail-status-dot','detail-status-text'],
-    ['detail-status-pill-2','detail-status-dot-2','detail-status-text-2']
-  ].forEach(([pillId,dotId,txtId]) => {
-    const pill = document.getElementById(pillId);
-    const dot = document.getElementById(dotId);
-    const txt = document.getElementById(txtId);
-    pill.className = 'status-pill ' + (b.is_active ? 'on' : 'off');
-    dot.className = 'status-dot ' + (b.is_active ? '' : 'off');
-    txt.innerText = b.is_active ? 'Запущен' : 'Остановлен';
-  });
-  document.getElementById('detail-start-btn').disabled = b.is_active;
-  document.getElementById('detail-stop-btn').disabled = !b.is_active;
+// ============================================================================
+// ЭКРАН: ДЕТАЛЬ БОТА
+// ============================================================================
+async function openBotDetail(botId) {
+  CURRENT_BOT_ID = botId;
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById("screen-bot-detail").classList.add("active");
+  document.getElementById("fab-create-bot").style.display = "none";
+  await loadBotDetail();
+  switchTab("info");
 }
 
-async function startActiveBot(){
-  const b = findBot(activeBotToken); if(!b) return;
-  document.getElementById('detail-start-btn').disabled = true;
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/bot_start`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ token: activeBotToken, device_id: currentUser.device_id, username: currentUser.username })
-    });
-    const data = await res.json();
-    if(!data.success){ alert(data.message || 'Не удалось запустить'); }
-    b.is_active = data.success;
-    if (data.success) {
-      b.last_restart = new Date().toISOString();
-      updateRestartInfo(b);
-    }
-    updateDetailStatusUI(b);
-    renderBotsList();
-    switchDetailTab('terminal');
-    startTerminalPolling();
-  } catch(e){ alert('Ошибка сети'); }
+async function loadBotDetail() {
+  const data = await api(`/api/bots/${CURRENT_BOT_ID}`);
+  if (!data.ok) { showToast(data.error || "Ошибка"); return; }
+  const b = data.bot;
+  CURRENT_BOT_TOKEN_MASKED = b.token_masked;
+  document.getElementById("detail-avatar").textContent = (b.name || "B")[0].toUpperCase();
+  document.getElementById("detail-name").textContent = b.name;
+  document.getElementById("detail-username").textContent = "@" + (b.bot_username || "—");
+  const pill = document.getElementById("detail-status-pill");
+  pill.textContent = b.is_active ? "Включен" : "Отключен";
+  pill.className = "status-pill " + (b.is_active ? "on" : "off");
+
+  document.getElementById("info-cmd-count").textContent = b.commands_count;
+  document.getElementById("info-users-count").textContent = b.users_count;
+  document.getElementById("info-id").textContent = b.id;
+  document.getElementById("info-tg-id").textContent = b.bot_telegram_id || "—";
+  document.getElementById("info-token").textContent = b.token_masked;
+  document.getElementById("info-created").textContent = formatDate(b.created_at);
+
+  TOKEN_VISIBLE = false;
 }
 
-async function stopActiveBot(){
-  const b = findBot(activeBotToken); if(!b) return;
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/bot_stop`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ token: activeBotToken, device_id: currentUser.device_id, username: currentUser.username })
-    });
-    const data = await res.json();
-    b.is_active = false;
-    updateDetailStatusUI(b);
-    renderBotsList();
-  } catch(e){ alert('Ошибка сети'); }
+function toggleTokenVisibility() {
+  const el = document.getElementById("info-token");
+  el.textContent = TOKEN_VISIBLE ? CURRENT_BOT_TOKEN_MASKED : "показать по требованию отключено для безопасности";
+  TOKEN_VISIBLE = !TOKEN_VISIBLE;
 }
 
-async function restartActiveBot(){
-  const b = findBot(activeBotToken); if(!b) return;
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/bot_restart`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ token: activeBotToken, device_id: currentUser.device_id, username: currentUser.username })
-    });
-    const data = await res.json();
-    b.is_active = data.success;
-    if (data.success) {
-      b.last_restart = new Date().toISOString();
-      updateRestartInfo(b);
-    }
-    updateDetailStatusUI(b);
-    renderBotsList();
-    switchDetailTab('terminal');
-    startTerminalPolling();
-  } catch(e){ alert('Ошибка сети'); }
+async function controlBot(action) {
+  showToast(action === "start" ? "Запуск..." : action === "stop" ? "Остановка..." : "Перезапуск...");
+  const data = await api(`/api/bots/${CURRENT_BOT_ID}/${action}`, { method: "POST" });
+  showToast(data.message || (data.ok ? "Готово" : "Ошибка"));
+  await loadBotDetail();
 }
 
-function deleteBotConfirm(){
-  if(!confirm("Удалить бота из студии? Процесс будет остановлен, код и история чатов удалены безвозвратно.")) return;
-  deleteBot();
-}
-async function deleteBot(){
-  try {
-    await fetch(`${BACKEND_URL}/api/delete_bot`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: activeBotToken, device_id: currentUser.device_id, username: currentUser.username })
-    });
-  } catch(e){}
-  userBots = userBots.filter(b => b.token !== activeBotToken);
-  closeBotDetail();
-  renderBotsList();
-  renderProfile();
+function switchTab(tabName) {
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+  document.querySelector(`.tab[data-tab="${tabName}"]`).classList.add("active");
+  document.getElementById("panel-" + tabName).classList.add("active");
+
+  if (tabName === "commands") loadCommands();
+  if (tabName === "library") loadLibraries();
+  if (tabName === "chats") loadChats();
+  if (tabName === "logs") loadLogs();
 }
 
-function switchDetailTab(tab){
-  ['overview','terminal'].forEach(t => {
-    document.getElementById('detail-'+t).style.display = (t===tab) ? 'block' : 'none';
-    document.getElementById('dtab-'+t).classList.toggle('active', t===tab);
-  });
-  if (tab === 'terminal') { loadTerminalLog(); startTerminalPolling(); loadBotFilesList(); }
-  else { stopTerminalPolling(); }
+// ---------- COMMANDS TAB ----------
+async function loadCommands() {
+  const data = await api(`/api/bots/${CURRENT_BOT_ID}/commands`);
+  ALL_COMMANDS = data.ok ? data.commands : [];
+  renderCommands(ALL_COMMANDS);
 }
 
-// ============================================================
-//                    CODE EDITOR
-// ============================================================
-function openCodeEditor(){
-  const b = findBot(activeBotToken);
-  if(!b) return;
-  editorRuntime = b.runtime || 'telebot';
-  document.getElementById('editor-code-full').value = b.code || '';
-  updateEditorRuntimeUI();
-  document.getElementById('editor-modal').classList.add('active');
-}
-function closeEditor(){ document.getElementById('editor-modal').classList.remove('active'); }
-function switchEditorRuntime(rt){ editorRuntime = rt; updateEditorRuntimeUI(); }
-function updateEditorRuntimeUI(){
-  document.getElementById('editor-runtime-telebot').classList.toggle('active', editorRuntime==='telebot');
-  document.getElementById('editor-runtime-aiogram').classList.toggle('active', editorRuntime==='aiogram');
-}
-
-async function saveEditorCode(){
-  const b = findBot(activeBotToken);
-  if(!b) return;
-  const code = document.getElementById('editor-code-full').value;
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/save_code`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: b.token, code, runtime: editorRuntime, device_id: currentUser.device_id, username: currentUser.username })
-    });
-    const data = await res.json();
-    if(data.success){
-      b.code = code;
-      b.runtime = editorRuntime;
-      document.getElementById('detail-runtime-label').innerText = editorRuntime === 'aiogram' ? 'aiogram 3 (async)' : 'pyTelegramBotAPI (telebot)';
-      closeEditor();
-    } else {
-      alert(data.message || 'Не удалось сохранить');
-    }
-  } catch(e){ alert('Ошибка сети'); }
-}
-
-// ============================================================
-//                    TERMINAL / LOGS / PACKAGES / FILES
-// ============================================================
-function stopTerminalPolling(){ if(terminalPollTimer){ clearInterval(terminalPollTimer); terminalPollTimer=null; } }
-function startTerminalPolling(){ stopTerminalPolling(); terminalPollTimer = setInterval(loadTerminalLog, 2500); }
-
-async function loadTerminalLog(){
-  if (!activeBotToken) return;
-  const out = document.getElementById('terminal-output');
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/get_bot_logs`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: activeBotToken })
-    });
-    const data = await res.json();
-    if(data.success){
-      const b = findBot(activeBotToken);
-      if (b && b.is_active !== data.is_active) {
-        b.is_active = data.is_active;
-        updateDetailStatusUI(b);
-        renderBotsList();
-      }
-      if(!data.logs || data.logs.length === 0){
-        out.innerHTML = '<div class="term-empty">Лог пуст — запусти бота, чтобы увидеть вывод</div>';
-        return;
-      }
-      const wasAtBottom = (out.scrollHeight - out.scrollTop - out.clientHeight) < 40;
-      out.innerHTML = data.logs.map(l => {
-        let className = '';
-        if (/error|traceback|exception|failed/i.test(l)) className = 'term-line-err';
-        else if (/warning|warn/i.test(l)) className = 'term-line-warn';
-        else if (/info|starting|running|ready|started/i.test(l)) className = 'term-line-info';
-        return `<div class="${className}">${escapeHtml(l)}</div>`;
-      }).join('');
-      if(wasAtBottom) out.scrollTop = out.scrollHeight;
-    }
-  } catch(e){}
-}
-
-async function installPackage(){
-  const input = document.getElementById('pkg-name-input');
-  const pkg = input.value.trim();
-  if(!pkg) return;
-  input.disabled = true;
-  const out = document.getElementById('terminal-output');
-  out.innerHTML += `<div>$ pip install ${escapeHtml(pkg)}…</div>`;
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/install_package`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: activeBotToken, device_id: currentUser.device_id, package: pkg })
-    });
-    const data = await res.json();
-    await loadTerminalLog();
-    if(!data.success) alert('Не удалось установить: ' + (data.message || 'ошибка pip'));
-    else input.value = '';
-  } catch(e){ alert('Ошибка сети'); }
-  input.disabled = false;
-}
-
-async function loadBotFilesList(){
-  if (!activeBotToken) return;
-  const list = document.getElementById('bot-files-list');
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/list_bot_files`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: activeBotToken })
-    });
-    const data = await res.json();
-    if(data.success){
-      if(data.files.length === 0){ list.innerHTML = '<p style="font-size:12px;color:var(--text-faint);">Файлов нет</p>'; return; }
-      list.innerHTML = data.files.map(f => `
-        <div class="file-chip"><span class="fname">${escapeHtml(f.name)}</span><span class="fsize">${(f.size/1024).toFixed(1)} КБ</span></div>
-      `).join('');
-    }
-  } catch(e){}
-}
-
-async function uploadBotFile(event){
-  const file = event.target.files[0];
-  if(!file) return;
-  const fd = new FormData();
-  fd.append('token', activeBotToken);
-  fd.append('device_id', currentUser.device_id);
-  fd.append('file', file);
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/upload_bot_file`, { method: 'POST', body: fd });
-    const data = await res.json();
-    if(data.success){ loadBotFilesList(); } else { alert(data.message || 'Не удалось загрузить файл'); }
-  } catch(e){ alert('Ошибка сети'); }
-  event.target.value = '';
-}
-
-// ============================================================
-//                         CHATS
-// ============================================================
-function stopChatsListPolling(){ if(chatsListPollTimer){ clearInterval(chatsListPollTimer); chatsListPollTimer=null; } }
-function startChatsListPolling(){ stopChatsListPolling(); chatsListPollTimer = setInterval(loadAllBotChats, 4000); }
-function stopThreadPolling(){ if(threadPollTimer){ clearInterval(threadPollTimer); threadPollTimer=null; } }
-function startThreadPolling(){ stopThreadPolling(); threadPollTimer = setInterval(loadThreadMessages, 3000); }
-
-async function loadAllBotChats(){
-  const list = document.getElementById('chats-list');
-  const empty = document.getElementById('chats-empty');
-  if(userBots.length === 0){ list.innerHTML=''; empty.style.display='block'; updateChatsBadge(0); return; }
-
-  let allChats = [];
-  for(const b of userBots){
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/get_bot_chats`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: b.token })
-      });
-      const data = await res.json();
-      if(data.success) data.chats.forEach(c => allChats.push({...c, bot_token: b.token, bot_name: b.name}));
-    } catch(e){}
-  }
-
-  allChats.sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at));
-  updateChatsBadge(allChats.reduce((s,c) => s + (c.unread||0), 0));
-
-  if(allChats.length === 0){ list.innerHTML=''; empty.style.display='block'; return; }
-  empty.style.display = 'none';
-  const showBotTag = userBots.length > 1;
-
-  list.innerHTML = allChats.map(c => `
-    <div class="chat-list-row" data-bot-token="${escapeAttr(c.bot_token)}" data-chat-id="${escapeAttr(c.chat_id)}" data-user-name="${escapeAttr(c.user_name)}" data-username="${escapeAttr(c.username || '')}">
-      <div class="user-avatar">${initials(c.user_name)}</div>
-      <div class="chat-list-info">
-        <div class="chat-list-name">${escapeHtml(c.user_name)}${c.username ? ' <span style="color:var(--text-faint);font-weight:400;">@'+escapeHtml(c.username)+'</span>' : ''}</div>
-        <div class="chat-list-msg">${escapeHtml(c.last_message || '')}</div>
+function renderCommands(list) {
+  const container = document.getElementById("commands-list");
+  if (list.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">⌨️</div><div>Команд пока нет — нажмите + чтобы создать</div></div>';
+  } else {
+    container.innerHTML = list.map(c => `
+      <div class="cmd-item" onclick="openEditCommand(${c.id})">
+        <div>
+          <div class="trigger">${escapeHtml(c.trigger)}</div>
+          <div class="type">${typeLabel(c.trigger_type)}</div>
+        </div>
       </div>
-      <div class="chat-list-meta">
-        <div class="chat-list-time">${(c.updated_at||'').split(' ')[1]?.slice(0,5) || ''}</div>
-        ${c.unread ? `<div class="unread-badge">${c.unread}</div>` : (showBotTag ? `<div class="chat-bot-tag">${escapeHtml(c.bot_name||'')}</div>` : '')}
+    `).join("");
+  }
+  // добавляем плавающую кнопку + именно для этой вкладки
+  if (!document.getElementById("cmd-fab")) {
+    const fab = document.createElement("button");
+    fab.className = "fab";
+    fab.id = "cmd-fab";
+    fab.textContent = "+";
+    fab.onclick = openNewCommandModal;
+    document.body.appendChild(fab);
+  }
+  document.getElementById("cmd-fab").style.display = "flex";
+  document.getElementById("cmd-fab").style.bottom = "92px";
+}
+
+function typeLabel(t) {
+  return t === "regex" ? "Regex" : t === "contains" ? "Содержит текст" : "Точное совпадение";
+}
+
+function searchCommands() {
+  const q = document.getElementById("cmd-search").value.trim().toLowerCase();
+  const filtered = ALL_COMMANDS.filter(c => c.trigger.toLowerCase().includes(q));
+  renderCommands(filtered);
+}
+
+function openNewCommandModal() {
+  EDITING_COMMAND_ID = null;
+  document.getElementById("command-modal-title").textContent = "Новая команда";
+  document.getElementById("cmd-trigger").value = "";
+  document.getElementById("cmd-trigger-type").value = "exact";
+  document.getElementById("cmd-code").value = "";
+  document.getElementById("command-error").style.display = "none";
+  document.getElementById("cmd-delete-btn").style.display = "none";
+  openModal("modal-command");
+}
+
+function openEditCommand(id) {
+  const cmd = ALL_COMMANDS.find(c => c.id === id);
+  if (!cmd) return;
+  EDITING_COMMAND_ID = id;
+  document.getElementById("command-modal-title").textContent = "Редактировать команду";
+  document.getElementById("cmd-trigger").value = cmd.trigger;
+  document.getElementById("cmd-trigger-type").value = cmd.trigger_type;
+  document.getElementById("cmd-code").value = cmd.code;
+  document.getElementById("command-error").style.display = "none";
+  document.getElementById("cmd-delete-btn").style.display = "block";
+  openModal("modal-command");
+}
+
+async function submitCommand() {
+  const trigger = document.getElementById("cmd-trigger").value.trim();
+  const trigger_type = document.getElementById("cmd-trigger-type").value;
+  const code = document.getElementById("cmd-code").value;
+  const errorBox = document.getElementById("command-error");
+  if (!trigger) {
+    errorBox.textContent = "Введите триггер";
+    errorBox.style.display = "block";
+    return;
+  }
+  let data;
+  if (EDITING_COMMAND_ID) {
+    data = await api(`/api/bots/${CURRENT_BOT_ID}/commands/${EDITING_COMMAND_ID}`, {
+      method: "PUT", body: JSON.stringify({ trigger, trigger_type, code })
+    });
+  } else {
+    data = await api(`/api/bots/${CURRENT_BOT_ID}/commands`, {
+      method: "POST", body: JSON.stringify({ trigger, trigger_type, code })
+    });
+  }
+  if (!data.ok) {
+    errorBox.textContent = data.error || "Ошибка сохранения";
+    errorBox.style.display = "block";
+    return;
+  }
+  closeModal("modal-command");
+  showToast("Сохранено");
+  loadCommands();
+  loadBotDetail();
+}
+
+async function deleteCommand() {
+  if (!EDITING_COMMAND_ID) return;
+  const data = await api(`/api/bots/${CURRENT_BOT_ID}/commands/${EDITING_COMMAND_ID}`, { method: "DELETE" });
+  closeModal("modal-command");
+  if (data.ok) { showToast("Команда удалена"); loadCommands(); loadBotDetail(); }
+}
+
+// ---------- LIBRARY TAB ----------
+async function loadLibraries() {
+  const data = await api(`/api/bots/${CURRENT_BOT_ID}/libraries`);
+  const container = document.getElementById("library-list");
+  if (!data.ok) { container.innerHTML = ""; return; }
+  container.innerHTML = data.available.map(pkg => {
+    const isOn = data.installed.includes(pkg);
+    return `
+      <div class="lib-item">
+        <div class="name">${escapeHtml(pkg)}</div>
+        <div class="toggle ${isOn ? "on" : ""}" onclick="toggleLibrary('${pkg}', ${isOn})"><div class="knob"></div></div>
+      </div>`;
+  }).join("");
+}
+
+async function toggleLibrary(pkg, currentlyOn) {
+  showToast(currentlyOn ? "Удаление..." : "Установка...");
+  const data = currentlyOn
+    ? await api(`/api/bots/${CURRENT_BOT_ID}/libraries`, { method: "DELETE", body: JSON.stringify({ package: pkg }) })
+    : await api(`/api/bots/${CURRENT_BOT_ID}/libraries`, { method: "POST", body: JSON.stringify({ package: pkg }) });
+  showToast(data.message || (data.ok ? "Готово" : data.error));
+  loadLibraries();
+}
+
+// ---------- DATABASE TAB ----------
+function downloadBotDb() {
+  const url = `${API_BASE}/api/bots/${CURRENT_BOT_ID}/database/download`;
+  // initData нужен в заголовке, поэтому скачиваем через fetch + blob
+  api(`/api/bots/${CURRENT_BOT_ID}/database/download`, {}).catch(() => {});
+  fetch(url, { headers: { "X-Telegram-Init-Data": getInitData() } })
+    .then(res => res.blob())
+    .then(blob => {
+      const a = document.createElement("a");
+      const objUrl = URL.createObjectURL(blob);
+      a.href = objUrl;
+      a.download = `bot_${CURRENT_BOT_ID}.db`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objUrl);
+    })
+    .catch(() => showToast("Не удалось скачать файл"));
+}
+
+async function resetBotDb() {
+  if (!confirm("Точно сбросить базу данных этого бота? Все пользователи и данные будут удалены.")) return;
+  const data = await api(`/api/bots/${CURRENT_BOT_ID}/database/reset`, { method: "POST" });
+  showToast(data.message || (data.ok ? "Готово" : data.error));
+  loadBotDetail();
+}
+
+// ---------- CHATS TAB ----------
+async function loadChats() {
+  const data = await api(`/api/bots/${CURRENT_BOT_ID}/chats`);
+  const container = document.getElementById("chats-list");
+  const chats = data.ok ? data.chats : [];
+  if (chats.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">👥</div><div>Пока никто не запускал бота</div></div>';
+    return;
+  }
+  container.innerHTML = chats.map(c => `
+    <div class="chat-item">
+      <div class="chat-avatar">${escapeHtml((c.first_name || "?")[0].toUpperCase())}</div>
+      <div class="chat-info">
+        <div class="name">${escapeHtml(c.first_name || "")} ${escapeHtml(c.last_name || "")}</div>
+        <div class="sub">@${escapeHtml(c.username || "—")} · ID ${c.telegram_id} · ${formatDate(c.first_seen_at)}</div>
       </div>
     </div>
-  `).join('');
-
-  list.querySelectorAll('.chat-list-row').forEach(row => {
-    row.addEventListener('click', () => openThread(row.dataset.botToken, Number(row.dataset.chatId), row.dataset.userName, row.dataset.username));
-  });
+  `).join("");
 }
 
-function updateChatsBadge(n){
-  const el = document.getElementById('chats-badge');
-  if(n > 0){ el.style.display='flex'; el.innerText = n > 99 ? '99+' : n; } else { el.style.display = 'none'; }
-}
-
-async function openThread(botToken, chatId, userName, username){
-  activeBotToken = botToken;
-  activeChatId = chatId;
-  document.getElementById('thread-avatar').innerText = initials(userName);
-  document.getElementById('thread-name').innerText = userName;
-  document.getElementById('thread-username').innerText = username ? '@'+username : 'ID '+chatId;
-
-  stopChatsListPolling();
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-  document.getElementById('tab-chat-thread').classList.add('active');
-
-  await loadThreadMessages();
-  startThreadPolling();
-}
-
-function closeThread(){
-  stopThreadPolling();
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-  document.getElementById('tab-chats').classList.add('active');
-  activeChatId = null;
-  loadAllBotChats();
-  startChatsListPolling();
-}
-
-async function loadThreadMessages(){
-  const body = document.getElementById('thread-body');
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/get_chat_messages`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: activeBotToken, chat_id: activeChatId })
-    });
-    const data = await res.json();
-    if(data.success){
-      const wasAtBottom = (body.scrollHeight - body.scrollTop - body.clientHeight) < 60;
-      if(data.messages.length === 0){ body.innerHTML = '<div class="thread-empty">Сообщений пока нет</div>'; return; }
-      body.innerHTML = data.messages.map(m => `
-        <div class="bubble ${m.direction === 'out' ? 'out' : 'in'}">
-          ${escapeHtml(m.text)}
-          <span class="bubble-time">${(m.time||'').split(' ')[1]?.slice(0,5) || ''}</span>
-        </div>
-      `).join('');
-      if(wasAtBottom) body.scrollTop = body.scrollHeight;
-    }
-  } catch(e){}
-}
-
-async function sendThreadMessage(){
-  const input = document.getElementById('thread-input');
-  const text = input.value.trim();
-  if(!text) return;
-  input.value = '';
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/send_owner_message`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: activeBotToken, chat_id: activeChatId, text })
-    });
-    const data = await res.json();
-    if(!data.success) alert(data.message || 'Не удалось отправить');
-  } catch(e){}
-  await loadThreadMessages();
-}
-
-// ============================================================
-//                      GLOBAL CHAT
-// ============================================================
-async function loadGlobalChat(){
-  const res = await fetch(`${BACKEND_URL}/api/get_global_chat`, { method: 'POST' });
-  const data = await res.json();
-  if(data.success){
-    const cont = document.getElementById('global-messages');
-    cont.innerHTML = data.messages.map(m => `
-      <div class="gc-msg">
-        ${m.photo_url ? `<img src="${m.photo_url}" class="gc-avatar" style="border-radius:50%;object-fit:cover;">` : `<div class="gc-avatar">${initials(m.first_name)}</div>`}
-        <div class="gc-content">
-          <div class="gc-name">${escapeHtml(m.first_name)}<span class="gc-uname">@${escapeHtml(m.username||'')}</span></div>
-          <div class="gc-bubble">
-            ${m.text ? escapeHtml(m.text) : ''}
-            ${m.attachment ? `<img src="${BACKEND_URL}${m.attachment}" class="gc-image">` : ''}
-          </div>
-        </div>
-      </div>
-    `).join('');
-    cont.scrollTop = cont.scrollHeight;
+// ---------- LOGS TAB ----------
+async function loadLogs() {
+  const data = await api(`/api/bots/${CURRENT_BOT_ID}/logs`);
+  const container = document.getElementById("logs-list");
+  const logs = data.ok ? data.logs : [];
+  if (logs.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">📋</div><div>Ошибок пока не было</div></div>';
+    return;
   }
+  container.innerHTML = logs.map(l => `
+    <div class="log-item">
+      <div class="log-time">${formatDate(l.created_at)}</div>${escapeHtml(l.message)}
+    </div>
+  `).join("");
 }
 
-function handleGlobalFile(event){
-  const file = event.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e){
-    globalAttachmentBase64 = e.target.result;
-    document.getElementById('gc-preview-img').src = e.target.result;
-    document.getElementById('gc-preview').style.display = 'flex';
-  };
-  reader.readAsDataURL(file);
-}
-function clearGlobalAttachment(){
-  globalAttachmentBase64 = null;
-  document.getElementById('gc-preview').style.display = 'none';
-  document.getElementById('gc-file-input').value = '';
-}
-async function sendGlobalMsg(){
-  const input = document.getElementById('global-msg-input');
-  const txt = input.value.trim();
-  if(!txt && !globalAttachmentBase64) return;
-  await fetch(`${BACKEND_URL}/api/send_global_chat`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ device_id: currentUser.device_id, message: txt, image_base64: globalAttachmentBase64 })
-  });
-  input.value = '';
-  clearGlobalAttachment();
-  loadGlobalChat();
+// ============================================================================
+// ЭКРАН: ПРОФИЛЬ
+// ============================================================================
+async function loadProfile() {
+  const data = await api("/api/profile");
+  if (!data.ok) return;
+  const p = data.profile;
+  document.getElementById("profile-avatar").textContent = (p.first_name || "?")[0].toUpperCase();
+  document.getElementById("profile-name").textContent = [p.first_name, p.last_name].filter(Boolean).join(" ") || "—";
+  document.getElementById("profile-username").textContent = "@" + (p.username || "—");
+  document.getElementById("profile-bots-count").textContent = p.bots_count;
 }
 
-// ============================================================
-//                      AVATAR UPLOAD
-// ============================================================
-function handleAvatarUpload(event){
-  const file = event.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = async function(e){
-    const base64 = e.target.result;
-    document.getElementById('loader').style.display = 'flex';
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/upload_avatar`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ device_id: currentUser.device_id, image_base64: base64 })
-      });
-      const data = await res.json();
-      if(data.success){
-        currentUser.photo_url = data.avatar_url.startsWith('http') ? data.avatar_url : `${BACKEND_URL}${data.avatar_url}`;
-        renderProfile();
-      } else { alert(data.message || "Не удалось загрузить фото"); }
-    } catch(err){ alert("Ошибка загрузки фото"); }
-    finally {
-      document.getElementById('loader').style.display = 'none';
-      document.getElementById('avatar-file-input').value = '';
-    }
-  };
-  reader.readAsDataURL(file);
+// ============================================================================
+// WEBSOCKET — живые обновления
+// ============================================================================
+function connectWS() {
+  try {
+    const proto = location.protocol === "https:" ? "wss:" : "ws:";
+    const ws = new WebSocket(`${proto}//${location.host}/ws`);
+    ws.onmessage = (evt) => {
+      try {
+        const payload = JSON.parse(evt.data);
+        if (payload.type === "bot_status" && CURRENT_BOT_ID === payload.bot_id) {
+          loadBotDetail();
+        }
+        if (payload.type === "log" && CURRENT_BOT_ID === payload.bot_id) {
+          const logsPanel = document.getElementById("panel-logs");
+          if (logsPanel.classList.contains("active")) loadLogs();
+        }
+        if (["bot_created", "bot_deleted"].includes(payload.type)) {
+          const botsScreen = document.getElementById("screen-bots");
+          if (botsScreen.classList.contains("active")) loadBotsList();
+        }
+      } catch (e) {}
+    };
+    ws.onclose = () => setTimeout(connectWS, 3000);
+  } catch (e) {}
 }
 
-// ============================================================
-//                     СКАЧИВАНИЕ
-// ============================================================
-function downloadBotPy() {
-  window.open(`${BACKEND_URL}/api/download_bot_py`, '_blank');
+// ============================================================================
+// УТИЛИТЫ
+// ============================================================================
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
-function downloadDatabase() {
-  window.open(`${BACKEND_URL}/api/download_db`, '_blank');
-}
-
-// ============================================================
-//                     АДМИН-ПАНЕЛЬ
-// ============================================================
-function adminGiveAccess() {
-  const username = prompt("Введите юзернейм пользователя (без @):");
-  if (!username) return;
-  
-  fetch(`${BACKEND_URL}/api/admin/give_access`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ admin_id: currentUser.device_id, username: username })
-  })
-  .then(res => res.json())
-  .then(data => {
-    alert(data.message || (data.success ? '✅ Готово' : '❌ Ошибка'));
-  })
-  .catch(() => alert('Ошибка сети'));
+function formatDate(iso) {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
+  } catch (e) { return iso; }
 }
 
-function adminAddBotSlot() {
-  const username = prompt("Введите юзернейм пользователя (без @):");
-  if (!username) return;
-  
-  fetch(`${BACKEND_URL}/api/admin/add_slot`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ admin_id: currentUser.device_id, username: username })
-  })
-  .then(res => res.json())
-  .then(data => {
-    alert(data.message || (data.success ? '✅ Готово' : '❌ Ошибка'));
-  })
-  .catch(() => alert('Ошибка сети'));
-}
-
-function adminViewLogs() {
-  const modal = document.getElementById('admin-logs-modal');
-  const body = document.getElementById('admin-logs-body');
-  body.innerHTML = 'Загрузка...';
-  modal.classList.add('active');
-  
-  fetch(`${BACKEND_URL}/api/admin/logs`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ admin_id: currentUser.device_id })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.success && data.logs) {
-      body.innerHTML = data.logs.map(l => 
-        `[${l.created_at}] @${l.username} → ${l.action} ${l.details || ''}`
-      ).join('\n') || 'Логов нет';
-    } else {
-      body.innerHTML = 'Ошибка загрузки логов';
-    }
-  })
-  .catch(() => {
-    body.innerHTML = 'Ошибка сети';
-  });
-}
-
-function adminViewUsers() {
-  const modal = document.getElementById('admin-users-modal');
-  const body = document.getElementById('admin-users-body');
-  body.innerHTML = 'Загрузка...';
-  modal.classList.add('active');
-  
-  fetch(`${BACKEND_URL}/api/admin/users`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ admin_id: currentUser.device_id })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.success && data.users) {
-      body.innerHTML = data.users.map(u => `
-        <div style="padding:8px 0;border-bottom:1px solid var(--border);">
-          <strong>@${u.username}</strong> (${u.display_name || '—'})<br>
-          <span style="font-size:11px;color:var(--text-faint);">
-            Ботов: ${u.bot_count} | Макс: ${u.max_bots} | ${u.is_creator ? '👑 Создатель' : ''}
-          </span>
-        </div>
-      `).join('');
-    } else {
-      body.innerHTML = 'Ошибка загрузки пользователей';
-    }
-  })
-  .catch(() => {
-    body.innerHTML = 'Ошибка сети';
-  });
-}
-
-// ============================================================
-//                         UTIL
-// ============================================================
-function escapeHtml(str){
-  if(str === undefined || str === null) return '';
-  return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
-}
-function escapeAttr(str){ return escapeHtml(str); }
+// ============================================================================
+// СТАРТ
+// ============================================================================
+(async function init() {
+  const authRes = await api("/api/auth", { method: "POST" });
+  if (!authRes.ok) {
+    document.getElementById("app").innerHTML = `
+      <div class="empty-state" style="padding-top:100px;">
+        <div class="icon">🔒</div>
+        <div>Доступ к этому конструктору ограничен.</div>
+      </div>`;
+    document.querySelector(".bottom-nav").style.display = "none";
+    document.getElementById("fab-create-bot").style.display = "none";
+    return;
+  }
+  loadBotsList();
+  connectWS();
+})();
 </script>
 </body>
 </html>

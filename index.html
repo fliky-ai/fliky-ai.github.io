@@ -2,221 +2,290 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Bot Constructor</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
   :root{
-    --bg:#0f1115; --bg2:#161923; --card:#1c202b; --card2:#232838;
-    --accent:#5b8cff; --accent2:#7aa2ff; --text:#f2f3f7; --muted:#8b93a7;
-    --danger:#ff5c5c; --success:#3ddc84; --warn:#ffb84d; --border:#2a2f3d;
+    --bg:#0b0d12; --bg-grad:#12141d; --card:#171a24; --card2:#1e2230; --card-hover:#242938;
+    --accent:#5b8cff; --accent2:#7aa2ff; --accent-soft:rgba(91,140,255,.14);
+    --text:#f4f5f9; --muted:#8b93a8; --muted2:#5f6577;
+    --danger:#ff5c5c; --danger-soft:rgba(255,92,92,.13);
+    --success:#3ddc84; --success-soft:rgba(61,220,132,.13);
+    --warn:#ffb84d; --warn-soft:rgba(255,184,77,.13);
+    --border:#262b3a; --border-light:#2e3446;
+    --radius-lg:18px; --radius-md:14px; --radius-sm:10px;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{height:100%;}
   body{
-    margin:0; background:var(--bg); color:var(--text);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    overflow-x:hidden;
+    margin:0; background:radial-gradient(circle at 50% 0%, var(--bg-grad), var(--bg) 60%);
+    color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    overflow-x:hidden; min-height:100vh;
   }
-  #app{ min-height:100vh; padding-bottom:78px; }
-  .screen{ display:none; padding:16px; animation:fadeIn .18s ease; }
+  #app{ min-height:100vh; padding-bottom:84px; }
+  .screen{ display:none; padding:14px 16px 8px; animation:fadeIn .22s ease; }
   .screen.active{ display:block; }
-  @keyframes fadeIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+  @keyframes fadeIn{ from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);} }
+  @keyframes popIn{ from{opacity:0; transform:scale(.94);} to{opacity:1; transform:scale(1);} }
 
   .topbar{
-    position:sticky; top:0; z-index:5; background:linear-gradient(180deg, var(--bg) 70%, transparent);
-    padding:14px 4px 10px; display:flex; align-items:center; gap:10px;
+    position:sticky; top:0; z-index:5;
+    padding:10px 2px 14px; display:flex; align-items:center; gap:10px;
   }
-  .topbar h1{ font-size:20px; margin:0; font-weight:700; }
+  .topbar h1{ font-size:22px; margin:0; font-weight:800; letter-spacing:-.3px; }
   .topbar .back{
-    width:34px; height:34px; border-radius:10px; background:var(--card);
+    width:36px; height:36px; border-radius:11px; background:var(--card);
     display:flex; align-items:center; justify-content:center; cursor:pointer; border:1px solid var(--border);
+    font-size:16px; flex-shrink:0; color:var(--text);
   }
+  .topbar .back:active{ background:var(--card-hover); }
+  .topbar .spacer{ flex:1; }
+  .icon-btn{
+    width:36px; height:36px; border-radius:11px; background:var(--card); border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:15px;
+  }
+  .icon-btn:active{ background:var(--card-hover); }
 
   /* ---------- Bottom nav ---------- */
   .bottom-nav{
-    position:fixed; left:0; right:0; bottom:0; z-index:20;
-    background:rgba(22,25,35,.92); backdrop-filter:blur(14px);
-    border-top:1px solid var(--border);
-    display:flex; padding:8px 6px calc(8px + env(safe-area-inset-bottom));
+    position:fixed; left:10px; right:10px; bottom:10px; z-index:20;
+    background:rgba(23,26,36,.85); backdrop-filter:blur(20px) saturate(1.6);
+    border:1px solid var(--border-light); border-radius:22px;
+    display:flex; padding:8px; box-shadow:0 12px 32px rgba(0,0,0,.35);
   }
   .nav-item{
     flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;
-    padding:6px 0; border-radius:14px; cursor:pointer; color:var(--muted);
-    transition:color .15s;
+    padding:8px 0 6px; border-radius:16px; cursor:pointer; color:var(--muted2);
+    transition:all .18s;
   }
-  .nav-item.active{ color:var(--accent2); }
-  .nav-item svg{ width:22px; height:22px; }
-  .nav-item span{ font-size:11px; font-weight:600; }
+  .nav-item.active{ color:var(--accent2); background:var(--accent-soft); }
+  .nav-item svg{ width:21px; height:21px; }
+  .nav-item span{ font-size:10.5px; font-weight:700; }
 
-  /* ---------- Cards / lists ---------- */
+  /* ---------- Empty state ---------- */
   .empty-state{
     display:flex; flex-direction:column; align-items:center; justify-content:center;
-    padding:60px 20px; text-align:center; color:var(--muted); gap:10px;
+    padding:70px 24px; text-align:center; color:var(--muted); gap:12px;
   }
-  .empty-state .icon{ font-size:44px; opacity:.5; }
+  .empty-state .icon{ font-size:48px; opacity:.55; filter:grayscale(.2); }
+  .empty-state .title{ color:var(--text); font-weight:700; font-size:15.5px; }
+  .empty-state .desc{ font-size:13px; max-width:260px; line-height:1.5; }
+
+  /* ---------- Bot cards ---------- */
   .bot-card{
-    background:var(--card); border:1px solid var(--border); border-radius:16px;
-    padding:14px 16px; display:flex; align-items:center; gap:12px; margin-bottom:10px;
-    cursor:pointer; transition:transform .1s;
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius-lg);
+    padding:14px 16px; display:flex; align-items:center; gap:13px; margin-bottom:10px;
+    cursor:pointer; transition:transform .12s, background .12s; animation:popIn .2s ease;
   }
-  .bot-card:active{ transform:scale(.98); }
+  .bot-card:active{ transform:scale(.97); background:var(--card-hover); }
   .bot-avatar{
-    width:46px; height:46px; border-radius:13px; background:linear-gradient(135deg,var(--accent),#8a5bff);
-    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:18px; flex-shrink:0;
+    width:48px; height:48px; border-radius:14px; background:linear-gradient(135deg,var(--accent),#8a5bff);
+    display:flex; align-items:center; justify-content:center; font-weight:800; font-size:19px; flex-shrink:0;
+    box-shadow:0 4px 14px rgba(91,140,255,.25);
   }
   .bot-info{ flex:1; min-width:0; }
-  .bot-info .name{ font-weight:700; font-size:15px; margin-bottom:2px; }
-  .bot-info .sub{ font-size:12.5px; color:var(--muted); }
+  .bot-info .name{ font-weight:700; font-size:15.5px; margin-bottom:3px; }
+  .bot-info .sub{ font-size:12.5px; color:var(--muted); display:flex; align-items:center; gap:6px; }
   .status-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
-  .status-dot.on{ background:var(--success); box-shadow:0 0 8px var(--success); }
-  .status-dot.off{ background:#555; }
+  .status-dot.on{ background:var(--success); box-shadow:0 0 10px var(--success); }
+  .status-dot.off{ background:var(--muted2); }
+  .chevron{ color:var(--muted2); font-size:18px; }
 
   .fab{
-    position:fixed; right:18px; bottom:92px; z-index:15;
-    width:56px; height:56px; border-radius:50%;
+    position:fixed; right:18px; bottom:100px; z-index:15;
+    width:58px; height:58px; border-radius:50%;
     background:linear-gradient(135deg,var(--accent),#7c5bff);
     display:flex; align-items:center; justify-content:center;
-    box-shadow:0 8px 24px rgba(91,140,255,.4); cursor:pointer; border:none;
-    font-size:28px; color:#fff; font-weight:300;
+    box-shadow:0 10px 28px rgba(91,140,255,.45); cursor:pointer; border:none;
+    font-size:28px; color:#fff; font-weight:300; transition:transform .15s;
   }
-  .fab:active{ transform:scale(.94); }
+  .fab:active{ transform:scale(.92); }
 
   /* ---------- Forms ---------- */
   .field{ margin-bottom:16px; }
-  .field label{ display:block; font-size:13px; color:var(--muted); margin-bottom:6px; font-weight:600; }
+  .field label{ display:block; font-size:12.5px; color:var(--muted); margin-bottom:7px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; }
   .field input, .field textarea, .field select{
-    width:100%; background:var(--card2); border:1px solid var(--border); border-radius:12px;
-    padding:12px 14px; color:var(--text); font-size:15px; font-family:inherit; outline:none;
+    width:100%; background:var(--card2); border:1px solid var(--border); border-radius:var(--radius-md);
+    padding:13px 14px; color:var(--text); font-size:15px; font-family:inherit; outline:none; transition:border-color .15s;
   }
-  .field textarea{ resize:vertical; min-height:120px; font-family:"SF Mono",Menlo,Consolas,monospace; font-size:13.5px; line-height:1.5; }
-  .field input:focus, .field textarea:focus, .field select:focus{ border-color:var(--accent); }
+  .field textarea{ resize:vertical; min-height:100px; }
+  .field input:focus, .field textarea:focus, .field select:focus{ border-color:var(--accent); background:#20253380; }
   .btn{
-    display:block; width:100%; text-align:center; padding:14px; border-radius:12px; border:none;
+    display:block; width:100%; text-align:center; padding:14px; border-radius:var(--radius-md); border:none;
     font-size:15px; font-weight:700; cursor:pointer; background:var(--accent); color:#fff; margin-top:4px;
+    transition:transform .1s, opacity .1s;
   }
-  .btn:active{ opacity:.85; }
+  .btn:active{ transform:scale(.98); opacity:.9; }
+  .btn:disabled{ opacity:.5; pointer-events:none; }
   .btn.secondary{ background:var(--card2); color:var(--text); border:1px solid var(--border); }
-  .btn.danger{ background:rgba(255,92,92,.15); color:var(--danger); border:1px solid rgba(255,92,92,.3); }
-  .btn.small{ padding:9px; font-size:13px; width:auto; display:inline-block; padding-left:16px; padding-right:16px; }
+  .btn.danger{ background:var(--danger-soft); color:var(--danger); border:1px solid rgba(255,92,92,.3); }
   .btn-row{ display:flex; gap:8px; }
   .btn-row .btn{ flex:1; }
-  .hint{ font-size:12px; color:var(--muted); margin-top:4px; }
-  .error-box{ background:rgba(255,92,92,.12); border:1px solid rgba(255,92,92,.3); color:#ff8a8a; padding:10px 14px; border-radius:10px; font-size:13.5px; margin-bottom:14px; display:none; }
-  .success-box{ background:rgba(61,220,132,.12); border:1px solid rgba(61,220,132,.3); color:#5eeba3; padding:10px 14px; border-radius:10px; font-size:13.5px; margin-bottom:14px; display:none; }
+  .hint{ font-size:12px; color:var(--muted); margin-top:6px; line-height:1.45; }
+  .error-box{ background:var(--danger-soft); border:1px solid rgba(255,92,92,.3); color:#ff8a8a; padding:12px 14px; border-radius:var(--radius-sm); font-size:13.5px; margin-bottom:14px; display:none; line-height:1.5; }
+  .success-box{ background:var(--success-soft); border:1px solid rgba(61,220,132,.3); color:#5eeba3; padding:12px 14px; border-radius:var(--radius-sm); font-size:13.5px; margin-bottom:14px; display:none; }
 
   /* ---------- Bot detail screen ---------- */
-  .bot-header{ display:flex; align-items:center; gap:14px; margin-bottom:18px; }
-  .bot-header .bot-avatar{ width:58px; height:58px; font-size:22px; border-radius:16px; }
-  .bot-header h2{ margin:0 0 3px; font-size:19px; }
+  .bot-header{ display:flex; align-items:center; gap:14px; margin-bottom:20px; }
+  .bot-header .bot-avatar{ width:60px; height:60px; font-size:24px; border-radius:17px; }
+  .bot-header h2{ margin:0 0 4px; font-size:19px; letter-spacing:-.2px; }
   .bot-header .username{ color:var(--muted); font-size:13.5px; }
   .status-pill{
     display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:20px;
-    font-size:12.5px; font-weight:700; margin-top:6px;
+    font-size:12px; font-weight:700; margin-top:7px;
   }
-  .status-pill.on{ background:rgba(61,220,132,.15); color:var(--success); }
-  .status-pill.off{ background:rgba(255,255,255,.08); color:var(--muted); }
+  .status-pill.on{ background:var(--success-soft); color:var(--success); }
+  .status-pill.off{ background:rgba(255,255,255,.06); color:var(--muted); }
+  .status-pill .dot{ width:6px; height:6px; border-radius:50%; background:currentColor; }
 
-  .control-btns{ display:flex; gap:8px; margin-bottom:20px; }
+  .control-btns{ display:flex; gap:8px; margin-bottom:22px; }
   .control-btn{
-    flex:1; padding:13px 4px; border-radius:14px; border:1px solid var(--border); background:var(--card);
-    display:flex; flex-direction:column; align-items:center; gap:5px; cursor:pointer; color:var(--text);
+    flex:1; padding:14px 4px; border-radius:var(--radius-md); border:1px solid var(--border); background:var(--card);
+    display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer; color:var(--text);
+    transition:transform .1s, background .1s;
   }
-  .control-btn .ico{ font-size:19px; }
-  .control-btn span{ font-size:11.5px; font-weight:700; }
+  .control-btn:active{ transform:scale(.95); background:var(--card-hover); }
+  .control-btn .ico{ font-size:18px; }
+  .control-btn span{ font-size:11px; font-weight:700; }
   .control-btn.run{ color:var(--success); }
   .control-btn.stop{ color:var(--danger); }
   .control-btn.restart{ color:var(--warn); }
+  .control-btn.loading{ opacity:.55; pointer-events:none; }
 
   .tabs{
-    display:flex; gap:6px; overflow-x:auto; margin-bottom:16px; padding-bottom:2px;
+    display:flex; gap:6px; overflow-x:auto; margin-bottom:16px; padding-bottom:4px;
     scrollbar-width:none;
   }
   .tabs::-webkit-scrollbar{ display:none; }
   .tab{
-    flex-shrink:0; padding:9px 15px; border-radius:20px; background:var(--card);
-    border:1px solid var(--border); font-size:13px; font-weight:600; color:var(--muted); cursor:pointer;
+    flex-shrink:0; padding:9px 16px; border-radius:20px; background:var(--card);
+    border:1px solid var(--border); font-size:13px; font-weight:700; color:var(--muted); cursor:pointer;
+    transition:all .15s;
   }
   .tab.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
 
-  .tab-panel{ display:none; }
+  .tab-panel{ display:none; animation:fadeIn .18s ease; }
   .tab-panel.active{ display:block; }
 
+  .info-card{ background:var(--card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:4px 16px; }
   .info-row{
-    display:flex; justify-content:space-between; align-items:center; padding:13px 0;
+    display:flex; justify-content:space-between; align-items:center; padding:14px 0;
     border-bottom:1px solid var(--border); gap:10px;
   }
   .info-row:last-child{ border-bottom:none; }
   .info-row .k{ color:var(--muted); font-size:13.5px; }
   .info-row .v{ font-weight:600; font-size:13.5px; text-align:right; word-break:break-all; }
-  .stat-grid{ display:flex; gap:10px; margin-bottom:18px; }
-  .stat-box{ flex:1; background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; text-align:center; }
-  .stat-box .num{ font-size:22px; font-weight:800; color:var(--accent2); }
-  .stat-box .lbl{ font-size:11.5px; color:var(--muted); margin-top:2px; }
+  .info-row .v.mono{ font-family:"SF Mono",Menlo,Consolas,monospace; font-size:12.5px; }
+  .info-row .v.clickable{ cursor:pointer; color:var(--accent2); }
 
-  .search-box{ margin-bottom:12px; }
+  .stat-grid{ display:flex; gap:10px; margin-bottom:18px; }
+  .stat-box{ flex:1; background:var(--card); border:1px solid var(--border); border-radius:var(--radius-md); padding:15px; text-align:center; }
+  .stat-box .num{ font-size:23px; font-weight:800; color:var(--accent2); }
+  .stat-box .lbl{ font-size:11px; color:var(--muted); margin-top:3px; font-weight:600; }
+
+  .search-box{ position:relative; margin-bottom:12px; }
   .search-box input{
-    width:100%; background:var(--card2); border:1px solid var(--border); border-radius:12px;
-    padding:11px 14px; color:var(--text); font-size:14px; outline:none;
+    width:100%; background:var(--card2); border:1px solid var(--border); border-radius:var(--radius-md);
+    padding:12px 14px 12px 38px; color:var(--text); font-size:14px; outline:none;
   }
+  .search-box .icon{ position:absolute; left:13px; top:50%; transform:translateY(-50%); color:var(--muted); font-size:14px; }
+
   .cmd-item{
-    background:var(--card); border:1px solid var(--border); border-radius:14px; padding:13px 15px;
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius-md); padding:13px 15px;
     display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; cursor:pointer;
+    transition:transform .1s, background .1s;
   }
-  .cmd-item .trigger{ font-weight:700; font-size:14px; }
-  .cmd-item .type{ font-size:11px; color:var(--muted); margin-top:2px; }
-  .cmd-item .del{ color:var(--danger); font-size:18px; padding:6px; }
+  .cmd-item:active{ transform:scale(.98); background:var(--card-hover); }
+  .cmd-item .trigger{ font-weight:700; font-size:14px; font-family:"SF Mono",Menlo,Consolas,monospace; }
+  .cmd-item .type-badge{
+    display:inline-block; font-size:10.5px; color:var(--accent2); background:var(--accent-soft);
+    padding:2px 8px; border-radius:8px; margin-top:5px; font-weight:700;
+  }
 
   .lib-item{
     display:flex; justify-content:space-between; align-items:center; background:var(--card);
-    border:1px solid var(--border); border-radius:14px; padding:13px 15px; margin-bottom:8px;
+    border:1px solid var(--border); border-radius:var(--radius-md); padding:14px 16px; margin-bottom:8px;
   }
-  .lib-item .name{ font-weight:600; font-size:14px; }
+  .lib-item .name{ font-weight:700; font-size:14px; }
+  .lib-item .desc{ font-size:11.5px; color:var(--muted); margin-top:2px; }
   .toggle{
-    width:46px; height:26px; border-radius:20px; background:#3a3f4d; position:relative; cursor:pointer; flex-shrink:0;
+    width:48px; height:28px; border-radius:20px; background:#31374a; position:relative; cursor:pointer; flex-shrink:0;
     transition:background .2s;
   }
   .toggle.on{ background:var(--success); }
   .toggle .knob{
-    width:20px; height:20px; border-radius:50%; background:#fff; position:absolute; top:3px; left:3px;
-    transition:left .2s;
+    width:22px; height:22px; border-radius:50%; background:#fff; position:absolute; top:3px; left:3px;
+    transition:left .2s; box-shadow:0 2px 6px rgba(0,0,0,.3);
   }
   .toggle.on .knob{ left:23px; }
+  .toggle.loading .knob{ animation:pulse .8s infinite; }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.5;} }
 
   .chat-item{
     display:flex; align-items:center; gap:12px; background:var(--card); border:1px solid var(--border);
-    border-radius:14px; padding:12px 14px; margin-bottom:8px;
+    border-radius:var(--radius-md); padding:13px 14px; margin-bottom:8px;
   }
   .chat-avatar{
-    width:38px; height:38px; border-radius:10px; background:var(--card2); display:flex; align-items:center;
-    justify-content:center; font-weight:700; flex-shrink:0;
+    width:40px; height:40px; border-radius:11px; background:linear-gradient(135deg,#2e3446,#3a4157);
+    display:flex; align-items:center; justify-content:center; font-weight:700; flex-shrink:0; font-size:15px;
   }
-  .chat-info .name{ font-weight:600; font-size:14px; }
-  .chat-info .sub{ font-size:12px; color:var(--muted); }
+  .chat-info{ min-width:0; flex:1; }
+  .chat-info .name{ font-weight:700; font-size:14px; }
+  .chat-info .sub{ font-size:11.5px; color:var(--muted); margin-top:2px; }
 
   .log-item{
     background:var(--card); border:1px solid var(--border); border-left:3px solid var(--danger);
-    border-radius:10px; padding:11px 14px; margin-bottom:8px; font-size:12px; font-family:monospace;
-    white-space:pre-wrap; word-break:break-word; color:#ffb3b3; max-height:180px; overflow-y:auto;
+    border-radius:var(--radius-sm); padding:12px 14px; margin-bottom:8px; font-size:11.5px; font-family:"SF Mono",Menlo,Consolas,monospace;
+    white-space:pre-wrap; word-break:break-word; color:#ffb3b3; max-height:200px; overflow-y:auto; line-height:1.5;
   }
-  .log-time{ color:var(--muted); font-family:inherit; font-size:11px; margin-bottom:4px; }
+  .log-time{ color:var(--muted); font-family:-apple-system,sans-serif; font-size:11px; margin-bottom:6px; font-weight:700; }
 
-  /* ---------- Modal (full screen new bot / edit command) ---------- */
+  /* ---------- Modal ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; z-index:49; background:rgba(0,0,0,.5); opacity:0; pointer-events:none; transition:opacity .2s;
+  }
+  .modal-overlay.open{ opacity:1; pointer-events:auto; }
   .modal{
     position:fixed; inset:0; z-index:50; background:var(--bg);
-    transform:translateY(100%); transition:transform .25s ease; display:flex; flex-direction:column;
+    transform:translateY(100%); transition:transform .28s cubic-bezier(.32,.72,0,1); display:flex; flex-direction:column;
   }
   .modal.open{ transform:translateY(0); }
   .modal-header{
-    display:flex; align-items:center; justify-content:space-between; padding:16px;
-    border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between; padding:16px 18px;
+    border-bottom:1px solid var(--border); flex-shrink:0;
   }
-  .modal-header h2{ margin:0; font-size:17px; }
-  .modal-close{ font-size:22px; color:var(--muted); cursor:pointer; padding:4px 8px; }
-  .modal-body{ padding:18px; overflow-y:auto; flex:1; }
+  .modal-header h2{ margin:0; font-size:17px; font-weight:800; }
+  .modal-close{ font-size:20px; color:var(--muted); cursor:pointer; padding:6px 10px; border-radius:10px; background:var(--card); }
+  .modal-close:active{ background:var(--card-hover); }
+  .modal-body{ padding:18px; overflow-y:auto; flex:1; padding-bottom:40px; }
+
+  /* ---------- Code editor with syntax highlight ---------- */
+  .code-editor-wrap{
+    position:relative; border:1px solid var(--border); border-radius:var(--radius-md); overflow:hidden;
+    background:#0d0f16;
+  }
+  .code-editor-wrap:focus-within{ border-color:var(--accent); }
+  .code-editor{
+    position:relative; min-height:220px;
+  }
+  .code-editor pre, .code-editor textarea{
+    margin:0; padding:14px; font-family:"SF Mono",Menlo,Consolas,monospace; font-size:13px; line-height:1.6;
+    white-space:pre-wrap; word-break:break-word; tab-size:4;
+  }
+  .code-editor pre{
+    position:absolute; top:0; left:0; right:0; bottom:0; pointer-events:none; overflow:auto; color:var(--text);
+  }
+  .code-editor textarea{
+    position:relative; width:100%; height:100%; min-height:220px; background:transparent; color:transparent;
+    caret-color:#fff; border:none; outline:none; resize:vertical; z-index:1;
+  }
+  .code-editor textarea::selection{ background:rgba(91,140,255,.35); }
+  .tok-kw{ color:#c792ea; } .tok-str{ color:#c3e88d; } .tok-num{ color:#f78c6c; }
+  .tok-com{ color:#5f6577; font-style:italic; } .tok-fn{ color:#82aaff; } .tok-builtin{ color:#89ddff; }
 
   .loader{
-    display:flex; align-items:center; justify-content:center; padding:40px; color:var(--muted); gap:10px; font-size:13.5px;
+    display:flex; align-items:center; justify-content:center; padding:50px; color:var(--muted); gap:10px; font-size:13.5px;
   }
   .spinner{
     width:18px; height:18px; border-radius:50%; border:2px solid var(--border); border-top-color:var(--accent);
@@ -225,16 +294,37 @@
   @keyframes spin{ to{ transform:rotate(360deg); } }
 
   .profile-avatar{
-    width:84px; height:84px; border-radius:22px; margin:20px auto 14px; background:linear-gradient(135deg,var(--accent),#8a5bff);
-    display:flex; align-items:center; justify-content:center; font-size:32px; font-weight:800;
+    width:88px; height:88px; border-radius:24px; margin:24px auto 14px; background:linear-gradient(135deg,var(--accent),#8a5bff);
+    display:flex; align-items:center; justify-content:center; font-size:34px; font-weight:800;
+    box-shadow:0 8px 24px rgba(91,140,255,.3);
   }
   .center{ text-align:center; }
   .toast{
-    position:fixed; bottom:100px; left:50%; transform:translateX(-50%);
-    background:var(--card2); border:1px solid var(--border); padding:11px 18px; border-radius:12px;
-    font-size:13.5px; z-index:100; opacity:0; transition:opacity .25s; pointer-events:none;
+    position:fixed; bottom:104px; left:50%; transform:translateX(-50%) translateY(10px);
+    background:var(--card2); border:1px solid var(--border-light); padding:12px 20px; border-radius:14px;
+    font-size:13.5px; font-weight:600; z-index:100; opacity:0; transition:all .25s; pointer-events:none;
+    box-shadow:0 8px 24px rgba(0,0,0,.4); max-width:85vw; text-align:center;
   }
-  .toast.show{ opacity:1; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* ---------- Auth error screen ---------- */
+  .auth-error-screen{
+    min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:32px; text-align:center; gap:16px;
+  }
+  .auth-error-screen .icon{ font-size:56px; }
+  .auth-error-screen h2{ margin:0; font-size:19px; }
+  .auth-error-screen p{ color:var(--muted); font-size:14px; line-height:1.6; max-width:320px; margin:0; }
+  .auth-error-screen .debug-box{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius-md); padding:14px 16px;
+    font-size:12px; font-family:"SF Mono",Menlo,Consolas,monospace; color:var(--muted); text-align:left;
+    max-width:340px; width:100%; line-height:1.7; word-break:break-all;
+  }
+  .auth-error-screen .debug-box b{ color:var(--warn); }
+  .env-tag{
+    display:inline-block; background:var(--card2); border:1px solid var(--border); border-radius:8px;
+    padding:3px 9px; font-size:11px; font-family:monospace; color:var(--accent2); margin:2px;
+  }
 </style>
 </head>
 <body>
@@ -254,6 +344,8 @@
     <div class="topbar">
       <div class="back" onclick="goToBotsList()">←</div>
       <h1 style="font-size:16px;">Управление ботом</h1>
+      <div class="spacer"></div>
+      <div class="icon-btn" onclick="confirmDeleteBot()">🗑</div>
     </div>
 
     <div class="bot-header">
@@ -261,14 +353,14 @@
       <div>
         <h2 id="detail-name">—</h2>
         <div class="username" id="detail-username">@—</div>
-        <div class="status-pill off" id="detail-status-pill">Отключен</div>
+        <div class="status-pill off" id="detail-status-pill"><span class="dot"></span>Отключен</div>
       </div>
     </div>
 
     <div class="control-btns">
-      <div class="control-btn run" onclick="controlBot('start')"><div class="ico">▶</div><span>Запустить</span></div>
-      <div class="control-btn stop" onclick="controlBot('stop')"><div class="ico">■</div><span>Остановить</span></div>
-      <div class="control-btn restart" onclick="controlBot('restart')"><div class="ico">↻</div><span>Перезапуск</span></div>
+      <div class="control-btn run" id="btn-start" onclick="controlBot('start')"><div class="ico">▶</div><span>Запустить</span></div>
+      <div class="control-btn stop" id="btn-stop" onclick="controlBot('stop')"><div class="ico">■</div><span>Остановить</span></div>
+      <div class="control-btn restart" id="btn-restart" onclick="controlBot('restart')"><div class="ico">↻</div><span>Перезапуск</span></div>
     </div>
 
     <div class="tabs">
@@ -283,15 +375,15 @@
     <!-- INFO -->
     <div class="tab-panel active" id="panel-info">
       <div class="stat-grid">
-        <div class="stat-box"><div class="num" id="info-cmd-count">0</div><div class="lbl">Команд</div></div>
-        <div class="stat-box"><div class="num" id="info-users-count">0</div><div class="lbl">Пользователей</div></div>
+        <div class="stat-box"><div class="num" id="info-cmd-count">0</div><div class="lbl">КОМАНД</div></div>
+        <div class="stat-box"><div class="num" id="info-users-count">0</div><div class="lbl">ПОЛЬЗОВАТЕЛЕЙ</div></div>
       </div>
-      <div style="background:var(--card); border:1px solid var(--border); border-radius:16px; padding:6px 16px;">
-        <div class="info-row"><div class="k">ID бота в системе</div><div class="v" id="info-id">—</div></div>
-        <div class="info-row"><div class="k">Telegram ID</div><div class="v" id="info-tg-id">—</div></div>
+      <div class="info-card">
+        <div class="info-row"><div class="k">ID бота в системе</div><div class="v">#<span id="info-id">—</span></div></div>
+        <div class="info-row"><div class="k">Telegram ID</div><div class="v mono" id="info-tg-id">—</div></div>
         <div class="info-row">
           <div class="k">Токен</div>
-          <div class="v" id="info-token" style="cursor:pointer;" onclick="toggleTokenVisibility()">••••••••</div>
+          <div class="v mono clickable" id="info-token" onclick="toggleTokenVisibility()">нажми чтобы показать</div>
         </div>
         <div class="info-row"><div class="k">Создан</div><div class="v" id="info-created">—</div></div>
       </div>
@@ -299,18 +391,22 @@
 
     <!-- COMMANDS -->
     <div class="tab-panel" id="panel-commands">
-      <div class="search-box"><input type="text" placeholder="🔍 Поиск команды..." id="cmd-search" oninput="searchCommands()"></div>
+      <div class="search-box">
+        <span class="icon">🔍</span>
+        <input type="text" placeholder="Поиск команды..." id="cmd-search" oninput="searchCommands()">
+      </div>
       <div id="commands-list"></div>
     </div>
 
     <!-- LIBRARY -->
     <div class="tab-panel" id="panel-library">
+      <div class="hint" style="margin-bottom:14px;">Устанавливаемые библиотеки сохраняются за этим ботом — при перезапуске сервера ничего переустанавливать не нужно.</div>
       <div id="library-list"></div>
     </div>
 
     <!-- DATABASE -->
     <div class="tab-panel" id="panel-database">
-      <div class="hint" style="margin-bottom:16px;">У этого бота своя изолированная база данных SQLite (bot_{id}.db) — пользователи и данные хранятся отдельно от остальных ботов.</div>
+      <div class="hint" style="margin-bottom:18px;">У этого бота своя изолированная база данных SQLite (<code>bot_{id}.db</code>) — пользователи и данные хранятся отдельно от остальных ботов.</div>
       <button class="btn secondary" onclick="downloadBotDb()">⬇ Скачать файл БД</button>
       <button class="btn danger" style="margin-top:10px;" onclick="resetBotDb()">🗑 Удалить / Сбросить БД</button>
     </div>
@@ -322,7 +418,10 @@
 
     <!-- LOGS -->
     <div class="tab-panel" id="panel-logs">
-      <button class="btn secondary" style="margin-bottom:14px;" onclick="loadLogs()">↻ Обновить</button>
+      <div class="btn-row" style="margin-bottom:14px;">
+        <button class="btn secondary" onclick="loadLogs()">↻ Обновить</button>
+        <button class="btn danger" onclick="clearLogs()">Очистить</button>
+      </div>
       <div id="logs-list"></div>
     </div>
   </div>
@@ -330,10 +429,11 @@
   <!-- ============== SCREEN: INFO ============== -->
   <div class="screen" id="screen-info">
     <div class="topbar"><h1>Информация</h1></div>
-    <div style="background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px; line-height:1.6; font-size:14px; color:var(--muted);">
-      <p style="color:var(--text); font-weight:700; margin-top:0;">Bot Constructor</p>
+    <div class="info-card" style="padding:18px; line-height:1.65; font-size:14px; color:var(--muted);">
+      <p style="color:var(--text); font-weight:800; margin-top:0; font-size:16px;">🤖 Bot Constructor</p>
       <p>Конструктор Telegram-ботов. Создавайте ботов, настраивайте команды на Python, управляйте базой данных и следите за пользователями и логами — всё в одном мини-приложении.</p>
       <p>Каждый бот работает изолированно: своя база данных, свои библиотеки, свои логи. Запуск и остановка сохраняются даже после перезапуска сервера.</p>
+      <p style="margin-bottom:0;">Версия платформы: 2.0</p>
     </div>
   </div>
 
@@ -342,17 +442,17 @@
     <div class="topbar"><h1>Профиль</h1></div>
     <div class="center">
       <div class="profile-avatar" id="profile-avatar">?</div>
-      <div style="font-weight:700; font-size:18px;" id="profile-name">—</div>
-      <div style="color:var(--muted); font-size:13.5px; margin-top:2px;" id="profile-username">@—</div>
+      <div style="font-weight:800; font-size:19px;" id="profile-name">—</div>
+      <div style="color:var(--muted); font-size:13.5px; margin-top:3px;" id="profile-username">@—</div>
     </div>
-    <div class="stat-grid" style="margin-top:24px;">
-      <div class="stat-box"><div class="num" id="profile-bots-count">0</div><div class="lbl">Ваших ботов</div></div>
+    <div class="stat-grid" style="margin-top:26px;">
+      <div class="stat-box"><div class="num" id="profile-bots-count">0</div><div class="lbl">ВАШИХ БОТОВ</div></div>
     </div>
   </div>
 
 </div>
 
-<!-- ============== FAB (create bot) — only visible on bots screen ============== -->
+<!-- ============== FAB (create bot) ============== -->
 <button class="fab" id="fab-create-bot" onclick="openNewBotModal()">+</button>
 
 <!-- ============== BOTTOM NAV ============== -->
@@ -372,6 +472,7 @@
 </div>
 
 <!-- ============== MODAL: NEW BOT ============== -->
+<div class="modal-overlay" id="overlay-new-bot" onclick="closeModal('modal-new-bot')"></div>
 <div class="modal" id="modal-new-bot">
   <div class="modal-header">
     <h2>New bot</h2>
@@ -385,14 +486,15 @@
     </div>
     <div class="field">
       <label>Токен от @BotFather</label>
-      <input type="text" id="new-bot-token" placeholder="123456789:AAE...">
-      <div class="hint">Получите токен у @BotFather командой /newbot</div>
+      <input type="text" id="new-bot-token" placeholder="123456789:AAE..." autocomplete="off" autocapitalize="off">
+      <div class="hint">Получите токен у @BotFather командой /newbot. Мы сразу проверим его валидность.</div>
     </div>
     <button class="btn" id="new-bot-submit" onclick="submitNewBot()">Создать</button>
   </div>
 </div>
 
 <!-- ============== MODAL: NEW / EDIT COMMAND ============== -->
+<div class="modal-overlay" id="overlay-command" onclick="closeModal('modal-command')"></div>
 <div class="modal" id="modal-command">
   <div class="modal-header">
     <h2 id="command-modal-title">Новая команда</h2>
@@ -402,7 +504,7 @@
     <div class="error-box" id="command-error"></div>
     <div class="field">
       <label>Название / Триггер</label>
-      <input type="text" id="cmd-trigger" placeholder="/start, Привет, help...">
+      <input type="text" id="cmd-trigger" placeholder="/start, Привет, help..." autocomplete="off">
     </div>
     <div class="field">
       <label>Тип срабатывания</label>
@@ -414,8 +516,13 @@
     </div>
     <div class="field">
       <label>Python Code</label>
-      <textarea id="cmd-code" placeholder="reply('Привет!')" spellcheck="false"></textarea>
-      <div class="hint">Доступно: bot, message, send(text), reply(text), db.get/set(key), requests, json, re, math, random, datetime, time, types</div>
+      <div class="code-editor-wrap">
+        <div class="code-editor">
+          <pre id="cmd-code-highlight"><code></code></pre>
+          <textarea id="cmd-code" placeholder="reply('Привет!')" spellcheck="false" oninput="syncHighlight()" onscroll="syncScroll()"></textarea>
+        </div>
+      </div>
+      <div class="hint">Доступно: <b>bot</b>, <b>message</b>, <b>send(text)</b>, <b>reply(text)</b>, <b>db.get/set(key)</b>, requests, json, re, math, random, datetime, time, types</div>
     </div>
     <div class="btn-row">
       <button class="btn danger" id="cmd-delete-btn" style="display:none;" onclick="deleteCommand()">Удалить</button>
@@ -431,14 +538,18 @@
 // ИНИЦИАЛИЗАЦИЯ TELEGRAM WEBAPP
 // ============================================================================
 const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-if (tg) { tg.ready(); tg.expand(); }
+if (tg) {
+  tg.ready();
+  tg.expand();
+  try { tg.setHeaderColor("#0b0d12"); tg.setBackgroundColor("#0b0d12"); } catch (e) {}
+}
 
-const API_BASE = ""; // тот же домен, что и index.html (VPS отдаёт оба файла)
+const API_BASE = "";
 let CURRENT_BOT_ID = null;
 let ALL_COMMANDS = [];
 let EDITING_COMMAND_ID = null;
 let TOKEN_VISIBLE = false;
-let CURRENT_BOT_TOKEN_MASKED = "";
+let CURRENT_BOT_FULL_TOKEN_MASKED = "";
 
 function getInitData() {
   return tg && tg.initData ? tg.initData : "";
@@ -449,10 +560,13 @@ async function api(path, options = {}) {
     { "Content-Type": "application/json", "X-Telegram-Init-Data": getInitData() },
     options.headers || {}
   );
-  const res = await fetch(API_BASE + path, Object.assign({}, options, { headers }));
-  let data;
-  try { data = await res.json(); } catch (e) { data = { ok: false, error: "Invalid server response" }; }
-  if (!res.ok && !data.error) data.error = "Ошибка запроса (" + res.status + ")";
+  let res, data;
+  try {
+    res = await fetch(API_BASE + path, Object.assign({}, options, { headers }));
+    data = await res.json();
+  } catch (e) {
+    return { ok: false, error: "network_error", message: "Не удалось связаться с сервером. Проверь, что bot.py запущен." };
+  }
   return data;
 }
 
@@ -460,7 +574,8 @@ function showToast(msg) {
   const t = document.getElementById("toast");
   t.textContent = msg;
   t.classList.add("show");
-  setTimeout(() => t.classList.remove("show"), 2200);
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove("show"), 2400);
 }
 
 // ============================================================================
@@ -472,9 +587,11 @@ function switchScreen(name) {
   document.getElementById("screen-" + name).classList.add("active");
   document.querySelector(`.nav-item[data-screen="${name}"]`).classList.add("active");
   document.getElementById("fab-create-bot").style.display = (name === "bots") ? "flex" : "none";
+  hideCmdFab();
+
+  if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred("light");
 
   if (name === "bots") loadBotsList();
-  if (name === "info") { /* статично */ }
   if (name === "profile") loadProfile();
 }
 
@@ -484,14 +601,26 @@ function goToBotsList() {
   document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
   document.querySelector('.nav-item[data-screen="bots"]').classList.add("active");
   document.getElementById("fab-create-bot").style.display = "flex";
+  hideCmdFab();
   loadBotsList();
+}
+
+function hideCmdFab() {
+  const el = document.getElementById("cmd-fab");
+  if (el) el.style.display = "none";
 }
 
 // ============================================================================
 // МОДАЛКИ
 // ============================================================================
-function openModal(id) { document.getElementById(id).classList.add("open"); }
-function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+function openModal(id) {
+  document.getElementById(id).classList.add("open");
+  document.getElementById("overlay-" + id.replace("modal-", "")).classList.add("open");
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove("open");
+  document.getElementById("overlay-" + id.replace("modal-", "")).classList.remove("open");
+}
 
 function openNewBotModal() {
   document.getElementById("new-bot-name").value = "";
@@ -508,7 +637,7 @@ async function loadBotsList() {
   container.innerHTML = '<div class="loader"><div class="spinner"></div> Загрузка...</div>';
   const data = await api("/api/bots");
   if (!data.ok) {
-    container.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><div>${escapeHtml(data.error || "Ошибка доступа")}</div></div>`;
+    container.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><div class="title">Ошибка загрузки</div><div class="desc">${escapeHtml(data.message || data.error || "Неизвестная ошибка")}</div></div>`;
     return;
   }
   const bots = data.bots || [];
@@ -516,7 +645,8 @@ async function loadBotsList() {
     container.innerHTML = `
       <div class="empty-state">
         <div class="icon">🤖</div>
-        <div>У вас еще нету своего бота</div>
+        <div class="title">У вас еще нету своего бота</div>
+        <div class="desc">Нажмите + внизу справа, чтобы создать первого бота</div>
       </div>`;
     return;
   }
@@ -525,9 +655,12 @@ async function loadBotsList() {
       <div class="bot-avatar">${escapeHtml((b.name || "B")[0].toUpperCase())}</div>
       <div class="bot-info">
         <div class="name">${escapeHtml(b.name)}</div>
-        <div class="sub">@${escapeHtml(b.bot_username || "—")} · ${b.commands_count} команд</div>
+        <div class="sub">
+          <span class="status-dot ${b.is_active ? "on" : "off"}"></span>
+          @${escapeHtml(b.bot_username || "—")} · ${b.commands_count} команд
+        </div>
       </div>
-      <div class="status-dot ${b.is_active ? "on" : "off"}"></div>
+      <div class="chevron">›</div>
     </div>
   `).join("");
 }
@@ -549,13 +682,24 @@ async function submitNewBot() {
   btn.textContent = "Создать";
   btn.disabled = false;
   if (!data.ok) {
-    errorBox.textContent = data.error || "Не удалось создать бота";
+    errorBox.textContent = data.error || data.message || "Не удалось создать бота";
     errorBox.style.display = "block";
     return;
   }
   closeModal("modal-new-bot");
-  showToast("Бот создан!");
+  showToast("✅ Бот создан!");
   loadBotsList();
+}
+
+async function confirmDeleteBot() {
+  if (!confirm("Удалить этого бота полностью? Это действие необратимо, включая все команды и базу данных.")) return;
+  const data = await api(`/api/bots/${CURRENT_BOT_ID}`, { method: "DELETE" });
+  if (data.ok) {
+    showToast("Бот удалён");
+    goToBotsList();
+  } else {
+    showToast(data.error || "Не удалось удалить");
+  }
 }
 
 // ============================================================================
@@ -574,34 +718,38 @@ async function loadBotDetail() {
   const data = await api(`/api/bots/${CURRENT_BOT_ID}`);
   if (!data.ok) { showToast(data.error || "Ошибка"); return; }
   const b = data.bot;
-  CURRENT_BOT_TOKEN_MASKED = b.token_masked;
+  CURRENT_BOT_FULL_TOKEN_MASKED = b.token_masked;
   document.getElementById("detail-avatar").textContent = (b.name || "B")[0].toUpperCase();
   document.getElementById("detail-name").textContent = b.name;
   document.getElementById("detail-username").textContent = "@" + (b.bot_username || "—");
   const pill = document.getElementById("detail-status-pill");
-  pill.textContent = b.is_active ? "Включен" : "Отключен";
+  pill.innerHTML = `<span class="dot"></span>${b.is_active ? "Включен" : "Отключен"}`;
   pill.className = "status-pill " + (b.is_active ? "on" : "off");
 
   document.getElementById("info-cmd-count").textContent = b.commands_count;
   document.getElementById("info-users-count").textContent = b.users_count;
   document.getElementById("info-id").textContent = b.id;
   document.getElementById("info-tg-id").textContent = b.bot_telegram_id || "—";
-  document.getElementById("info-token").textContent = b.token_masked;
   document.getElementById("info-created").textContent = formatDate(b.created_at);
 
   TOKEN_VISIBLE = false;
+  document.getElementById("info-token").textContent = "нажми чтобы показать";
 }
 
 function toggleTokenVisibility() {
   const el = document.getElementById("info-token");
-  el.textContent = TOKEN_VISIBLE ? CURRENT_BOT_TOKEN_MASKED : "показать по требованию отключено для безопасности";
   TOKEN_VISIBLE = !TOKEN_VISIBLE;
+  el.textContent = TOKEN_VISIBLE ? CURRENT_BOT_FULL_TOKEN_MASKED : "нажми чтобы показать";
 }
 
 async function controlBot(action) {
-  showToast(action === "start" ? "Запуск..." : action === "stop" ? "Остановка..." : "Перезапуск...");
+  const btnId = action === "start" ? "btn-start" : action === "stop" ? "btn-stop" : "btn-restart";
+  const btn = document.getElementById(btnId);
+  btn.classList.add("loading");
   const data = await api(`/api/bots/${CURRENT_BOT_ID}/${action}`, { method: "POST" });
+  btn.classList.remove("loading");
   showToast(data.message || (data.ok ? "Готово" : "Ошибка"));
+  if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred(data.ok ? "success" : "error");
   await loadBotDetail();
 }
 
@@ -611,7 +759,8 @@ function switchTab(tabName) {
   document.querySelector(`.tab[data-tab="${tabName}"]`).classList.add("active");
   document.getElementById("panel-" + tabName).classList.add("active");
 
-  if (tabName === "commands") loadCommands();
+  hideCmdFab();
+  if (tabName === "commands") { loadCommands(); showCmdFab(); }
   if (tabName === "library") loadLibraries();
   if (tabName === "chats") loadChats();
   if (tabName === "logs") loadLogs();
@@ -627,28 +776,31 @@ async function loadCommands() {
 function renderCommands(list) {
   const container = document.getElementById("commands-list");
   if (list.length === 0) {
-    container.innerHTML = '<div class="empty-state"><div class="icon">⌨️</div><div>Команд пока нет — нажмите + чтобы создать</div></div>';
+    container.innerHTML = '<div class="empty-state"><div class="icon">⌨️</div><div class="title">Команд пока нет</div><div class="desc">Нажмите + чтобы создать первую команду</div></div>';
   } else {
     container.innerHTML = list.map(c => `
       <div class="cmd-item" onclick="openEditCommand(${c.id})">
         <div>
           <div class="trigger">${escapeHtml(c.trigger)}</div>
-          <div class="type">${typeLabel(c.trigger_type)}</div>
+          <span class="type-badge">${typeLabel(c.trigger_type)}</span>
         </div>
+        <div class="chevron">›</div>
       </div>
     `).join("");
   }
-  // добавляем плавающую кнопку + именно для этой вкладки
-  if (!document.getElementById("cmd-fab")) {
-    const fab = document.createElement("button");
+}
+
+function showCmdFab() {
+  let fab = document.getElementById("cmd-fab");
+  if (!fab) {
+    fab = document.createElement("button");
     fab.className = "fab";
     fab.id = "cmd-fab";
     fab.textContent = "+";
     fab.onclick = openNewCommandModal;
     document.body.appendChild(fab);
   }
-  document.getElementById("cmd-fab").style.display = "flex";
-  document.getElementById("cmd-fab").style.bottom = "92px";
+  fab.style.display = "flex";
 }
 
 function typeLabel(t) {
@@ -669,6 +821,7 @@ function openNewCommandModal() {
   document.getElementById("cmd-code").value = "";
   document.getElementById("command-error").style.display = "none";
   document.getElementById("cmd-delete-btn").style.display = "none";
+  syncHighlight();
   openModal("modal-command");
 }
 
@@ -682,6 +835,7 @@ function openEditCommand(id) {
   document.getElementById("cmd-code").value = cmd.code;
   document.getElementById("command-error").style.display = "none";
   document.getElementById("cmd-delete-btn").style.display = "block";
+  syncHighlight();
   openModal("modal-command");
 }
 
@@ -711,19 +865,61 @@ async function submitCommand() {
     return;
   }
   closeModal("modal-command");
-  showToast("Сохранено");
+  showToast("✅ Сохранено");
   loadCommands();
   loadBotDetail();
 }
 
 async function deleteCommand() {
   if (!EDITING_COMMAND_ID) return;
+  if (!confirm("Удалить эту команду?")) return;
   const data = await api(`/api/bots/${CURRENT_BOT_ID}/commands/${EDITING_COMMAND_ID}`, { method: "DELETE" });
   closeModal("modal-command");
   if (data.ok) { showToast("Команда удалена"); loadCommands(); loadBotDetail(); }
 }
 
+// ---------- Подсветка синтаксиса Python (лёгкая, без зависимостей) ----------
+const PY_KEYWORDS = ["def","return","if","elif","else","for","while","in","not","and","or","import","from","as","try","except","finally","class","with","lambda","pass","break","continue","is","None","True","False","global","yield","raise"];
+const PY_BUILTINS = ["bot","message","send","reply","db","requests","json","re","math","random","datetime","time","types","print","len","str","int","float","range","list","dict"];
+
+function highlightPython(code) {
+  let escaped = escapeHtml(code);
+  // строки
+  escaped = escaped.replace(/(&#39;[^&]*?&#39;|&quot;[^&]*?&quot;)/g, '<span class="tok-str">$1</span>');
+  // комментарии
+  escaped = escaped.replace(/(#.*?)(\n|$)/g, '<span class="tok-com">$1</span>$2');
+  // числа
+  escaped = escaped.replace(/\b(\d+\.?\d*)\b/g, '<span class="tok-num">$1</span>');
+  // ключевые слова
+  const kwRegex = new RegExp("\\b(" + PY_KEYWORDS.join("|") + ")\\b", "g");
+  escaped = escaped.replace(kwRegex, '<span class="tok-kw">$1</span>');
+  // встроенные для этого движка
+  const builtinRegex = new RegExp("\\b(" + PY_BUILTINS.join("|") + ")\\b", "g");
+  escaped = escaped.replace(builtinRegex, '<span class="tok-builtin">$1</span>');
+  return escaped + "\n";
+}
+
+function syncHighlight() {
+  const ta = document.getElementById("cmd-code");
+  const pre = document.getElementById("cmd-code-highlight").querySelector("code");
+  pre.innerHTML = highlightPython(ta.value);
+}
+function syncScroll() {
+  const ta = document.getElementById("cmd-code");
+  const pre = document.getElementById("cmd-code-highlight");
+  pre.scrollTop = ta.scrollTop;
+  pre.scrollLeft = ta.scrollLeft;
+}
+
 // ---------- LIBRARY TAB ----------
+const LIB_DESCRIPTIONS = {
+  "pyTelegramBotAPI": "Движок бота (уже используется платформой)",
+  "aiogram": "Альтернативный async-фреймворк",
+  "requests": "HTTP-запросы к внешним API",
+  "beautifulsoup4": "Парсинг HTML/веб-скрапинг",
+  "Pillow": "Обработка изображений",
+};
+
 async function loadLibraries() {
   const data = await api(`/api/bots/${CURRENT_BOT_ID}/libraries`);
   const container = document.getElementById("library-list");
@@ -732,28 +928,37 @@ async function loadLibraries() {
     const isOn = data.installed.includes(pkg);
     return `
       <div class="lib-item">
-        <div class="name">${escapeHtml(pkg)}</div>
-        <div class="toggle ${isOn ? "on" : ""}" onclick="toggleLibrary('${pkg}', ${isOn})"><div class="knob"></div></div>
+        <div>
+          <div class="name">${escapeHtml(pkg)}</div>
+          <div class="desc">${escapeHtml(LIB_DESCRIPTIONS[pkg] || "")}</div>
+        </div>
+        <div class="toggle ${isOn ? "on" : ""}" id="lib-toggle-${cssSafe(pkg)}" onclick="toggleLibrary('${pkg}', ${isOn})"><div class="knob"></div></div>
       </div>`;
   }).join("");
 }
 
 async function toggleLibrary(pkg, currentlyOn) {
+  const toggle = document.getElementById("lib-toggle-" + cssSafe(pkg));
+  toggle.classList.add("loading");
   showToast(currentlyOn ? "Удаление..." : "Установка...");
   const data = currentlyOn
     ? await api(`/api/bots/${CURRENT_BOT_ID}/libraries`, { method: "DELETE", body: JSON.stringify({ package: pkg }) })
     : await api(`/api/bots/${CURRENT_BOT_ID}/libraries`, { method: "POST", body: JSON.stringify({ package: pkg }) });
+  toggle.classList.remove("loading");
   showToast(data.message || (data.ok ? "Готово" : data.error));
   loadLibraries();
 }
 
+function cssSafe(s) { return s.replace(/[^a-zA-Z0-9]/g, "_"); }
+
 // ---------- DATABASE TAB ----------
 function downloadBotDb() {
   const url = `${API_BASE}/api/bots/${CURRENT_BOT_ID}/database/download`;
-  // initData нужен в заголовке, поэтому скачиваем через fetch + blob
-  api(`/api/bots/${CURRENT_BOT_ID}/database/download`, {}).catch(() => {});
   fetch(url, { headers: { "X-Telegram-Init-Data": getInitData() } })
-    .then(res => res.blob())
+    .then(res => {
+      if (!res.ok) throw new Error("download failed");
+      return res.blob();
+    })
     .then(blob => {
       const a = document.createElement("a");
       const objUrl = URL.createObjectURL(blob);
@@ -763,8 +968,9 @@ function downloadBotDb() {
       a.click();
       a.remove();
       URL.revokeObjectURL(objUrl);
+      showToast("Файл скачан");
     })
-    .catch(() => showToast("Не удалось скачать файл"));
+    .catch(() => showToast("Не удалось скачать файл (возможно БД ещё пуста)"));
 }
 
 async function resetBotDb() {
@@ -780,7 +986,7 @@ async function loadChats() {
   const container = document.getElementById("chats-list");
   const chats = data.ok ? data.chats : [];
   if (chats.length === 0) {
-    container.innerHTML = '<div class="empty-state"><div class="icon">👥</div><div>Пока никто не запускал бота</div></div>';
+    container.innerHTML = '<div class="empty-state"><div class="icon">👥</div><div class="title">Пока никто не запускал бота</div></div>';
     return;
   }
   container.innerHTML = chats.map(c => `
@@ -800,7 +1006,7 @@ async function loadLogs() {
   const container = document.getElementById("logs-list");
   const logs = data.ok ? data.logs : [];
   if (logs.length === 0) {
-    container.innerHTML = '<div class="empty-state"><div class="icon">📋</div><div>Ошибок пока не было</div></div>';
+    container.innerHTML = '<div class="empty-state"><div class="icon">📋</div><div class="title">Ошибок пока не было</div></div>';
     return;
   }
   container.innerHTML = logs.map(l => `
@@ -808,6 +1014,12 @@ async function loadLogs() {
       <div class="log-time">${formatDate(l.created_at)}</div>${escapeHtml(l.message)}
     </div>
   `).join("");
+}
+
+async function clearLogs() {
+  if (!confirm("Очистить все логи этого бота?")) return;
+  const data = await api(`/api/bots/${CURRENT_BOT_ID}/logs`, { method: "DELETE" });
+  if (data.ok) { showToast("Логи очищены"); loadLogs(); }
 }
 
 // ============================================================================
@@ -847,6 +1059,7 @@ function connectWS() {
       } catch (e) {}
     };
     ws.onclose = () => setTimeout(connectWS, 3000);
+    ws.onerror = () => {};
   } catch (e) {}
 }
 
@@ -866,18 +1079,48 @@ function formatDate(iso) {
 }
 
 // ============================================================================
+// ЭКРАН ОШИБКИ АВТОРИЗАЦИИ С ТОЧНОЙ ДИАГНОСТИКОЙ
+// ============================================================================
+function renderAuthError(data) {
+  const reasonTitles = {
+    "no_bot_token": "Сервер не настроен",
+    "no_init_data": "Открыто не из Telegram",
+    "bad_format": "Некорректные данные",
+    "no_hash": "Отсутствует подпись",
+    "bad_signature": "Неверный токен на сервере",
+    "not_owner": "Доступ ограничен",
+    "network_error": "Нет связи с сервером",
+  };
+  const icons = {
+    "no_bot_token": "⚙️", "no_init_data": "📱", "bad_signature": "🔑",
+    "not_owner": "🔒", "network_error": "🔌",
+  };
+  const reason = data.reason_code || data.error;
+  const title = reasonTitles[reason] || "Нет доступа";
+  const icon = icons[reason] || "🔒";
+
+  document.getElementById("app").innerHTML = `
+    <div class="auth-error-screen">
+      <div class="icon">${icon}</div>
+      <h2>${escapeHtml(title)}</h2>
+      <p>${escapeHtml(data.message || "Неизвестная ошибка авторизации")}</p>
+      <div class="debug-box">
+        <div><b>reason_code:</b> ${escapeHtml(reason || "—")}</div>
+        <div><b>initData length:</b> ${getInitData().length}</div>
+        <div><b>in Telegram:</b> ${tg ? "да" : "нет"}</div>
+      </div>
+    </div>`;
+  document.querySelector(".bottom-nav").style.display = "none";
+  document.getElementById("fab-create-bot").style.display = "none";
+}
+
+// ============================================================================
 // СТАРТ
 // ============================================================================
 (async function init() {
   const authRes = await api("/api/auth", { method: "POST" });
   if (!authRes.ok) {
-    document.getElementById("app").innerHTML = `
-      <div class="empty-state" style="padding-top:100px;">
-        <div class="icon">🔒</div>
-        <div>Доступ к этому конструктору ограничен.</div>
-      </div>`;
-    document.querySelector(".bottom-nav").style.display = "none";
-    document.getElementById("fab-create-bot").style.display = "none";
+    renderAuthError(authRes);
     return;
   }
   loadBotsList();

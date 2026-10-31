@@ -3,40 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Телешарм</title>
+    <title>Война Банд — Телешарм</title>
+    <!-- Telegram Web App SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <div class="app-container" id="app-theme-wrapper">
-        <header>
-            <h1 id="app-title">✨ Телешарм</h1>
-            <div class="profile-info">
-                <span id="user-name">Загрузка...</span>
-                <div class="balance-box">🪙 <span id="user-coins">0</span></div>
-            </div>
-        </header>
-
-        <main>
-            <!-- Блок контрактов -->
-            <section class="section">
-                <h2>Контракты</h2>
-                <div id="contracts-list">
-                    <p>Загрузка контрактов...</p>
-                </div>
-            </section>
-
-            <!-- Активная миссия -->
-            <section class="section" id="mission-section" style="display: none;">
-                <h2>Активный рейд</h2>
-                <p id="mission-title"></p>
-                <p>Осталось: <span id="mission-timer">0</span> сек.</p>
-            </section>
-        </main>
+    <!-- Единственный контейнер, куда хэндлеры рендерят экраны -->
+    <div id="app">
+        <div class="loading-screen">Загрузка игры...</div>
     </div>
 
-    <!-- Главный скрипт точка входа -->
+    <!-- Точка входа -->
     <script type="module" src="js/main.js"></script>
 </body>
 </html>

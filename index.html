@@ -1,862 +1,544 @@
-<!DOCTYPE html>
+here<!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#22252c">
-<title>Шахтёр Live</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0e16">
+<title>Gold Miner</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;600;800&family=Pixelify+Sans:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
-  --deep:#22252c; --deep2:#2e323b; --deep3:#3c414d; --stone:#8d9199;
-  --dirt:#6b4630; --grass:#6cbf3f; --grass-d:#3f7a22; --gold:#f4c542;
-  --diamond:#4be0d0; --red:#e0402f; --red-d:#8e2318; --paper:#ece8dc; --mut:#a5a89f;
+  --ink:#0a0e16; --panel:#121826; --raised:#1a2236; --line:#26304a;
+  --txt:#eaeef8; --mut:#7f8cab;
+  --gold:#ffb627; --gold-d:#e08a00; --ember:#ff6b3d; --crystal:#4de1d0; --red:#ff5d6c;
+  --safe-top: calc(var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px));
+  --safe-bot: var(--tg-safe-area-inset-bottom, 0px);
+  --display:'Unbounded','Manrope',system-ui,sans-serif;
+  --body:'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;overflow:hidden;background:var(--deep);color:var(--paper);
-  font:400 15px/1.45 'Golos Text',system-ui,sans-serif;touch-action:manipulation;user-select:none;-webkit-user-select:none}
-h1,h2,h3,.h{font-family:'Pixelify Sans',monospace;font-weight:700}
-canvas{image-rendering:pixelated;display:block}
-input{user-select:text;-webkit-user-select:text}
-:focus-visible{outline:3px solid var(--diamond);outline-offset:2px}
-
-.screen{position:absolute;inset:0;display:none;flex-direction:column;max-width:520px;margin:0 auto;
-  background:repeating-conic-gradient(#272a32 0 25%,#242730 0 50%) 0 0/32px 32px}
-.screen.on{display:flex}
-
-/* buttons */
-.btn{--sh:var(--grass-d);font:700 17px 'Pixelify Sans',monospace;background:var(--grass);color:#10260a;border:0;
-  padding:14px 18px;cursor:pointer;box-shadow:0 5px 0 var(--sh);transform:translateY(0);transition:transform .05s,box-shadow .05s}
-.btn:active{transform:translateY(3px);box-shadow:0 2px 0 var(--sh)}
-.btn.alt{--sh:#1b1d22;background:var(--deep3);color:var(--paper)}
-.btn.red{--sh:var(--red-d);background:var(--red);color:#fff}
-.btn.sm{font-size:14px;padding:9px 12px}
-.btn:disabled{opacity:.45;pointer-events:none}
-.btn.big{width:100%;font-size:24px;padding:18px}
-.err{color:#ff8a7a;min-height:20px;font-size:14px}
-.muted{color:var(--mut);font-size:14px}
-
-/* login */
-#login{align-items:center;justify-content:center;text-align:center;padding:28px;gap:18px}
-#login h1{font-size:44px;line-height:1.05}
-#login .sub{color:var(--mut);max-width:290px}
-#loginBlock{width:128px;height:128px;border:4px solid #14161a}
-.loginrow{display:flex;gap:10px;width:100%;max-width:340px}
-#gbtn{flex:3;display:flex;align-items:center;gap:8px;justify-content:center;font-size:16px}
-#guestBtn{flex:2;font-size:16px}
-.hint{font-size:13px;color:var(--mut);margin-top:6px}
-#tgHint{display:none;font-size:13px;color:var(--mut);max-width:300px}
-
-/* create */
-#create{padding:18px 16px;overflow:auto}
-#create h2{font-size:28px;margin-bottom:12px}
-.prevbox{display:flex;justify-content:center;margin:6px 0 14px}
-#prev{width:160px;height:160px;background:#343842;border:4px solid #14161a}
-input.txt{width:100%;font:600 18px 'Golos Text',sans-serif;padding:13px;background:#14161a;color:var(--paper);border:3px solid var(--deep3);border-radius:0}
-.orow{margin-top:12px}
-.olabel{display:block;color:var(--mut);font-size:14px;margin-bottom:6px}
-.chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{font:600 14px 'Golos Text',sans-serif;color:var(--paper);background:var(--deep3);border:3px solid transparent;padding:8px 12px;cursor:pointer}
-.chip.sw{width:38px;height:38px;padding:0;border-color:#14161a}
-.chip.sel{border-color:var(--gold)}
-.row2{display:flex;gap:10px;margin-top:20px;padding-bottom:20px}
-.row2 .btn{flex:1}
-
-/* game */
-#game{overflow:hidden}
-.top{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--deep2);border-bottom:4px solid #14161a;padding-top:max(10px,env(safe-area-inset-top))}
-.avs{width:44px;height:44px;background:#343842;border:3px solid #14161a}
-.who{flex:1;min-width:0}
-.who b{display:block;font:700 17px 'Pixelify Sans',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.idbtn{background:none;border:0;color:var(--mut);font:600 13px 'Golos Text',sans-serif;cursor:pointer;padding:0}
-.res{display:flex;flex-direction:column;align-items:flex-end;font:700 16px 'Pixelify Sans',monospace;line-height:1.3}
-.res span{white-space:nowrap}
-.res .gold{color:var(--gold)}
-.pane{display:none;flex:1;overflow:auto;padding:12px}
-.pane.on{display:block}
-.tabs{display:flex;background:var(--deep2);border-top:4px solid #14161a;padding-bottom:env(safe-area-inset-bottom)}
-.tab{flex:1;background:none;border:0;color:var(--mut);font:600 12px 'Golos Text',sans-serif;padding:9px 0 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px}
-.tab span{font-size:22px;line-height:1}
-.tab.on{color:var(--gold);background:var(--deep3)}
-.badge{display:none;background:var(--red);color:#fff;font-size:11px;padding:0 5px;margin-left:2px}
-
-/* stage */
-.stage{position:relative;height:300px;border:4px solid #14161a;overflow:hidden;
+html,body{height:100%;background:var(--ink);color:var(--txt);font-family:var(--body);overscroll-behavior:none}
+body{display:flex;flex-direction:column;height:100dvh;overflow:hidden;
   background:
-   linear-gradient(#6cbf3f 0 8px,#3f7a22 8px 14px,transparent 14px),
-   linear-gradient(to top,#6b4630 0 42px,#563524 42px 46px,transparent 46px),
-   repeating-conic-gradient(#343842 0 25%,#2f333c 0 50%) 0 0/24px 24px}
-.badges{position:absolute;top:22px;left:8px;right:8px;display:flex;gap:6px;z-index:2}
-.live{font:700 14px 'Pixelify Sans',monospace;background:#14161a;color:var(--mut);padding:4px 9px;display:flex;align-items:center;gap:6px}
-.live i{width:9px;height:9px;background:#555}
-.live.on{background:var(--red);color:#fff}
-.live.on i{background:#fff;animation:blink 1.2s steps(2) infinite}
-.duo{font:700 14px 'Pixelify Sans',monospace;background:var(--gold);color:#3b2a00;padding:4px 9px}
-@keyframes blink{50%{opacity:.2}}
-.cast{position:absolute;left:4px;bottom:42px;display:flex;align-items:flex-end}
-.cast canvas{width:92px;height:92px}
-.cast .pt{margin-left:-26px}
-.orewrap{position:absolute;right:10px;bottom:46px;width:124px;height:124px}
-#ore{width:124px;height:124px;cursor:pointer;border:3px solid #14161a}
-.fx{position:absolute;inset:0;pointer-events:none}
-.pop{position:absolute;bottom:70%;font:700 20px 'Pixelify Sans',monospace;animation:pop .9s ease-out forwards;text-shadow:2px 2px 0 #000;white-space:nowrap}
-.sp{position:absolute;left:50%;top:50%;width:8px;height:8px;animation:sp .7s ease-out forwards}
-@keyframes pop{from{transform:translateY(0);opacity:1}to{transform:translateY(-60px);opacity:0}}
-@keyframes sp{from{transform:translate(0,0);opacity:1}to{transform:translate(var(--dx),var(--dy));opacity:0}}
-.hitbar{position:absolute;right:10px;bottom:22px;width:124px;height:10px;background:#14161a}
-.hitbar i{display:block;height:100%;width:0;background:var(--gold)}
-.status{text-align:center;margin:16px 4px 4px;min-height:44px}
-.leave{display:none;margin:0 auto 8px;background:none;border:0;color:var(--mut);text-decoration:underline;font:600 13px 'Golos Text',sans-serif;cursor:pointer}
-.rank{background:var(--deep2);border:3px solid #14161a;padding:12px;margin-top:10px}
-.rank .bar{height:10px;background:#14161a;margin-top:8px}
-.rank .bar i{display:block;height:100%;background:var(--diamond);width:0}
-@media (prefers-reduced-motion:reduce){.pop,.sp{animation-duration:.01s}.live.on i{animation:none}}
+    radial-gradient(900px 500px at 50% -10%, rgba(255,182,39,.10), transparent 60%),
+    radial-gradient(600px 400px at 100% 100%, rgba(77,225,208,.06), transparent 60%),
+    var(--ink);}
+button,input{font-family:inherit;color:inherit}
+button{border:0;background:none;cursor:pointer}
+.nosel{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 
-/* cards & lists */
-.card{background:var(--deep2);border:3px solid #14161a;padding:12px;margin-bottom:12px}
-.card label{display:block;margin-bottom:6px;color:var(--mut);font-size:14px}
-.myid{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.myid b{font-size:30px;letter-spacing:2px}
-.add{display:flex;gap:8px}
-.add input{flex:1;min-width:0}
-h3{font-size:18px;margin:16px 2px 8px}
-.item{display:flex;align-items:center;gap:10px;background:var(--deep2);border:3px solid #14161a;padding:10px;margin-bottom:8px}
-.item .av{width:46px;height:46px;background:#343842;border:3px solid #14161a;flex:none}
-.item .t{flex:1;min-width:0}
-.item .t b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.item .t small{color:var(--mut);display:block}
-.item .t small.on{color:var(--red)}
-.item .btns{display:flex;gap:6px}
-.item.meRow{border-color:var(--gold)}
-.lvl{font:700 13px 'Pixelify Sans',monospace;color:var(--gold)}
-.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
-.stats div{background:var(--deep2);border:3px solid #14161a;padding:10px}
-.stats b{display:block;font:700 22px 'Pixelify Sans',monospace}
-.me-top{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 0}
-.me-top canvas{width:128px;height:128px;background:#343842;border:4px solid #14161a}
-.me-top h2{font-size:26px}
-.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#14161a;color:var(--paper);padding:10px 16px;border:3px solid var(--gold);z-index:50;display:none;max-width:90%;text-align:center}
+/* ── шапка ── */
+header{padding:calc(var(--safe-top) + 12px) 16px 10px;display:flex;align-items:center;gap:12px}
+.avatar{width:40px;height:40px;border-radius:12px;flex:none;display:grid;place-items:center;
+  font-family:var(--display);font-weight:700;font-size:16px;color:#2a1700;
+  background:linear-gradient(145deg,#ffd36b,var(--gold-d));box-shadow:0 4px 14px rgba(255,182,39,.25)}
+.who{min-width:0;flex:1}
+.who b{display:block;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.who span{font-size:12px;color:var(--crystal);font-weight:600}
+.bal{text-align:right}
+.bal strong{display:block;font-family:var(--display);font-weight:800;font-size:22px;line-height:1.1;color:var(--gold);
+  text-shadow:0 0 24px rgba(255,182,39,.35);font-variant-numeric:tabular-nums}
+.bal small{font-size:11px;color:var(--mut);font-weight:600}
+
+/* ── страницы ── */
+main{flex:1;min-height:0;position:relative}
+.page{position:absolute;inset:0;display:none;overflow-y:auto;overflow-x:hidden;padding:6px 16px 16px;-webkit-overflow-scrolling:touch}
+.page.active{display:block}
+#page-chat.active{display:flex;flex-direction:column;padding-bottom:0}
+h2{font-family:var(--display);font-weight:700;font-size:18px;margin:4px 0 12px}
+
+/* ── кликер ── */
+.tap-zone{position:relative;display:flex;flex-direction:column;align-items:center;padding:14px 0 6px}
+.coin{position:relative;width:min(64vw,270px);aspect-ratio:1;border-radius:50%;display:grid;place-items:center;
+  touch-action:manipulation;transition:transform .08s ease-out;
+  background:
+    radial-gradient(circle at 32% 26%, #fff1b8 0, #ffd05a 22%, #f0a30f 52%, #b86a00 100%);
+  box-shadow:
+    inset 0 -10px 22px rgba(120,60,0,.55), inset 0 8px 16px rgba(255,255,255,.45),
+    0 0 0 8px rgba(255,182,39,.10), 0 0 0 16px rgba(255,182,39,.05),
+    0 24px 60px rgba(255,150,0,.30);}
+.coin::before{content:"";position:absolute;inset:11%;border-radius:50%;
+  border:3px dashed rgba(120,60,0,.35);box-shadow:inset 0 2px 6px rgba(255,255,255,.25)}
+.coin span{font-size:min(26vw,110px);filter:drop-shadow(0 4px 4px rgba(90,40,0,.45));transform:rotate(-12deg)}
+.coin.hit{transform:scale(.955)}
+.tap-info{margin-top:18px;font-size:13px;color:var(--mut);font-weight:600}
+.tap-info b{color:var(--txt)}
+.float{position:fixed;pointer-events:none;z-index:50;font-family:var(--display);font-weight:800;font-size:22px;color:#fff3c4;
+  text-shadow:0 2px 10px rgba(255,150,0,.8);animation:floatUp .9s ease-out forwards}
+@keyframes floatUp{from{opacity:1;transform:translate(-50%,0)}to{opacity:0;transform:translate(-50%,-90px)}}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px}
+.row{display:flex;align-items:center;gap:12px}
+.grow{flex:1;min-width:0}
+.card .t{font-weight:700;font-size:14px}
+.card .d{font-size:12px;color:var(--mut);margin-top:2px;line-height:1.35}
+.btn{padding:10px 14px;border-radius:12px;font-weight:800;font-size:13px;white-space:nowrap;
+  background:var(--raised);color:var(--mut);border:1px solid var(--line);transition:transform .1s, background .2s}
+.btn.can{background:linear-gradient(145deg,#ffcc4d,var(--gold-d));color:#2a1700;border-color:transparent;box-shadow:0 6px 16px rgba(255,160,0,.25)}
+.btn:active{transform:scale(.95)}
+.btn small{display:block;font-size:11px;font-weight:700;opacity:.85}
+
+/* ── шахты ── */
+.mines{display:flex;flex-direction:column;gap:10px}
+.mine{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:12px}
+.mine.owned{border-color:rgba(77,225,208,.35);background:linear-gradient(180deg,rgba(77,225,208,.06),var(--panel))}
+.mine .ico{width:48px;height:48px;border-radius:14px;flex:none;display:grid;place-items:center;font-size:24px;background:var(--raised)}
+.mine .lvl{font-size:11px;font-weight:800;color:var(--crystal);margin-left:6px}
+.mine .inc{font-size:12px;color:var(--mut);margin-top:3px}
+.mine .inc em{font-style:normal;color:var(--crystal);font-weight:700}
+
+/* ── топ ── */
+.top{display:flex;flex-direction:column;gap:8px}
+.place{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:10px 12px}
+.place.me{border-color:var(--gold);box-shadow:0 0 0 1px rgba(255,182,39,.25) inset}
+.place .rk{width:30px;text-align:center;font-family:var(--display);font-weight:700;font-size:14px;color:var(--mut)}
+.place:nth-child(1) .rk,.place:nth-child(2) .rk,.place:nth-child(3) .rk{font-size:22px}
+.place .av{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-weight:800;font-size:14px;color:#08111a}
+.place .nm{flex:1;min-width:0;font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.place .sc{font-family:var(--display);font-weight:700;font-size:13px;color:var(--gold)}
+.myrank{margin-top:12px;text-align:center;font-size:13px;color:var(--mut);font-weight:600}
+.myrank b{color:var(--gold)}
+.empty{text-align:center;color:var(--mut);font-size:13px;padding:30px 0}
+
+/* ── чат ── */
+.msgs{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:4px 0 10px}
+.msg{max-width:84%;padding:8px 12px 7px;border-radius:16px;background:var(--panel);border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:5px}
+.msg.mine{align-self:flex-end;background:linear-gradient(145deg,#2a3556,#212b47);border-color:#34406a;border-bottom-left-radius:16px;border-bottom-right-radius:5px}
+.msg .who2{font-size:12px;font-weight:800;margin-bottom:2px}
+.msg .tx{font-size:14px;line-height:1.35;word-wrap:break-word;overflow-wrap:anywhere;white-space:pre-wrap}
+.msg .tm{font-size:10px;color:var(--mut);text-align:right;margin-top:2px}
+.composer{display:flex;gap:8px;padding:10px 0 12px;border-top:1px solid var(--line);background:var(--ink)}
+.composer input{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-size:15px;outline:none}
+.composer input:focus{border-color:var(--gold)}
+.send{width:46px;border-radius:14px;background:linear-gradient(145deg,#ffcc4d,var(--gold-d));color:#2a1700;font-size:18px;font-weight:800}
+.send:disabled{opacity:.5}
+
+/* ── нижняя навигация ── */
+nav{display:flex;gap:4px;padding:8px 10px calc(var(--safe-bot) + 10px);background:rgba(10,14,22,.92);border-top:1px solid var(--line);backdrop-filter:blur(10px)}
+nav button{flex:1;position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0;border-radius:14px;color:var(--mut);font-size:11px;font-weight:700;transition:color .2s, background .2s}
+nav button i{font-style:normal;font-size:20px;filter:grayscale(1) opacity(.7);transition:filter .2s}
+nav button.active{color:var(--gold);background:rgba(255,182,39,.10)}
+nav button.active i{filter:none}
+.badge{position:absolute;top:2px;left:calc(50% + 6px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--red);color:#fff;font-size:10px;font-weight:800;display:none;place-items:center}
+.badge.show{display:grid}
+
+/* ── прочее ── */
+#toast{position:fixed;left:50%;top:calc(var(--safe-top) + 70px);transform:translate(-50%,-20px);opacity:0;z-index:100;
+  background:var(--raised);border:1px solid var(--line);padding:10px 16px;border-radius:14px;font-size:13px;font-weight:700;
+  max-width:88vw;text-align:center;transition:opacity .2s, transform .2s;pointer-events:none}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#toast.err{border-color:var(--red);color:#ffc9ce}
+#toast.ok{border-color:var(--crystal);color:#c9fff9}
+#splash{position:fixed;inset:0;z-index:200;background:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:30px}
+#splash .big{font-size:54px;animation:swing 1.2s ease-in-out infinite;transform-origin:70% 90%}
+@keyframes swing{0%,100%{transform:rotate(-14deg)}50%{transform:rotate(14deg)}}
+#splash p{color:var(--mut);font-size:14px;font-weight:600;line-height:1.5;max-width:300px}
+#splash .btn{margin-top:6px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
 
-<!-- Загрузка -->
-<section id="loading" class="screen on" style="align-items:center;justify-content:center">
-  <div style="text-align:center;padding:24px;max-width:340px">
-    <p class="h" id="loadTxt" style="font-size:22px">Загрузка…</p>
-    <p class="muted" id="loadSub" style="margin-top:10px"></p>
-    <div id="loadBtns" style="display:none;gap:10px;justify-content:center;margin-top:18px">
-      <button id="loadRetry" class="btn sm">Повторить</button>
-      <button id="loadOut" class="btn sm alt">Выйти</button>
+<div id="splash">
+  <div class="big">⛏️</div>
+  <p id="splashText">Спускаемся в шахту…</p>
+  <button class="btn can" id="retry" style="display:none">Попробовать снова</button>
+</div>
+
+<header>
+  <div class="avatar" id="avatar">?</div>
+  <div class="who"><b id="uname">Игрок</b><span id="incomeTop">+0 в секунду</span></div>
+  <div class="bal"><strong id="balance">0</strong><small>монет</small></div>
+</header>
+
+<main>
+  <!-- КЛИК -->
+  <section class="page active" id="page-click">
+    <div class="tap-zone">
+      <div class="coin nosel" id="coin"><span>⛏️</span></div>
+      <div class="tap-info">За один тап: <b id="power">+1</b></div>
     </div>
-  </div>
-</section>
-
-<!-- Вход -->
-<section id="login" class="screen">
-  <canvas id="loginBlock"></canvas>
-  <h1>Шахтёр Live</h1>
-  <p class="sub">Копай руду в прямом эфире, набирай подписчиков и стримь вместе с друзьями.</p>
-  <div class="loginrow">
-  <button id="gbtn" class="btn">
-    <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#fff" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#fff" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.5-4.1 7-10.2 7-17.6z"/><path fill="#fff" d="M10.5 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.1z"/><path fill="#fff" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
-    Google
-  </button>
-  <button id="guestBtn" class="btn alt">Гость</button>
-  </div>
-  <p id="loginErr" class="err"></p>
-  <button id="altLogin" class="btn sm alt" style="display:none">Не получается? Войти другим способом</button>
-  <div id="tgHint">Если окно Google не открывается внутри Telegram, открой игру в браузере. Прогресс общий.
-    <br><button id="openBrowser" class="btn sm alt" style="margin-top:8px">Открыть в браузере</button></div>
-</section>
-
-<!-- Создание героя -->
-<section id="create" class="screen">
-  <h2 id="createTitle">Создай стримера</h2>
-  <div class="prevbox"><canvas id="prev"></canvas></div>
-  <input id="nick" class="txt" maxlength="16" placeholder="Никнейм (2–16 символов)" autocomplete="off" aria-label="Никнейм">
-  <input id="uname" class="txt" maxlength="16" placeholder="Юзернейм, например miner_vasya" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Юзернейм" style="margin-top:10px">
-  <p class="hint" id="unameHint">Юзернейм: 3–16 символов, латиница, цифры и _. Друзья смогут найти тебя по @юзернейму.</p>
-  <div id="opts"></div>
-  <p id="createErr" class="err" style="margin-top:10px"></p>
-  <div class="row2">
-    <button id="rnd" class="btn alt">Случайно</button>
-    <button id="createGo" class="btn">Играть</button>
-  </div>
-</section>
-
-<!-- Игра -->
-<section id="game" class="screen">
-  <header class="top">
-    <canvas id="topAv" class="avs"></canvas>
-    <div class="who"><b id="topNick"></b><button id="topId" class="idbtn" aria-label="Скопировать ID"></button></div>
-    <div class="res"><span class="gold">🪙 <b id="coins">0</b></span><span>🔔 <b id="subs">0</b></span></div>
-  </header>
-
-  <div id="p-stream" class="pane on">
-    <div class="stage" id="stage">
-      <div class="badges"><span id="live" class="live"><i></i><span id="liveTxt">Не в эфире</span></span><span id="duo" class="duo" hidden>Дуэт ×2</span></div>
-      <div class="cast"><canvas id="meCv"></canvas><canvas id="ptCv" class="pt" hidden></canvas></div>
-      <div class="orewrap"><canvas id="ore" aria-label="Руда: нажимай, чтобы копать"></canvas><div class="fx" id="fx"></div></div>
-      <div class="hitbar"><i id="hitbar"></i></div>
+    <div class="card row" style="margin-top:14px">
+      <div class="grow">
+        <div class="t">Крепкая кирка</div>
+        <div class="d">Уровень <b id="clickLvl">1</b>. Каждый тап приносит на 1 монету больше.</div>
+      </div>
+      <button class="btn" id="clickUp"><span>Улучшить</span><small id="clickCost">100</small></button>
     </div>
-    <p class="status" id="status"></p>
-    <button id="leave" class="leave">Выйти из дуэта</button>
-    <button id="streamBtn" class="btn red big">Стримить</button>
-    <button id="daily" class="btn alt" style="width:100%;margin-top:14px;display:none"></button>
-    <div class="rank"><div id="rankTxt"></div><div class="bar"><i id="rankBar"></i></div></div>
-  </div>
+  </section>
 
-  <div id="p-shop" class="pane"><div id="shopList"></div></div>
+  <!-- ШАХТЫ -->
+  <section class="page" id="page-mines">
+    <h2>Шахты</h2>
+    <div class="mines" id="minesList"></div>
+  </section>
 
-  <div id="p-friends" class="pane">
-    <div class="card">
-      <p class="muted">Твой ID. Отправь его другу</p>
-      <div class="myid"><b id="fMyId" class="h"></b><button id="fCopy" class="btn sm alt">Скопировать</button></div>
+  <!-- ТОП -->
+  <section class="page" id="page-top">
+    <h2>ТОП-10 игроков</h2>
+    <div class="top" id="topList"><div class="empty">Загружаем рейтинг…</div></div>
+    <div class="myrank" id="myRank"></div>
+  </section>
+
+  <!-- ЧАТ -->
+  <section class="page" id="page-chat">
+    <h2>Общий чат</h2>
+    <div class="msgs" id="msgs"><div class="empty" id="chatEmpty">Пока тихо. Напишите первым!</div></div>
+    <div class="composer">
+      <input id="chatInput" type="text" maxlength="300" placeholder="Сообщение…" autocomplete="off" enterkeyhint="send">
+      <button class="send" id="sendBtn" aria-label="Отправить">➤</button>
     </div>
-    <div class="card">
-      <label for="fid">Добавить друга по ID или @юзернейму</label>
-      <div class="add"><input id="fid" class="txt" maxlength="17" placeholder="123456 или @miner" autocomplete="off" autocapitalize="none" spellcheck="false"><button id="fAdd" class="btn sm">Добавить</button></div>
-      <p id="fErr" class="err"></p>
-    </div>
-    <div id="flist"></div>
-  </div>
+  </section>
+</main>
 
-  <div id="p-top" class="pane">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3 style="margin:0">Лучшие стримеры</h3><button id="topRef" class="btn sm alt">Обновить</button></div>
-    <div id="topList"></div>
-  </div>
+<nav>
+  <button data-page="click" class="active"><i>💰</i>Клик</button>
+  <button data-page="mines"><i>🏭</i>Шахты</button>
+  <button data-page="top"><i>🏆</i>ТОП</button>
+  <button data-page="chat"><i>💬</i>Чат<span class="badge" id="chatBadge">0</span></button>
+</nav>
 
-  <div id="p-me" class="pane">
-    <div class="me-top"><canvas id="meBig"></canvas><h2 id="pNick"></h2><div class="lvl" id="pRank"></div><p class="muted">@<span id="pUser"></span> · ID <span id="pId"></span></p></div>
-    <button id="linkG" class="btn" style="width:100%;margin-top:12px;display:none">Привязать Google, чтобы не потерять аккаунт</button>
-    <div class="stats">
-      <div><b id="sSubs">0</b><span class="muted">подписчиков</span></div>
-      <div><b id="sCoins">0</b><span class="muted">монет</span></div>
-      <div><b id="sTaps">0</b><span class="muted">ударов</span></div>
-      <div><b id="sBlocks">0</b><span class="muted">блоков добыто</span></div>
-    </div>
-    <div class="row2"><button id="editHero" class="btn alt">Изменить героя</button><button id="logout" class="btn alt">Выйти</button></div>
-  </div>
+<div id="toast"></div>
 
-  <nav class="tabs">
-    <button class="tab on" data-tab="stream"><span>📺</span>Эфир</button>
-    <button class="tab" data-tab="shop"><span>🛒</span>Магазин</button>
-    <button class="tab" data-tab="friends"><span>👥</span>Друзья<b class="badge" id="reqBadge">0</b></button>
-    <button class="tab" data-tab="top"><span>🏆</span>Топ</button>
-    <button class="tab" data-tab="me"><span>👤</span>Профиль</button>
-  </nav>
-</section>
+<script>
+/* ═════════ НАСТРОЙКИ ═════════ */
+const API = "https://ahgsraow97.apps.bot-hosting.cloud";   // адрес bot.py на хостинге
 
-<div id="toast" class="toast" role="status"></div>
-
-<script type="module">
-import {initializeApp} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import {initializeAuth,indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence,browserPopupRedirectResolver,GoogleAuthProvider,signInWithPopup,signInWithRedirect,getRedirectResult,signInAnonymously,linkWithPopup,onAuthStateChanged,signOut} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import {initializeFirestore,doc,getDoc,setDoc,updateDoc,deleteDoc,collection,query,where,onSnapshot,runTransaction,orderBy,limit,getDocs} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBgbrpebEcEc9gwEXPkhLPx6gDeoMIUHu8",
-  authDomain: "projectgame-c040f.firebaseapp.com",
-  projectId: "projectgame-c040f",
-  storageBucket: "projectgame-c040f.firebasestorage.app",
-  messagingSenderId: "392334772594",
-  appId: "1:392334772594:web:0218c7f6226fd8251635eb",
-  measurementId: "G-GP806JZ717"
-};
-const app = initializeApp(firebaseConfig);
-const auth = initializeAuth(app, {
-  persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence],
-  popupRedirectResolver: browserPopupRedirectResolver
-});
-const db = initializeFirestore(app, {experimentalAutoDetectLongPolling: true, useFetchStreams: false});
-
-/* ---------- утилиты ---------- */
-const $ = id => document.getElementById(id);
-const h = (t, a = {}, ...k) => {
-  const e = document.createElement(t);
-  for (const [n, v] of Object.entries(a)) {
-    if (n === 'class') e.className = v;
-    else if (n.startsWith('on')) e[n] = v;
-    else e.setAttribute(n, v);
-  }
-  k.flat().forEach(c => e.append(c));
-  return e;
-};
-const fmt = n => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e4 ? (n / 1e3).toFixed(1) + 'K' : Math.floor(n).toLocaleString('ru');
-const rnd = n => Math.floor(Math.random() * n);
-const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-let toastT;
-function toast(msg) {
-  const t = $('toast'); t.textContent = msg; t.style.display = 'block';
-  clearTimeout(toastT); toastT = setTimeout(() => t.style.display = 'none', 2400);
-}
-function show(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
-}
+/* ═════════ TELEGRAM ═════════ */
 const tg = window.Telegram && window.Telegram.WebApp;
-if (tg) { try { tg.ready(); tg.expand(); tg.setHeaderColor('#22252c'); tg.setBackgroundColor('#22252c'); } catch (e) {} }
-const buzz = () => { try { tg && tg.HapticFeedback.impactOccurred('light'); } catch (e) {} };
+if (tg) {
+  tg.ready();
+  tg.expand();
+  try { if (["android","ios"].includes(tg.platform) && tg.isVersionAtLeast("8.0") && !tg.isFullscreen) tg.requestFullscreen(); } catch(e){}
+  try { tg.disableVerticalSwipes(); } catch(e){}
+  try { tg.setHeaderColor("#0a0e16"); tg.setBackgroundColor("#0a0e16"); tg.setBottomBarColor("#0a0e16"); } catch(e){}
+}
+const initData = tg ? tg.initData : "";
+const haptic = (kind="light") => { try { tg.HapticFeedback.impactOccurred(kind); } catch(e){} };
+const notify = (kind) => { try { tg.HapticFeedback.notificationOccurred(kind); } catch(e){} };
 
-/* ---------- пиксельные картинки ---------- */
-const SKIN = ['#f6d2b0', '#e8b48a', '#c68a5e', '#9a6240', '#6b4128'];
-const HAIRC = ['#2b1b12', '#6b4128', '#d9a441', '#c0392b', '#8fd3f4'];
-const SHIRT = ['#e0402f', '#3a7bd5', '#6cbf3f', '#f4c542', '#9b59b6', '#ecf0f1'];
-const HAIRS = ['Короткая', 'Длинная', 'Ирокез', 'Лысая'];
-const ACCS = ['Нет', 'Наушники', 'Кепка', 'Каска'];
+/* ═════════ УТИЛИТЫ ═════════ */
+const $ = (id) => document.getElementById(id);
+const SUF = ["","K","M","B","T","Qa","Qi","Sx"];
+function fmt(n){
+  n = Math.floor(n);
+  if (n < 1000) return String(n);
+  const i = Math.min(Math.floor(Math.log10(n)/3), SUF.length-1);
+  const v = n / Math.pow(1000, i);
+  return (v < 10 ? v.toFixed(2) : v < 100 ? v.toFixed(1) : v.toFixed(0)) + SUF[i];
+}
+function fmtRate(n){ return n < 1000 ? String(Math.round(n*10)/10) : fmt(n); }
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const COLORS = ["#ffb627","#4de1d0","#ff6b3d","#8ab4ff","#c79bff","#7be495","#ff8fb1","#ffd36b"];
+const colorOf = (id) => COLORS[Math.abs(Number(id)) % COLORS.length];
+const initial = (name) => (name || "?").trim().charAt(0).toUpperCase() || "?";
 
-function drawAvatar(cv, a) {
-  cv.width = 16; cv.height = 16;
-  const c = cv.getContext('2d'); c.clearRect(0, 0, 16, 16);
-  const R = (x, y, w, hh, col) => { c.fillStyle = col; c.fillRect(x, y, w, hh); };
-  if (a.none) {
-    R(5, 3, 6, 6, '#7b7f87'); R(3, 10, 10, 6, '#7b7f87'); R(5, 3, 6, 1, '#9ea2aa'); R(3, 10, 10, 1, '#9ea2aa');
-    return;
+let toastTimer;
+function toast(text, kind=""){
+  const t = $("toast");
+  t.textContent = text; t.className = "show " + kind;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = "", 2200);
+}
+
+async function api(path, body){
+  const opts = { method: body === undefined ? "GET" : "POST", headers: { "Authorization": "tma " + initData } };
+  if (body !== undefined){ opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
+  const res = await fetch(API + path, opts);
+  let data = {};
+  try { data = await res.json(); } catch(e){}
+  if (!res.ok || data.ok === false){
+    const err = new Error(data.error || ("HTTP " + res.status));
+    err.status = res.status;
+    throw err;
   }
-  const skin = SKIN[a.skin] || SKIN[0], hair = HAIRC[a.hc] || HAIRC[0], shirt = SHIRT[a.shirt] || SHIRT[0];
-  R(5, 14, 2, 2, '#3b4a8c'); R(9, 14, 2, 2, '#3b4a8c');
-  R(4, 9, 8, 5, shirt); R(3, 9, 1, 3, shirt); R(12, 9, 1, 3, shirt); R(3, 12, 1, 1, skin); R(12, 12, 1, 1, skin);
-  R(4, 2, 8, 7, skin);
-  if (a.hs === 0) { R(4, 2, 8, 2, hair); R(4, 4, 1, 1, hair); R(11, 4, 1, 1, hair); }
-  if (a.hs === 1) { R(4, 2, 8, 2, hair); R(3, 3, 1, 6, hair); R(12, 3, 1, 6, hair); R(4, 4, 1, 5, hair); R(11, 4, 1, 5, hair); }
-  if (a.hs === 2) { R(7, 0, 2, 2, hair); R(6, 2, 4, 1, hair); }
-  R(6, 5, 1, 1, '#1b1b1b'); R(9, 5, 1, 1, '#1b1b1b'); R(7, 7, 2, 1, '#8a3b2e');
-  if (a.ac === 1) { R(4, 1, 8, 1, '#333'); R(3, 4, 1, 3, '#e0402f'); R(12, 4, 1, 3, '#e0402f'); }
-  if (a.ac === 2) { R(4, 1, 8, 2, '#e0402f'); R(4, 3, 8, 1, '#b0301f'); R(2, 3, 2, 1, '#b0301f'); }
-  if (a.ac === 3) { R(4, 1, 8, 3, '#f4c542'); R(7, 0, 2, 1, '#fff7c2'); R(4, 3, 8, 1, '#c99a1c'); }
-}
-function avCanvas(a, size) {
-  const c = h('canvas', {class: 'av'}); drawAvatar(c, a || {skin: 0, hs: 0, hc: 0, shirt: 0, ac: 0});
-  if (size) { c.style.width = c.style.height = size + 'px'; }
-  return c;
+  return data;
 }
 
-const ORES = {
-  stone:   {n: 'Камень',  c: null,      v: 1,  w: 48},
-  coal:    {n: 'Уголь',   c: '#2a2a2a', v: 3,  w: 26},
-  iron:    {n: 'Железо',  c: '#d8b9a0', v: 6,  w: 14},
-  gold:    {n: 'Золото',  c: '#f4c542', v: 16, w: 9},
-  diamond: {n: 'Алмаз',   c: '#4be0d0', v: 60, w: 3}
-};
-const SPOTS = [[2,3],[7,2],[11,4],[4,8],[9,9],[12,11],[3,12],[8,13]];
-const CRACK = [[8,8],[8,7],[7,7],[7,6],[6,6],[6,5],[9,8],[10,8],[10,9],[11,9],[8,9],[8,10],[7,10],[7,11],[6,11],[5,11],[5,12],[9,5],[9,4],[10,4]];
-function drawBlock(cv, key, stage) {
-  cv.width = 16; cv.height = 16;
-  const c = cv.getContext('2d');
-  let seed = 7; const r = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
-  const sh = ['#7b7f87', '#8d9199', '#9ea2aa'];
-  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { c.fillStyle = sh[Math.floor(r() * 3)]; c.fillRect(x, y, 1, 1); }
-  c.fillStyle = '#b8bcc4'; c.fillRect(0, 0, 16, 1); c.fillRect(0, 0, 1, 16);
-  c.fillStyle = '#60646c'; c.fillRect(0, 15, 16, 1); c.fillRect(15, 0, 1, 16);
-  const o = ORES[key];
-  if (o && o.c) SPOTS.forEach(([x, y]) => { c.fillStyle = o.c; c.fillRect(x, y, 2, 2); c.fillStyle = 'rgba(255,255,255,.4)'; c.fillRect(x, y, 1, 1); });
-  c.fillStyle = '#1b1d22';
-  for (let i = 0; i < Math.min(CRACK.length, stage * 5); i++) c.fillRect(CRACK[i][0], CRACK[i][1], 1, 1);
-}
-function pickOre() {
-  let t = Math.random() * Object.values(ORES).reduce((s, o) => s + o.w, 0);
-  for (const [k, o] of Object.entries(ORES)) { t -= o.w; if (t <= 0) return k; }
-  return 'stone';
-}
+/* ═════════ СОСТОЯНИЕ ═════════ */
+let state = null;       // balance, income, click_power, click_cost, mines[]
+let me = null;          // {id, name}
+let pending = 0;        // тапы, ещё не отправленные на сервер
+let syncing = false;
+let lastSync = 0;
 
-/* ---------- игровые данные ---------- */
-const RANKS = [[0, 'Новичок'], [10, 'Любитель'], [50, 'Блогер'], [200, 'Звезда'], [1000, 'Легенда']];
-const rankOf = s => RANKS.reduce((r, x) => s >= x[0] ? x : r, RANKS[0]);
-const UPG = {
-  pick: {n: 'Кирка',   d: 'Больше монет за каждый удар',       base: 20, g: 1.6, ic: '⛏️', eff: l => '+' + l + ' к удару'},
-  mic:  {n: 'Микрофон', d: 'Монеты каждую секунду в эфире',     base: 50, g: 1.7, ic: '🎤', eff: l => l + ' монет/сек'},
-  cam:  {n: 'Камера',  d: 'Подписчики приходят чаще',          base: 40, g: 1.7, ic: '📷', eff: l => '+' + (l * 2) + '% шанс'}
-};
-const upCost = (k, l) => Math.round(UPG[k].base * Math.pow(UPG[k].g, l));
-const HITS = 5;
-
-let uid = null, me = null, cfg = randomCfg(), editing = false;
-let incoming = [], outgoing = [], fsub = {}, fmap = {}, socialOn = false;
-let hits = 0, ore = 'stone', dirty = false, started = false, tab = 'stream', viewers = 0, tk = 0;
-
-function randomCfg() { return {skin: rnd(5), hs: rnd(4), hc: rnd(5), shirt: rnd(6), ac: rnd(4)}; }
-const friends = () => Object.values(fmap);
-const isLive = () => me && me.liveUntil > Date.now();
-function partner() {
-  if (!isLive()) return null;
-  const now = Date.now();
-  return friends().find(f => f.liveUntil > now && (me.liveWith === f.uid || f.liveWith === uid)) || null;
+/* ═════════ ОТРИСОВКА ═════════ */
+function renderBalance(){
+  $("balance").textContent = fmt(state.balance);
 }
-const mult = () => (1 + me.subs / 100) * (partner() ? 2 : 1);
-
-/* ---------- вход ---------- */
-const provider = new GoogleAuthProvider();
-provider.setCustomParameters({prompt: 'select_account'});
-function authErr(e) {
-  const c = e.code || '';
-  if (c === 'auth/configuration-not-found') return 'В Firebase не запущена авторизация. Открой Authentication → Get started и включи нужный способ входа.';
-  if (c === 'auth/operation-not-allowed' || c === 'auth/admin-restricted-operation') return 'Этот способ входа выключен. Включи его в Firebase → Authentication → Sign-in method.';
-  if (c === 'auth/unauthorized-domain') return 'Домен не разрешён: добавь его в Firebase → Authentication → Settings → Authorized domains.';
-  if (c === 'auth/network-request-failed') return 'Нет сети. Проверь интернет.';
-  return 'Не удалось войти: ' + (c || e.message);
+function renderStatic(){
+  $("incomeTop").textContent = "+" + fmtRate(state.income) + " в секунду";
+  $("power").textContent = "+" + state.click_power;
+  $("clickLvl").textContent = state.click_power;
+  $("clickCost").textContent = fmt(state.click_cost);
+  renderBalance();
+  updateAffordable();
 }
-let waitT;
-function setBusy(on, msg) {
-  $('gbtn').disabled = on; $('guestBtn').disabled = on;
-  $('loginErr').style.color = on ? 'var(--mut)' : '';
-  $('loginErr').textContent = on ? msg : '';
-  if (!on) { clearTimeout(waitT); $('altLogin').style.display = 'none'; }
-}
-async function redirectLogin() {
-  setBusy(true, 'Переходим на страницу Google…');
-  try { sessionStorage.setItem('gr', '1'); } catch (e) {}
-  try { await signInWithRedirect(auth, provider); }
-  catch (e) { setBusy(false); $('loginErr').textContent = authErr(e); }
-}
-$('altLogin').onclick = redirectLogin;
-$('gbtn').onclick = async () => {
-  setBusy(true, 'Открываем Google…');
-  waitT = setTimeout(() => { $('altLogin').style.display = 'inline-block'; }, 8000);
-  try { await signInWithPopup(auth, provider); }
-  catch (e) {
-    if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment') return redirectLogin();
-    setBusy(false);
-    if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') $('loginErr').textContent = authErr(e);
-  }
-};
-$('guestBtn').onclick = async () => {
-  setBusy(true, 'Создаём гостя…');
-  try { await signInAnonymously(auth); }
-  catch (e) { setBusy(false); $('loginErr').textContent = authErr(e); }
-};
-// Возврат со страницы Google (режим переадресации)
-getRedirectResult(auth).then(r => {
-  let flag = false; try { flag = sessionStorage.getItem('gr'); sessionStorage.removeItem('gr'); } catch (e) {}
-  if (flag && !r && !auth.currentUser) {
-    show('login');
-    $('loginErr').textContent = 'Браузер не передал результат входа. Закрой режим инкогнито или нажми «Гость». Гостя потом можно привязать к Google.';
-  }
-}).catch(e => { show('login'); setBusy(false); $('loginErr').textContent = authErr(e); });
-$('linkG').onclick = async () => {
-  try {
-    await linkWithPopup(auth.currentUser, provider);
-    toast('Google привязан. Аккаунт теперь не потеряется');
-    renderAll();
-  } catch (e) {
-    toast(e.code === 'auth/credential-already-in-use' ? 'Этот Google уже используется в другом аккаунте' : 'Не удалось привязать Google');
-  }
-};
-if (tg && tg.initData) {
-  $('tgHint').style.display = 'block';
-  $('openBrowser').onclick = () => { try { tg.openLink(location.href, {try_instant_view: false}); } catch (e) { window.open(location.href, '_blank'); } };
-}
-drawBlock($('loginBlock'), 'diamond', 0);
-
-function withTimeout(p, ms) {
-  return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej({code: 'timeout'}), ms))]);
-}
-function dbErrText(e) {
-  const c = (e && e.code) || '';
-  if (c === 'permission-denied') return 'Правила Firestore не пускают. Открой Firestore → Rules, вставь файл firestore.rules и нажми Publish.';
-  if (c === 'timeout' || c === 'unavailable' || c === 'failed-precondition' || c === 'not-found')
-    return 'Нет связи с базой. Проверь, что в Firebase создана база: Firestore Database → Create database (режим production). Потом нажми «Повторить».';
-  return 'Ошибка базы: ' + (c || (e && e.message) || 'неизвестно');
-}
-function loadFail(e) {
-  console.error(e);
-  $('loadTxt').textContent = 'Не удалось загрузить';
-  $('loadSub').textContent = dbErrText(e);
-  $('loadBtns').style.display = 'flex';
-}
-async function loadProfile() {
-  $('loadTxt').textContent = 'Загружаем профиль…'; $('loadSub').textContent = ''; $('loadBtns').style.display = 'none';
-  show('loading');
-  try {
-    const s = await withTimeout(getDoc(doc(db, 'users', uid)), 12000);
-    if (s.exists()) { me = s.data(); me.liveWith = me.liveWith || null; startGame(); }
-    else openCreate(false);
-  } catch (e) { loadFail(e); }
-}
-$('loadRetry').onclick = loadProfile;
-$('loadOut').onclick = async () => { await signOut(auth); location.reload(); };
-onAuthStateChanged(auth, u => {
-  if (!u) { uid = null; show('login'); setBusy(false); return; }
-  uid = u.uid; clearTimeout(waitT);
-  loadProfile();
-});
-
-/* ---------- создание героя ---------- */
-const OPT = [
-  {k: 'skin', t: 'Кожа', sw: SKIN},
-  {k: 'hs', t: 'Причёска', tx: HAIRS},
-  {k: 'hc', t: 'Цвет волос', sw: HAIRC},
-  {k: 'shirt', t: 'Футболка', sw: SHIRT},
-  {k: 'ac', t: 'Аксессуар', tx: ACCS}
-];
-function buildOpts() {
-  const box = $('opts'); box.innerHTML = '';
-  box.append(h('div', {class: 'orow'}, h('span', {class: 'olabel'}, 'Аватарка'),
-    h('div', {class: 'chips'}, h('button', {class: 'chip' + (cfg.none ? ' sel' : ''), type: 'button',
-      onclick: () => { cfg.none = !cfg.none; buildOpts(); drawAvatar($('prev'), cfg); }}, 'Без аватарки'))));
-  OPT.forEach(o => {
-    const list = h('div', {class: 'chips'});
-    (o.sw || o.tx).forEach((v, i) => {
-      const b = h('button', {class: 'chip' + (cfg[o.k] === i ? ' sel' : ''), type: 'button', 'aria-label': o.t + ' ' + (o.tx ? v : (i + 1)),
-        onclick: () => { cfg[o.k] = i; cfg.none = false; buildOpts(); drawAvatar($('prev'), cfg); }});
-      if (o.sw) { b.classList.add('sw'); b.style.background = v; } else b.textContent = v;
-      list.append(b);
-    });
-    box.append(h('div', {class: 'orow'}, h('span', {class: 'olabel'}, o.t), list));
+function updateAffordable(){
+  const bal = state.balance;
+  $("clickUp").classList.toggle("can", bal >= state.click_cost);
+  document.querySelectorAll("#minesList .btn").forEach(b => {
+    b.classList.toggle("can", bal >= Number(b.dataset.cost));
   });
 }
-function openCreate(edit) {
-  editing = edit;
-  if (edit) { cfg = {...me.avatar}; $('nick').value = me.nick; $('uname').value = me.username || ''; }
-  $('uname').disabled = edit && !!me.username;
-  $('unameHint').style.display = $('uname').disabled ? 'none' : 'block';
-  $('createTitle').textContent = edit ? 'Изменить героя' : 'Создай стримера';
-  $('createGo').textContent = edit ? 'Сохранить' : 'Играть';
-  $('createErr').textContent = '';
-  buildOpts(); drawAvatar($('prev'), cfg); show('create');
+function renderMines(){
+  const box = $("minesList");
+  box.innerHTML = "";
+  state.mines.forEach(m => {
+    const el = document.createElement("div");
+    el.className = "mine" + (m.level > 0 ? " owned" : "");
+    el.innerHTML = `
+      <div class="ico"></div>
+      <div class="grow">
+        <div class="t"><span class="nm"></span><span class="lvl"></span></div>
+        <div class="inc"></div>
+      </div>
+      <button class="btn" data-id="${m.id}" data-cost="${m.next_cost}"><span></span><small></small></button>`;
+    el.querySelector(".ico").textContent = m.emoji;
+    el.querySelector(".nm").textContent = m.name;
+    el.querySelector(".lvl").textContent = m.level > 0 ? "ур. " + m.level : "";
+    el.querySelector(".inc").innerHTML = m.level > 0
+      ? `Даёт <em>+${fmtRate(m.income)}/сек</em>, после улучшения <em>+${fmtRate(m.next_income)}/сек</em>`
+      : `После покупки даст <em>+${fmtRate(m.next_income)}/сек</em>`;
+    el.querySelector(".btn span").textContent = m.level > 0 ? "Улучшить" : "Купить";
+    el.querySelector(".btn small").textContent = fmt(m.next_cost);
+    box.appendChild(el);
+  });
+  updateAffordable();
 }
-$('rnd').onclick = () => { cfg = randomCfg(); buildOpts(); drawAvatar($('prev'), cfg); };
+function applyState(r){
+  state = { ...state, ...r };
+  state.balance = r.balance + pending * r.click_power;
+  renderStatic();
+  if (r.mines) renderMines();
+}
 
-// Резервирует юзернейм и случайный 6-значный ID одной транзакцией
-async function claimProfile(username) {
-  for (let i = 0; i < 12; i++) {
-    const code = String(100000 + rnd(900000));
-    const res = await runTransaction(db, async tx => {
-      const ur = doc(db, 'usernames', username), ir = doc(db, 'ids', code);
-      const [us, is] = await Promise.all([tx.get(ur), tx.get(ir)]);
-      if (us.exists()) return 'taken';
-      if (is.exists()) return 'retry';
-      tx.set(ur, {uid}); tx.set(ir, {uid});
-      return code;
-    });
-    if (res === 'taken') return null;
-    if (res !== 'retry') return res;
+/* ═════════ КЛИК ═════════ */
+const coin = $("coin");
+let floats = 0;
+function tap(e){
+  if (!state) return;
+  e.preventDefault();
+  pending++;
+  state.balance += state.click_power;
+  renderBalance();
+  haptic("light");
+  coin.classList.add("hit");
+  setTimeout(() => coin.classList.remove("hit"), 70);
+  if (floats < 24){
+    floats++;
+    const f = document.createElement("div");
+    f.className = "float";
+    f.textContent = "+" + state.click_power;
+    f.style.left = (e.clientX + (Math.random()*30-15)) + "px";
+    f.style.top = (e.clientY - 20) + "px";
+    f.addEventListener("animationend", () => { f.remove(); floats--; });
+    document.body.appendChild(f);
   }
-  throw new Error('id');
 }
-$('uname').addEventListener('input', e => { e.target.value = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''); });
-$('createGo').onclick = async () => {
-  const nick = $('nick').value.trim();
-  const username = $('uname').value.trim().toLowerCase();
-  const err = $('createErr'); err.textContent = '';
-  if (nick.length < 2 || nick.length > 16) { err.textContent = 'Никнейм: от 2 до 16 символов'; return; }
-  if (!editing && !/^[a-z0-9_]{3,16}$/.test(username)) { err.textContent = 'Юзернейм: 3–16 символов, латиница, цифры и _'; return; }
-  $('createGo').disabled = true;
+coin.addEventListener("pointerdown", tap);
+coin.addEventListener("contextmenu", e => e.preventDefault());
+
+/* ═════════ СИНХРОНИЗАЦИЯ ═════════ */
+async function sync(){
+  if (syncing || !state) return;
+  syncing = true;
+  const sent = pending;
+  pending = 0;
   try {
-    if (editing) {
-      await updateDoc(doc(db, 'users', uid), {nick, avatar: {...cfg}});
-      me.nick = nick; me.avatar = {...cfg}; startGame();
-    } else {
-      const id = await withTimeout(claimProfile(username), 15000);
-      if (!id) { err.textContent = 'Юзернейм @' + username + ' уже занят. Придумай другой'; }
-      else {
-        me = {id, username, nick, avatar: {...cfg}, coins: 0, subs: 0, taps: 0, blocks: 0, pick: 0, mic: 0, cam: 0, liveUntil: 0, liveWith: null, createdAt: Date.now()};
-        await withTimeout(setDoc(doc(db, 'users', uid), me), 15000);
-        startGame();
-      }
-    }
-  } catch (e) { console.error(e); err.textContent = dbErrText(e); }
-  $('createGo').disabled = false;
-};
-
-/* ---------- запуск игры ---------- */
-function startGame() {
-  show('game');
-  ore = pickOre(); hits = 0;
-  if (!started) {
-    started = true;
-    setInterval(tick, 1000);
-    setInterval(flush, 4000);
-    document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
-    addEventListener('pagehide', flush);
-  }
-  if (!socialOn) { socialOn = true; listenSocial(); }
-  buildShop(); setTab(tab); renderAll();
-}
-async function flush() {
-  if (!dirty || !me || !uid) return;
-  dirty = false;
-  try {
-    await updateDoc(doc(db, 'users', uid), {
-      coins: me.coins, subs: me.subs, taps: me.taps, blocks: me.blocks,
-      pick: me.pick, mic: me.mic, cam: me.cam, liveUntil: me.liveUntil, liveWith: me.liveWith || null,
-      lastDaily: me.lastDaily || 0, streak: me.streak || 0
-    });
-  } catch (e) { console.error(e); dirty = true; }
-}
-
-/* ---------- вкладки ---------- */
-document.querySelectorAll('.tab').forEach(b => b.onclick = () => setTab(b.dataset.tab));
-function setTab(t) {
-  tab = t;
-  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
-  document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.id === 'p-' + t));
-  renderAll();
-}
-
-/* ---------- эфир ---------- */
-function hit() {
-  if (!me) return;
-  const now = Date.now(), m = mult();
-  const gain = Math.max(1, Math.round((1 + me.pick) * m));
-  me.coins += gain; me.taps++;
-  me.liveUntil = Math.max(me.liveUntil, now + 30000);
-  pop('+' + gain, '#f4c542');
-  if (Math.random() < 0.06 + 0.02 * me.cam) { me.subs++; pop('+1 🔔', '#4be0d0'); }
-  hits++;
-  if (hits >= HITS) {
-    const bonus = Math.round(ORES[ore].v * (1 + me.pick) * m);
-    me.coins += bonus; me.blocks++;
-    pop(ORES[ore].n + ' +' + bonus, ORES[ore].c || '#fff');
-    burst(ORES[ore].c || '#9ea2aa');
-    ore = pickOre(); hits = 0;
-  }
-  if (!reduceMotion) $('ore').animate([{transform: 'scale(1)'}, {transform: 'scale(.9)'}, {transform: 'scale(1)'}], {duration: 100});
-  buzz(); dirty = true;
-  renderHud(); renderStream();
-}
-function pop(text, color) {
-  const s = h('span', {class: 'pop'}, text);
-  s.style.left = (10 + Math.random() * 45) + '%'; s.style.color = color;
-  $('fx').append(s); setTimeout(() => s.remove(), 900);
-}
-function burst(color) {
-  for (let i = 0; i < 12; i++) {
-    const p = h('i', {class: 'sp'}); const a = Math.random() * 6.28, d = 40 + Math.random() * 50;
-    p.style.background = color; p.style.setProperty('--dx', Math.cos(a) * d + 'px'); p.style.setProperty('--dy', Math.sin(a) * d + 'px');
-    $('fx').append(p); setTimeout(() => p.remove(), 700);
+    const r = await api("/api/sync", { taps: sent });
+    applyState(r);
+  } catch(e){
+    pending += sent;
+    if (e.status === 401) showFatal("Сессия устарела. Закройте игру и откройте её заново через бота.");
+  } finally {
+    syncing = false;
+    lastSync = Date.now();
   }
 }
-$('ore').addEventListener('pointerdown', hit);
-$('streamBtn').addEventListener('pointerdown', hit);
-$('streamBtn').addEventListener('click', e => { if (e.detail === 0) hit(); });
-$('leave').onclick = () => { me.liveWith = null; dirty = true; flush(); renderStream(); };
-
-function renderStream() {
-  if (tab !== 'stream' || !me) return;
-  const live = isLive(), pt = partner();
-  $('live').classList.toggle('on', live);
-  $('liveTxt').textContent = live ? 'В эфире · ' + viewers + ' зрителей' : 'Не в эфире';
-  $('duo').hidden = !pt;
-  drawAvatar($('meCv'), me.avatar);
-  $('ptCv').hidden = !pt;
-  if (pt) drawAvatar($('ptCv'), pt.avatar);
-  drawBlock($('ore'), ore, hits);
-  $('hitbar').style.width = (hits / HITS * 100) + '%';
-  const waiting = me.liveWith && fmap[me.liveWith];
-  let st;
-  if (pt) st = 'Стримишь вместе с ' + pt.nick + ': монеты ×2';
-  else if (live && waiting) st = 'Ждём, пока ' + waiting.nick + ' выйдет в эфир. Продолжай копать';
-  else if (live) st = 'Ты в эфире. Руда: ' + ORES[ore].n + '. Пассивно: ' + (me.mic ? Math.round(me.mic * mult()) : 0) + ' монет/сек';
-  else st = 'Нажми «Стримить» и копай руду. Чем больше подписчиков, тем больше монет.';
-  $('status').textContent = st;
-  $('leave').style.display = (live && me.liveWith) ? 'block' : 'none';
-  const r = rankOf(me.subs), nx = RANKS.find(x => x[0] > me.subs);
-  $('rankTxt').textContent = nx ? 'Ранг: ' + r[1] + '. До «' + nx[1] + '» осталось ' + (nx[0] - me.subs) + ' подписчиков' : 'Ранг: ' + r[1] + '. Выше некуда';
-  $('rankBar').style.width = nx ? ((me.subs - r[0]) / (nx[0] - r[0]) * 100) + '%' : '100%';
-  const ready = dailyReady();
-  $('daily').style.display = ready ? 'block' : 'none';
-  if (ready) $('daily').textContent = '🎁 Ежедневный подарок: +' + dailyReward();
+async function flush(){
+  while (syncing) await sleep(30);
+  await sync();
 }
+setInterval(() => { if (state && (pending > 0 || Date.now() - lastSync > 10000)) sync(); }, 2500);
+document.addEventListener("visibilitychange", () => { if (document.hidden) sync(); });
 
-/* ---------- ежедневный подарок ---------- */
-const DAY = 3600 * 1000;
-const dailyReady = () => Date.now() - (me.lastDaily || 0) > 20 * DAY;
-function nextStreak() { return (Date.now() - (me.lastDaily || 0) < 48 * DAY) ? Math.min((me.streak || 0) + 1, 7) : 1; }
-const dailyReward = () => 50 + nextStreak() * 25;
-$('daily').onclick = () => {
-  if (!dailyReady()) return;
-  const r = dailyReward(), s = nextStreak();
-  me.coins += r; me.lastDaily = Date.now(); me.streak = s; dirty = true; flush(); buzz();
-  toast('Подарок: +' + r + ' монет. Серия дней: ' + s);
-  renderHud(); renderStream();
-};
+/* пассивный доход тикает на экране 10 раз в секунду */
+setInterval(() => {
+  if (!state || !state.income) return;
+  state.balance += state.income / 10;
+  renderBalance();
+  updateAffordable();
+}, 100);
 
-/* ---------- рейтинг ---------- */
-let topAt = 0;
-async function loadTop(force) {
-  if (!force && Date.now() - topAt < 20000) return;
-  topAt = Date.now();
-  const box = $('topList');
-  if (!box.children.length) box.textContent = 'Загрузка…';
+/* ═════════ ПОКУПКИ ═════════ */
+let buying = false;
+async function purchase(path, body){
+  if (buying) return;
+  buying = true;
   try {
     await flush();
-    const s = await getDocs(query(collection(db, 'users'), orderBy('subs', 'desc'), limit(20)));
-    box.innerHTML = '';
-    s.docs.forEach((d, i) => {
-      const u = d.data();
-      box.append(h('div', {class: 'item' + (d.id === uid ? ' meRow' : '')},
-        h('b', {class: 'h', style: 'width:28px;text-align:center'}, String(i + 1)),
-        avCanvas(u.avatar, 46),
-        h('div', {class: 't'}, h('b', {}, u.nick), h('small', {}, rankOf(u.subs || 0)[1] + (u.username ? ' · @' + u.username : ''))),
-        h('b', {class: 'h'}, '🔔 ' + fmt(u.subs || 0))));
-    });
-    if (!s.docs.length) box.textContent = 'Пока пусто. Стань первым';
-  } catch (e) { console.error(e); box.textContent = 'Не удалось загрузить рейтинг'; }
+    const r = await api(path, body);
+    applyState(r);
+    notify("success");
+    toast("Готово!", "ok");
+  } catch(e){
+    notify("error");
+    toast(e.message, "err");
+  } finally { buying = false; }
 }
-$('topRef').onclick = () => loadTop(true);
+$("clickUp").addEventListener("click", () => purchase("/api/upgrade_click", {}));
+$("minesList").addEventListener("click", (e) => {
+  const b = e.target.closest(".btn");
+  if (b) purchase("/api/buy", { mine_id: Number(b.dataset.id) });
+});
 
-/* ---------- магазин ---------- */
-function buildShop() {
-  const box = $('shopList'); box.innerHTML = '';
-  Object.entries(UPG).forEach(([k, u]) => {
-    box.append(h('div', {class: 'item'},
-      h('div', {class: 'h', style: 'font-size:30px;width:46px;text-align:center'}, u.ic),
-      h('div', {class: 't'}, h('b', {}, u.n), h('small', {}, u.d), h('span', {class: 'lvl', id: 'lv-' + k})),
-      h('button', {class: 'btn sm', id: 'by-' + k, onclick: () => buy(k)})));
-  });
-}
-function renderShop() {
-  Object.keys(UPG).forEach(k => {
-    const l = me[k] || 0, c = upCost(k, l);
-    $('lv-' + k).textContent = 'Ур. ' + l + ' · ' + UPG[k].eff(l);
-    const b = $('by-' + k); b.textContent = '🪙 ' + fmt(c); b.disabled = me.coins < c || l >= 30;
-  });
-}
-function buy(k) {
-  const l = me[k] || 0, c = upCost(k, l);
-  if (me.coins < c) return;
-  me.coins -= c; me[k] = l + 1; dirty = true; flush(); buzz();
-  toast(UPG[k].n + ': уровень ' + me[k]); renderAll();
-}
-
-/* ---------- друзья ---------- */
-function listenSocial() {
-  const rq = collection(db, 'friendRequests');
-  onSnapshot(query(rq, where('to', '==', uid)), s => { incoming = s.docs.map(d => ({id: d.id, ...d.data()})); syncFriends(); renderAll(); }, console.error);
-  onSnapshot(query(rq, where('from', '==', uid)), s => { outgoing = s.docs.map(d => ({id: d.id, ...d.data()})); syncFriends(); renderAll(); }, console.error);
-}
-function syncFriends() {
-  const ids = new Set();
-  [...incoming, ...outgoing].filter(r => r.status === 'accepted').forEach(r => ids.add(r.from === uid ? r.to : r.from));
-  ids.forEach(fid => {
-    if (!fsub[fid]) fsub[fid] = onSnapshot(doc(db, 'users', fid), s => {
-      if (s.exists()) fmap[fid] = {uid: fid, ...s.data()};
-      renderAll();
-    }, console.error);
-  });
-  Object.keys(fsub).forEach(k => { if (!ids.has(k)) { fsub[k](); delete fsub[k]; delete fmap[k]; } });
-}
-async function addFriend() {
-  const err = $('fErr'); err.textContent = '';
-  const raw = $('fid').value.trim().replace(/^@/, '').toLowerCase();
-  const byId = /^\d{6}$/.test(raw);
-  if (!byId && !/^[a-z0-9_]{3,16}$/.test(raw)) { err.textContent = 'Введи 6-значный ID или @юзернейм'; return; }
-  if (raw === me.id || raw === me.username) { err.textContent = 'Это ты сам'; return; }
-  $('fAdd').disabled = true;
+/* ═════════ ТОП ═════════ */
+async function loadTop(){
   try {
-    const s = await getDoc(doc(db, byId ? 'ids' : 'usernames', raw));
-    if (!s.exists()) { err.textContent = 'Игрок не найден'; }
-    else {
-      const fuid = s.data().uid;
-      const inc = incoming.find(r => r.from === fuid), out = outgoing.find(r => r.to === fuid);
-      if ((inc && inc.status === 'accepted') || (out && out.status === 'accepted')) err.textContent = 'Вы уже друзья';
-      else if (out) err.textContent = 'Заявка уже отправлена';
-      else if (inc) { await updateDoc(doc(db, 'friendRequests', inc.id), {status: 'accepted'}); toast('Вы теперь друзья'); $('fid').value = ''; }
-      else {
-        await setDoc(doc(db, 'friendRequests', uid + '_' + fuid), {from: uid, to: fuid, fromNick: me.nick, fromAvatar: me.avatar, fromId: me.id, status: 'pending', ts: Date.now()});
-        toast('Заявка отправлена'); $('fid').value = '';
-      }
+    await flush();
+    const r = await api("/api/top");
+    const box = $("topList");
+    box.innerHTML = "";
+    if (!r.top.length) box.innerHTML = '<div class="empty">Пока нет игроков</div>';
+    const medals = ["🥇","🥈","🥉"];
+    r.top.forEach((p, i) => {
+      const row = document.createElement("div");
+      row.className = "place" + (me && p.id === me.id ? " me" : "");
+      row.innerHTML = '<div class="rk"></div><div class="av"></div><div class="nm"></div><div class="sc"></div>';
+      row.querySelector(".rk").textContent = medals[i] || (i + 1);
+      const av = row.querySelector(".av");
+      av.textContent = initial(p.name); av.style.background = colorOf(p.id);
+      row.querySelector(".nm").textContent = p.name;
+      row.querySelector(".sc").textContent = fmt(p.balance);
+      box.appendChild(row);
+    });
+    $("myRank").innerHTML = `Ваше место: <b>#${r.me.rank}</b> из ${r.me.total}`;
+  } catch(e){
+    $("topList").innerHTML = '<div class="empty">Не удалось загрузить рейтинг</div>';
+  }
+}
+
+/* ═════════ ЧАТ ═════════ */
+const msgsBox = $("msgs");
+const seen = new Set();
+let lastId = 0, unread = 0, chatBusy = false, chatLoaded = false;
+
+function timeOf(ts){
+  const d = new Date(ts * 1000);
+  return String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
+}
+function addMessages(list){
+  const fresh = list.filter(m => !seen.has(m.id));
+  if (!fresh.length) return 0;
+  const nearBottom = msgsBox.scrollHeight - msgsBox.scrollTop - msgsBox.clientHeight < 120;
+  const empty = $("chatEmpty"); if (empty) empty.remove();
+  let fromOthers = 0;
+  fresh.forEach(m => {
+    seen.add(m.id);
+    lastId = Math.max(lastId, m.id);
+    const mine = me && m.tg_id === me.id;
+    if (!mine) fromOthers++;
+    const el = document.createElement("div");
+    el.className = "msg" + (mine ? " mine" : "");
+    el.innerHTML = '<div class="who2"></div><div class="tx"></div><div class="tm"></div>';
+    const w = el.querySelector(".who2");
+    w.textContent = mine ? "Вы" : m.name; w.style.color = colorOf(m.tg_id);
+    el.querySelector(".tx").textContent = m.text;
+    el.querySelector(".tm").textContent = timeOf(m.ts);
+    msgsBox.appendChild(el);
+  });
+  if (nearBottom || !chatLoaded) msgsBox.scrollTop = msgsBox.scrollHeight;
+  return fromOthers;
+}
+async function pollChat(){
+  if (chatBusy || !state) return;
+  chatBusy = true;
+  try {
+    const r = await api("/api/chat?after=" + lastId);
+    const others = addMessages(r.messages);
+    if (chatLoaded && others && currentPage !== "chat"){
+      unread += others;
+      const b = $("chatBadge"); b.textContent = unread > 99 ? "99+" : unread; b.classList.add("show");
     }
-  } catch (e) { console.error(e); err.textContent = 'Не удалось добавить. Попробуй ещё раз.'; }
-  $('fAdd').disabled = false;
+    chatLoaded = true;
+  } catch(e){} finally { chatBusy = false; }
 }
-$('fAdd').onclick = addFriend;
-$('fid').addEventListener('keydown', e => { if (e.key === 'Enter') addFriend(); });
-$('fid').addEventListener('input', e => { e.target.value = e.target.value.toLowerCase().replace(/[^a-z0-9_@]/g, ''); });
+setInterval(pollChat, 2000);
 
-function friendRow(f) {
-  const now = Date.now(), live = f.liveUntil > now, calls = live && f.liveWith === uid;
-  const req = [...incoming, ...outgoing].find(r => r.status === 'accepted' && (r.from === f.uid || r.to === f.uid));
-  return h('div', {class: 'item'}, avCanvas(f.avatar, 46),
-    h('div', {class: 't'}, h('b', {}, f.nick),
-      h('small', {class: live ? 'on' : ''}, calls ? 'Зовёт вас стримить вместе' : live ? 'В эфире' : rankOf(f.subs || 0)[1])),
-    h('div', {class: 'btns'},
-      h('button', {class: 'btn sm' + (live ? ' red' : ''), onclick: () => joinDuo(f)}, live ? 'Присоединиться' : 'Позвать'),
-      h('button', {class: 'btn sm alt', 'aria-label': 'Удалить из друзей', onclick: () => { if (req && confirm('Удалить ' + f.nick + ' из друзей?')) deleteDoc(doc(db, 'friendRequests', req.id)); }}, '✕')));
-}
-function renderFriends() {
-  const list = $('flist'); list.innerHTML = '';
-  const pend = incoming.filter(r => r.status === 'pending');
-  if (pend.length) {
-    list.append(h('h3', {}, 'Заявки'));
-    pend.forEach(r => list.append(h('div', {class: 'item'}, avCanvas(r.fromAvatar, 46),
-      h('div', {class: 't'}, h('b', {}, r.fromNick), h('small', {}, 'ID ' + r.fromId + ' хочет дружить')),
-      h('div', {class: 'btns'},
-        h('button', {class: 'btn sm', onclick: () => updateDoc(doc(db, 'friendRequests', r.id), {status: 'accepted'}).then(() => toast('Вы теперь друзья'))}, 'Принять'),
-        h('button', {class: 'btn sm alt', onclick: () => deleteDoc(doc(db, 'friendRequests', r.id))}, 'Нет')))));
-  }
-  const fr = friends();
-  list.append(h('h3', {}, 'Друзья (' + fr.length + ')'));
-  if (!fr.length) list.append(h('p', {class: 'muted'}, 'Пока никого. Отправь другу свой ID или введи его ID выше.'));
-  fr.sort((a, b) => (b.liveUntil || 0) - (a.liveUntil || 0)).forEach(f => list.append(friendRow(f)));
-  const wait = outgoing.filter(r => r.status === 'pending').length;
-  if (wait) list.append(h('p', {class: 'muted', style: 'margin-top:8px'}, 'Ждут ответа: ' + wait));
-}
-function joinDuo(f) {
-  me.liveWith = f.uid; me.liveUntil = Math.max(me.liveUntil, Date.now() + 60000);
-  dirty = true; flush(); setTab('stream');
-  toast(f.liveUntil > Date.now() ? 'Подключаемся к ' + f.nick : 'Зову ' + f.nick + '. Копай, пока друг подключается');
-}
-
-/* ---------- профиль ---------- */
-$('editHero').onclick = () => openCreate(true);
-$('logout').onclick = async () => {
-  if (auth.currentUser && auth.currentUser.isAnonymous &&
-      !confirm('Ты играешь как гость. Если выйти, аккаунт и прогресс потеряются. Сначала привяжи Google. Выйти всё равно?')) return;
-  await flush(); await signOut(auth); location.reload();
-};
-function copyId() {
-  const t = me.id;
-  (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).catch(() => {
-    const i = h('input', {value: t}); document.body.append(i); i.select(); try { document.execCommand('copy'); } catch (e) {} i.remove();
-  }).finally(() => toast('ID ' + t + ' скопирован'));
-}
-$('topId').onclick = copyId; $('fCopy').onclick = copyId;
-
-/* ---------- отрисовка ---------- */
-function renderHud() {
-  $('coins').textContent = fmt(me.coins); $('subs').textContent = fmt(me.subs);
-}
-function renderAll() {
-  if (!me || !started) return;
-  renderHud();
-  drawAvatar($('topAv'), me.avatar);
-  $('topNick').textContent = me.nick; $('topId').textContent = 'ID ' + me.id;
-  const pend = incoming.filter(r => r.status === 'pending').length;
-  $('reqBadge').style.display = pend ? 'inline-block' : 'none'; $('reqBadge').textContent = pend;
-  if (tab === 'stream') renderStream();
-  if (tab === 'shop') renderShop();
-  if (tab === 'friends') { $('fMyId').textContent = me.id; renderFriends(); }
-  if (tab === 'top') loadTop();
-  if (tab === 'me') {
-    drawAvatar($('meBig'), me.avatar);
-    $('pNick').textContent = me.nick; $('pId').textContent = me.id; $('pUser').textContent = me.username || '—'; $('pRank').textContent = rankOf(me.subs)[1];
-    $('linkG').style.display = (auth.currentUser && auth.currentUser.isAnonymous) ? 'block' : 'none';
-    $('sSubs').textContent = fmt(me.subs); $('sCoins').textContent = fmt(me.coins);
-    $('sTaps').textContent = fmt(me.taps); $('sBlocks').textContent = fmt(me.blocks);
+async function sendChat(){
+  const input = $("chatInput");
+  const text = input.value.trim();
+  if (!text) return;
+  $("sendBtn").disabled = true;
+  try {
+    const r = await api("/api/chat", { text });
+    input.value = "";
+    addMessages([r.message]);
+    msgsBox.scrollTop = msgsBox.scrollHeight;
+  } catch(e){
+    toast(e.message, "err");
+  } finally {
+    $("sendBtn").disabled = false;
+    input.focus();
   }
 }
+$("sendBtn").addEventListener("click", sendChat);
+$("chatInput").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); sendChat(); } });
 
-/* ---------- таймер ---------- */
-function tick() {
-  if (!me) return;
-  const live = isLive();
-  if (live && me.mic) { me.coins += Math.round(me.mic * mult()); dirty = true; }
-  if (!live && me.liveWith) { me.liveWith = null; dirty = true; }
-  if (live && me.subs > 0 && Math.random() < 0.05) {
-    const d = Math.max(5, Math.round((5 + me.subs * 0.4) * mult()));
-    me.coins += d; dirty = true;
-    if (tab === 'stream') pop('Донат +' + d, '#4be0d0');
+/* ═════════ НАВИГАЦИЯ ═════════ */
+let currentPage = "click";
+let topTimer = null;
+function go(page){
+  currentPage = page;
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("active", b.dataset.page === page));
+  document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.id === "page-" + page));
+  clearInterval(topTimer);
+  if (page === "top"){ loadTop(); topTimer = setInterval(loadTop, 10000); }
+  if (page === "chat"){
+    unread = 0; $("chatBadge").classList.remove("show");
+    pollChat();
+    setTimeout(() => { msgsBox.scrollTop = msgsBox.scrollHeight; }, 30);
   }
-  viewers = live ? 1 + Math.floor(me.subs * 0.15) + rnd(3) : 0;
-  renderHud();
-  if (tab === 'stream') renderStream();
-  if (tab === 'shop') renderShop();
-  if (++tk % 5 === 0 && tab === 'friends') renderFriends();
+  haptic("light");
 }
+document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => go(b.dataset.page)));
+
+/* ═════════ ЗАПУСК ═════════ */
+function showFatal(text){
+  $("splash").style.display = "flex";
+  $("splashText").textContent = text;
+  $("retry").style.display = "inline-block";
+}
+$("retry").addEventListener("click", () => location.reload());
+
+async function start(){
+  if (!initData){
+    showFatal("Откройте игру через Telegram: нажмите «Играть» в боте.");
+    $("retry").style.display = "none";
+    return;
+  }
+  try {
+    const r = await api("/api/init", {});
+    me = r.me;
+    state = { balance: 0, income: 0, click_power: 1, click_cost: 100, mines: [] };
+    applyState(r);
+    $("uname").textContent = me.name;
+    $("avatar").textContent = initial(me.name);
+    $("splash").style.display = "none";
+    lastSync = Date.now();
+    if (r.offline > 0) toast("Шахты принесли +" + fmt(r.offline) + " пока вас не было", "ok");
+    pollChat();
+  } catch(e){
+    showFatal(e.status === 401
+      ? "Не удалось войти. Закройте игру и откройте её заново через бота."
+      : "Нет связи с сервером. Проверьте, что bot.py запущен, и попробуйте снова.");
+  }
+}
+start();
 </script>
 </body>
 </html>

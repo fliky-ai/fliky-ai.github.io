@@ -145,7 +145,14 @@ h3{font-size:18px;margin:16px 2px 8px}
 
 <!-- Загрузка -->
 <section id="loading" class="screen on" style="align-items:center;justify-content:center">
-  <p class="h" style="font-size:22px">Загрузка…</p>
+  <div style="text-align:center;padding:24px;max-width:340px">
+    <p class="h" id="loadTxt" style="font-size:22px">Загрузка…</p>
+    <p class="muted" id="loadSub" style="margin-top:10px"></p>
+    <div id="loadBtns" style="display:none;gap:10px;justify-content:center;margin-top:18px">
+      <button id="loadRetry" class="btn sm">Повторить</button>
+      <button id="loadOut" class="btn sm alt">Выйти</button>
+    </div>
+  </div>
 </section>
 
 <!-- Вход -->
@@ -249,7 +256,7 @@ h3{font-size:18px;margin:16px 2px 8px}
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import {initializeAuth,indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence,browserPopupRedirectResolver,GoogleAuthProvider,signInWithPopup,signInWithRedirect,getRedirectResult,signInAnonymously,linkWithPopup,onAuthStateChanged,signOut} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import {getFirestore,doc,getDoc,setDoc,updateDoc,deleteDoc,collection,query,where,onSnapshot,runTransaction,orderBy,limit,getDocs} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import {initializeFirestore,doc,getDoc,setDoc,updateDoc,deleteDoc,collection,query,where,onSnapshot,runTransaction,orderBy,limit,getDocs} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBgbrpebEcEc9gwEXPkhLPx6gDeoMIUHu8",
@@ -265,7 +272,7 @@ const auth = initializeAuth(app, {
   persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence],
   popupRedirectResolver: browserPopupRedirectResolver
 });
-const db = getFirestore(app);
+const db = initializeFirestore(app, {experimentalAutoDetectLongPolling: true, useFetchStreams: false});
 
 /* ---------- утилиты ---------- */
 const $ = id => document.getElementById(id);
@@ -443,18 +450,37 @@ if (tg && tg.initData) {
 }
 drawBlock($('loginBlock'), 'diamond', 0);
 
-onAuthStateChanged(auth, async u => {
-  if (!u) { uid = null; show('login'); setBusy(false); return; }
-  uid = u.uid; clearTimeout(waitT);
+function withTimeout(p, ms) {
+  return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej({code: 'timeout'}), ms))]);
+}
+function dbErrText(e) {
+  const c = (e && e.code) || '';
+  if (c === 'permission-denied') return 'Правила Firestore не пускают. Открой Firestore → Rules, вставь файл firestore.rules и нажми Publish.';
+  if (c === 'timeout' || c === 'unavailable' || c === 'failed-precondition' || c === 'not-found')
+    return 'Нет связи с базой. Проверь, что в Firebase создана база: Firestore Database → Create database (режим production). Потом нажми «Повторить».';
+  return 'Ошибка базы: ' + (c || (e && e.message) || 'неизвестно');
+}
+function loadFail(e) {
+  console.error(e);
+  $('loadTxt').textContent = 'Не удалось загрузить';
+  $('loadSub').textContent = dbErrText(e);
+  $('loadBtns').style.display = 'flex';
+}
+async function loadProfile() {
+  $('loadTxt').textContent = 'Загружаем профиль…'; $('loadSub').textContent = ''; $('loadBtns').style.display = 'none';
   show('loading');
   try {
-    const s = await getDoc(doc(db, 'users', uid));
+    const s = await withTimeout(getDoc(doc(db, 'users', uid)), 12000);
     if (s.exists()) { me = s.data(); me.liveWith = me.liveWith || null; startGame(); }
     else openCreate(false);
-  } catch (e) {
-    console.error(e); show('login'); setBusy(false);
-    $('loginErr').textContent = 'Нет доступа к базе. Проверь правила Firestore (файл firestore.rules).';
-  }
+  } catch (e) { loadFail(e); }
+}
+$('loadRetry').onclick = loadProfile;
+$('loadOut').onclick = async () => { await signOut(auth); location.reload(); };
+onAuthStateChanged(auth, u => {
+  if (!u) { uid = null; show('login'); setBusy(false); return; }
+  uid = u.uid; clearTimeout(waitT);
+  loadProfile();
 });
 
 /* ---------- создание героя ---------- */
@@ -523,15 +549,15 @@ $('createGo').onclick = async () => {
       await updateDoc(doc(db, 'users', uid), {nick, avatar: {...cfg}});
       me.nick = nick; me.avatar = {...cfg}; startGame();
     } else {
-      const id = await claimProfile(username);
+      const id = await withTimeout(claimProfile(username), 15000);
       if (!id) { err.textContent = 'Юзернейм @' + username + ' уже занят. Придумай другой'; }
       else {
         me = {id, username, nick, avatar: {...cfg}, coins: 0, subs: 0, taps: 0, blocks: 0, pick: 0, mic: 0, cam: 0, liveUntil: 0, liveWith: null, createdAt: Date.now()};
-        await setDoc(doc(db, 'users', uid), me);
+        await withTimeout(setDoc(doc(db, 'users', uid), me), 15000);
         startGame();
       }
     }
-  } catch (e) { console.error(e); err.textContent = 'Не удалось сохранить. Проверь правила Firestore (файл firestore.rules).'; }
+  } catch (e) { console.error(e); err.textContent = dbErrText(e); }
   $('createGo').disabled = false;
 };
 

@@ -3,542 +3,687 @@ here<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#0a0e16">
-<title>Gold Miner</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<meta name="theme-color" content="#0d0b16">
+<title>Pixel War</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
 :root{
-  --ink:#0a0e16; --panel:#121826; --raised:#1a2236; --line:#26304a;
-  --txt:#eaeef8; --mut:#7f8cab;
-  --gold:#ffb627; --gold-d:#e08a00; --ember:#ff6b3d; --crystal:#4de1d0; --red:#ff5d6c;
-  --safe-top: calc(var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px));
-  --safe-bot: var(--tg-safe-area-inset-bottom, 0px);
-  --display:'Unbounded','Manrope',system-ui,sans-serif;
+  --bg:#0d0b16; --panel:#171329; --panel2:#211a3a; --line:#352a5e;
+  --txt:#efeaff; --mut:#9a90c4;
+  --red:#ff4d5e; --blue:#3aa0ff; --green:#2fd6a0; --yellow:#ffc53d; --purple:#a66bff; --orange:#ff8a3d;
+  --px:'Press Start 2P',ui-monospace,monospace;
   --body:'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --st:env(safe-area-inset-top,0px); --sb:env(safe-area-inset-bottom,0px);
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;background:var(--ink);color:var(--txt);font-family:var(--body);overscroll-behavior:none}
-body{display:flex;flex-direction:column;height:100dvh;overflow:hidden;
-  background:
-    radial-gradient(900px 500px at 50% -10%, rgba(255,182,39,.10), transparent 60%),
-    radial-gradient(600px 400px at 100% 100%, rgba(77,225,208,.06), transparent 60%),
-    var(--ink);}
+html,body{height:100%;background:var(--bg);color:var(--txt);font-family:var(--body);overscroll-behavior:none;overflow:hidden}
 button,input{font-family:inherit;color:inherit}
 button{border:0;background:none;cursor:pointer}
-.nosel{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.screen{position:fixed;inset:0;display:none;flex-direction:column;padding:calc(var(--st) + 16px) 18px calc(var(--sb) + 16px);overflow-y:auto}
+.screen.active{display:flex}
 
-/* ── шапка ── */
-header{padding:calc(var(--safe-top) + 12px) 16px 10px;display:flex;align-items:center;gap:12px}
-.avatar{width:40px;height:40px;border-radius:12px;flex:none;display:grid;place-items:center;
-  font-family:var(--display);font-weight:700;font-size:16px;color:#2a1700;
-  background:linear-gradient(145deg,#ffd36b,var(--gold-d));box-shadow:0 4px 14px rgba(255,182,39,.25)}
-.who{min-width:0;flex:1}
-.who b{display:block;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.who span{font-size:12px;color:var(--crystal);font-weight:600}
-.bal{text-align:right}
-.bal strong{display:block;font-family:var(--display);font-weight:800;font-size:22px;line-height:1.1;color:var(--gold);
-  text-shadow:0 0 24px rgba(255,182,39,.35);font-variant-numeric:tabular-nums}
-.bal small{font-size:11px;color:var(--mut);font-weight:600}
+/* ── пиксельные кнопки и поля ── */
+.pbtn{font-family:var(--px);font-size:12px;line-height:1.4;padding:15px 16px;width:100%;text-align:center;
+  background:var(--yellow);color:#1b1200;border:3px solid #000;box-shadow:0 5px 0 #8a5d00;transition:transform .06s,box-shadow .06s}
+.pbtn:active{transform:translateY(4px);box-shadow:0 1px 0 #8a5d00}
+.pbtn:disabled{opacity:.5}
+.pbtn.alt{background:var(--panel2);color:var(--txt);box-shadow:0 5px 0 #0a0814;border-color:#000}
+.pbtn.alt:active{box-shadow:0 1px 0 #0a0814}
+.pbtn.small{font-size:10px;padding:11px 12px}
+.link{color:var(--blue);font-weight:700;font-size:13px;text-align:center;padding:10px;text-decoration:none;display:block}
+.field{width:100%;background:var(--panel);border:3px solid var(--line);padding:15px 14px;font-size:18px;font-weight:700;outline:none;border-radius:0}
+.field:focus{border-color:var(--yellow)}
+.field.code{font-family:var(--px);font-size:22px;letter-spacing:.35em;text-align:center}
+.err{min-height:20px;color:#ff9aa4;font-size:13px;font-weight:600;line-height:1.35;margin:10px 0 2px}
+.hint{color:var(--mut);font-size:13px;line-height:1.5;font-weight:500}
+.stack{display:flex;flex-direction:column;gap:12px}
 
-/* ── страницы ── */
-main{flex:1;min-height:0;position:relative}
-.page{position:absolute;inset:0;display:none;overflow-y:auto;overflow-x:hidden;padding:6px 16px 16px;-webkit-overflow-scrolling:touch}
-.page.active{display:block}
-#page-chat.active{display:flex;flex-direction:column;padding-bottom:0}
-h2{font-family:var(--display);font-weight:700;font-size:18px;margin:4px 0 12px}
+/* ── вход ── */
+.logo{font-family:var(--px);font-size:30px;line-height:1.25;text-align:center;margin:18px 0 6px;letter-spacing:1px;
+  text-shadow:4px 4px 0 #000;color:var(--yellow)}
+.logo span{color:var(--red)}
+.tag{text-align:center;color:var(--mut);font-size:13px;font-weight:600;margin-bottom:18px}
+.heroes{display:flex;justify-content:center;gap:10px;margin:6px 0 22px}
+.heroes canvas{width:34px;height:44px;image-rendering:pixelated;animation:hop 1s steps(2,end) infinite}
+.heroes canvas:nth-child(2n){animation-delay:.25s}.heroes canvas:nth-child(3n){animation-delay:.5s}
+@keyframes hop{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.card{background:var(--panel);border:3px solid var(--line);padding:16px}
+.grow{flex:1}
 
-/* ── кликер ── */
-.tap-zone{position:relative;display:flex;flex-direction:column;align-items:center;padding:14px 0 6px}
-.coin{position:relative;width:min(64vw,270px);aspect-ratio:1;border-radius:50%;display:grid;place-items:center;
-  touch-action:manipulation;transition:transform .08s ease-out;
-  background:
-    radial-gradient(circle at 32% 26%, #fff1b8 0, #ffd05a 22%, #f0a30f 52%, #b86a00 100%);
-  box-shadow:
-    inset 0 -10px 22px rgba(120,60,0,.55), inset 0 8px 16px rgba(255,255,255,.45),
-    0 0 0 8px rgba(255,182,39,.10), 0 0 0 16px rgba(255,182,39,.05),
-    0 24px 60px rgba(255,150,0,.30);}
-.coin::before{content:"";position:absolute;inset:11%;border-radius:50%;
-  border:3px dashed rgba(120,60,0,.35);box-shadow:inset 0 2px 6px rgba(255,255,255,.25)}
-.coin span{font-size:min(26vw,110px);filter:drop-shadow(0 4px 4px rgba(90,40,0,.45));transform:rotate(-12deg)}
-.coin.hit{transform:scale(.955)}
-.tap-info{margin-top:18px;font-size:13px;color:var(--mut);font-weight:600}
-.tap-info b{color:var(--txt)}
-.float{position:fixed;pointer-events:none;z-index:50;font-family:var(--display);font-weight:800;font-size:22px;color:#fff3c4;
-  text-shadow:0 2px 10px rgba(255,150,0,.8);animation:floatUp .9s ease-out forwards}
-@keyframes floatUp{from{opacity:1;transform:translate(-50%,0)}to{opacity:0;transform:translate(-50%,-90px)}}
+/* ── фракции ── */
+h1{font-family:var(--px);font-size:15px;line-height:1.5;margin:14px 0 8px;text-align:center}
+.facs{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
+.fac{background:var(--panel);border:3px solid var(--line);padding:14px 8px 10px;display:flex;flex-direction:column;align-items:center;gap:8px;font-weight:800;font-size:13px}
+.fac canvas{width:42px;height:54px;image-rendering:pixelated}
+.fac.sel{border-color:var(--yellow);background:var(--panel2);box-shadow:0 0 0 3px rgba(255,197,61,.25)}
 
-.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px}
-.row{display:flex;align-items:center;gap:12px}
-.grow{flex:1;min-width:0}
-.card .t{font-weight:700;font-size:14px}
-.card .d{font-size:12px;color:var(--mut);margin-top:2px;line-height:1.35}
-.btn{padding:10px 14px;border-radius:12px;font-weight:800;font-size:13px;white-space:nowrap;
-  background:var(--raised);color:var(--mut);border:1px solid var(--line);transition:transform .1s, background .2s}
-.btn.can{background:linear-gradient(145deg,#ffcc4d,var(--gold-d));color:#2a1700;border-color:transparent;box-shadow:0 6px 16px rgba(255,160,0,.25)}
-.btn:active{transform:scale(.95)}
-.btn small{display:block;font-size:11px;font-weight:700;opacity:.85}
+/* ── меню ── */
+.me-head{display:flex;align-items:center;gap:12px;margin:6px 0 16px}
+.me-head canvas{width:42px;height:54px;image-rendering:pixelated}
+.me-head b{display:block;font-size:17px;font-weight:800;word-break:break-word}
+.me-head span{font-size:12px;font-weight:700;color:var(--mut)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.stat{background:var(--panel);border:3px solid var(--line);padding:12px}
+.stat strong{display:block;font-family:var(--px);font-size:15px;margin-bottom:8px;color:var(--yellow)}
+.stat small{color:var(--mut);font-size:12px;font-weight:700}
 
-/* ── шахты ── */
-.mines{display:flex;flex-direction:column;gap:10px}
-.mine{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:12px}
-.mine.owned{border-color:rgba(77,225,208,.35);background:linear-gradient(180deg,rgba(77,225,208,.06),var(--panel))}
-.mine .ico{width:48px;height:48px;border-radius:14px;flex:none;display:grid;place-items:center;font-size:24px;background:var(--raised)}
-.mine .lvl{font-size:11px;font-weight:800;color:var(--crystal);margin-left:6px}
-.mine .inc{font-size:12px;color:var(--mut);margin-top:3px}
-.mine .inc em{font-style:normal;color:var(--crystal);font-weight:700}
+/* ── игра ── */
+#s-game{padding:0}
+#hud{display:flex;align-items:center;gap:6px;padding:calc(var(--st) + 8px) 10px 8px;background:var(--panel);border-bottom:3px solid #000}
+.chip{font-family:var(--px);font-size:10px;padding:8px 9px;background:var(--bg);border:2px solid var(--line);white-space:nowrap}
+.chip b{color:var(--yellow);font-weight:400}
+#hud .sp{flex:1}
+#btnExit{font-family:var(--px);font-size:11px;padding:8px 10px;background:var(--red);color:#fff;border:2px solid #000;box-shadow:0 3px 0 #7a1a25}
+#arena{position:relative;flex:1;min-height:0;background:#0d0b16;overflow:hidden}
+#cv{position:absolute;left:0;top:0;touch-action:none;display:block}
+#feed{position:absolute;left:8px;top:8px;display:flex;flex-direction:column;gap:4px;pointer-events:none;max-width:60%}
+#feed div{background:rgba(13,11,22,.78);border:2px solid var(--line);padding:4px 7px;font-size:11px;font-weight:700;animation:fadeout 4.5s forwards}
+@keyframes fadeout{0%,80%{opacity:1}100%{opacity:0}}
+#help{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(13,11,22,.85);border:2px solid var(--yellow);
+  padding:8px 12px;font-size:12px;font-weight:700;pointer-events:none;transition:opacity .6s;white-space:nowrap}
+#flash{position:absolute;inset:0;background:rgba(255,77,94,.35);opacity:0;pointer-events:none;transition:opacity .35s}
+#flash.on{opacity:1;transition:none}
+#overlay{position:absolute;inset:0;background:rgba(13,11,22,.88);display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:30px;text-align:center}
+#overlay.on{display:flex}
+#overlay p{font-weight:700;font-size:14px;line-height:1.5;color:var(--mut)}
+#overlay .pbtn{max-width:260px}
 
-/* ── топ ── */
-.top{display:flex;flex-direction:column;gap:8px}
-.place{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:10px 12px}
-.place.me{border-color:var(--gold);box-shadow:0 0 0 1px rgba(255,182,39,.25) inset}
-.place .rk{width:30px;text-align:center;font-family:var(--display);font-weight:700;font-size:14px;color:var(--mut)}
-.place:nth-child(1) .rk,.place:nth-child(2) .rk,.place:nth-child(3) .rk{font-size:22px}
-.place .av{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-weight:800;font-size:14px;color:#08111a}
-.place .nm{flex:1;min-width:0;font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.place .sc{font-family:var(--display);font-weight:700;font-size:13px;color:var(--gold)}
-.myrank{margin-top:12px;text-align:center;font-size:13px;color:var(--mut);font-weight:600}
-.myrank b{color:var(--gold)}
-.empty{text-align:center;color:var(--mut);font-size:13px;padding:30px 0}
+#panel{height:min(38%,290px);min-height:190px;display:flex;flex-direction:column;background:var(--panel);border-top:3px solid #000;padding-bottom:var(--sb)}
+.tabs{display:flex;background:var(--bg)}
+.tab{flex:1;position:relative;font-family:var(--px);font-size:10px;padding:12px 6px;color:var(--mut);border-bottom:3px solid transparent}
+.tab.on{color:var(--yellow);border-bottom-color:var(--yellow);background:var(--panel)}
+.badge{display:none;position:absolute;top:5px;right:16%;min-width:16px;height:16px;padding:0 4px;background:var(--red);color:#fff;font-family:var(--body);font-size:10px;font-weight:800;align-items:center;justify-content:center}
+.badge.on{display:flex}
+.pane{flex:1;min-height:0;display:none;flex-direction:column}
+.pane.on{display:flex}
+#topList{flex:1;overflow-y:auto;padding:8px 10px}
+.row{display:flex;align-items:center;gap:9px;padding:6px 8px;margin-bottom:4px;background:var(--bg);border:2px solid transparent;font-size:13px;font-weight:700}
+.row.me{border-color:var(--yellow)}
+.row .rk{width:22px;font-family:var(--px);font-size:10px;color:var(--mut);text-align:center}
+.row .dot{width:10px;height:10px;flex:none}
+.row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .on{width:7px;height:7px;background:var(--green);border-radius:50%;flex:none}
+.row .px{font-family:var(--px);font-size:10px;color:var(--yellow)}
+#msgs{flex:1;overflow-y:auto;padding:8px 10px;display:flex;flex-direction:column;gap:5px}
+.m{font-size:13px;line-height:1.35;word-wrap:break-word;overflow-wrap:anywhere}
+.m b{font-weight:800}
+.m i{font-style:normal;color:var(--mut);font-size:10px;margin-left:5px}
+.composer{display:flex;gap:8px;padding:8px 10px;border-top:2px solid var(--line)}
+.composer input{flex:1;min-width:0;background:var(--bg);border:2px solid var(--line);padding:10px 11px;font-size:14px;font-weight:600;outline:none;border-radius:0}
+.composer input:focus{border-color:var(--yellow)}
+.composer button{width:46px;background:var(--yellow);color:#1b1200;font-weight:800;font-size:16px;border:2px solid #000;box-shadow:0 3px 0 #8a5d00}
+.composer button:active{transform:translateY(2px);box-shadow:0 1px 0 #8a5d00}
 
-/* ── чат ── */
-.msgs{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:4px 0 10px}
-.msg{max-width:84%;padding:8px 12px 7px;border-radius:16px;background:var(--panel);border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:5px}
-.msg.mine{align-self:flex-end;background:linear-gradient(145deg,#2a3556,#212b47);border-color:#34406a;border-bottom-left-radius:16px;border-bottom-right-radius:5px}
-.msg .who2{font-size:12px;font-weight:800;margin-bottom:2px}
-.msg .tx{font-size:14px;line-height:1.35;word-wrap:break-word;overflow-wrap:anywhere;white-space:pre-wrap}
-.msg .tm{font-size:10px;color:var(--mut);text-align:right;margin-top:2px}
-.composer{display:flex;gap:8px;padding:10px 0 12px;border-top:1px solid var(--line);background:var(--ink)}
-.composer input{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-size:15px;outline:none}
-.composer input:focus{border-color:var(--gold)}
-.send{width:46px;border-radius:14px;background:linear-gradient(145deg,#ffcc4d,var(--gold-d));color:#2a1700;font-size:18px;font-weight:800}
-.send:disabled{opacity:.5}
-
-/* ── нижняя навигация ── */
-nav{display:flex;gap:4px;padding:8px 10px calc(var(--safe-bot) + 10px);background:rgba(10,14,22,.92);border-top:1px solid var(--line);backdrop-filter:blur(10px)}
-nav button{flex:1;position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0;border-radius:14px;color:var(--mut);font-size:11px;font-weight:700;transition:color .2s, background .2s}
-nav button i{font-style:normal;font-size:20px;filter:grayscale(1) opacity(.7);transition:filter .2s}
-nav button.active{color:var(--gold);background:rgba(255,182,39,.10)}
-nav button.active i{filter:none}
-.badge{position:absolute;top:2px;left:calc(50% + 6px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--red);color:#fff;font-size:10px;font-weight:800;display:none;place-items:center}
-.badge.show{display:grid}
-
-/* ── прочее ── */
-#toast{position:fixed;left:50%;top:calc(var(--safe-top) + 70px);transform:translate(-50%,-20px);opacity:0;z-index:100;
-  background:var(--raised);border:1px solid var(--line);padding:10px 16px;border-radius:14px;font-size:13px;font-weight:700;
-  max-width:88vw;text-align:center;transition:opacity .2s, transform .2s;pointer-events:none}
+#toast{position:fixed;left:50%;top:calc(var(--st) + 60px);transform:translate(-50%,-14px);opacity:0;z-index:99;pointer-events:none;
+  background:var(--panel2);border:3px solid var(--yellow);padding:10px 14px;font-size:13px;font-weight:800;max-width:88vw;text-align:center;transition:opacity .2s,transform .2s}
 #toast.show{opacity:1;transform:translate(-50%,0)}
-#toast.err{border-color:var(--red);color:#ffc9ce}
-#toast.ok{border-color:var(--crystal);color:#c9fff9}
-#splash{position:fixed;inset:0;z-index:200;background:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:30px}
-#splash .big{font-size:54px;animation:swing 1.2s ease-in-out infinite;transform-origin:70% 90%}
-@keyframes swing{0%,100%{transform:rotate(-14deg)}50%{transform:rotate(14deg)}}
-#splash p{color:var(--mut);font-size:14px;font-weight:600;line-height:1.5;max-width:300px}
-#splash .btn{margin-top:6px}
+#toast.bad{border-color:var(--red)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
 
-<div id="splash">
-  <div class="big">⛏️</div>
-  <p id="splashText">Спускаемся в шахту…</p>
-  <button class="btn can" id="retry" style="display:none">Попробовать снова</button>
-</div>
+<!-- ВХОД -->
+<section class="screen active" id="s-login">
+  <div class="logo">PIXEL<br><span>WAR</span></div>
+  <div class="tag">Захватывай территорию. Побеждай живых игроков.</div>
+  <div class="heroes" id="heroes"></div>
 
-<header>
-  <div class="avatar" id="avatar">?</div>
-  <div class="who"><b id="uname">Игрок</b><span id="incomeTop">+0 в секунду</span></div>
-  <div class="bal"><strong id="balance">0</strong><small>монет</small></div>
-</header>
-
-<main>
-  <!-- КЛИК -->
-  <section class="page active" id="page-click">
-    <div class="tap-zone">
-      <div class="coin nosel" id="coin"><span>⛏️</span></div>
-      <div class="tap-info">За один тап: <b id="power">+1</b></div>
+  <div class="stack" id="stepPhone">
+    <input class="field" id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 700 123 45 67">
+    <div class="hint">Код входа придёт в Telegram от бота @UpgradeGamebot.</div>
+    <button class="pbtn" id="btnCode">Получить код</button>
+    <div class="err" id="errPhone"></div>
+    <div class="card" id="notReg" style="display:none">
+      <div class="hint" style="margin-bottom:12px"><b style="color:var(--txt)">Первый раз?</b> Откройте бота, нажмите /start и кнопку «Поделиться номером». Потом вернитесь сюда и повторите.</div>
+      <a class="pbtn small" style="display:block;text-decoration:none" href="https://t.me/UpgradeGamebot" target="_blank" rel="noopener">Открыть бота</a>
     </div>
-    <div class="card row" style="margin-top:14px">
-      <div class="grow">
-        <div class="t">Крепкая кирка</div>
-        <div class="d">Уровень <b id="clickLvl">1</b>. Каждый тап приносит на 1 монету больше.</div>
+  </div>
+
+  <div class="stack" id="stepCode" style="display:none">
+    <div class="hint" id="codeHint" style="text-align:center"></div>
+    <input class="field code" id="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••">
+    <button class="pbtn" id="btnVerify">Войти</button>
+    <div class="err" id="errCode"></div>
+    <button class="link" id="btnResend" disabled>Отправить код ещё раз</button>
+    <button class="link" id="btnBack" style="color:var(--mut)">Изменить номер</button>
+  </div>
+</section>
+
+<!-- ВЫБОР ФРАКЦИИ -->
+<section class="screen" id="s-faction">
+  <h1>Выберите фракцию</h1>
+  <div class="hint" style="text-align:center">Выбор делается один раз. Ваша база появится в углу цвета фракции.</div>
+  <div class="facs" id="facs"></div>
+  <div class="grow"></div>
+  <button class="pbtn" id="btnFac" disabled>Выберите цвет</button>
+  <div class="err" id="errFac"></div>
+</section>
+
+<!-- МЕНЮ -->
+<section class="screen" id="s-menu">
+  <div class="me-head"><canvas id="meSprite" width="7" height="9"></canvas><div><b id="mName">Игрок</b><span id="mFac"></span></div></div>
+  <div class="stats">
+    <div class="stat"><strong id="mCoins">0</strong><small>монет</small></div>
+    <div class="stat"><strong id="mPix">0</strong><small>пикселей</small></div>
+    <div class="stat"><strong id="mKills">0</strong><small>убийств</small></div>
+    <div class="stat"><strong id="mDeaths">0</strong><small>смертей</small></div>
+  </div>
+  <div class="grow"></div>
+  <div class="stack">
+    <button class="pbtn" id="btnPlay">Начать игру</button>
+    <button class="pbtn alt small" id="btnLogout">Выйти из аккаунта</button>
+  </div>
+</section>
+
+<!-- ИГРА -->
+<section class="screen" id="s-game">
+  <div id="hud">
+    <div class="chip">💰 <b id="hCoins">0</b></div>
+    <div class="chip">▣ <b id="hPix">0</b></div>
+    <div class="chip">⚔ <b id="hKills">0</b></div>
+    <div class="sp"></div>
+    <div class="chip" id="hOnline">👥 0</div>
+    <button id="btnExit">ВЫЙТИ</button>
+  </div>
+  <div id="arena">
+    <canvas id="cv"></canvas>
+    <div id="feed"></div>
+    <div id="help">Свайпайте по полю, чтобы поворачивать</div>
+    <div id="flash"></div>
+    <div id="overlay">
+      <p id="ovText">Подключаемся…</p>
+      <button class="pbtn" id="ovRetry" style="display:none">Переподключиться</button>
+      <button class="pbtn alt small" id="ovMenu" style="display:none">В меню</button>
+    </div>
+  </div>
+  <div id="panel">
+    <div class="tabs">
+      <button class="tab on" data-tab="top">ТОП-10</button>
+      <button class="tab" data-tab="chat">ЧАТ<span class="badge" id="chatBadge">0</span></button>
+    </div>
+    <div class="pane on" id="pane-top"><div id="topList"></div></div>
+    <div class="pane" id="pane-chat">
+      <div id="msgs"></div>
+      <div class="composer">
+        <input id="chatInput" type="text" maxlength="200" placeholder="Сообщение…" autocomplete="off" enterkeyhint="send">
+        <button id="chatSend" aria-label="Отправить">➤</button>
       </div>
-      <button class="btn" id="clickUp"><span>Улучшить</span><small id="clickCost">100</small></button>
     </div>
-  </section>
-
-  <!-- ШАХТЫ -->
-  <section class="page" id="page-mines">
-    <h2>Шахты</h2>
-    <div class="mines" id="minesList"></div>
-  </section>
-
-  <!-- ТОП -->
-  <section class="page" id="page-top">
-    <h2>ТОП-10 игроков</h2>
-    <div class="top" id="topList"><div class="empty">Загружаем рейтинг…</div></div>
-    <div class="myrank" id="myRank"></div>
-  </section>
-
-  <!-- ЧАТ -->
-  <section class="page" id="page-chat">
-    <h2>Общий чат</h2>
-    <div class="msgs" id="msgs"><div class="empty" id="chatEmpty">Пока тихо. Напишите первым!</div></div>
-    <div class="composer">
-      <input id="chatInput" type="text" maxlength="300" placeholder="Сообщение…" autocomplete="off" enterkeyhint="send">
-      <button class="send" id="sendBtn" aria-label="Отправить">➤</button>
-    </div>
-  </section>
-</main>
-
-<nav>
-  <button data-page="click" class="active"><i>💰</i>Клик</button>
-  <button data-page="mines"><i>🏭</i>Шахты</button>
-  <button data-page="top"><i>🏆</i>ТОП</button>
-  <button data-page="chat"><i>💬</i>Чат<span class="badge" id="chatBadge">0</span></button>
-</nav>
+  </div>
+</section>
 
 <div id="toast"></div>
 
 <script>
-/* ═════════ НАСТРОЙКИ ═════════ */
-const API = "https://ahgsraow97.apps.bot-hosting.cloud";   // адрес bot.py на хостинге
+(() => {
+"use strict";
 
-/* ═════════ TELEGRAM ═════════ */
-const tg = window.Telegram && window.Telegram.WebApp;
-if (tg) {
-  tg.ready();
-  tg.expand();
-  try { if (["android","ios"].includes(tg.platform) && tg.isVersionAtLeast("8.0") && !tg.isFullscreen) tg.requestFullscreen(); } catch(e){}
-  try { tg.disableVerticalSwipes(); } catch(e){}
-  try { tg.setHeaderColor("#0a0e16"); tg.setBackgroundColor("#0a0e16"); tg.setBottomBarColor("#0a0e16"); } catch(e){}
-}
-const initData = tg ? tg.initData : "";
-const haptic = (kind="light") => { try { tg.HapticFeedback.impactOccurred(kind); } catch(e){} };
-const notify = (kind) => { try { tg.HapticFeedback.notificationOccurred(kind); } catch(e){} };
+/* ═════════ НАСТРОЙКИ ═════════ */
+// Адрес твоего bot.py на хостинге (смотри вкладку «Домены» в панели Bot-Hosting)
+const API = "https://ahgsraow97.apps.bot-hosting.cloud";
+const WS_URL = API.replace(/^http/, "ws") + "/ws";
+const TOKEN_KEY = "pixelwar_token";
+
+/* ═════════ ФРАКЦИИ И СПРАЙТ ═════════ */
+const FAC = [null,
+  { n: "Алые",       c: "#ff4d5e", l: "#ffb3ba" },
+  { n: "Лазурные",   c: "#3aa0ff", l: "#a9d4ff" },
+  { n: "Изумрудные", c: "#2fd6a0", l: "#a4f0d9" },
+  { n: "Золотые",    c: "#ffc53d", l: "#ffe7a3" },
+  { n: "Фиолетовые", c: "#a66bff", l: "#d4b8ff" },
+  { n: "Оранжевые",  c: "#ff8a3d", l: "#ffc9a0" },
+];
+const RGB = FAC.map(f => f ? [1,3,5].map(i => parseInt(f.c.substr(i,2),16)) : [22,18,44]);
+const SPR = ["..hhh..", ".hsssh.", ".seses.", "..sss..", ".bbbbb.", "sbbbbbs", ".bbbbb.", ".dd.dd.", ".dd.dd."];
+const SPRITES = FAC.map(f => {
+  if (!f) return null;
+  const c = document.createElement("canvas"); c.width = 7; c.height = 9;
+  const g = c.getContext("2d");
+  const pal = { h: "#2b1d3a", s: "#ffd9b0", e: "#1a1020", b: f.c, d: "#241a38" };
+  SPR.forEach((row, y) => [...row].forEach((ch, x) => { if (ch !== ".") { g.fillStyle = pal[ch]; g.fillRect(x, y, 1, 1); } }));
+  return c;
+});
+function drawSprite(canvas, f) { const g = canvas.getContext("2d"); g.clearRect(0,0,7,9); g.drawImage(SPRITES[f], 0, 0); }
 
 /* ═════════ УТИЛИТЫ ═════════ */
-const $ = (id) => document.getElementById(id);
-const SUF = ["","K","M","B","T","Qa","Qi","Sx"];
-function fmt(n){
-  n = Math.floor(n);
-  if (n < 1000) return String(n);
-  const i = Math.min(Math.floor(Math.log10(n)/3), SUF.length-1);
-  const v = n / Math.pow(1000, i);
-  return (v < 10 ? v.toFixed(2) : v < 100 ? v.toFixed(1) : v.toFixed(0)) + SUF[i];
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const fmt = n => Math.floor(n).toLocaleString("ru-RU");
+let toastT;
+function toast(text, bad) {
+  const t = $("toast"); t.textContent = text; t.className = "show" + (bad ? " bad" : "");
+  clearTimeout(toastT); toastT = setTimeout(() => t.className = "", 2400);
 }
-function fmtRate(n){ return n < 1000 ? String(Math.round(n*10)/10) : fmt(n); }
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-const COLORS = ["#ffb627","#4de1d0","#ff6b3d","#8ab4ff","#c79bff","#7be495","#ff8fb1","#ffd36b"];
-const colorOf = (id) => COLORS[Math.abs(Number(id)) % COLORS.length];
-const initial = (name) => (name || "?").trim().charAt(0).toUpperCase() || "?";
+function buzz(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} }
+function show(id) { document.querySelectorAll(".screen").forEach(s => s.classList.toggle("active", s.id === id)); }
 
-let toastTimer;
-function toast(text, kind=""){
-  const t = $("toast");
-  t.textContent = text; t.className = "show " + kind;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.className = "", 2200);
-}
+let token = localStorage.getItem(TOKEN_KEY);
+let profile = null;
 
-async function api(path, body){
-  const opts = { method: body === undefined ? "GET" : "POST", headers: { "Authorization": "tma " + initData } };
-  if (body !== undefined){ opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
-  const res = await fetch(API + path, opts);
+async function api(path, opts = {}) {
+  const headers = {};
+  if (token) headers["Authorization"] = "Bearer " + token;
+  const init = { method: opts.body !== undefined ? "POST" : (opts.method || "GET"), headers };
+  if (opts.body !== undefined) { headers["Content-Type"] = "application/json"; init.body = JSON.stringify(opts.body); }
+  let res;
+  try { res = await fetch(API + path, init); }
+  catch (e) { const er = new Error("Нет связи с сервером"); er.status = 0; throw er; }
   let data = {};
-  try { data = await res.json(); } catch(e){}
-  if (!res.ok || data.ok === false){
-    const err = new Error(data.error || ("HTTP " + res.status));
-    err.status = res.status;
-    throw err;
+  try { data = await res.json(); } catch (e) {}
+  if (!res.ok || (data && data.ok === false)) {
+    const er = new Error((data && data.error) || ("Ошибка " + res.status));
+    er.status = res.status; er.code = data && data.code;
+    throw er;
   }
   return data;
 }
 
-/* ═════════ СОСТОЯНИЕ ═════════ */
-let state = null;       // balance, income, click_power, click_cost, mines[]
-let me = null;          // {id, name}
-let pending = 0;        // тапы, ещё не отправленные на сервер
-let syncing = false;
-let lastSync = 0;
+/* ═════════ ВХОД ПО НОМЕРУ ═════════ */
+{ // герои на экране входа
+  const box = $("heroes");
+  for (let f = 1; f <= 6; f++) { const c = document.createElement("canvas"); c.width = 7; c.height = 9; drawSprite(c, f); box.appendChild(c); }
+}
+let phoneVal = "", resendT = null;
 
-/* ═════════ ОТРИСОВКА ═════════ */
-function renderBalance(){
-  $("balance").textContent = fmt(state.balance);
+function startResend(sec) {
+  const b = $("btnResend"); clearInterval(resendT); let s = sec; b.disabled = true;
+  const tick = () => { if (s <= 0) { clearInterval(resendT); b.disabled = false; b.textContent = "Отправить код ещё раз"; } else { b.textContent = "Отправить ещё раз через " + s + " с"; s--; } };
+  tick(); resendT = setInterval(tick, 1000);
 }
-function renderStatic(){
-  $("incomeTop").textContent = "+" + fmtRate(state.income) + " в секунду";
-  $("power").textContent = "+" + state.click_power;
-  $("clickLvl").textContent = state.click_power;
-  $("clickCost").textContent = fmt(state.click_cost);
-  renderBalance();
-  updateAffordable();
+async function requestCode() {
+  phoneVal = $("phone").value.trim();
+  $("errPhone").textContent = ""; $("notReg").style.display = "none";
+  if (!phoneVal) { $("errPhone").textContent = "Введите номер телефона"; return; }
+  $("btnCode").disabled = true;
+  try {
+    const r = await api("/api/auth/request", { body: { phone: phoneVal } });
+    $("stepPhone").style.display = "none"; $("stepCode").style.display = "flex";
+    $("codeHint").textContent = "Код отправлен в Telegram на номер " + phoneVal;
+    $("code").value = ""; $("errCode").textContent = ""; $("code").focus();
+    startResend(r.resend || 30);
+  } catch (e) {
+    if (e.code === "not_registered") $("notReg").style.display = "block";
+    $("errPhone").textContent = e.message;
+  } finally { $("btnCode").disabled = false; }
 }
-function updateAffordable(){
-  const bal = state.balance;
-  $("clickUp").classList.toggle("can", bal >= state.click_cost);
-  document.querySelectorAll("#minesList .btn").forEach(b => {
-    b.classList.toggle("can", bal >= Number(b.dataset.cost));
-  });
+$("btnCode").onclick = requestCode;
+$("phone").addEventListener("keydown", e => { if (e.key === "Enter") requestCode(); });
+$("btnResend").onclick = async () => {
+  try { const r = await api("/api/auth/request", { body: { phone: phoneVal } }); $("errCode").textContent = ""; startResend(r.resend || 30); toast("Код отправлен"); }
+  catch (e) { $("errCode").textContent = e.message; }
+};
+$("btnBack").onclick = () => { $("stepCode").style.display = "none"; $("stepPhone").style.display = "flex"; };
+async function verify() {
+  if ($("btnVerify").disabled) return;
+  const code = $("code").value.trim();
+  if (code.length !== 6) { $("errCode").textContent = "Введите 6 цифр"; return; }
+  $("btnVerify").disabled = true; $("errCode").textContent = "";
+  try {
+    const r = await api("/api/auth/verify", { body: { phone: phoneVal, code } });
+    token = r.token; localStorage.setItem(TOKEN_KEY, token); profile = r.profile;
+    toast(r.new ? "Аккаунт создан!" : "С возвращением, " + profile.name + "!");
+    route();
+  } catch (e) { $("errCode").textContent = e.message; }
+  finally { $("btnVerify").disabled = false; }
 }
-function renderMines(){
-  const box = $("minesList");
-  box.innerHTML = "";
-  state.mines.forEach(m => {
-    const el = document.createElement("div");
-    el.className = "mine" + (m.level > 0 ? " owned" : "");
-    el.innerHTML = `
-      <div class="ico"></div>
-      <div class="grow">
-        <div class="t"><span class="nm"></span><span class="lvl"></span></div>
-        <div class="inc"></div>
-      </div>
-      <button class="btn" data-id="${m.id}" data-cost="${m.next_cost}"><span></span><small></small></button>`;
-    el.querySelector(".ico").textContent = m.emoji;
-    el.querySelector(".nm").textContent = m.name;
-    el.querySelector(".lvl").textContent = m.level > 0 ? "ур. " + m.level : "";
-    el.querySelector(".inc").innerHTML = m.level > 0
-      ? `Даёт <em>+${fmtRate(m.income)}/сек</em>, после улучшения <em>+${fmtRate(m.next_income)}/сек</em>`
-      : `После покупки даст <em>+${fmtRate(m.next_income)}/сек</em>`;
-    el.querySelector(".btn span").textContent = m.level > 0 ? "Улучшить" : "Купить";
-    el.querySelector(".btn small").textContent = fmt(m.next_cost);
-    box.appendChild(el);
-  });
-  updateAffordable();
-}
-function applyState(r){
-  state = { ...state, ...r };
-  state.balance = r.balance + pending * r.click_power;
-  renderStatic();
-  if (r.mines) renderMines();
-}
+$("btnVerify").onclick = verify;
+$("code").addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6); if (e.target.value.length === 6) verify(); });
 
-/* ═════════ КЛИК ═════════ */
-const coin = $("coin");
-let floats = 0;
-function tap(e){
-  if (!state) return;
-  e.preventDefault();
-  pending++;
-  state.balance += state.click_power;
-  renderBalance();
-  haptic("light");
-  coin.classList.add("hit");
-  setTimeout(() => coin.classList.remove("hit"), 70);
-  if (floats < 24){
-    floats++;
-    const f = document.createElement("div");
-    f.className = "float";
-    f.textContent = "+" + state.click_power;
-    f.style.left = (e.clientX + (Math.random()*30-15)) + "px";
-    f.style.top = (e.clientY - 20) + "px";
-    f.addEventListener("animationend", () => { f.remove(); floats--; });
-    document.body.appendChild(f);
+function logout(silent) {
+  if (token && !silent) api("/api/logout", { body: {} }).catch(() => {});
+  token = null; profile = null; localStorage.removeItem(TOKEN_KEY);
+  $("stepCode").style.display = "none"; $("stepPhone").style.display = "flex";
+  show("s-login");
+}
+$("btnLogout").onclick = () => logout(false);
+
+/* ═════════ ФРАКЦИЯ И МЕНЮ ═════════ */
+let pickedFac = 0;
+{
+  const box = $("facs");
+  for (let f = 1; f <= 6; f++) {
+    const d = document.createElement("button"); d.className = "fac"; d.dataset.f = f;
+    const c = document.createElement("canvas"); c.width = 7; c.height = 9; drawSprite(c, f);
+    const s = document.createElement("span"); s.textContent = FAC[f].n; s.style.color = FAC[f].c;
+    d.append(c, s); box.appendChild(d);
+    d.onclick = () => {
+      pickedFac = f;
+      box.querySelectorAll(".fac").forEach(x => x.classList.toggle("sel", Number(x.dataset.f) === f));
+      $("btnFac").disabled = false; $("btnFac").textContent = "Играть за «" + FAC[f].n + "»";
+    };
   }
 }
-coin.addEventListener("pointerdown", tap);
-coin.addEventListener("contextmenu", e => e.preventDefault());
-
-/* ═════════ СИНХРОНИЗАЦИЯ ═════════ */
-async function sync(){
-  if (syncing || !state) return;
-  syncing = true;
-  const sent = pending;
-  pending = 0;
-  try {
-    const r = await api("/api/sync", { taps: sent });
-    applyState(r);
-  } catch(e){
-    pending += sent;
-    if (e.status === 401) showFatal("Сессия устарела. Закройте игру и откройте её заново через бота.");
-  } finally {
-    syncing = false;
-    lastSync = Date.now();
-  }
+$("btnFac").onclick = async () => {
+  $("btnFac").disabled = true; $("errFac").textContent = "";
+  try { const r = await api("/api/faction", { body: { faction: pickedFac } }); profile = r.profile; route(); }
+  catch (e) { $("errFac").textContent = e.message; $("btnFac").disabled = false; }
+};
+function route() {
+  if (!profile) { show("s-login"); return; }
+  if (!profile.faction) { show("s-faction"); return; }
+  $("mName").textContent = profile.name;
+  $("mFac").textContent = "Фракция: " + FAC[profile.faction].n;
+  $("mFac").style.color = FAC[profile.faction].c;
+  drawSprite($("meSprite"), profile.faction);
+  $("mCoins").textContent = fmt(profile.coins); $("mPix").textContent = fmt(profile.pixels);
+  $("mKills").textContent = fmt(profile.kills); $("mDeaths").textContent = fmt(profile.deaths);
+  show("s-menu");
 }
-async function flush(){
-  while (syncing) await sleep(30);
-  await sync();
-}
-setInterval(() => { if (state && (pending > 0 || Date.now() - lastSync > 10000)) sync(); }, 2500);
-document.addEventListener("visibilitychange", () => { if (document.hidden) sync(); });
-
-/* пассивный доход тикает на экране 10 раз в секунду */
-setInterval(() => {
-  if (!state || !state.income) return;
-  state.balance += state.income / 10;
-  renderBalance();
-  updateAffordable();
-}, 100);
-
-/* ═════════ ПОКУПКИ ═════════ */
-let buying = false;
-async function purchase(path, body){
-  if (buying) return;
-  buying = true;
-  try {
-    await flush();
-    const r = await api(path, body);
-    applyState(r);
-    notify("success");
-    toast("Готово!", "ok");
-  } catch(e){
-    notify("error");
-    toast(e.message, "err");
-  } finally { buying = false; }
-}
-$("clickUp").addEventListener("click", () => purchase("/api/upgrade_click", {}));
-$("minesList").addEventListener("click", (e) => {
-  const b = e.target.closest(".btn");
-  if (b) purchase("/api/buy", { mine_id: Number(b.dataset.id) });
-});
-
-/* ═════════ ТОП ═════════ */
-async function loadTop(){
-  try {
-    await flush();
-    const r = await api("/api/top");
-    const box = $("topList");
-    box.innerHTML = "";
-    if (!r.top.length) box.innerHTML = '<div class="empty">Пока нет игроков</div>';
-    const medals = ["🥇","🥈","🥉"];
-    r.top.forEach((p, i) => {
-      const row = document.createElement("div");
-      row.className = "place" + (me && p.id === me.id ? " me" : "");
-      row.innerHTML = '<div class="rk"></div><div class="av"></div><div class="nm"></div><div class="sc"></div>';
-      row.querySelector(".rk").textContent = medals[i] || (i + 1);
-      const av = row.querySelector(".av");
-      av.textContent = initial(p.name); av.style.background = colorOf(p.id);
-      row.querySelector(".nm").textContent = p.name;
-      row.querySelector(".sc").textContent = fmt(p.balance);
-      box.appendChild(row);
-    });
-    $("myRank").innerHTML = `Ваше место: <b>#${r.me.rank}</b> из ${r.me.total}`;
-  } catch(e){
-    $("topList").innerHTML = '<div class="empty">Не удалось загрузить рейтинг</div>';
+async function boot() {
+  if (!token) { show("s-login"); return; }
+  try { profile = (await api("/api/me")).profile; route(); }
+  catch (e) {
+    if (e.status === 401) { logout(true); }
+    else { show("s-login"); $("errPhone").textContent = e.message + ". Проверьте интернет и перезапустите приложение."; }
   }
 }
 
-/* ═════════ ЧАТ ═════════ */
-const msgsBox = $("msgs");
-const seen = new Set();
-let lastId = 0, unread = 0, chatBusy = false, chatLoaded = false;
+/* ═════════ СОСТОЯНИЕ МИРА ═════════ */
+const W = { on: false, size: 100, fac: new Uint8Array(10000), players: new Map(), names: new Map(), me: 0,
+            tickMs: 125, tailMax: 8, cam: { x: 50, y: 50 }, parts: [], mmDirty: true };
+const cv = $("cv"), ctx = cv.getContext("2d");
+let dpr = 1;
+function resize() {
+  const r = $("arena").getBoundingClientRect();
+  dpr = Math.min(window.devicePixelRatio || 1, 3);
+  cv.width = Math.max(1, Math.round(r.width * dpr)); cv.height = Math.max(1, Math.round(r.height * dpr));
+  cv.style.width = r.width + "px"; cv.style.height = r.height + "px";
+}
+new ResizeObserver(resize).observe($("arena"));
+window.addEventListener("resize", resize);
 
-function timeOf(ts){
-  const d = new Date(ts * 1000);
-  return String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
+// миникарта
+const mm = document.createElement("canvas"); mm.width = mm.height = 100;
+const mmx = mm.getContext("2d"); let mmImg = mmx.createImageData(100, 100);
+function mmSet(i, f) { const c = RGB[f], o = i * 4; mmImg.data[o] = c[0]; mmImg.data[o+1] = c[1]; mmImg.data[o+2] = c[2]; mmImg.data[o+3] = 255; W.mmDirty = true; }
+function buildMini() { mm.width = mm.height = W.size; mmImg = mmx.createImageData(W.size, W.size); for (let i = 0; i < W.fac.length; i++) mmSet(i, W.fac[i]); }
+
+function addPlayer(o) {
+  W.players.set(o.id, { id: o.id, n: o.n, f: o.f, x: o.x, y: o.y, px: o.x, py: o.y, t0: performance.now(),
+    tail: (o.tail || []).map(a => [a[0], a[1]]), prot: 0, dir: 1, snap: false });
+  W.names.set(o.id, { n: o.n, f: o.f });
 }
-function addMessages(list){
-  const fresh = list.filter(m => !seen.has(m.id));
-  if (!fresh.length) return 0;
-  const nearBottom = msgsBox.scrollHeight - msgsBox.scrollTop - msgsBox.clientHeight < 120;
-  const empty = $("chatEmpty"); if (empty) empty.remove();
-  let fromOthers = 0;
-  fresh.forEach(m => {
-    seen.add(m.id);
-    lastId = Math.max(lastId, m.id);
-    const mine = me && m.tg_id === me.id;
-    if (!mine) fromOthers++;
-    const el = document.createElement("div");
-    el.className = "msg" + (mine ? " mine" : "");
-    el.innerHTML = '<div class="who2"></div><div class="tx"></div><div class="tm"></div>';
-    const w = el.querySelector(".who2");
-    w.textContent = mine ? "Вы" : m.name; w.style.color = colorOf(m.tg_id);
-    el.querySelector(".tx").textContent = m.text;
-    el.querySelector(".tm").textContent = timeOf(m.ts);
-    msgsBox.appendChild(el);
-  });
-  if (nearBottom || !chatLoaded) msgsBox.scrollTop = msgsBox.scrollHeight;
-  return fromOthers;
+function rpos(p, now) {
+  const a = Math.min(1, (now - p.t0) / W.tickMs);
+  return [p.px + (p.x - p.px) * a, p.py + (p.y - p.py) * a];
 }
-async function pollChat(){
-  if (chatBusy || !state) return;
-  chatBusy = true;
-  try {
-    const r = await api("/api/chat?after=" + lastId);
-    const others = addMessages(r.messages);
-    if (chatLoaded && others && currentPage !== "chat"){
-      unread += others;
-      const b = $("chatBadge"); b.textContent = unread > 99 ? "99+" : unread; b.classList.add("show");
+
+/* ═════════ СЕТЬ ═════════ */
+const net = { mode: null, ws: null, sid: 0, inGame: false, pendDir: null, pendChat: null, lastDir: -1 };
+function send(o) {
+  if (!net.inGame) return;
+  if (net.mode === "ws") { if (net.ws && net.ws.readyState === 1) net.ws.send(JSON.stringify(o)); }
+  else if (net.mode === "http") { if (o.t === "dir") net.pendDir = o.d; else if (o.t === "chat") net.pendChat = o.text; }
+}
+function overlay(text, retry) {
+  $("overlay").classList.add("on"); $("ovText").textContent = text;
+  $("ovRetry").style.display = retry ? "block" : "none"; $("ovMenu").style.display = retry ? "block" : "none";
+}
+function startGame() {
+  show("s-game"); resize();
+  W.on = false; W.players.clear(); W.parts = []; $("msgs").innerHTML = ""; $("feed").innerHTML = "";
+  net.inGame = true; net.sid++; net.lastDir = -1; net.pendDir = null; net.pendChat = null;
+  overlay("Подключаемся…", false);
+  $("help").style.opacity = 1;
+  connectWS(net.sid);
+}
+function connectWS(sid) {
+  let opened = false, fell = false;
+  const fallback = () => { if (fell || sid !== net.sid) return; fell = true; startHttp(sid); };
+  let ws;
+  try { ws = new WebSocket(WS_URL + "?token=" + encodeURIComponent(token)); } catch (e) { fallback(); return; }
+  net.ws = ws; net.mode = "ws";
+  const to = setTimeout(() => { if (!opened) { try { ws.close(); } catch (e) {} fallback(); } }, 5000);
+  ws.onopen = () => { opened = true; clearTimeout(to); };
+  ws.onmessage = e => { if (sid === net.sid) { try { handle(JSON.parse(e.data)); } catch (er) { console.error(er); } } };
+  ws.onclose = () => { clearTimeout(to); if (sid !== net.sid) return; if (!opened) fallback(); else if (net.inGame) lost(); };
+  ws.onerror = () => {};
+}
+async function startHttp(sid) {
+  net.mode = "http";
+  try { await api("/api/g/join", { body: {} }); } catch (e) { if (sid === net.sid) lost(e.message); return; }
+  while (sid === net.sid && net.inGame) {
+    const t0 = performance.now();
+    try {
+      const body = { d: net.pendDir, c: net.pendChat }; net.pendDir = null; net.pendChat = null;
+      const msgs = await api("/api/g/poll", { body });
+      if (sid !== net.sid) return;
+      msgs.forEach(handle);
+    } catch (e) { if (sid === net.sid && (e.status === 409 || e.status === 401)) { lost(); return; } }
+    await sleep(Math.max(0, 100 - (performance.now() - t0)));
+  }
+}
+function lost(msg) { net.inGame = false; W.on = false; overlay(msg || "Соединение потеряно", true); }
+function leaveGame() {
+  const was = net.mode; net.inGame = false; net.sid++; W.on = false;
+  if (was === "ws" && net.ws) { try { net.ws.close(); } catch (e) {} }
+  if (was === "http") api("/api/g/leave", { body: {} }).catch(() => {});
+  api("/api/me").then(r => { profile = r.profile; route(); }).catch(() => route());
+  route();
+}
+$("btnPlay").onclick = startGame;
+$("btnExit").onclick = leaveGame;
+$("ovRetry").onclick = startGame;
+$("ovMenu").onclick = leaveGame;
+
+/* ═════════ ОБРАБОТКА СООБЩЕНИЙ СЕРВЕРА ═════════ */
+function handle(m) {
+  switch (m.t) {
+    case "init": {
+      W.size = m.size; W.tickMs = m.tick * 1000; W.tailMax = m.tail; W.me = m.me;
+      const bin = atob(m.grid); W.fac = new Uint8Array(m.size * m.size);
+      for (let i = 0; i < bin.length; i++) W.fac[i] = bin.charCodeAt(i);
+      buildMini(); W.players.clear(); W.names.clear(); m.players.forEach(addPlayer);
+      const me = W.players.get(W.me); if (me) { W.cam.x = me.x + .5; W.cam.y = me.y + .5; }
+      $("msgs").innerHTML = ""; m.chat.forEach(addChat); renderTop(m.top);
+      W.on = true; $("overlay").classList.remove("on");
+      setTimeout(() => $("help").style.opacity = 0, 5000);
+      break;
     }
-    chatLoaded = true;
-  } catch(e){} finally { chatBusy = false; }
-}
-setInterval(pollChat, 2000);
-
-async function sendChat(){
-  const input = $("chatInput");
-  const text = input.value.trim();
-  if (!text) return;
-  $("sendBtn").disabled = true;
-  try {
-    const r = await api("/api/chat", { text });
-    input.value = "";
-    addMessages([r.message]);
-    msgsBox.scrollTop = msgsBox.scrollHeight;
-  } catch(e){
-    toast(e.message, "err");
-  } finally {
-    $("sendBtn").disabled = false;
-    input.focus();
+    case "s": {
+      const now = performance.now();
+      if (m.j) m.j.forEach(addPlayer);
+      if (m.l) m.l.forEach(id => W.players.delete(id));
+      if (m.c) for (let i = 0; i < m.c.length; i += 2) { W.fac[m.c[i]] = m.c[i+1]; mmSet(m.c[i], m.c[i+1]); }
+      if (m.k) m.k.forEach(onKill);
+      m.p.forEach(a => {
+        const p = W.players.get(a[0]); if (!p) return;
+        const x = a[1], y = a[2];
+        if (p.snap) { p.px = p.x = x; p.py = p.y = y; p.tail = []; p.snap = false; p.t0 = now; }
+        else if (p.x !== x || p.y !== y) {
+          const r = rpos(p, now);
+          p.tail.push([p.x, p.y]); if (p.tail.length > W.tailMax) p.tail.shift();
+          p.px = r[0]; p.py = r[1]; p.t0 = now; p.x = x; p.y = y;
+        }
+        p.prot = a[3]; p.dir = a[4];
+      });
+      break;
+    }
+    case "me": $("hCoins").textContent = fmt(m.coins); $("hPix").textContent = fmt(m.pix); $("hKills").textContent = fmt(m.kills); break;
+    case "top": renderTop(m.top); $("hOnline").textContent = "👥 " + m.online; break;
+    case "chat": addChat(m); break;
+    case "kicked": net.inGame = false; toast("Вас убрали с поля за неактивность", true); leaveGame(); break;
+    case "error": lost("Не удалось войти. Перезапустите приложение."); break;
   }
 }
-$("sendBtn").addEventListener("click", sendChat);
+function onKill(k) {
+  const vid = k[0], kid = k[1], reward = k[2], x = k[3], y = k[4];
+  const v = W.players.get(vid), vn = W.names.get(vid), kn = W.names.get(kid);
+  if (v) { v.snap = true; v.tail = []; }
+  const col = vn ? FAC[vn.f].c : "#fff";
+  for (let i = 0; i < 16; i++) { const a = Math.random() * 6.28, s = 2 + Math.random() * 5;
+    W.parts.push({ x: x + .5, y: y + .5, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: .7, c: col }); }
+  const f = document.createElement("div");
+  f.textContent = (kn ? kn.n : "?") + " ⚔ " + (vn ? vn.n : "?"); $("feed").appendChild(f);
+  setTimeout(() => f.remove(), 4600); while ($("feed").children.length > 4) $("feed").firstChild.remove();
+  if (kid === W.me) { toast("+" + reward + " монет за " + (vn ? vn.n : "победу")); buzz(30); }
+  if (vid === W.me) {
+    toast("Вас убил " + (kn ? kn.n : "игрок"), true); buzz(120);
+    const fl = $("flash"); fl.classList.add("on"); requestAnimationFrame(() => requestAnimationFrame(() => fl.classList.remove("on")));
+  }
+}
+
+/* ═════════ ТОП И ЧАТ ═════════ */
+function renderTop(list) {
+  const box = $("topList"); box.innerHTML = "";
+  if (!list.length) { box.innerHTML = '<div class="hint" style="padding:14px;text-align:center">Пока никто не захватил территорию</div>'; return; }
+  list.forEach((t, i) => {
+    const r = document.createElement("div"); r.className = "row" + (t[0] === W.me ? " me" : "");
+    r.innerHTML = '<div class="rk"></div><div class="dot"></div><div class="nm"></div>' + (t[4] ? '<div class="on"></div>' : "") + '<div class="px"></div>';
+    r.querySelector(".rk").textContent = i + 1;
+    r.querySelector(".dot").style.background = FAC[t[2]] ? FAC[t[2]].c : "#888";
+    r.querySelector(".nm").textContent = t[1];
+    r.querySelector(".px").textContent = fmt(t[3]);
+    box.appendChild(r);
+  });
+}
+let tab = "top", unread = 0;
+function setTab(t) {
+  tab = t;
+  document.querySelectorAll(".tab").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
+  $("pane-top").classList.toggle("on", t === "top"); $("pane-chat").classList.toggle("on", t === "chat");
+  if (t === "chat") { unread = 0; $("chatBadge").classList.remove("on"); const m = $("msgs"); m.scrollTop = m.scrollHeight; }
+}
+document.querySelectorAll(".tab").forEach(b => b.onclick = () => setTab(b.dataset.tab));
+function addChat(m) {
+  const box = $("msgs"), near = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+  const d = document.createElement("div"); d.className = "m";
+  const b = document.createElement("b"); b.textContent = m.n; b.style.color = FAC[m.f] ? FAC[m.f].c : "#fff";
+  const t = document.createElement("span"); t.textContent = ": " + m.x;
+  const i = document.createElement("i"); const dt = new Date(m.ts * 1000);
+  i.textContent = String(dt.getHours()).padStart(2, "0") + ":" + String(dt.getMinutes()).padStart(2, "0");
+  d.append(b, t, i); box.appendChild(d);
+  while (box.children.length > 80) box.firstChild.remove();
+  if (near || m.n === (profile && profile.name)) box.scrollTop = box.scrollHeight;
+  if (tab !== "chat" && W.on && m.n !== (profile && profile.name)) { unread++; const bd = $("chatBadge"); bd.textContent = unread > 99 ? "99+" : unread; bd.classList.add("on"); }
+}
+function sendChat() {
+  const inp = $("chatInput"), text = inp.value.trim();
+  if (!text) return; send({ t: "chat", text }); inp.value = "";
+}
+$("chatSend").onclick = sendChat;
 $("chatInput").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); sendChat(); } });
 
-/* ═════════ НАВИГАЦИЯ ═════════ */
-let currentPage = "click";
-let topTimer = null;
-function go(page){
-  currentPage = page;
-  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("active", b.dataset.page === page));
-  document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.id === "page-" + page));
-  clearInterval(topTimer);
-  if (page === "top"){ loadTop(); topTimer = setInterval(loadTop, 10000); }
-  if (page === "chat"){
-    unread = 0; $("chatBadge").classList.remove("show");
-    pollChat();
-    setTimeout(() => { msgsBox.scrollTop = msgsBox.scrollHeight; }, 30);
-  }
-  haptic("light");
+/* ═════════ УПРАВЛЕНИЕ ═════════ */
+function curDir() { const p = W.players.get(W.me); return p ? p.dir : 1; }
+function setDir(d, force) {
+  if (!W.on) return;
+  if (d !== net.lastDir || force) { net.lastDir = d; send({ t: "dir", d }); }
 }
-document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => go(b.dataset.page)));
+let sx = 0, sy = 0, dragging = false;
+cv.addEventListener("pointerdown", e => { dragging = true; sx = e.clientX; sy = e.clientY; cv.setPointerCapture(e.pointerId); $("help").style.opacity = 0; setDir(curDir(), true); });
+cv.addEventListener("pointermove", e => {
+  if (!dragging) return;
+  const dx = e.clientX - sx, dy = e.clientY - sy;
+  if (Math.hypot(dx, dy) > 14) { setDir(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0), true); sx = e.clientX; sy = e.clientY; }
+});
+["pointerup", "pointercancel"].forEach(ev => cv.addEventListener(ev, () => dragging = false));
+window.addEventListener("keydown", e => {
+  if (document.activeElement && document.activeElement.tagName === "INPUT") return;
+  const map = { ArrowUp: 0, KeyW: 0, ArrowRight: 1, KeyD: 1, ArrowDown: 2, KeyS: 2, ArrowLeft: 3, KeyA: 3 };
+  if (e.code in map) { e.preventDefault(); setDir(map[e.code], true); }
+});
 
-/* ═════════ ЗАПУСК ═════════ */
-function showFatal(text){
-  $("splash").style.display = "flex";
-  $("splashText").textContent = text;
-  $("retry").style.display = "inline-block";
+/* ═════════ ОТРИСОВКА ═════════ */
+ctx.imageSmoothingEnabled = false;
+let last = performance.now();
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (W.on) draw(now, dt);
 }
-$("retry").addEventListener("click", () => location.reload());
+function draw(now, dt) {
+  const w = cv.width, h = cv.height, S = W.size;
+  const cs = Math.max(12, Math.round(w / 22));
+  const vw = w / cs, vh = h / cs;
 
-async function start(){
-  if (!initData){
-    showFatal("Откройте игру через Telegram: нажмите «Играть» в боте.");
-    $("retry").style.display = "none";
-    return;
+  const mp = W.players.get(W.me);
+  if (mp) { const r = rpos(mp, now), k = 1 - Math.pow(0.0008, dt); W.cam.x += (r[0] + .5 - W.cam.x) * k; W.cam.y += (r[1] + .5 - W.cam.y) * k; }
+  const cx = Math.max(vw / 2 - 1, Math.min(S - vw / 2 + 1, W.cam.x));
+  const cy = Math.max(vh / 2 - 1, Math.min(S - vh / 2 + 1, W.cam.y));
+  const x0 = cx - vw / 2, y0 = cy - vh / 2;
+  const sxp = v => Math.round((v - x0) * cs), syp = v => Math.round((v - y0) * cs);
+
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = "#0a0813"; ctx.fillRect(0, 0, w, h);
+  const mX = sxp(0), mY = syp(0), mW = sxp(S) - mX, mH = syp(S) - mY;
+  ctx.fillStyle = "#16122b"; ctx.fillRect(mX, mY, mW, mH);
+
+  ctx.save(); ctx.beginPath(); ctx.rect(mX, mY, mW, mH); ctx.clip();
+  const ia = Math.max(0, Math.floor(x0)), ib = Math.min(S - 1, Math.ceil(x0 + vw));
+  const ja = Math.max(0, Math.floor(y0)), jb = Math.min(S - 1, Math.ceil(y0 + vh));
+  for (let j = ja; j <= jb; j++) for (let i = ia; i <= ib; i++) {
+    const f = W.fac[j * S + i]; if (!f) continue;
+    ctx.fillStyle = FAC[f].c; const ax = sxp(i), ay = syp(j);
+    ctx.fillRect(ax, ay, sxp(i + 1) - ax, syp(j + 1) - ay);
   }
-  try {
-    const r = await api("/api/init", {});
-    me = r.me;
-    state = { balance: 0, income: 0, click_power: 1, click_cost: 100, mines: [] };
-    applyState(r);
-    $("uname").textContent = me.name;
-    $("avatar").textContent = initial(me.name);
-    $("splash").style.display = "none";
-    lastSync = Date.now();
-    if (r.offline > 0) toast("Шахты принесли +" + fmt(r.offline) + " пока вас не было", "ok");
-    pollChat();
-  } catch(e){
-    showFatal(e.status === 401
-      ? "Не удалось войти. Закройте игру и откройте её заново через бота."
-      : "Нет связи с сервером. Проверьте, что bot.py запущен, и попробуйте снова.");
+  ctx.strokeStyle = "rgba(0,0,0,.24)"; ctx.lineWidth = 1; ctx.beginPath();
+  for (let i = ia; i <= ib + 1; i++) { const x = sxp(i) + .5; ctx.moveTo(x, mY); ctx.lineTo(x, mY + mH); }
+  for (let j = ja; j <= jb + 1; j++) { const y = syp(j) + .5; ctx.moveTo(mX, y); ctx.lineTo(mX + mW, y); }
+  ctx.stroke();
+  ctx.restore();
+  ctx.strokeStyle = "#6b5cff"; ctx.lineWidth = Math.max(2, 3 * dpr); ctx.strokeRect(mX, mY, mW, mH);
+
+  // «линии» (хвосты) игроков
+  const list = [...W.players.values()];
+  for (const p of list) {
+    const n = p.tail.length; if (!n) continue;
+    for (let k = 0; k < n; k++) {
+      const t = p.tail[k], ax = sxp(t[0]), ay = syp(t[1]), ins = Math.round(cs * .18);
+      ctx.globalAlpha = .25 + .65 * (k + 1) / n; ctx.fillStyle = FAC[p.f].l;
+      ctx.fillRect(ax + ins, ay + ins, cs - ins * 2, cs - ins * 2);
+    }
   }
+  ctx.globalAlpha = 1;
+
+  // игроки: пиксельные человечки и маленькие ники
+  list.sort((a, b) => a.py - b.py);
+  const fsCss = Math.max(7, Math.min(9.5, cs / dpr * .42)), fs = Math.round(fsCss * dpr);
+  ctx.font = "700 " + fs + "px Manrope, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.lineJoin = "round";
+  for (const p of list) {
+    const r = rpos(p, now), ax = sxp(r[0]), ay = syp(r[1]);
+    if (ax < -cs * 2 || ay < -cs * 2 || ax > w + cs || ay > h + cs * 2) continue;
+    const sw = cs, sh = Math.round(cs * 9 / 7), dx = ax, dy = ay + cs - sh + Math.round(cs * .12);
+    if (p.prot) {
+      ctx.strokeStyle = "rgba(255,255,255," + (.5 + .4 * Math.sin(now / 90)) + ")"; ctx.lineWidth = Math.max(2, dpr * 1.5);
+      ctx.strokeRect(ax - 2, ay - 2, cs + 4, cs + 4);
+      ctx.globalAlpha = .55 + .45 * Math.sin(now / 70);
+    }
+    ctx.drawImage(SPRITES[p.f], dx, dy, sw, sh); ctx.globalAlpha = 1;
+    const label = p.n.length > 12 ? p.n.slice(0, 11) + "…" : p.n, ty = dy - Math.round(cs * .12);
+    ctx.lineWidth = Math.max(2, fs / 3.2); ctx.strokeStyle = "rgba(8,6,16,.9)"; ctx.strokeText(label, ax + cs / 2, ty);
+    ctx.fillStyle = p.id === W.me ? "#ffe066" : "#f3efff"; ctx.fillText(label, ax + cs / 2, ty);
+  }
+
+  // частицы убийств
+  for (let i = W.parts.length - 1; i >= 0; i--) {
+    const q = W.parts[i]; q.life -= dt; if (q.life <= 0) { W.parts.splice(i, 1); continue; }
+    q.x += q.vx * dt; q.y += q.vy * dt; q.vy += 6 * dt;
+    ctx.globalAlpha = Math.min(1, q.life * 2); ctx.fillStyle = q.c;
+    const sz = Math.max(3, cs * .22); ctx.fillRect(sxp(q.x) - sz / 2, syp(q.y) - sz / 2, sz, sz);
+  }
+  ctx.globalAlpha = 1;
+
+  // миникарта
+  if (W.mmDirty) { mmx.putImageData(mmImg, 0, 0); W.mmDirty = false; }
+  const ms = Math.round(Math.min(w, h) * .27), mgn = Math.round(8 * dpr), mx = w - ms - mgn, my = mgn;
+  ctx.globalAlpha = .92; ctx.fillStyle = "#0a0813"; ctx.fillRect(mx - 2, my - 2, ms + 4, ms + 4);
+  ctx.drawImage(mm, mx, my, ms, ms); ctx.globalAlpha = 1;
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = 1;
+  ctx.strokeRect(mx + x0 / S * ms, my + y0 / S * ms, vw / S * ms, vh / S * ms);
+  for (const p of list) {
+    const r = rpos(p, now), isMe = p.id === W.me, d = Math.max(isMe ? 4 : 3, Math.round(ms / 28));
+    ctx.fillStyle = isMe ? "#fff" : FAC[p.f].c; ctx.fillRect(mx + r[0] / S * ms - d / 2, my + r[1] / S * ms - d / 2, d, d);
+  }
+  ctx.strokeStyle = "#000"; ctx.lineWidth = 2; ctx.strokeRect(mx - 2, my - 2, ms + 4, ms + 4);
 }
-start();
+requestAnimationFrame(frame);
+
+boot();
+})();
 </script>
 </body>
 </html>

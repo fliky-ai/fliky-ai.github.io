@@ -1,4 +1,4 @@
-here<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
@@ -130,6 +130,7 @@ h3{font-size:18px;margin:16px 2px 8px}
 .item .t small{color:var(--mut);display:block}
 .item .t small.on{color:var(--red)}
 .item .btns{display:flex;gap:6px}
+.item.meRow{border-color:var(--gold)}
 .lvl{font:700 13px 'Pixelify Sans',monospace;color:var(--gold)}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
 .stats div{background:var(--deep2);border:3px solid #14161a;padding:10px}
@@ -160,6 +161,7 @@ h3{font-size:18px;margin:16px 2px 8px}
   <button id="guestBtn" class="btn alt">Гость</button>
   </div>
   <p id="loginErr" class="err"></p>
+  <button id="altLogin" class="btn sm alt" style="display:none">Не получается? Войти другим способом</button>
   <div id="tgHint">Если окно Google не открывается внутри Telegram, открой игру в браузере. Прогресс общий.
     <br><button id="openBrowser" class="btn sm alt" style="margin-top:8px">Открыть в браузере</button></div>
 </section>
@@ -197,6 +199,7 @@ h3{font-size:18px;margin:16px 2px 8px}
     <p class="status" id="status"></p>
     <button id="leave" class="leave">Выйти из дуэта</button>
     <button id="streamBtn" class="btn red big">Стримить</button>
+    <button id="daily" class="btn alt" style="width:100%;margin-top:14px;display:none"></button>
     <div class="rank"><div id="rankTxt"></div><div class="bar"><i id="rankBar"></i></div></div>
   </div>
 
@@ -215,6 +218,11 @@ h3{font-size:18px;margin:16px 2px 8px}
     <div id="flist"></div>
   </div>
 
+  <div id="p-top" class="pane">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3 style="margin:0">Лучшие стримеры</h3><button id="topRef" class="btn sm alt">Обновить</button></div>
+    <div id="topList"></div>
+  </div>
+
   <div id="p-me" class="pane">
     <div class="me-top"><canvas id="meBig"></canvas><h2 id="pNick"></h2><div class="lvl" id="pRank"></div><p class="muted">@<span id="pUser"></span> · ID <span id="pId"></span></p></div>
     <button id="linkG" class="btn" style="width:100%;margin-top:12px;display:none">Привязать Google, чтобы не потерять аккаунт</button>
@@ -231,6 +239,7 @@ h3{font-size:18px;margin:16px 2px 8px}
     <button class="tab on" data-tab="stream"><span>📺</span>Эфир</button>
     <button class="tab" data-tab="shop"><span>🛒</span>Магазин</button>
     <button class="tab" data-tab="friends"><span>👥</span>Друзья<b class="badge" id="reqBadge">0</b></button>
+    <button class="tab" data-tab="top"><span>🏆</span>Топ</button>
     <button class="tab" data-tab="me"><span>👤</span>Профиль</button>
   </nav>
 </section>
@@ -239,8 +248,8 @@ h3{font-size:18px;margin:16px 2px 8px}
 
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import {getAuth,GoogleAuthProvider,signInWithPopup,signInWithRedirect,signInAnonymously,linkWithPopup,onAuthStateChanged,signOut} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import {getFirestore,doc,getDoc,setDoc,updateDoc,deleteDoc,collection,query,where,onSnapshot,runTransaction} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import {initializeAuth,indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence,browserPopupRedirectResolver,GoogleAuthProvider,signInWithPopup,signInWithRedirect,getRedirectResult,signInAnonymously,linkWithPopup,onAuthStateChanged,signOut} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import {getFirestore,doc,getDoc,setDoc,updateDoc,deleteDoc,collection,query,where,onSnapshot,runTransaction,orderBy,limit,getDocs} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBgbrpebEcEc9gwEXPkhLPx6gDeoMIUHu8",
@@ -252,7 +261,10 @@ const firebaseConfig = {
   measurementId: "G-GP806JZ717"
 };
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+const auth = initializeAuth(app, {
+  persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence],
+  popupRedirectResolver: browserPopupRedirectResolver
+});
 const db = getFirestore(app);
 
 /* ---------- утилиты ---------- */
@@ -370,6 +382,7 @@ const mult = () => (1 + me.subs / 100) * (partner() ? 2 : 1);
 
 /* ---------- вход ---------- */
 const provider = new GoogleAuthProvider();
+provider.setCustomParameters({prompt: 'select_account'});
 function authErr(e) {
   const c = e.code || '';
   if (c === 'auth/configuration-not-found') return 'В Firebase не запущена авторизация. Открой Authentication → Get started и включи нужный способ входа.';
@@ -378,22 +391,43 @@ function authErr(e) {
   if (c === 'auth/network-request-failed') return 'Нет сети. Проверь интернет.';
   return 'Не удалось войти: ' + (c || e.message);
 }
+let waitT;
+function setBusy(on, msg) {
+  $('gbtn').disabled = on; $('guestBtn').disabled = on;
+  $('loginErr').style.color = on ? 'var(--mut)' : '';
+  $('loginErr').textContent = on ? msg : '';
+  if (!on) { clearTimeout(waitT); $('altLogin').style.display = 'none'; }
+}
+async function redirectLogin() {
+  setBusy(true, 'Переходим на страницу Google…');
+  try { sessionStorage.setItem('gr', '1'); } catch (e) {}
+  try { await signInWithRedirect(auth, provider); }
+  catch (e) { setBusy(false); $('loginErr').textContent = authErr(e); }
+}
+$('altLogin').onclick = redirectLogin;
 $('gbtn').onclick = async () => {
-  $('loginErr').textContent = '';
+  setBusy(true, 'Открываем Google…');
+  waitT = setTimeout(() => { $('altLogin').style.display = 'inline-block'; }, 8000);
   try { await signInWithPopup(auth, provider); }
   catch (e) {
-    if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment') {
-      try { await signInWithRedirect(auth, provider); } catch (e2) { $('loginErr').textContent = authErr(e2); }
-    } else if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
-      $('loginErr').textContent = authErr(e);
-    }
+    if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment') return redirectLogin();
+    setBusy(false);
+    if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') $('loginErr').textContent = authErr(e);
   }
 };
 $('guestBtn').onclick = async () => {
-  $('loginErr').textContent = '';
+  setBusy(true, 'Создаём гостя…');
   try { await signInAnonymously(auth); }
-  catch (e) { $('loginErr').textContent = authErr(e); }
+  catch (e) { setBusy(false); $('loginErr').textContent = authErr(e); }
 };
+// Возврат со страницы Google (режим переадресации)
+getRedirectResult(auth).then(r => {
+  let flag = false; try { flag = sessionStorage.getItem('gr'); sessionStorage.removeItem('gr'); } catch (e) {}
+  if (flag && !r && !auth.currentUser) {
+    show('login');
+    $('loginErr').textContent = 'Браузер не передал результат входа. Закрой режим инкогнито или нажми «Гость». Гостя потом можно привязать к Google.';
+  }
+}).catch(e => { show('login'); setBusy(false); $('loginErr').textContent = authErr(e); });
 $('linkG').onclick = async () => {
   try {
     await linkWithPopup(auth.currentUser, provider);
@@ -410,14 +444,15 @@ if (tg && tg.initData) {
 drawBlock($('loginBlock'), 'diamond', 0);
 
 onAuthStateChanged(auth, async u => {
-  if (!u) { uid = null; show('login'); return; }
-  uid = u.uid;
+  if (!u) { uid = null; show('login'); setBusy(false); return; }
+  uid = u.uid; clearTimeout(waitT);
+  show('loading');
   try {
     const s = await getDoc(doc(db, 'users', uid));
     if (s.exists()) { me = s.data(); me.liveWith = me.liveWith || null; startGame(); }
     else openCreate(false);
   } catch (e) {
-    console.error(e); show('login');
+    console.error(e); show('login'); setBusy(false);
     $('loginErr').textContent = 'Нет доступа к базе. Проверь правила Firestore (файл firestore.rules).';
   }
 });
@@ -520,7 +555,8 @@ async function flush() {
   try {
     await updateDoc(doc(db, 'users', uid), {
       coins: me.coins, subs: me.subs, taps: me.taps, blocks: me.blocks,
-      pick: me.pick, mic: me.mic, cam: me.cam, liveUntil: me.liveUntil, liveWith: me.liveWith || null
+      pick: me.pick, mic: me.mic, cam: me.cam, liveUntil: me.liveUntil, liveWith: me.liveWith || null,
+      lastDaily: me.lastDaily || 0, streak: me.streak || 0
     });
   } catch (e) { console.error(e); dirty = true; }
 }
@@ -594,7 +630,47 @@ function renderStream() {
   const r = rankOf(me.subs), nx = RANKS.find(x => x[0] > me.subs);
   $('rankTxt').textContent = nx ? 'Ранг: ' + r[1] + '. До «' + nx[1] + '» осталось ' + (nx[0] - me.subs) + ' подписчиков' : 'Ранг: ' + r[1] + '. Выше некуда';
   $('rankBar').style.width = nx ? ((me.subs - r[0]) / (nx[0] - r[0]) * 100) + '%' : '100%';
+  const ready = dailyReady();
+  $('daily').style.display = ready ? 'block' : 'none';
+  if (ready) $('daily').textContent = '🎁 Ежедневный подарок: +' + dailyReward();
 }
+
+/* ---------- ежедневный подарок ---------- */
+const DAY = 3600 * 1000;
+const dailyReady = () => Date.now() - (me.lastDaily || 0) > 20 * DAY;
+function nextStreak() { return (Date.now() - (me.lastDaily || 0) < 48 * DAY) ? Math.min((me.streak || 0) + 1, 7) : 1; }
+const dailyReward = () => 50 + nextStreak() * 25;
+$('daily').onclick = () => {
+  if (!dailyReady()) return;
+  const r = dailyReward(), s = nextStreak();
+  me.coins += r; me.lastDaily = Date.now(); me.streak = s; dirty = true; flush(); buzz();
+  toast('Подарок: +' + r + ' монет. Серия дней: ' + s);
+  renderHud(); renderStream();
+};
+
+/* ---------- рейтинг ---------- */
+let topAt = 0;
+async function loadTop(force) {
+  if (!force && Date.now() - topAt < 20000) return;
+  topAt = Date.now();
+  const box = $('topList');
+  if (!box.children.length) box.textContent = 'Загрузка…';
+  try {
+    await flush();
+    const s = await getDocs(query(collection(db, 'users'), orderBy('subs', 'desc'), limit(20)));
+    box.innerHTML = '';
+    s.docs.forEach((d, i) => {
+      const u = d.data();
+      box.append(h('div', {class: 'item' + (d.id === uid ? ' meRow' : '')},
+        h('b', {class: 'h', style: 'width:28px;text-align:center'}, String(i + 1)),
+        avCanvas(u.avatar, 46),
+        h('div', {class: 't'}, h('b', {}, u.nick), h('small', {}, rankOf(u.subs || 0)[1] + (u.username ? ' · @' + u.username : ''))),
+        h('b', {class: 'h'}, '🔔 ' + fmt(u.subs || 0))));
+    });
+    if (!s.docs.length) box.textContent = 'Пока пусто. Стань первым';
+  } catch (e) { console.error(e); box.textContent = 'Не удалось загрузить рейтинг'; }
+}
+$('topRef').onclick = () => loadTop(true);
 
 /* ---------- магазин ---------- */
 function buildShop() {
@@ -728,6 +804,7 @@ function renderAll() {
   if (tab === 'stream') renderStream();
   if (tab === 'shop') renderShop();
   if (tab === 'friends') { $('fMyId').textContent = me.id; renderFriends(); }
+  if (tab === 'top') loadTop();
   if (tab === 'me') {
     drawAvatar($('meBig'), me.avatar);
     $('pNick').textContent = me.nick; $('pId').textContent = me.id; $('pUser').textContent = me.username || '—'; $('pRank').textContent = rankOf(me.subs)[1];
@@ -743,6 +820,11 @@ function tick() {
   const live = isLive();
   if (live && me.mic) { me.coins += Math.round(me.mic * mult()); dirty = true; }
   if (!live && me.liveWith) { me.liveWith = null; dirty = true; }
+  if (live && me.subs > 0 && Math.random() < 0.05) {
+    const d = Math.max(5, Math.round((5 + me.subs * 0.4) * mult()));
+    me.coins += d; dirty = true;
+    if (tab === 'stream') pop('Донат +' + d, '#4be0d0');
+  }
   viewers = live ? 1 + Math.floor(me.subs * 0.15) + rnd(3) : 0;
   renderHud();
   if (tab === 'stream') renderStream();

@@ -3,214 +3,230 @@ here<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#0d0b16">
-<title>Pixel War</title>
+<meta name="theme-color" content="#06050f">
+<title>Energy Arena</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Press+Start+2P&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Russo+One&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0d0b16; --panel:#171329; --panel2:#211a3a; --line:#352a5e;
-  --txt:#efeaff; --mut:#9a90c4;
-  --red:#ff4d5e; --blue:#3aa0ff; --green:#2fd6a0; --yellow:#ffc53d; --purple:#a66bff; --orange:#ff8a3d;
-  --px:'Press Start 2P',ui-monospace,monospace;
+  --bg:#06050f; --panel:rgba(22,18,46,.78); --line:rgba(130,110,255,.28);
+  --txt:#f1eeff; --mut:#9a93c8;
+  --pink:#ff4fd8; --cyan:#38f2ff; --lime:#7cff6b; --yellow:#ffe14d; --red:#ff4f6a; --violet:#8a6bff;
+  --disp:'Russo One','Manrope',system-ui,sans-serif;
   --body:'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;
   --st:env(safe-area-inset-top,0px); --sb:env(safe-area-inset-bottom,0px);
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;background:var(--bg);color:var(--txt);font-family:var(--body);overscroll-behavior:none;overflow:hidden}
+html,body{height:100%;background:var(--bg);color:var(--txt);font-family:var(--body);overscroll-behavior:none;overflow:hidden;user-select:none;-webkit-user-select:none}
 button,input{font-family:inherit;color:inherit}
 button{border:0;background:none;cursor:pointer}
+body::before{content:"";position:fixed;inset:0;z-index:-1;
+  background:
+    radial-gradient(700px 500px at 15% -5%, rgba(255,79,216,.20), transparent 60%),
+    radial-gradient(700px 520px at 100% 105%, rgba(56,242,255,.18), transparent 60%),
+    linear-gradient(180deg,#0a0820,#06050f)}
 .screen{position:fixed;inset:0;display:none;flex-direction:column;padding:calc(var(--st) + 16px) 18px calc(var(--sb) + 16px);overflow-y:auto}
 .screen.active{display:flex}
-
-/* ── пиксельные кнопки и поля ── */
-.pbtn{font-family:var(--px);font-size:12px;line-height:1.4;padding:15px 16px;width:100%;text-align:center;
-  background:var(--yellow);color:#1b1200;border:3px solid #000;box-shadow:0 5px 0 #8a5d00;transition:transform .06s,box-shadow .06s}
-.pbtn:active{transform:translateY(4px);box-shadow:0 1px 0 #8a5d00}
-.pbtn:disabled{opacity:.5}
-.pbtn.alt{background:var(--panel2);color:var(--txt);box-shadow:0 5px 0 #0a0814;border-color:#000}
-.pbtn.alt:active{box-shadow:0 1px 0 #0a0814}
-.pbtn.small{font-size:10px;padding:11px 12px}
-.link{color:var(--blue);font-weight:700;font-size:13px;text-align:center;padding:10px;text-decoration:none;display:block}
-.field{width:100%;background:var(--panel);border:3px solid var(--line);padding:15px 14px;font-size:18px;font-weight:700;outline:none;border-radius:0}
-.field:focus{border-color:var(--yellow)}
-.field.code{font-family:var(--px);font-size:22px;letter-spacing:.35em;text-align:center}
-.err{min-height:20px;color:#ff9aa4;font-size:13px;font-weight:600;line-height:1.35;margin:10px 0 2px}
-.hint{color:var(--mut);font-size:13px;line-height:1.5;font-weight:500}
-.stack{display:flex;flex-direction:column;gap:12px}
-
-/* ── вход ── */
-.logo{font-family:var(--px);font-size:30px;line-height:1.25;text-align:center;margin:18px 0 6px;letter-spacing:1px;
-  text-shadow:4px 4px 0 #000;color:var(--yellow)}
-.logo span{color:var(--red)}
-.tag{text-align:center;color:var(--mut);font-size:13px;font-weight:600;margin-bottom:18px}
-.heroes{display:flex;justify-content:center;gap:10px;margin:6px 0 22px}
-.heroes canvas{width:34px;height:44px;image-rendering:pixelated;animation:hop 1s steps(2,end) infinite}
-.heroes canvas:nth-child(2n){animation-delay:.25s}.heroes canvas:nth-child(3n){animation-delay:.5s}
-@keyframes hop{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-.card{background:var(--panel);border:3px solid var(--line);padding:16px}
 .grow{flex:1}
 
-/* ── фракции ── */
-h1{font-family:var(--px);font-size:15px;line-height:1.5;margin:14px 0 8px;text-align:center}
-.facs{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
-.fac{background:var(--panel);border:3px solid var(--line);padding:14px 8px 10px;display:flex;flex-direction:column;align-items:center;gap:8px;font-weight:800;font-size:13px}
-.fac canvas{width:42px;height:54px;image-rendering:pixelated}
-.fac.sel{border-color:var(--yellow);background:var(--panel2);box-shadow:0 0 0 3px rgba(255,197,61,.25)}
+/* кнопки и поля */
+.nbtn{width:100%;font-family:var(--disp);font-size:18px;letter-spacing:.5px;padding:17px 16px;border-radius:18px;color:#12041a;
+  background:linear-gradient(100deg,var(--pink),var(--yellow));box-shadow:0 0 26px rgba(255,79,216,.45),0 6px 0 rgba(120,20,100,.75);
+  transition:transform .08s,box-shadow .08s}
+.nbtn:active{transform:translateY(4px);box-shadow:0 0 20px rgba(255,79,216,.4),0 2px 0 rgba(120,20,100,.75)}
+.nbtn:disabled{opacity:.5}
+.nbtn.cyan{background:linear-gradient(100deg,var(--cyan),var(--lime));box-shadow:0 0 26px rgba(56,242,255,.4),0 6px 0 rgba(8,90,110,.75)}
+.nbtn.ghost{background:var(--panel);color:var(--txt);border:1.5px solid var(--line);box-shadow:none;font-size:14px;padding:13px}
+.nbtn.ghost:active{transform:scale(.98)}
+.link{color:var(--cyan);font-weight:700;font-size:13px;text-align:center;padding:10px;text-decoration:none;display:block;width:100%}
+.field{width:100%;background:var(--panel);border:1.5px solid var(--line);border-radius:16px;padding:16px;font-size:18px;font-weight:700;outline:none}
+.field:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(56,242,255,.15)}
+.field.code{font-family:var(--disp);font-size:26px;letter-spacing:.4em;text-align:center}
+.err{min-height:20px;color:#ff9ab0;font-size:13px;font-weight:600;line-height:1.35;margin:10px 0 2px}
+.hint{color:var(--mut);font-size:13px;line-height:1.5;font-weight:500}
+.stack{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--panel);border:1.5px solid var(--line);border-radius:20px;padding:16px;backdrop-filter:blur(8px)}
 
-/* ── меню ── */
-.me-head{display:flex;align-items:center;gap:12px;margin:6px 0 16px}
-.me-head canvas{width:42px;height:54px;image-rendering:pixelated}
-.me-head b{display:block;font-size:17px;font-weight:800;word-break:break-word}
-.me-head span{font-size:12px;font-weight:700;color:var(--mut)}
-.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
-.stat{background:var(--panel);border:3px solid var(--line);padding:12px}
-.stat strong{display:block;font-family:var(--px);font-size:15px;margin-bottom:8px;color:var(--yellow)}
-.stat small{color:var(--mut);font-size:12px;font-weight:700}
+/* вход */
+.logo{font-family:var(--disp);font-size:38px;line-height:1.05;text-align:center;margin:26px 0 8px;letter-spacing:1px;
+  background:linear-gradient(100deg,var(--pink),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 18px rgba(255,79,216,.45))}
+.tag{text-align:center;color:var(--mut);font-size:14px;font-weight:600;margin-bottom:18px}
+.duo{display:flex;justify-content:center;gap:18px;margin:4px 0 24px}
+.duo canvas{width:110px;height:110px}
 
-/* ── игра ── */
-#s-game{padding:0}
-#hud{display:flex;align-items:center;gap:6px;padding:calc(var(--st) + 8px) 10px 8px;background:var(--panel);border-bottom:3px solid #000}
-.chip{font-family:var(--px);font-size:10px;padding:8px 9px;background:var(--bg);border:2px solid var(--line);white-space:nowrap}
-.chip b{color:var(--yellow);font-weight:400}
-#hud .sp{flex:1}
-#btnExit{font-family:var(--px);font-size:11px;padding:8px 10px;background:var(--red);color:#fff;border:2px solid #000;box-shadow:0 3px 0 #7a1a25}
-#arena{position:relative;flex:1;min-height:0;background:#0d0b16;overflow:hidden}
-#cv{position:absolute;left:0;top:0;touch-action:none;display:block}
-#feed{position:absolute;left:8px;top:8px;display:flex;flex-direction:column;gap:4px;pointer-events:none;max-width:60%}
-#feed div{background:rgba(13,11,22,.78);border:2px solid var(--line);padding:4px 7px;font-size:11px;font-weight:700;animation:fadeout 4.5s forwards}
+/* меню */
+.top{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.ava{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-family:var(--disp);font-size:19px;color:#12041a;
+  background:linear-gradient(135deg,var(--pink),var(--cyan));box-shadow:0 0 16px rgba(255,79,216,.5)}
+.who{flex:1;min-width:0}
+.who b{display:block;font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.who span{font-size:12px;color:var(--mut);font-weight:600}
+.cur{display:flex;gap:8px}
+.pill{font-family:var(--disp);font-size:14px;padding:9px 12px;border-radius:14px;background:var(--panel);border:1.5px solid var(--line);white-space:nowrap}
+.pill.cr{color:var(--cyan);border-color:rgba(56,242,255,.4)}
+.pill.co{color:var(--yellow);border-color:rgba(255,225,77,.4)}
+.heroes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.hero{position:relative;background:var(--panel);border:2px solid var(--line);border-radius:22px;padding:12px 10px 14px;text-align:center;transition:transform .15s,border-color .15s,box-shadow .15s}
+.hero canvas{width:100%;max-width:130px;aspect-ratio:1;display:block;margin:0 auto}
+.hero h3{font-family:var(--disp);font-size:19px;margin-top:2px}
+.hero .role{display:inline-block;font-size:11px;font-weight:800;padding:4px 9px;border-radius:10px;margin:6px 0 10px}
+.hero.sel{transform:translateY(-3px)}
+.bars{display:flex;flex-direction:column;gap:6px;text-align:left}
+.bar{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--mut)}
+.bar i{flex:none;width:44px;font-style:normal}
+.bar div{flex:1;height:6px;border-radius:4px;background:rgba(255,255,255,.08);overflow:hidden}
+.bar div b{display:block;height:100%;border-radius:4px}
+.desc{font-size:12px;color:var(--mut);line-height:1.45;font-weight:600;text-align:center;margin:0 6px 14px;min-height:34px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.stat{text-align:center;padding:10px 4px}
+.stat strong{display:block;font-family:var(--disp);font-size:17px}
+.stat small{font-size:10px;color:var(--mut);font-weight:700}
+
+/* поиск */
+#s-search{align-items:center;text-align:center}
+.radar{position:relative;width:min(70vw,270px);aspect-ratio:1;margin:18px auto 14px;border-radius:50%;
+  border:2px solid rgba(56,242,255,.5);box-shadow:0 0 30px rgba(56,242,255,.3),inset 0 0 40px rgba(56,242,255,.12);
+  background:repeating-radial-gradient(circle,transparent 0 22px,rgba(56,242,255,.12) 22px 23px)}
+.radar::before{content:"";position:absolute;inset:0;border-radius:50%;
+  background:conic-gradient(from 0deg,rgba(56,242,255,.55),rgba(56,242,255,0) 40%);animation:spin 1.6s linear infinite}
+.radar canvas{position:absolute;left:50%;top:50%;width:46%;transform:translate(-50%,-50%);aspect-ratio:1}
+@keyframes spin{to{transform:rotate(360deg)}}
+.timer{font-family:var(--disp);font-size:64px;line-height:1;color:var(--cyan);text-shadow:0 0 24px rgba(56,242,255,.7)}
+.sub{font-size:17px;font-weight:800;margin:6px 0 4px}
+.found{font-size:14px;color:var(--mut);font-weight:700;line-height:1.5;margin-bottom:10px}
+.found b{color:var(--lime)}
+
+/* игра */
+#s-game{padding:0;background:#06050f}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#ui{position:absolute;inset:0;pointer-events:none}
+.hudbox{position:absolute;top:calc(var(--st) + 10px);padding:7px 11px;border-radius:14px;background:rgba(10,8,28,.7);border:1.5px solid var(--line);
+  font-family:var(--disp);font-size:14px;backdrop-filter:blur(6px)}
+#hKills{left:12px}
+#hAlive{left:50%;transform:translateX(-50%);color:var(--cyan)}
+#mini{position:absolute;right:10px;top:calc(var(--st) + 10px);width:92px;height:92px;border-radius:14px;border:1.5px solid var(--line);background:rgba(10,8,28,.7)}
+#zoneTxt{position:absolute;left:50%;top:calc(var(--st) + 52px);transform:translateX(-50%);font-size:12px;font-weight:800;color:var(--pink);text-shadow:0 0 10px rgba(255,79,216,.8);white-space:nowrap}
+#feed{position:absolute;left:12px;top:calc(var(--st) + 56px);display:flex;flex-direction:column;gap:4px;max-width:46%}
+#feed div{background:rgba(10,8,28,.72);border:1px solid var(--line);border-radius:9px;padding:3px 8px;font-size:11px;font-weight:700;animation:fadeout 4.5s forwards}
 @keyframes fadeout{0%,80%{opacity:1}100%{opacity:0}}
-#help{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(13,11,22,.85);border:2px solid var(--yellow);
-  padding:8px 12px;font-size:12px;font-weight:700;pointer-events:none;transition:opacity .6s;white-space:nowrap}
-#flash{position:absolute;inset:0;background:rgba(255,77,94,.35);opacity:0;pointer-events:none;transition:opacity .35s}
-#flash.on{opacity:1;transition:none}
-#overlay{position:absolute;inset:0;background:rgba(13,11,22,.88);display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:30px;text-align:center}
-#overlay.on{display:flex}
-#overlay p{font-weight:700;font-size:14px;line-height:1.5;color:var(--mut)}
-#overlay .pbtn{max-width:260px}
+#exit{position:absolute;left:12px;bottom:calc(var(--sb) + 12px);pointer-events:auto;width:40px;height:40px;border-radius:50%;
+  background:rgba(10,8,28,.7);border:1.5px solid var(--line);font-size:16px;font-weight:800;color:var(--mut)}
+#countdown{position:absolute;left:0;right:0;top:34%;text-align:center;font-family:var(--disp);font-size:96px;color:#fff;
+  text-shadow:0 0 30px var(--pink),0 0 60px var(--cyan);display:none}
+#ctl{position:absolute;inset:0;pointer-events:auto;touch-action:none}
+#joyBase{position:absolute;width:128px;height:128px;margin:-64px 0 0 -64px;border-radius:50%;border:2px solid rgba(56,242,255,.55);
+  background:radial-gradient(circle,rgba(56,242,255,.14),rgba(56,242,255,.04));box-shadow:0 0 22px rgba(56,242,255,.3);display:none;pointer-events:none}
+#joyKnob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#fff,var(--cyan));box-shadow:0 0 18px rgba(56,242,255,.9)}
+#joyHint{position:absolute;left:8%;bottom:calc(var(--sb) + 60px);font-size:12px;font-weight:700;color:rgba(255,255,255,.45);pointer-events:none;transition:opacity .5s}
+#atk{position:absolute;right:26px;bottom:calc(var(--sb) + 34px);width:112px;height:112px;margin:0;border-radius:50%;pointer-events:none;
+  display:grid;place-items:center;font-size:40px;border:3px solid var(--pink);
+  background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.25),rgba(255,79,216,.35));box-shadow:0 0 28px rgba(255,79,216,.6),inset 0 0 20px rgba(255,79,216,.4);transition:transform .06s}
+#atk.on{transform:scale(.92);box-shadow:0 0 40px rgba(255,79,216,.95),inset 0 0 26px rgba(255,255,255,.4)}
+#result{position:absolute;inset:0;background:rgba(6,5,15,.9);display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:28px;text-align:center;pointer-events:auto}
+#result.on{display:flex}
+#result h2{font-family:var(--disp);font-size:44px;line-height:1.05}
+#result .rew{display:flex;gap:12px;margin:8px 0 12px}
+#result .rew .pill{font-size:18px;padding:12px 16px}
+#result .note{color:#ff9ab0;font-weight:700;font-size:13px;max-width:280px}
+#result .btns{width:100%;max-width:300px;display:flex;flex-direction:column;gap:10px}
 
-#panel{height:min(38%,290px);min-height:190px;display:flex;flex-direction:column;background:var(--panel);border-top:3px solid #000;padding-bottom:var(--sb)}
-.tabs{display:flex;background:var(--bg)}
-.tab{flex:1;position:relative;font-family:var(--px);font-size:10px;padding:12px 6px;color:var(--mut);border-bottom:3px solid transparent}
-.tab.on{color:var(--yellow);border-bottom-color:var(--yellow);background:var(--panel)}
-.badge{display:none;position:absolute;top:5px;right:16%;min-width:16px;height:16px;padding:0 4px;background:var(--red);color:#fff;font-family:var(--body);font-size:10px;font-weight:800;align-items:center;justify-content:center}
-.badge.on{display:flex}
-.pane{flex:1;min-height:0;display:none;flex-direction:column}
-.pane.on{display:flex}
-#topList{flex:1;overflow-y:auto;padding:8px 10px}
-.row{display:flex;align-items:center;gap:9px;padding:6px 8px;margin-bottom:4px;background:var(--bg);border:2px solid transparent;font-size:13px;font-weight:700}
-.row.me{border-color:var(--yellow)}
-.row .rk{width:22px;font-family:var(--px);font-size:10px;color:var(--mut);text-align:center}
-.row .dot{width:10px;height:10px;flex:none}
-.row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.row .on{width:7px;height:7px;background:var(--green);border-radius:50%;flex:none}
-.row .px{font-family:var(--px);font-size:10px;color:var(--yellow)}
-#msgs{flex:1;overflow-y:auto;padding:8px 10px;display:flex;flex-direction:column;gap:5px}
-.m{font-size:13px;line-height:1.35;word-wrap:break-word;overflow-wrap:anywhere}
-.m b{font-weight:800}
-.m i{font-style:normal;color:var(--mut);font-size:10px;margin-left:5px}
-.composer{display:flex;gap:8px;padding:8px 10px;border-top:2px solid var(--line)}
-.composer input{flex:1;min-width:0;background:var(--bg);border:2px solid var(--line);padding:10px 11px;font-size:14px;font-weight:600;outline:none;border-radius:0}
-.composer input:focus{border-color:var(--yellow)}
-.composer button{width:46px;background:var(--yellow);color:#1b1200;font-weight:800;font-size:16px;border:2px solid #000;box-shadow:0 3px 0 #8a5d00}
-.composer button:active{transform:translateY(2px);box-shadow:0 1px 0 #8a5d00}
-
-#toast{position:fixed;left:50%;top:calc(var(--st) + 60px);transform:translate(-50%,-14px);opacity:0;z-index:99;pointer-events:none;
-  background:var(--panel2);border:3px solid var(--yellow);padding:10px 14px;font-size:13px;font-weight:800;max-width:88vw;text-align:center;transition:opacity .2s,transform .2s}
+#toast{position:fixed;left:50%;top:calc(var(--st) + 14px);transform:translate(-50%,-16px);opacity:0;z-index:99;pointer-events:none;
+  background:rgba(22,18,46,.95);border:1.5px solid var(--cyan);padding:10px 16px;border-radius:14px;font-size:13px;font-weight:800;max-width:88vw;text-align:center;transition:opacity .2s,transform .2s}
 #toast.show{opacity:1;transform:translate(-50%,0)}
 #toast.bad{border-color:var(--red)}
-@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (prefers-reduced-motion:reduce){.radar::before{animation:none}}
 </style>
 </head>
 <body>
 
 <!-- ВХОД -->
 <section class="screen active" id="s-login">
-  <div class="logo">PIXEL<br><span>WAR</span></div>
-  <div class="tag">Захватывай территорию. Побеждай живых игроков.</div>
-  <div class="heroes" id="heroes"></div>
+  <div class="logo">ENERGY<br>ARENA</div>
+  <div class="tag">Ешь энергию. Расти. Останься последним.</div>
+  <div class="duo"><canvas id="duoA" width="220" height="220"></canvas><canvas id="duoB" width="220" height="220"></canvas></div>
 
   <div class="stack" id="stepPhone">
     <input class="field" id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 700 123 45 67">
     <div class="hint">Код входа придёт в Telegram от бота @UpgradeGamebot.</div>
-    <button class="pbtn" id="btnCode">Получить код</button>
+    <button class="nbtn" id="btnCode">ПОЛУЧИТЬ КОД</button>
     <div class="err" id="errPhone"></div>
     <div class="card" id="notReg" style="display:none">
       <div class="hint" style="margin-bottom:12px"><b style="color:var(--txt)">Первый раз?</b> Откройте бота, нажмите /start и кнопку «Поделиться номером». Потом вернитесь сюда и повторите.</div>
-      <a class="pbtn small" style="display:block;text-decoration:none" href="https://t.me/UpgradeGamebot" target="_blank" rel="noopener">Открыть бота</a>
+      <a class="nbtn cyan" style="display:block;text-decoration:none;text-align:center;font-size:15px;padding:13px" href="https://t.me/UpgradeGamebot" target="_blank" rel="noopener">Открыть бота</a>
     </div>
   </div>
 
   <div class="stack" id="stepCode" style="display:none">
     <div class="hint" id="codeHint" style="text-align:center"></div>
     <input class="field code" id="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••">
-    <button class="pbtn" id="btnVerify">Войти</button>
+    <button class="nbtn" id="btnVerify">ВОЙТИ</button>
     <div class="err" id="errCode"></div>
     <button class="link" id="btnResend" disabled>Отправить код ещё раз</button>
     <button class="link" id="btnBack" style="color:var(--mut)">Изменить номер</button>
   </div>
 </section>
 
-<!-- ВЫБОР ФРАКЦИИ -->
-<section class="screen" id="s-faction">
-  <h1>Выберите фракцию</h1>
-  <div class="hint" style="text-align:center">Выбор делается один раз. Ваша база появится в углу цвета фракции.</div>
-  <div class="facs" id="facs"></div>
-  <div class="grow"></div>
-  <button class="pbtn" id="btnFac" disabled>Выберите цвет</button>
-  <div class="err" id="errFac"></div>
-</section>
-
 <!-- МЕНЮ -->
 <section class="screen" id="s-menu">
-  <div class="me-head"><canvas id="meSprite" width="7" height="9"></canvas><div><b id="mName">Игрок</b><span id="mFac"></span></div></div>
-  <div class="stats">
-    <div class="stat"><strong id="mCoins">0</strong><small>монет</small></div>
-    <div class="stat"><strong id="mPix">0</strong><small>пикселей</small></div>
-    <div class="stat"><strong id="mKills">0</strong><small>убийств</small></div>
-    <div class="stat"><strong id="mDeaths">0</strong><small>смертей</small></div>
+  <div class="top">
+    <div class="ava" id="mAva">?</div>
+    <div class="who"><b id="mName">Игрок</b><span id="mSub">Боец арены</span></div>
+    <div class="cur"><div class="pill cr">◆ <span id="mCr">0</span></div><div class="pill co">● <span id="mCo">0</span></div></div>
+  </div>
+  <div class="heroes" id="heroes"></div>
+  <div class="desc" id="heroDesc"></div>
+  <div class="card stats" style="display:grid">
+    <div class="stat"><strong id="sGames">0</strong><small>игр</small></div>
+    <div class="stat"><strong id="sWins">0</strong><small>побед</small></div>
+    <div class="stat"><strong id="sKills">0</strong><small>убийств</small></div>
+    <div class="stat"><strong id="sDeaths">0</strong><small>поражений</small></div>
   </div>
   <div class="grow"></div>
   <div class="stack">
-    <button class="pbtn" id="btnPlay">Начать игру</button>
-    <button class="pbtn alt small" id="btnLogout">Выйти из аккаунта</button>
+    <button class="nbtn" id="btnPlay">НАЧАТЬ ИГРУ</button>
+    <button class="nbtn ghost" id="btnLogout">Выйти из аккаунта</button>
   </div>
+</section>
+
+<!-- ПОИСК СОПЕРНИКОВ -->
+<section class="screen" id="s-search">
+  <div class="grow"></div>
+  <div class="sub">Поиск соперников…</div>
+  <div class="radar"><canvas id="searchHero" width="160" height="160"></canvas></div>
+  <div class="timer" id="sTimer">15</div>
+  <div class="found" id="sFound" style="margin-top:12px">Игроков найдено: <b>1</b><br>Свободные места займут боты</div>
+  <div class="grow"></div>
+  <button class="nbtn ghost" id="btnCancel" style="max-width:320px">Отмена</button>
 </section>
 
 <!-- ИГРА -->
 <section class="screen" id="s-game">
-  <div id="hud">
-    <div class="chip">💰 <b id="hCoins">0</b></div>
-    <div class="chip">▣ <b id="hPix">0</b></div>
-    <div class="chip">⚔ <b id="hKills">0</b></div>
-    <div class="sp"></div>
-    <div class="chip" id="hOnline">👥 0</div>
-    <button id="btnExit">ВЫЙТИ</button>
-  </div>
-  <div id="arena">
-    <canvas id="cv"></canvas>
+  <canvas id="cv"></canvas>
+  <div id="ui">
+    <div class="hudbox" id="hKills">⚔ 0</div>
+    <div class="hudbox" id="hAlive">В живых: 10</div>
+    <canvas id="mini" width="184" height="184"></canvas>
+    <div id="zoneTxt"></div>
     <div id="feed"></div>
-    <div id="help">Свайпайте по полю, чтобы поворачивать</div>
-    <div id="flash"></div>
-    <div id="overlay">
-      <p id="ovText">Подключаемся…</p>
-      <button class="pbtn" id="ovRetry" style="display:none">Переподключиться</button>
-      <button class="pbtn alt small" id="ovMenu" style="display:none">В меню</button>
-    </div>
+    <div id="countdown">3</div>
   </div>
-  <div id="panel">
-    <div class="tabs">
-      <button class="tab on" data-tab="top">ТОП-10</button>
-      <button class="tab" data-tab="chat">ЧАТ<span class="badge" id="chatBadge">0</span></button>
-    </div>
-    <div class="pane on" id="pane-top"><div id="topList"></div></div>
-    <div class="pane" id="pane-chat">
-      <div id="msgs"></div>
-      <div class="composer">
-        <input id="chatInput" type="text" maxlength="200" placeholder="Сообщение…" autocomplete="off" enterkeyhint="send">
-        <button id="chatSend" aria-label="Отправить">➤</button>
-      </div>
+  <div id="ctl">
+    <div id="joyBase"><div id="joyKnob"></div></div>
+    <div id="joyHint">Двигайтесь: коснитесь слева</div>
+    <div id="atk">⚔</div>
+  </div>
+  <button id="exit" style="position:absolute">✕</button>
+  <div id="result">
+    <h2 id="rTitle">ПОБЕДА!</h2>
+    <div class="hint" id="rSub"></div>
+    <div class="rew"><div class="pill cr">◆ <span id="rCr">0</span></div><div class="pill co">● <span id="rCo">0</span></div></div>
+    <div class="note" id="rNote"></div>
+    <div class="btns">
+      <button class="nbtn" id="rAgain">ИГРАТЬ СНОВА</button>
+      <button class="nbtn ghost" id="rMenu">В меню</button>
     </div>
   </div>
 </section>
@@ -225,40 +241,31 @@ h1{font-family:var(--px);font-size:15px;line-height:1.5;margin:14px 0 8px;text-a
 // Адрес твоего bot.py на хостинге (смотри вкладку «Домены» в панели Bot-Hosting)
 const API = "https://ahgsraow97.apps.bot-hosting.cloud";
 const WS_URL = API.replace(/^http/, "ws") + "/ws";
-const TOKEN_KEY = "pixelwar_token";
+const TOKEN_KEY = "energyarena_token";
+const SHOW_BOT_TAG = true;   // пометка 🤖 перед именами ботов (поставь false, чтобы убрать)
 
-/* ═════════ ФРАКЦИИ И СПРАЙТ ═════════ */
-const FAC = [null,
-  { n: "Алые",       c: "#ff4d5e", l: "#ffb3ba" },
-  { n: "Лазурные",   c: "#3aa0ff", l: "#a9d4ff" },
-  { n: "Изумрудные", c: "#2fd6a0", l: "#a4f0d9" },
-  { n: "Золотые",    c: "#ffc53d", l: "#ffe7a3" },
-  { n: "Фиолетовые", c: "#a66bff", l: "#d4b8ff" },
-  { n: "Оранжевые",  c: "#ff8a3d", l: "#ffc9a0" },
+/* ═════════ ПЕРСОНАЖИ ═════════ */
+const CH = [
+  { n: "Мелли", role: "Ближний бой", color: "#ff4fd8", dark: "#6a1066", accent: "#ffe14d", hp: 105, spd: 280, rng: 85, melee: true,
+    desc: "Врывается в упор и наносит быстрый сокрушительный урон. Чуть быстрее остальных." },
+  { n: "Фрейндж", role: "Дальний бой", color: "#38f2ff", dark: "#0a4f86", accent: "#7cff6b", hp: 80, spd: 262, rng: 560, melee: false,
+    desc: "Стреляет энергетическими снарядами. Большой радиус атаки, но чуть меньше здоровья." },
 ];
-const RGB = FAC.map(f => f ? [1,3,5].map(i => parseInt(f.c.substr(i,2),16)) : [22,18,44]);
-const SPR = ["..hhh..", ".hsssh.", ".seses.", "..sss..", ".bbbbb.", "sbbbbbs", ".bbbbb.", ".dd.dd.", ".dd.dd."];
-const SPRITES = FAC.map(f => {
-  if (!f) return null;
-  const c = document.createElement("canvas"); c.width = 7; c.height = 9;
-  const g = c.getContext("2d");
-  const pal = { h: "#2b1d3a", s: "#ffd9b0", e: "#1a1020", b: f.c, d: "#241a38" };
-  SPR.forEach((row, y) => [...row].forEach((ch, x) => { if (ch !== ".") { g.fillStyle = pal[ch]; g.fillRect(x, y, 1, 1); } }));
-  return c;
-});
-function drawSprite(canvas, f) { const g = canvas.getContext("2d"); g.clearRect(0,0,7,9); g.drawImage(SPRITES[f], 0, 0); }
 
 /* ═════════ УТИЛИТЫ ═════════ */
 const $ = id => document.getElementById(id);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const fmt = n => Math.floor(n).toLocaleString("ru-RU");
+const TAU = Math.PI * 2;
 let toastT;
 function toast(text, bad) {
   const t = $("toast"); t.textContent = text; t.className = "show" + (bad ? " bad" : "");
   clearTimeout(toastT); toastT = setTimeout(() => t.className = "", 2400);
 }
 function buzz(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} }
-function show(id) { document.querySelectorAll(".screen").forEach(s => s.classList.toggle("active", s.id === id)); }
+let curScreen = "s-login";
+function show(id) { curScreen = id; document.querySelectorAll(".screen").forEach(s => s.classList.toggle("active", s.id === id)); }
+function hexRgb(h) { return [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16)); }
 
 let token = localStorage.getItem(TOKEN_KEY);
 let profile = null;
@@ -266,7 +273,7 @@ let profile = null;
 async function api(path, opts = {}) {
   const headers = {};
   if (token) headers["Authorization"] = "Bearer " + token;
-  const init = { method: opts.body !== undefined ? "POST" : (opts.method || "GET"), headers };
+  const init = { method: opts.body !== undefined ? "POST" : "GET", headers };
   if (opts.body !== undefined) { headers["Content-Type"] = "application/json"; init.body = JSON.stringify(opts.body); }
   let res;
   try { res = await fetch(API + path, init); }
@@ -275,19 +282,52 @@ async function api(path, opts = {}) {
   try { data = await res.json(); } catch (e) {}
   if (!res.ok || (data && data.ok === false)) {
     const er = new Error((data && data.error) || ("Ошибка " + res.status));
-    er.status = res.status; er.code = data && data.code;
-    throw er;
+    er.status = res.status; er.code = data && data.code; throw er;
   }
   return data;
 }
 
-/* ═════════ ВХОД ПО НОМЕРУ ═════════ */
-{ // герои на экране входа
-  const box = $("heroes");
-  for (let f = 1; f <= 6; f++) { const c = document.createElement("canvas"); c.width = 7; c.height = 9; drawSprite(c, f); box.appendChild(c); }
+/* ═════════ РИСОВАНИЕ БОЙЦА (меню, поиск и арена) ═════════ */
+function drawFighter(g, ci, x, y, r, face, hurt) {
+  const C = CH[ci];
+  g.save(); g.translate(x, y);
+  g.fillStyle = "rgba(0,0,0,.35)"; g.beginPath(); g.ellipse(0, r * .22, r * .98, r * .86, 0, 0, TAU); g.fill();
+  const gr = g.createRadialGradient(-r * .35, -r * .4, r * .08, 0, 0, r * 1.05);
+  gr.addColorStop(0, "#ffffff"); gr.addColorStop(.28, C.color); gr.addColorStop(1, C.dark);
+  g.fillStyle = gr; g.beginPath(); g.arc(0, 0, r, 0, TAU); g.fill();
+  g.lineWidth = r * .1; g.strokeStyle = C.color; g.stroke();
+  g.rotate(face);
+  if (ci === 0) {                                   // Мелли: когти
+    g.strokeStyle = C.accent; g.lineWidth = r * .15; g.lineCap = "round";
+    for (const s of [-1, 1]) { g.beginPath(); g.moveTo(r * .82, s * r * .46); g.lineTo(r * 1.5, s * r * .3); g.stroke(); }
+  } else {                                          // Фрейндж: бластер
+    g.fillStyle = "#12203a"; g.strokeStyle = C.accent; g.lineWidth = r * .08;
+    g.beginPath(); g.roundRect ? g.roundRect(r * .7, -r * .17, r * .85, r * .34, r * .08) : g.rect(r * .7, -r * .17, r * .85, r * .34);
+    g.fill(); g.stroke();
+    g.fillStyle = C.accent; g.beginPath(); g.arc(r * 1.55, 0, r * .1, 0, TAU); g.fill();
+  }
+  g.rotate(-face);
+  const fx = Math.cos(face), fy = Math.sin(face), px = -fy, py = fx;
+  for (const s of [-1, 1]) {                        // глаза смотрят по направлению взгляда
+    const ex = fx * r * .3 + px * s * r * .27, ey = fy * r * .3 + py * s * r * .27;
+    g.fillStyle = "#fff"; g.beginPath(); g.arc(ex, ey, r * .2, 0, TAU); g.fill();
+    g.fillStyle = "#14082a"; g.beginPath(); g.arc(ex + fx * r * .06, ey + fy * r * .06, r * .1, 0, TAU); g.fill();
+  }
+  if (ci === 0) {                                   // бантик
+    g.fillStyle = C.accent;
+    g.beginPath(); g.moveTo(-r * .5, -r * .82); g.lineTo(-r * .86, -r * 1.0); g.lineTo(-r * .86, -r * .64); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(-r * .5, -r * .82); g.lineTo(-r * .14, -r * 1.0); g.lineTo(-r * .14, -r * .64); g.closePath(); g.fill();
+    g.beginPath(); g.arc(-r * .5, -r * .82, r * .1, 0, TAU); g.fillStyle = "#fff"; g.fill();
+  } else {                                          // чёлка-шипы
+    g.fillStyle = C.accent;
+    for (const o of [-.4, 0, .4]) { g.beginPath(); g.moveTo(o * r - r * .16, -r * .92); g.lineTo(o * r, -r * 1.3); g.lineTo(o * r + r * .16, -r * .92); g.closePath(); g.fill(); }
+  }
+  if (hurt > 0) { g.globalAlpha = Math.min(.7, hurt * 3); g.fillStyle = "#fff"; g.beginPath(); g.arc(0, 0, r, 0, TAU); g.fill(); }
+  g.restore();
 }
-let phoneVal = "", resendT = null;
 
+/* ═════════ ВХОД ПО НОМЕРУ ═════════ */
+let phoneVal = "", resendT = null;
 function startResend(sec) {
   const b = $("btnResend"); clearInterval(resendT); let s = sec; b.disabled = true;
   const tick = () => { if (s <= 0) { clearInterval(resendT); b.disabled = false; b.textContent = "Отправить код ещё раз"; } else { b.textContent = "Отправить ещё раз через " + s + " с"; s--; } };
@@ -325,363 +365,483 @@ async function verify() {
     const r = await api("/api/auth/verify", { body: { phone: phoneVal, code } });
     token = r.token; localStorage.setItem(TOKEN_KEY, token); profile = r.profile;
     toast(r.new ? "Аккаунт создан!" : "С возвращением, " + profile.name + "!");
-    route();
+    toMenu();
   } catch (e) { $("errCode").textContent = e.message; }
   finally { $("btnVerify").disabled = false; }
 }
 $("btnVerify").onclick = verify;
 $("code").addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6); if (e.target.value.length === 6) verify(); });
-
 function logout(silent) {
   if (token && !silent) api("/api/logout", { body: {} }).catch(() => {});
-  token = null; profile = null; localStorage.removeItem(TOKEN_KEY);
+  closeNet(); token = null; profile = null; localStorage.removeItem(TOKEN_KEY);
   $("stepCode").style.display = "none"; $("stepPhone").style.display = "flex";
   show("s-login");
 }
 $("btnLogout").onclick = () => logout(false);
 
-/* ═════════ ФРАКЦИЯ И МЕНЮ ═════════ */
-let pickedFac = 0;
-{
-  const box = $("facs");
-  for (let f = 1; f <= 6; f++) {
-    const d = document.createElement("button"); d.className = "fac"; d.dataset.f = f;
-    const c = document.createElement("canvas"); c.width = 7; c.height = 9; drawSprite(c, f);
-    const s = document.createElement("span"); s.textContent = FAC[f].n; s.style.color = FAC[f].c;
-    d.append(c, s); box.appendChild(d);
-    d.onclick = () => {
-      pickedFac = f;
-      box.querySelectorAll(".fac").forEach(x => x.classList.toggle("sel", Number(x.dataset.f) === f));
-      $("btnFac").disabled = false; $("btnFac").textContent = "Играть за «" + FAC[f].n + "»";
-    };
-  }
+/* ═════════ МЕНЮ ═════════ */
+let sel = 0;
+const heroBox = $("heroes"), heroCanvases = [];
+CH.forEach((c, i) => {
+  const d = document.createElement("button"); d.className = "hero"; d.dataset.i = i;
+  const cv = document.createElement("canvas"); cv.width = cv.height = 260; heroCanvases.push(cv);
+  const bars = (lbl, v, col) => `<div class="bar"><i>${lbl}</i><div><b style="width:${Math.round(v * 100)}%;background:${col}"></b></div></div>`;
+  d.innerHTML = `<h3 style="color:${c.color}">${c.n}</h3><span class="role" style="background:${c.color}22;color:${c.color}">${c.role}</span><div class="bars">` +
+    bars("ХП", c.hp / 120, c.color) + bars("Скор.", c.spd / 300, c.color) + bars("Дальн.", c.melee ? .16 : .95, c.color) + `</div>`;
+  d.prepend(cv);
+  d.onclick = () => pickHero(i);
+  heroBox.appendChild(d);
+});
+function pickHero(i) {
+  sel = i;
+  heroBox.querySelectorAll(".hero").forEach((el, k) => {
+    const on = k === i, c = CH[k];
+    el.classList.toggle("sel", on);
+    el.style.borderColor = on ? c.color : "";
+    el.style.boxShadow = on ? `0 0 26px ${c.color}77, inset 0 0 22px ${c.color}22` : "";
+  });
+  $("heroDesc").textContent = CH[i].desc;
 }
-$("btnFac").onclick = async () => {
-  $("btnFac").disabled = true; $("errFac").textContent = "";
-  try { const r = await api("/api/faction", { body: { faction: pickedFac } }); profile = r.profile; route(); }
-  catch (e) { $("errFac").textContent = e.message; $("btnFac").disabled = false; }
-};
-function route() {
+function toMenu() {
   if (!profile) { show("s-login"); return; }
-  if (!profile.faction) { show("s-faction"); return; }
-  $("mName").textContent = profile.name;
-  $("mFac").textContent = "Фракция: " + FAC[profile.faction].n;
-  $("mFac").style.color = FAC[profile.faction].c;
-  drawSprite($("meSprite"), profile.faction);
-  $("mCoins").textContent = fmt(profile.coins); $("mPix").textContent = fmt(profile.pixels);
-  $("mKills").textContent = fmt(profile.kills); $("mDeaths").textContent = fmt(profile.deaths);
+  sel = CH[profile.hero] ? profile.hero : 0; pickHero(sel);
+  $("mName").textContent = profile.name; $("mAva").textContent = (profile.name || "?").trim().charAt(0).toUpperCase();
+  $("mCr").textContent = fmt(profile.crystals); $("mCo").textContent = fmt(profile.coins);
+  $("sGames").textContent = fmt(profile.games); $("sWins").textContent = fmt(profile.wins);
+  $("sKills").textContent = fmt(profile.kills); $("sDeaths").textContent = fmt(profile.deaths);
   show("s-menu");
 }
-async function boot() {
-  if (!token) { show("s-login"); return; }
-  try { profile = (await api("/api/me")).profile; route(); }
-  catch (e) {
-    if (e.status === 401) { logout(true); }
-    else { show("s-login"); $("errPhone").textContent = e.message + ". Проверьте интернет и перезапустите приложение."; }
+async function refreshProfile() { try { profile = (await api("/api/me")).profile; } catch (e) {} }
+// idle-анимация бойцов в меню, на входе и на экране поиска
+function previewLoop(t) {
+  requestAnimationFrame(previewLoop);
+  const tt = t / 1000;
+  if (curScreen === "s-menu") heroCanvases.forEach((cv, i) => {
+    const g = cv.getContext("2d"); g.clearRect(0, 0, 260, 260);
+    drawFighter(g, i, 130, 138 + Math.sin(tt * 2.4 + i) * 5, 62, Math.sin(tt * 1.3 + i) * .6 + .3, 0);
+  });
+  if (curScreen === "s-login") [["duoA", 0], ["duoB", 1]].forEach(([id, i]) => {
+    const g = $(id).getContext("2d"); g.clearRect(0, 0, 220, 220);
+    drawFighter(g, i, 110, 118 + Math.sin(tt * 2.4 + i * 2) * 6, 52, i ? Math.PI - .5 + Math.sin(tt) * .2 : .5 + Math.sin(tt) * .2, 0);
+  });
+  if (curScreen === "s-search") {
+    const g = $("searchHero").getContext("2d"); g.clearRect(0, 0, 160, 160);
+    drawFighter(g, sel, 80, 84 + Math.sin(tt * 3) * 4, 40, tt * 1.5, 0);
   }
 }
+requestAnimationFrame(previewLoop);
 
-/* ═════════ СОСТОЯНИЕ МИРА ═════════ */
-const W = { on: false, size: 100, fac: new Uint8Array(10000), players: new Map(), names: new Map(), me: 0,
-            tickMs: 125, tailMax: 8, cam: { x: 50, y: 50 }, parts: [], mmDirty: true };
-const cv = $("cv"), ctx = cv.getContext("2d");
-let dpr = 1;
-function resize() {
-  const r = $("arena").getBoundingClientRect();
-  dpr = Math.min(window.devicePixelRatio || 1, 3);
-  cv.width = Math.max(1, Math.round(r.width * dpr)); cv.height = Math.max(1, Math.round(r.height * dpr));
-  cv.style.width = r.width + "px"; cv.style.height = r.height + "px";
-}
-new ResizeObserver(resize).observe($("arena"));
-window.addEventListener("resize", resize);
-
-// миникарта
-const mm = document.createElement("canvas"); mm.width = mm.height = 100;
-const mmx = mm.getContext("2d"); let mmImg = mmx.createImageData(100, 100);
-function mmSet(i, f) { const c = RGB[f], o = i * 4; mmImg.data[o] = c[0]; mmImg.data[o+1] = c[1]; mmImg.data[o+2] = c[2]; mmImg.data[o+3] = 255; W.mmDirty = true; }
-function buildMini() { mm.width = mm.height = W.size; mmImg = mmx.createImageData(W.size, W.size); for (let i = 0; i < W.fac.length; i++) mmSet(i, W.fac[i]); }
-
-function addPlayer(o) {
-  W.players.set(o.id, { id: o.id, n: o.n, f: o.f, x: o.x, y: o.y, px: o.x, py: o.y, t0: performance.now(),
-    tail: (o.tail || []).map(a => [a[0], a[1]]), prot: 0, dir: 1, snap: false });
-  W.names.set(o.id, { n: o.n, f: o.f });
-}
-function rpos(p, now) {
-  const a = Math.min(1, (now - p.t0) / W.tickMs);
-  return [p.px + (p.x - p.px) * a, p.py + (p.y - p.py) * a];
-}
-
-/* ═════════ СЕТЬ ═════════ */
-const net = { mode: null, ws: null, sid: 0, inGame: false, pendDir: null, pendChat: null, lastDir: -1 };
-function send(o) {
-  if (!net.inGame) return;
+/* ═════════ СЕТЬ: WebSocket, запасной режим — HTTP-опрос ═════════ */
+const net = { mode: null, ws: null, sid: 0, ready: false, pend: [] };
+function sendMsg(o) {
+  if (!net.ready) return;
   if (net.mode === "ws") { if (net.ws && net.ws.readyState === 1) net.ws.send(JSON.stringify(o)); }
-  else if (net.mode === "http") { if (o.t === "dir") net.pendDir = o.d; else if (o.t === "chat") net.pendChat = o.text; }
+  else { if (o.t === "in") net.pend = net.pend.filter(m => m.t !== "in"); net.pend.push(o); }
 }
-function overlay(text, retry) {
-  $("overlay").classList.add("on"); $("ovText").textContent = text;
-  $("ovRetry").style.display = retry ? "block" : "none"; $("ovMenu").style.display = retry ? "block" : "none";
-}
-function startGame() {
-  show("s-game"); resize();
-  W.on = false; W.players.clear(); W.parts = []; $("msgs").innerHTML = ""; $("feed").innerHTML = "";
-  net.inGame = true; net.sid++; net.lastDir = -1; net.pendDir = null; net.pendChat = null;
-  overlay("Подключаемся…", false);
-  $("help").style.opacity = 1;
-  connectWS(net.sid);
-}
-function connectWS(sid) {
-  let opened = false, fell = false;
-  const fallback = () => { if (fell || sid !== net.sid) return; fell = true; startHttp(sid); };
-  let ws;
-  try { ws = new WebSocket(WS_URL + "?token=" + encodeURIComponent(token)); } catch (e) { fallback(); return; }
-  net.ws = ws; net.mode = "ws";
-  const to = setTimeout(() => { if (!opened) { try { ws.close(); } catch (e) {} fallback(); } }, 5000);
-  ws.onopen = () => { opened = true; clearTimeout(to); };
-  ws.onmessage = e => { if (sid === net.sid) { try { handle(JSON.parse(e.data)); } catch (er) { console.error(er); } } };
-  ws.onclose = () => { clearTimeout(to); if (sid !== net.sid) return; if (!opened) fallback(); else if (net.inGame) lost(); };
-  ws.onerror = () => {};
-}
-async function startHttp(sid) {
-  net.mode = "http";
-  try { await api("/api/g/join", { body: {} }); } catch (e) { if (sid === net.sid) lost(e.message); return; }
-  while (sid === net.sid && net.inGame) {
-    const t0 = performance.now();
-    try {
-      const body = { d: net.pendDir, c: net.pendChat }; net.pendDir = null; net.pendChat = null;
-      const msgs = await api("/api/g/poll", { body });
-      if (sid !== net.sid) return;
-      msgs.forEach(handle);
-    } catch (e) { if (sid === net.sid && (e.status === 409 || e.status === 401)) { lost(); return; } }
-    await sleep(Math.max(0, 100 - (performance.now() - t0)));
-  }
-}
-function lost(msg) { net.inGame = false; W.on = false; overlay(msg || "Соединение потеряно", true); }
-function leaveGame() {
-  const was = net.mode; net.inGame = false; net.sid++; W.on = false;
-  if (was === "ws" && net.ws) { try { net.ws.close(); } catch (e) {} }
-  if (was === "http") api("/api/g/leave", { body: {} }).catch(() => {});
-  api("/api/me").then(r => { profile = r.profile; route(); }).catch(() => route());
-  route();
-}
-$("btnPlay").onclick = startGame;
-$("btnExit").onclick = leaveGame;
-$("ovRetry").onclick = startGame;
-$("ovMenu").onclick = leaveGame;
-
-/* ═════════ ОБРАБОТКА СООБЩЕНИЙ СЕРВЕРА ═════════ */
-function handle(m) {
-  switch (m.t) {
-    case "init": {
-      W.size = m.size; W.tickMs = m.tick * 1000; W.tailMax = m.tail; W.me = m.me;
-      const bin = atob(m.grid); W.fac = new Uint8Array(m.size * m.size);
-      for (let i = 0; i < bin.length; i++) W.fac[i] = bin.charCodeAt(i);
-      buildMini(); W.players.clear(); W.names.clear(); m.players.forEach(addPlayer);
-      const me = W.players.get(W.me); if (me) { W.cam.x = me.x + .5; W.cam.y = me.y + .5; }
-      $("msgs").innerHTML = ""; m.chat.forEach(addChat); renderTop(m.top);
-      W.on = true; $("overlay").classList.remove("on");
-      setTimeout(() => $("help").style.opacity = 0, 5000);
-      break;
-    }
-    case "s": {
-      const now = performance.now();
-      if (m.j) m.j.forEach(addPlayer);
-      if (m.l) m.l.forEach(id => W.players.delete(id));
-      if (m.c) for (let i = 0; i < m.c.length; i += 2) { W.fac[m.c[i]] = m.c[i+1]; mmSet(m.c[i], m.c[i+1]); }
-      if (m.k) m.k.forEach(onKill);
-      m.p.forEach(a => {
-        const p = W.players.get(a[0]); if (!p) return;
-        const x = a[1], y = a[2];
-        if (p.snap) { p.px = p.x = x; p.py = p.y = y; p.tail = []; p.snap = false; p.t0 = now; }
-        else if (p.x !== x || p.y !== y) {
-          const r = rpos(p, now);
-          p.tail.push([p.x, p.y]); if (p.tail.length > W.tailMax) p.tail.shift();
-          p.px = r[0]; p.py = r[1]; p.t0 = now; p.x = x; p.y = y;
-        }
-        p.prot = a[3]; p.dir = a[4];
-      });
-      break;
-    }
-    case "me": $("hCoins").textContent = fmt(m.coins); $("hPix").textContent = fmt(m.pix); $("hKills").textContent = fmt(m.kills); break;
-    case "top": renderTop(m.top); $("hOnline").textContent = "👥 " + m.online; break;
-    case "chat": addChat(m); break;
-    case "kicked": net.inGame = false; toast("Вас убрали с поля за неактивность", true); leaveGame(); break;
-    case "error": lost("Не удалось войти. Перезапустите приложение."); break;
-  }
-}
-function onKill(k) {
-  const vid = k[0], kid = k[1], reward = k[2], x = k[3], y = k[4];
-  const v = W.players.get(vid), vn = W.names.get(vid), kn = W.names.get(kid);
-  if (v) { v.snap = true; v.tail = []; }
-  const col = vn ? FAC[vn.f].c : "#fff";
-  for (let i = 0; i < 16; i++) { const a = Math.random() * 6.28, s = 2 + Math.random() * 5;
-    W.parts.push({ x: x + .5, y: y + .5, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: .7, c: col }); }
-  const f = document.createElement("div");
-  f.textContent = (kn ? kn.n : "?") + " ⚔ " + (vn ? vn.n : "?"); $("feed").appendChild(f);
-  setTimeout(() => f.remove(), 4600); while ($("feed").children.length > 4) $("feed").firstChild.remove();
-  if (kid === W.me) { toast("+" + reward + " монет за " + (vn ? vn.n : "победу")); buzz(30); }
-  if (vid === W.me) {
-    toast("Вас убил " + (kn ? kn.n : "игрок"), true); buzz(120);
-    const fl = $("flash"); fl.classList.add("on"); requestAnimationFrame(() => requestAnimationFrame(() => fl.classList.remove("on")));
-  }
-}
-
-/* ═════════ ТОП И ЧАТ ═════════ */
-function renderTop(list) {
-  const box = $("topList"); box.innerHTML = "";
-  if (!list.length) { box.innerHTML = '<div class="hint" style="padding:14px;text-align:center">Пока никто не захватил территорию</div>'; return; }
-  list.forEach((t, i) => {
-    const r = document.createElement("div"); r.className = "row" + (t[0] === W.me ? " me" : "");
-    r.innerHTML = '<div class="rk"></div><div class="dot"></div><div class="nm"></div>' + (t[4] ? '<div class="on"></div>' : "") + '<div class="px"></div>';
-    r.querySelector(".rk").textContent = i + 1;
-    r.querySelector(".dot").style.background = FAC[t[2]] ? FAC[t[2]].c : "#888";
-    r.querySelector(".nm").textContent = t[1];
-    r.querySelector(".px").textContent = fmt(t[3]);
-    box.appendChild(r);
+function openNet() {
+  if (net.ready) return Promise.resolve();
+  const sid = ++net.sid;
+  return new Promise(resolve => {
+    let opened = false, fell = false, done = false;
+    const finish = () => { if (!done) { done = true; resolve(); } };
+    const http = async () => {
+      if (fell || sid !== net.sid) return; fell = true;
+      try { await api("/api/g/connect", { body: {} }); net.mode = "http"; net.ready = true; httpLoop(sid); }
+      catch (e) { toast(e.message, true); }
+      finish();
+    };
+    let ws; try { ws = new WebSocket(WS_URL + "?token=" + encodeURIComponent(token)); } catch (e) { http(); return; }
+    net.ws = ws;
+    const to = setTimeout(() => { if (!opened) { try { ws.close(); } catch (e) {} http(); } }, 5000);
+    ws.onopen = () => { opened = true; clearTimeout(to); net.mode = "ws"; net.ready = true; finish(); };
+    ws.onmessage = e => { if (sid === net.sid) { try { handle(JSON.parse(e.data)); } catch (er) { console.error(er); } } };
+    ws.onclose = () => { clearTimeout(to); if (sid !== net.sid) return; if (!opened) http(); else { net.ready = false; netLost(); } };
+    ws.onerror = () => {};
   });
 }
-let tab = "top", unread = 0;
-function setTab(t) {
-  tab = t;
-  document.querySelectorAll(".tab").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
-  $("pane-top").classList.toggle("on", t === "top"); $("pane-chat").classList.toggle("on", t === "chat");
-  if (t === "chat") { unread = 0; $("chatBadge").classList.remove("on"); const m = $("msgs"); m.scrollTop = m.scrollHeight; }
+async function httpLoop(sid) {
+  while (sid === net.sid && net.ready) {
+    const t0 = performance.now();
+    try {
+      const msgs = await api("/api/g/poll", { body: { m: net.pend.splice(0) } });
+      if (sid !== net.sid) return;
+      msgs.forEach(handle);
+    } catch (e) { if (sid === net.sid && (e.status === 409 || e.status === 401)) { net.ready = false; netLost(); return; } }
+    await sleep(Math.max(0, 60 - (performance.now() - t0)));
+  }
 }
-document.querySelectorAll(".tab").forEach(b => b.onclick = () => setTab(b.dataset.tab));
-function addChat(m) {
-  const box = $("msgs"), near = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
-  const d = document.createElement("div"); d.className = "m";
-  const b = document.createElement("b"); b.textContent = m.n; b.style.color = FAC[m.f] ? FAC[m.f].c : "#fff";
-  const t = document.createElement("span"); t.textContent = ": " + m.x;
-  const i = document.createElement("i"); const dt = new Date(m.ts * 1000);
-  i.textContent = String(dt.getHours()).padStart(2, "0") + ":" + String(dt.getMinutes()).padStart(2, "0");
-  d.append(b, t, i); box.appendChild(d);
-  while (box.children.length > 80) box.firstChild.remove();
-  if (near || m.n === (profile && profile.name)) box.scrollTop = box.scrollHeight;
-  if (tab !== "chat" && W.on && m.n !== (profile && profile.name)) { unread++; const bd = $("chatBadge"); bd.textContent = unread > 99 ? "99+" : unread; bd.classList.add("on"); }
+function closeNet() {
+  const was = net.mode, wasReady = net.ready;
+  net.sid++; net.ready = false; net.pend = [];
+  if (was === "ws" && net.ws) { try { net.ws.close(); } catch (e) {} }
+  else if (was === "http" && wasReady) api("/api/g/close", { body: {} }).catch(() => {});
+  net.mode = null; net.ws = null;
 }
-function sendChat() {
-  const inp = $("chatInput"), text = inp.value.trim();
-  if (!text) return; send({ t: "chat", text }); inp.value = "";
+function netLost() {
+  if (curScreen === "s-search" || curScreen === "s-game") {
+    G.on = false; toast("Соединение потеряно", true);
+    refreshProfile().finally(toMenu);
+  }
 }
-$("chatSend").onclick = sendChat;
-$("chatInput").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); sendChat(); } });
+
+/* ═════════ ПОИСК СОПЕРНИКОВ ═════════ */
+const S = { end: 0, timer: null };
+async function startSearch() {
+  show("s-search");
+  $("sTimer").textContent = "15"; $("sFound").innerHTML = "Игроков найдено: <b>1</b><br>Свободные места займут боты";
+  S.end = performance.now() + 15000;
+  clearInterval(S.timer);
+  S.timer = setInterval(() => { $("sTimer").textContent = Math.max(0, Math.ceil((S.end - performance.now()) / 1000)); }, 100);
+  await openNet();
+  if (!net.ready) { clearInterval(S.timer); toMenu(); return; }
+  if (curScreen !== "s-search") return;
+  sendMsg({ t: "queue", c: sel });
+}
+$("btnPlay").onclick = startSearch;
+$("btnCancel").onclick = () => { sendMsg({ t: "unqueue" }); clearInterval(S.timer); closeNet(); toMenu(); };
+
+/* ═════════ СОСТОЯНИЕ МАТЧА ═════════ */
+const G = { on: false, me: 0, arena: 2400, obst: [], roster: new Map(), ents: new Map(), foods: new Map(), bullets: [],
+            zone: { cx: 1200, cy: 1200, r0: 1300, r1: 150, delay: 20, shrink: 120 }, zr: 1300, clock: -3, snapAt: 0, alive: 10,
+            fx: [], parts: [], nums: [], cam: { x: 1200, y: 1200 }, kills: 0, done: false };
+
+function handle(m) {
+  switch (m.t) {
+    case "hello": if (m.p) profile = m.p; break;
+    case "error": toast("Нужно войти заново", true); logout(true); break;
+    case "q": {
+      S.end = performance.now() + m.left * 1000;
+      const bots = Math.max(0, 10 - m.n);
+      $("sFound").innerHTML = "Игроков найдено: <b>" + m.n + "</b><br>" + (bots ? "Ещё " + bots + " мест займут боты" : "Комната заполнена!");
+      break;
+    }
+    case "you": G.me = m.id; break;
+    case "start": beginMatch(m); break;
+    case "s": onSnapshot(m); break;
+    case "res": onResult(m); break;
+  }
+}
+
+function beginMatch(m) {
+  clearInterval(S.timer);
+  G.on = false; G.done = false; G.arena = m.arena; G.obst = m.obst; G.zone = m.zone; G.zr = m.zone.r0; G.clock = -m.cd; G.snapAt = performance.now();
+  G.roster.clear(); G.ents.clear(); G.foods.clear(); G.bullets = []; G.fx = []; G.parts = []; G.nums = []; G.kills = 0; G.alive = m.roster.length;
+  m.roster.forEach(r => G.roster.set(r.id, r));
+  m.foods.forEach(f => G.foods.set(f[0], { x: f[1], y: f[2], v: f[3] }));
+  $("feed").innerHTML = ""; $("result").classList.remove("on"); $("hKills").textContent = "⚔ 0"; $("hAlive").textContent = "В живых: " + G.alive;
+  $("joyHint").style.opacity = 1; setTimeout(() => $("joyHint").style.opacity = 0, 6000);
+  show("s-game"); resizeCanvas();
+  const me = null; G.cam.x = G.arena / 2; G.cam.y = G.arena / 2; G.on = true;
+}
+
+function nameOf(id) {
+  const r = G.roster.get(id); if (!r) return "?";
+  return (SHOW_BOT_TAG && r.b ? "🤖 " : "") + r.n;
+}
+function onSnapshot(m) {
+  const now = performance.now();
+  G.snapAt = now; G.clock = m.c; G.zr = m.z; G.alive = m.n;
+  const seen = new Set();
+  m.p.forEach(a => {
+    seen.add(a[0]);
+    let e = G.ents.get(a[0]);
+    if (!e) { e = { id: a[0], dx: a[1], dy: a[2], hurt: 0, hp: a[4] }; G.ents.set(a[0], e); if (a[0] === G.me) { G.cam.x = a[1]; G.cam.y = a[2]; } }
+    if (a[4] < e.hp) e.hurt = .25;
+    e.tx = a[1]; e.ty = a[2]; e.r = a[3]; e.hp = a[4]; e.maxhp = a[5]; e.face = a[6]; e.cd = a[7]; e.sh = a[8]; e.kills = a[9];
+    if (e.fd === undefined) e.fd = a[6];
+  });
+  for (const id of [...G.ents.keys()]) if (!seen.has(id)) G.ents.delete(id);
+  G.bullets = m.b.map(b => ({ id: b[0], x: b[1], y: b[2], vx: b[3], vy: b[4], r: b[5], o: b[6], t: now }));
+  if (m.fa) m.fa.forEach(f => G.foods.set(f[0], { x: f[1], y: f[2], v: f[3] }));
+  if (m.fr) m.fr.forEach(id => G.foods.delete(id));
+  if (m.ev) m.ev.forEach(ev => onEvent(ev, now));
+  const me = G.ents.get(G.me);
+  if (me) { G.kills = me.kills; $("hKills").textContent = "⚔ " + me.kills; }
+  $("hAlive").textContent = "В живых: " + G.alive;
+}
+function onEvent(ev, now) {
+  if (ev[0] === "h") {
+    const mine = ev[4] === G.me;
+    G.nums.push({ x: ev[1], y: ev[2], txt: ev[3], t: now, c: mine ? "#ff4f6a" : "#ffe14d" });
+    if (mine) buzz(25);
+  } else if (ev[0] === "a") {
+    G.fx.push({ id: ev[1], type: ev[2], ang: ev[3], t: now });
+  } else if (ev[0] === "k") {
+    const vid = ev[1], kid = ev[2], r = G.roster.get(vid), col = r ? CH[r.c].color : "#fff";
+    for (let i = 0; i < 22; i++) { const a = Math.random() * TAU, s = 120 + Math.random() * 320;
+      G.parts.push({ x: ev[3], y: ev[4], vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: .8, max: .8, c: col, s: 5 + Math.random() * 7 }); }
+    const f = document.createElement("div");
+    f.textContent = (kid ? nameOf(kid) : "Зона") + " ⚔ " + nameOf(vid); $("feed").appendChild(f);
+    setTimeout(() => f.remove(), 4600); while ($("feed").children.length > 4) $("feed").firstChild.remove();
+    if (kid === G.me) { toast("Вы победили: " + nameOf(vid)); buzz(60); }
+    if (vid === G.me) buzz(200);
+  }
+}
+
+/* ═════════ РЕЗУЛЬТАТ МАТЧА ═════════ */
+function onResult(m) {
+  G.done = true; profile = m.p;
+  const win = m.place === 1;
+  $("rTitle").textContent = win ? "ПОБЕДА!" : "Место #" + m.place;
+  $("rTitle").style.color = win ? "var(--yellow)" : "var(--cyan)";
+  $("rSub").textContent = "Убийств: " + m.kills;
+  $("rCr").textContent = (m.cr > 0 ? "+" : "") + m.cr; $("rCo").textContent = "+" + m.coins;
+  $("rNote").textContent = m.early ? "Слив в начале матча: кристаллы отнимаются" : "";
+  $("result").classList.add("on");
+  if (win) buzz([80, 60, 80]); 
+}
+$("rAgain").onclick = () => { $("result").classList.remove("on"); G.on = false; startSearch(); };
+$("rMenu").onclick = () => { $("result").classList.remove("on"); G.on = false; closeNet(); toMenu(); };
+$("exit").onclick = () => { if (G.done) return; if (confirm("Выйти из матча? За ранний выход отнимаются кристаллы.")) sendMsg({ t: "leave" }); };
 
 /* ═════════ УПРАВЛЕНИЕ ═════════ */
-function curDir() { const p = W.players.get(W.me); return p ? p.dir : 1; }
-function setDir(d, force) {
-  if (!W.on) return;
-  if (d !== net.lastDir || force) { net.lastDir = d; send({ t: "dir", d }); }
+const joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
+const atk = { id: null, ax: 0, ay: 0 };
+const keys = {}; const mouse = { down: false, ax: 0, ay: 0 };
+const JOY_R = 58;
+function atkCenter() { const r = $("atk").getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2, r.width / 2]; }
+const ctl = $("ctl");
+ctl.addEventListener("pointerdown", e => {
+  if (!G.on || G.done) return;
+  if (e.pointerType === "mouse") { mouse.down = true; updateMouse(e); return; }
+  const [cx, cy, cr] = atkCenter();
+  if (atk.id === null && Math.hypot(e.clientX - cx, e.clientY - cy) < cr * 1.45) {
+    atk.id = e.pointerId; atk.ax = atk.ay = 0; $("atk").classList.add("on"); ctl.setPointerCapture(e.pointerId); updateAim(e); return;
+  }
+  if (joy.id === null && e.clientX < window.innerWidth * .6) {
+    joy.id = e.pointerId; joy.ox = joy.x = e.clientX; joy.oy = joy.y = e.clientY; ctl.setPointerCapture(e.pointerId);
+    const b = $("joyBase"); b.style.display = "block"; b.style.left = joy.ox + "px"; b.style.top = joy.oy + "px"; $("joyKnob").style.transform = "translate(0,0)";
+    $("joyHint").style.opacity = 0;
+  }
+});
+ctl.addEventListener("pointermove", e => {
+  if (e.pointerType === "mouse") { if (G.on) updateMouse(e); return; }
+  if (e.pointerId === joy.id) {
+    joy.x = e.clientX; joy.y = e.clientY;
+    let dx = joy.x - joy.ox, dy = joy.y - joy.oy; const d = Math.hypot(dx, dy);
+    if (d > JOY_R) { dx = dx / d * JOY_R; dy = dy / d * JOY_R; }
+    $("joyKnob").style.transform = `translate(${dx}px,${dy}px)`;
+  } else if (e.pointerId === atk.id) updateAim(e);
+});
+function endPointer(e) {
+  if (e.pointerType === "mouse") { mouse.down = false; return; }
+  if (e.pointerId === joy.id) { joy.id = null; $("joyBase").style.display = "none"; }
+  if (e.pointerId === atk.id) { atk.id = null; atk.ax = atk.ay = 0; $("atk").classList.remove("on"); }
 }
-let sx = 0, sy = 0, dragging = false;
-cv.addEventListener("pointerdown", e => { dragging = true; sx = e.clientX; sy = e.clientY; cv.setPointerCapture(e.pointerId); $("help").style.opacity = 0; setDir(curDir(), true); });
-cv.addEventListener("pointermove", e => {
-  if (!dragging) return;
-  const dx = e.clientX - sx, dy = e.clientY - sy;
-  if (Math.hypot(dx, dy) > 14) { setDir(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0), true); sx = e.clientX; sy = e.clientY; }
-});
-["pointerup", "pointercancel"].forEach(ev => cv.addEventListener(ev, () => dragging = false));
-window.addEventListener("keydown", e => {
-  if (document.activeElement && document.activeElement.tagName === "INPUT") return;
-  const map = { ArrowUp: 0, KeyW: 0, ArrowRight: 1, KeyD: 1, ArrowDown: 2, KeyS: 2, ArrowLeft: 3, KeyA: 3 };
-  if (e.code in map) { e.preventDefault(); setDir(map[e.code], true); }
-});
+["pointerup", "pointercancel"].forEach(ev => ctl.addEventListener(ev, endPointer));
+function updateAim(e) {
+  const [cx, cy] = atkCenter(); const dx = e.clientX - cx, dy = e.clientY - cy, d = Math.hypot(dx, dy);
+  if (d > 26) { atk.ax = dx / d; atk.ay = dy / d; } else { atk.ax = atk.ay = 0; }
+}
+function updateMouse(e) { const dx = e.clientX - window.innerWidth / 2, dy = e.clientY - window.innerHeight / 2, d = Math.hypot(dx, dy) || 1; mouse.ax = dx / d; mouse.ay = dy / d; }
+window.addEventListener("keydown", e => { keys[e.code] = true; if (e.code === "Space" && G.on) e.preventDefault(); });
+window.addEventListener("keyup", e => { keys[e.code] = false; });
+ctl.addEventListener("contextmenu", e => e.preventDefault());
 
-/* ═════════ ОТРИСОВКА ═════════ */
-ctx.imageSmoothingEnabled = false;
+let lastIn = "", lastInT = 0;
+setInterval(() => {
+  if (!G.on || G.done || !net.ready) return;
+  let mx = 0, my = 0, ax = 0, ay = 0, a = 0;
+  if (joy.id !== null) {
+    let dx = joy.x - joy.ox, dy = joy.y - joy.oy; const d = Math.hypot(dx, dy);
+    if (d > 10) { const k = Math.min(1, d / JOY_R); mx = dx / d * k; my = dy / d * k; }
+  }
+  if (keys.KeyA || keys.ArrowLeft) mx -= 1; if (keys.KeyD || keys.ArrowRight) mx += 1;
+  if (keys.KeyW || keys.ArrowUp) my -= 1; if (keys.KeyS || keys.ArrowDown) my += 1;
+  const ml = Math.hypot(mx, my); if (ml > 1) { mx /= ml; my /= ml; }
+  if (atk.id !== null) { a = 1; ax = atk.ax; ay = atk.ay; }
+  if (mouse.down) { a = 1; ax = mouse.ax; ay = mouse.ay; }
+  if (keys.Space) a = 1;
+  const r2 = v => Math.round(v * 100) / 100;
+  const msg = { t: "in", mx: r2(mx), my: r2(my), ax: r2(ax), ay: r2(ay), a };
+  const key = JSON.stringify(msg), now = performance.now();
+  if (key !== lastIn || now - lastInT > 250) { lastIn = key; lastInT = now; sendMsg(msg); }
+}, 50);
+
+/* ═════════ ОТРИСОВКА АРЕНЫ ═════════ */
+const cv = $("cv"), ctx = cv.getContext("2d"), mini = $("mini"), mx2 = mini.getContext("2d");
+let dpr = 1;
+function resizeCanvas() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  const w = window.innerWidth, h = window.innerHeight;
+  cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+}
+window.addEventListener("resize", resizeCanvas);
+
+const glowCache = {};
+function glow(color) {
+  if (glowCache[color]) return glowCache[color];
+  const c = document.createElement("canvas"); c.width = c.height = 64; const g = c.getContext("2d"), [r, gg, b] = hexRgb(color);
+  const gr = g.createRadialGradient(32, 32, 1, 32, 32, 31);
+  gr.addColorStop(0, "#fff"); gr.addColorStop(.22, color); gr.addColorStop(.55, `rgba(${r},${gg},${b},.35)`); gr.addColorStop(1, `rgba(${r},${gg},${b},0)`);
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return (glowCache[color] = c);
+}
+const FOOD_COL = ["#38f2ff", "#7cff6b", "#ffe14d", "#ff4fd8"];
+function foodColor(v, id) { return v >= 2 ? "#ff4fd8" : v >= 1.2 ? "#ffe14d" : FOOD_COL[id % 2]; }
+
 let last = performance.now();
 function frame(now) {
   requestAnimationFrame(frame);
-  const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  if (W.on) draw(now, dt);
-}
-function draw(now, dt) {
-  const w = cv.width, h = cv.height, S = W.size;
-  const cs = Math.max(12, Math.round(w / 22));
-  const vw = w / cs, vh = h / cs;
-
-  const mp = W.players.get(W.me);
-  if (mp) { const r = rpos(mp, now), k = 1 - Math.pow(0.0008, dt); W.cam.x += (r[0] + .5 - W.cam.x) * k; W.cam.y += (r[1] + .5 - W.cam.y) * k; }
-  const cx = Math.max(vw / 2 - 1, Math.min(S - vw / 2 + 1, W.cam.x));
-  const cy = Math.max(vh / 2 - 1, Math.min(S - vh / 2 + 1, W.cam.y));
-  const x0 = cx - vw / 2, y0 = cy - vh / 2;
-  const sxp = v => Math.round((v - x0) * cs), syp = v => Math.round((v - y0) * cs);
-
-  ctx.imageSmoothingEnabled = false;
-  ctx.fillStyle = "#0a0813"; ctx.fillRect(0, 0, w, h);
-  const mX = sxp(0), mY = syp(0), mW = sxp(S) - mX, mH = syp(S) - mY;
-  ctx.fillStyle = "#16122b"; ctx.fillRect(mX, mY, mW, mH);
-
-  ctx.save(); ctx.beginPath(); ctx.rect(mX, mY, mW, mH); ctx.clip();
-  const ia = Math.max(0, Math.floor(x0)), ib = Math.min(S - 1, Math.ceil(x0 + vw));
-  const ja = Math.max(0, Math.floor(y0)), jb = Math.min(S - 1, Math.ceil(y0 + vh));
-  for (let j = ja; j <= jb; j++) for (let i = ia; i <= ib; i++) {
-    const f = W.fac[j * S + i]; if (!f) continue;
-    ctx.fillStyle = FAC[f].c; const ax = sxp(i), ay = syp(j);
-    ctx.fillRect(ax, ay, sxp(i + 1) - ax, syp(j + 1) - ay);
-  }
-  ctx.strokeStyle = "rgba(0,0,0,.24)"; ctx.lineWidth = 1; ctx.beginPath();
-  for (let i = ia; i <= ib + 1; i++) { const x = sxp(i) + .5; ctx.moveTo(x, mY); ctx.lineTo(x, mY + mH); }
-  for (let j = ja; j <= jb + 1; j++) { const y = syp(j) + .5; ctx.moveTo(mX, y); ctx.lineTo(mX + mW, y); }
-  ctx.stroke();
-  ctx.restore();
-  ctx.strokeStyle = "#6b5cff"; ctx.lineWidth = Math.max(2, 3 * dpr); ctx.strokeRect(mX, mY, mW, mH);
-
-  // «линии» (хвосты) игроков
-  const list = [...W.players.values()];
-  for (const p of list) {
-    const n = p.tail.length; if (!n) continue;
-    for (let k = 0; k < n; k++) {
-      const t = p.tail[k], ax = sxp(t[0]), ay = syp(t[1]), ins = Math.round(cs * .18);
-      ctx.globalAlpha = .25 + .65 * (k + 1) / n; ctx.fillStyle = FAC[p.f].l;
-      ctx.fillRect(ax + ins, ay + ins, cs - ins * 2, cs - ins * 2);
-    }
-  }
-  ctx.globalAlpha = 1;
-
-  // игроки: пиксельные человечки и маленькие ники
-  list.sort((a, b) => a.py - b.py);
-  const fsCss = Math.max(7, Math.min(9.5, cs / dpr * .42)), fs = Math.round(fsCss * dpr);
-  ctx.font = "700 " + fs + "px Manrope, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.lineJoin = "round";
-  for (const p of list) {
-    const r = rpos(p, now), ax = sxp(r[0]), ay = syp(r[1]);
-    if (ax < -cs * 2 || ay < -cs * 2 || ax > w + cs || ay > h + cs * 2) continue;
-    const sw = cs, sh = Math.round(cs * 9 / 7), dx = ax, dy = ay + cs - sh + Math.round(cs * .12);
-    if (p.prot) {
-      ctx.strokeStyle = "rgba(255,255,255," + (.5 + .4 * Math.sin(now / 90)) + ")"; ctx.lineWidth = Math.max(2, dpr * 1.5);
-      ctx.strokeRect(ax - 2, ay - 2, cs + 4, cs + 4);
-      ctx.globalAlpha = .55 + .45 * Math.sin(now / 70);
-    }
-    ctx.drawImage(SPRITES[p.f], dx, dy, sw, sh); ctx.globalAlpha = 1;
-    const label = p.n.length > 12 ? p.n.slice(0, 11) + "…" : p.n, ty = dy - Math.round(cs * .12);
-    ctx.lineWidth = Math.max(2, fs / 3.2); ctx.strokeStyle = "rgba(8,6,16,.9)"; ctx.strokeText(label, ax + cs / 2, ty);
-    ctx.fillStyle = p.id === W.me ? "#ffe066" : "#f3efff"; ctx.fillText(label, ax + cs / 2, ty);
-  }
-
-  // частицы убийств
-  for (let i = W.parts.length - 1; i >= 0; i--) {
-    const q = W.parts[i]; q.life -= dt; if (q.life <= 0) { W.parts.splice(i, 1); continue; }
-    q.x += q.vx * dt; q.y += q.vy * dt; q.vy += 6 * dt;
-    ctx.globalAlpha = Math.min(1, q.life * 2); ctx.fillStyle = q.c;
-    const sz = Math.max(3, cs * .22); ctx.fillRect(sxp(q.x) - sz / 2, syp(q.y) - sz / 2, sz, sz);
-  }
-  ctx.globalAlpha = 1;
-
-  // миникарта
-  if (W.mmDirty) { mmx.putImageData(mmImg, 0, 0); W.mmDirty = false; }
-  const ms = Math.round(Math.min(w, h) * .27), mgn = Math.round(8 * dpr), mx = w - ms - mgn, my = mgn;
-  ctx.globalAlpha = .92; ctx.fillStyle = "#0a0813"; ctx.fillRect(mx - 2, my - 2, ms + 4, ms + 4);
-  ctx.drawImage(mm, mx, my, ms, ms); ctx.globalAlpha = 1;
-  ctx.strokeStyle = "#fff"; ctx.lineWidth = 1;
-  ctx.strokeRect(mx + x0 / S * ms, my + y0 / S * ms, vw / S * ms, vh / S * ms);
-  for (const p of list) {
-    const r = rpos(p, now), isMe = p.id === W.me, d = Math.max(isMe ? 4 : 3, Math.round(ms / 28));
-    ctx.fillStyle = isMe ? "#fff" : FAC[p.f].c; ctx.fillRect(mx + r[0] / S * ms - d / 2, my + r[1] / S * ms - d / 2, d, d);
-  }
-  ctx.strokeStyle = "#000"; ctx.lineWidth = 2; ctx.strokeRect(mx - 2, my - 2, ms + 4, ms + 4);
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  if (curScreen === "s-game" && G.on) draw(now, dt);
 }
 requestAnimationFrame(frame);
 
+function draw(now, dt) {
+  const w = cv.width, h = cv.height, A = G.arena;
+  const k = 1 - Math.exp(-dt * 18);
+  for (const e of G.ents.values()) {
+    e.dx += (e.tx - e.dx) * k; e.dy += (e.ty - e.dy) * k;
+    let da = e.face - e.fd; da = Math.atan2(Math.sin(da), Math.cos(da)); e.fd += da * Math.min(1, dt * 20);
+    if (e.hurt > 0) e.hurt -= dt;
+  }
+  const me = G.ents.get(G.me);
+  const myR = me ? me.r : 22;
+  if (me) { const kc = 1 - Math.exp(-dt * 9); G.cam.x += (me.dx - G.cam.x) * kc; G.cam.y += (me.dy - G.cam.y) * kc; }
+  const viewShort = 820 * Math.pow(myR / 22, .55);
+  const sc = Math.min(w, h) / viewShort;
+  const vw = w / sc, vh = h / sc, x0 = G.cam.x - vw / 2, y0 = G.cam.y - vh / 2;
+  const tx = v => (v - x0) * sc, ty = v => (v - y0) * sc;
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = "#05040c"; ctx.fillRect(0, 0, w, h);
+  ctx.setTransform(sc, 0, 0, sc, -x0 * sc, -y0 * sc);
+
+  // пол арены
+  const fl = ctx.createRadialGradient(A / 2, A / 2, 100, A / 2, A / 2, A * .75);
+  fl.addColorStop(0, "#150f33"); fl.addColorStop(1, "#0b0820");
+  ctx.fillStyle = fl; ctx.fillRect(0, 0, A, A);
+  ctx.strokeStyle = "rgba(120,100,255,.16)"; ctx.lineWidth = 1.5 / sc * dpr; ctx.beginPath();
+  for (let gx = Math.max(0, Math.floor(x0 / 100) * 100); gx <= Math.min(A, x0 + vw); gx += 100) { ctx.moveTo(gx, Math.max(0, y0)); ctx.lineTo(gx, Math.min(A, y0 + vh)); }
+  for (let gy = Math.max(0, Math.floor(y0 / 100) * 100); gy <= Math.min(A, y0 + vh); gy += 100) { ctx.moveTo(Math.max(0, x0), gy); ctx.lineTo(Math.min(A, x0 + vw), gy); }
+  ctx.stroke();
+  ctx.strokeStyle = "#8a6bff"; ctx.lineWidth = 5 / sc * dpr; ctx.shadowColor = "#8a6bff"; ctx.shadowBlur = 18; ctx.strokeRect(0, 0, A, A); ctx.shadowBlur = 0;
+
+  // опасная зона
+  ctx.fillStyle = "rgba(255,40,100,.16)"; ctx.beginPath(); ctx.rect(x0 - 50, y0 - 50, vw + 100, vh + 100); ctx.moveTo(G.zone.cx + G.zr, G.zone.cy); ctx.arc(G.zone.cx, G.zone.cy, G.zr, 0, TAU); ctx.fill("evenodd");
+  ctx.strokeStyle = "#ff3b7a"; ctx.lineWidth = 4 / sc * dpr; ctx.setLineDash([26, 16]); ctx.beginPath(); ctx.arc(G.zone.cx, G.zone.cy, G.zr, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+
+  // камни
+  for (const o of G.obst) {
+    if (o[0] + o[2] < x0 || o[0] - o[2] > x0 + vw || o[1] + o[2] < y0 || o[1] - o[2] > y0 + vh) continue;
+    const g2 = ctx.createRadialGradient(o[0] - o[2] * .3, o[1] - o[2] * .3, o[2] * .1, o[0], o[1], o[2]);
+    g2.addColorStop(0, "#3a2d7a"); g2.addColorStop(1, "#150f33");
+    ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(o[0], o[1], o[2], 0, TAU); ctx.fill();
+    ctx.strokeStyle = "#8a6bff"; ctx.lineWidth = 3 / sc * dpr; ctx.stroke();
+  }
+
+  // еда
+  ctx.globalCompositeOperation = "lighter";
+  const pulse = now / 400;
+  for (const [id, f] of G.foods) {
+    if (f.x < x0 - 30 || f.x > x0 + vw + 30 || f.y < y0 - 30 || f.y > y0 + vh + 30) continue;
+    const s = (f.v >= 2 ? 19 : f.v >= 1.2 ? 15 : 12) * (1 + .12 * Math.sin(pulse + id));
+    ctx.drawImage(glow(foodColor(f.v, id)), f.x - s, f.y - s, s * 2, s * 2);
+  }
+  // снаряды
+  for (const b of G.bullets) {
+    const t = Math.min(.12, (now - b.t) / 1000), x = b.x + b.vx * t, y = b.y + b.vy * t, s = b.r * 2.6;
+    ctx.drawImage(glow("#38f2ff"), x - s, y - s, s * 2, s * 2);
+  }
+  ctx.globalCompositeOperation = "source-over";
+
+  // взмахи Мелли
+  G.fx = G.fx.filter(f => now - f.t < 220);
+  for (const f of G.fx) {
+    const e = G.ents.get(f.id); if (!e || f.type !== 0) continue;
+    const p = (now - f.t) / 220, rr = 85 + e.r;
+    ctx.save(); ctx.translate(e.dx, e.dy); ctx.globalAlpha = 1 - p;
+    ctx.fillStyle = "rgba(255,79,216,.35)"; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, rr * (.7 + .3 * p), f.ang - 1.3, f.ang + 1.3); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "#ffe14d"; ctx.lineWidth = 6 / sc * dpr; ctx.beginPath(); ctx.arc(0, 0, rr * (.7 + .3 * p), f.ang - 1.3, f.ang + 1.3); ctx.stroke();
+    ctx.restore();
+  }
+
+  // линия прицела (ручное наведение)
+  if (me && atk.id !== null && (atk.ax || atk.ay)) {
+    const ch = CH[(G.roster.get(G.me) || { c: 0 }).c], len = ch.melee ? 85 + me.r : ch.rng;
+    ctx.strokeStyle = "rgba(255,79,216,.6)"; ctx.lineWidth = 4 / sc * dpr; ctx.setLineDash([14, 12]);
+    ctx.beginPath(); ctx.moveTo(me.dx, me.dy); ctx.lineTo(me.dx + atk.ax * len, me.dy + atk.ay * len); ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  // бойцы
+  const list = [...G.ents.values()].sort((a, b) => a.dy - b.dy);
+  for (const e of list) {
+    const ro = G.roster.get(e.id); if (!ro) continue;
+    if (e.dx < x0 - 200 || e.dx > x0 + vw + 200 || e.dy < y0 - 200 || e.dy > y0 + vh + 200) continue;
+    if (e.id === G.me) { ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 3 / sc * dpr; ctx.beginPath(); ctx.arc(e.dx, e.dy, e.r * 1.2, 0, TAU); ctx.stroke(); }
+    ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = .5;
+    ctx.drawImage(glow(CH[ro.c].color), e.dx - e.r * 2.1, e.dy - e.r * 2.1, e.r * 4.2, e.r * 4.2);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = e.sh ? .55 + .45 * Math.sin(now / 80) : 1;
+    drawFighter(ctx, ro.c, e.dx, e.dy, e.r, e.fd, e.hurt);
+    ctx.globalAlpha = 1;
+    if (e.sh) { ctx.strokeStyle = "rgba(124,255,107,.8)"; ctx.lineWidth = 3 / sc * dpr; ctx.beginPath(); ctx.arc(e.dx, e.dy, e.r * 1.35, 0, TAU); ctx.stroke(); }
+  }
+
+  // частицы и цифры урона
+  for (let i = G.parts.length - 1; i >= 0; i--) {
+    const p = G.parts[i]; p.life -= dt; if (p.life <= 0) { G.parts.splice(i, 1); continue; }
+    p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= .96; p.vy *= .96;
+    ctx.globalAlpha = p.life / p.max; ctx.fillStyle = p.c; ctx.fillRect(p.x - p.s / 2, p.y - p.s / 2, p.s, p.s);
+  }
+  ctx.globalAlpha = 1;
+
+  // ── экранный слой: ники, полоски ХП, цифры урона ──
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const fs = Math.round(9.5 * dpr);
+  ctx.textAlign = "center"; ctx.lineJoin = "round";
+  for (const e of list) {
+    const ro = G.roster.get(e.id); if (!ro) continue;
+    const sx = tx(e.dx), sy = ty(e.dy), pr = e.r * sc;
+    if (sx < -100 || sx > w + 100 || sy < -100 || sy > h + 100) continue;
+    const bw = Math.max(34 * dpr, Math.min(pr * 2.1, 110 * dpr)), bh = 5 * dpr, by = sy - pr - 16 * dpr, ratio = Math.max(0, e.hp / e.maxhp);
+    ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(sx - bw / 2 - 1, by - 1, bw + 2, bh + 2);
+    ctx.fillStyle = ratio > .5 ? "#7cff6b" : ratio > .25 ? "#ffe14d" : "#ff4f6a"; ctx.fillRect(sx - bw / 2, by, bw * ratio, bh);
+    ctx.font = "700 " + fs + "px Manrope, sans-serif"; ctx.textBaseline = "alphabetic";
+    const label = nameOf(e.id), nm = label.length > 14 ? label.slice(0, 13) + "…" : label, ny = by - 3 * dpr;
+    ctx.lineWidth = Math.max(2, fs / 3); ctx.strokeStyle = "rgba(6,5,15,.95)"; ctx.strokeText(nm, sx, ny);
+    ctx.fillStyle = e.id === G.me ? "#ffe14d" : "#f1eeff"; ctx.fillText(nm, sx, ny);
+  }
+  G.nums = G.nums.filter(n => now - n.t < 700);
+  ctx.font = "800 " + Math.round(15 * dpr) + "px Manrope, sans-serif";
+  for (const n of G.nums) {
+    const p = (now - n.t) / 700; ctx.globalAlpha = 1 - p;
+    ctx.lineWidth = 3 * dpr; ctx.strokeStyle = "rgba(6,5,15,.9)"; ctx.fillStyle = n.c;
+    const sx = tx(n.x), sy = ty(n.y) - p * 40 * dpr; ctx.strokeText(n.txt, sx, sy); ctx.fillText(n.txt, sx, sy);
+  }
+  ctx.globalAlpha = 1;
+
+  drawMini(now);
+  const c = G.clock + (now - G.snapAt) / 1000;
+  const cd = $("countdown");
+  if (c < 0) { cd.style.display = "block"; cd.textContent = Math.ceil(-c); }
+  else if (c < .8) { cd.style.display = "block"; cd.textContent = "GO!"; }
+  else cd.style.display = "none";
+  $("zoneTxt").textContent = c < 0 ? "" : c < G.zone.delay ? "Зона сужается через " + Math.ceil(G.zone.delay - c) + " с" : "⚠ Зона сужается";
+}
+
+function drawMini(now) {
+  const s = mini.width, A = G.arena, k = s / A;
+  mx2.clearRect(0, 0, s, s);
+  mx2.fillStyle = "rgba(255,40,100,.22)"; mx2.fillRect(0, 0, s, s);
+  mx2.fillStyle = "#150f33"; mx2.beginPath(); mx2.arc(G.zone.cx * k, G.zone.cy * k, G.zr * k, 0, TAU); mx2.fill();
+  mx2.strokeStyle = "#ff3b7a"; mx2.lineWidth = 2; mx2.stroke();
+  mx2.fillStyle = "#3a2d7a"; for (const o of G.obst) { mx2.beginPath(); mx2.arc(o[0] * k, o[1] * k, o[2] * k, 0, TAU); mx2.fill(); }
+  for (const e of G.ents.values()) {
+    const ro = G.roster.get(e.id); if (!ro) continue; const me = e.id === G.me;
+    mx2.fillStyle = me ? "#fff" : CH[ro.c].color; mx2.beginPath(); mx2.arc(e.dx * k, e.dy * k, me ? 7 : 5, 0, TAU); mx2.fill();
+  }
+}
+
+/* ═════════ ЗАПУСК ═════════ */
+async function boot() {
+  if (!token) { show("s-login"); return; }
+  try { profile = (await api("/api/me")).profile; toMenu(); }
+  catch (e) {
+    if (e.status === 401) logout(true);
+    else { show("s-login"); $("errPhone").textContent = e.message + ". Проверьте интернет и перезапустите приложение."; }
+  }
+}
 boot();
 })();
 </script>

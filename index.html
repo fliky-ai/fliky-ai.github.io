@@ -44,7 +44,10 @@ input{user-select:text;-webkit-user-select:text}
 #login h1{font-size:44px;line-height:1.05}
 #login .sub{color:var(--mut);max-width:290px}
 #loginBlock{width:128px;height:128px;border:4px solid #14161a}
-#gbtn{display:flex;align-items:center;gap:10px;justify-content:center;width:100%;max-width:320px}
+.loginrow{display:flex;gap:10px;width:100%;max-width:340px}
+#gbtn{flex:3;display:flex;align-items:center;gap:8px;justify-content:center;font-size:16px}
+#guestBtn{flex:2;font-size:16px}
+.hint{font-size:13px;color:var(--mut);margin-top:6px}
 #tgHint{display:none;font-size:13px;color:var(--mut);max-width:300px}
 
 /* create */
@@ -149,10 +152,13 @@ h3{font-size:18px;margin:16px 2px 8px}
   <canvas id="loginBlock"></canvas>
   <h1>Шахтёр Live</h1>
   <p class="sub">Копай руду в прямом эфире, набирай подписчиков и стримь вместе с друзьями.</p>
+  <div class="loginrow">
   <button id="gbtn" class="btn">
     <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#fff" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#fff" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.5-4.1 7-10.2 7-17.6z"/><path fill="#fff" d="M10.5 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.1z"/><path fill="#fff" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
-    Войти через Google
+    Google
   </button>
+  <button id="guestBtn" class="btn alt">Гость</button>
+  </div>
   <p id="loginErr" class="err"></p>
   <div id="tgHint">Если окно Google не открывается внутри Telegram, открой игру в браузере. Прогресс общий.
     <br><button id="openBrowser" class="btn sm alt" style="margin-top:8px">Открыть в браузере</button></div>
@@ -163,6 +169,8 @@ h3{font-size:18px;margin:16px 2px 8px}
   <h2 id="createTitle">Создай стримера</h2>
   <div class="prevbox"><canvas id="prev"></canvas></div>
   <input id="nick" class="txt" maxlength="16" placeholder="Никнейм (2–16 символов)" autocomplete="off" aria-label="Никнейм">
+  <input id="uname" class="txt" maxlength="16" placeholder="Юзернейм, например miner_vasya" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Юзернейм" style="margin-top:10px">
+  <p class="hint" id="unameHint">Юзернейм: 3–16 символов, латиница, цифры и _. Друзья смогут найти тебя по @юзернейму.</p>
   <div id="opts"></div>
   <p id="createErr" class="err" style="margin-top:10px"></p>
   <div class="row2">
@@ -200,15 +208,16 @@ h3{font-size:18px;margin:16px 2px 8px}
       <div class="myid"><b id="fMyId" class="h"></b><button id="fCopy" class="btn sm alt">Скопировать</button></div>
     </div>
     <div class="card">
-      <label for="fid">Добавить друга по ID</label>
-      <div class="add"><input id="fid" class="txt" inputmode="numeric" maxlength="6" placeholder="123456" autocomplete="off"><button id="fAdd" class="btn sm">Добавить</button></div>
+      <label for="fid">Добавить друга по ID или @юзернейму</label>
+      <div class="add"><input id="fid" class="txt" maxlength="17" placeholder="123456 или @miner" autocomplete="off" autocapitalize="none" spellcheck="false"><button id="fAdd" class="btn sm">Добавить</button></div>
       <p id="fErr" class="err"></p>
     </div>
     <div id="flist"></div>
   </div>
 
   <div id="p-me" class="pane">
-    <div class="me-top"><canvas id="meBig"></canvas><h2 id="pNick"></h2><div class="lvl" id="pRank"></div><p class="muted">ID <span id="pId"></span></p></div>
+    <div class="me-top"><canvas id="meBig"></canvas><h2 id="pNick"></h2><div class="lvl" id="pRank"></div><p class="muted">@<span id="pUser"></span> · ID <span id="pId"></span></p></div>
+    <button id="linkG" class="btn" style="width:100%;margin-top:12px;display:none">Привязать Google, чтобы не потерять аккаунт</button>
     <div class="stats">
       <div><b id="sSubs">0</b><span class="muted">подписчиков</span></div>
       <div><b id="sCoins">0</b><span class="muted">монет</span></div>
@@ -230,7 +239,7 @@ h3{font-size:18px;margin:16px 2px 8px}
 
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import {getAuth,GoogleAuthProvider,signInWithPopup,signInWithRedirect,onAuthStateChanged,signOut} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import {getAuth,GoogleAuthProvider,signInWithPopup,signInWithRedirect,signInAnonymously,linkWithPopup,onAuthStateChanged,signOut} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {getFirestore,doc,getDoc,setDoc,updateDoc,deleteDoc,collection,query,where,onSnapshot,runTransaction} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -284,6 +293,10 @@ function drawAvatar(cv, a) {
   cv.width = 16; cv.height = 16;
   const c = cv.getContext('2d'); c.clearRect(0, 0, 16, 16);
   const R = (x, y, w, hh, col) => { c.fillStyle = col; c.fillRect(x, y, w, hh); };
+  if (a.none) {
+    R(5, 3, 6, 6, '#7b7f87'); R(3, 10, 10, 6, '#7b7f87'); R(5, 3, 6, 1, '#9ea2aa'); R(3, 10, 10, 1, '#9ea2aa');
+    return;
+  }
   const skin = SKIN[a.skin] || SKIN[0], hair = HAIRC[a.hc] || HAIRC[0], shirt = SHIRT[a.shirt] || SHIRT[0];
   R(5, 14, 2, 2, '#3b4a8c'); R(9, 14, 2, 2, '#3b4a8c');
   R(4, 9, 8, 5, shirt); R(3, 9, 1, 3, shirt); R(12, 9, 1, 3, shirt); R(3, 12, 1, 1, skin); R(12, 12, 1, 1, skin);
@@ -357,17 +370,37 @@ const mult = () => (1 + me.subs / 100) * (partner() ? 2 : 1);
 
 /* ---------- вход ---------- */
 const provider = new GoogleAuthProvider();
+function authErr(e) {
+  const c = e.code || '';
+  if (c === 'auth/configuration-not-found') return 'В Firebase не запущена авторизация. Открой Authentication → Get started и включи нужный способ входа.';
+  if (c === 'auth/operation-not-allowed' || c === 'auth/admin-restricted-operation') return 'Этот способ входа выключен. Включи его в Firebase → Authentication → Sign-in method.';
+  if (c === 'auth/unauthorized-domain') return 'Домен не разрешён: добавь его в Firebase → Authentication → Settings → Authorized domains.';
+  if (c === 'auth/network-request-failed') return 'Нет сети. Проверь интернет.';
+  return 'Не удалось войти: ' + (c || e.message);
+}
 $('gbtn').onclick = async () => {
   $('loginErr').textContent = '';
   try { await signInWithPopup(auth, provider); }
   catch (e) {
     if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment') {
-      try { await signInWithRedirect(auth, provider); } catch (e2) { $('loginErr').textContent = 'Не удалось войти: ' + e2.code; }
+      try { await signInWithRedirect(auth, provider); } catch (e2) { $('loginErr').textContent = authErr(e2); }
     } else if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
-      $('loginErr').textContent = e.code === 'auth/unauthorized-domain'
-        ? 'Домен не разрешён: добавь его в Firebase → Authentication → Settings → Authorized domains'
-        : 'Не удалось войти: ' + (e.code || e.message);
+      $('loginErr').textContent = authErr(e);
     }
+  }
+};
+$('guestBtn').onclick = async () => {
+  $('loginErr').textContent = '';
+  try { await signInAnonymously(auth); }
+  catch (e) { $('loginErr').textContent = authErr(e); }
+};
+$('linkG').onclick = async () => {
+  try {
+    await linkWithPopup(auth.currentUser, provider);
+    toast('Google привязан. Аккаунт теперь не потеряется');
+    renderAll();
+  } catch (e) {
+    toast(e.code === 'auth/credential-already-in-use' ? 'Этот Google уже используется в другом аккаунте' : 'Не удалось привязать Google');
   }
 };
 if (tg && tg.initData) {
@@ -399,11 +432,14 @@ const OPT = [
 ];
 function buildOpts() {
   const box = $('opts'); box.innerHTML = '';
+  box.append(h('div', {class: 'orow'}, h('span', {class: 'olabel'}, 'Аватарка'),
+    h('div', {class: 'chips'}, h('button', {class: 'chip' + (cfg.none ? ' sel' : ''), type: 'button',
+      onclick: () => { cfg.none = !cfg.none; buildOpts(); drawAvatar($('prev'), cfg); }}, 'Без аватарки'))));
   OPT.forEach(o => {
     const list = h('div', {class: 'chips'});
     (o.sw || o.tx).forEach((v, i) => {
       const b = h('button', {class: 'chip' + (cfg[o.k] === i ? ' sel' : ''), type: 'button', 'aria-label': o.t + ' ' + (o.tx ? v : (i + 1)),
-        onclick: () => { cfg[o.k] = i; buildOpts(); drawAvatar($('prev'), cfg); }});
+        onclick: () => { cfg[o.k] = i; cfg.none = false; buildOpts(); drawAvatar($('prev'), cfg); }});
       if (o.sw) { b.classList.add('sw'); b.style.background = v; } else b.textContent = v;
       list.append(b);
     });
@@ -412,7 +448,9 @@ function buildOpts() {
 }
 function openCreate(edit) {
   editing = edit;
-  if (edit) { cfg = {...me.avatar}; $('nick').value = me.nick; }
+  if (edit) { cfg = {...me.avatar}; $('nick').value = me.nick; $('uname').value = me.username || ''; }
+  $('uname').disabled = edit && !!me.username;
+  $('unameHint').style.display = $('uname').disabled ? 'none' : 'block';
   $('createTitle').textContent = edit ? 'Изменить героя' : 'Создай стримера';
   $('createGo').textContent = edit ? 'Сохранить' : 'Играть';
   $('createErr').textContent = '';
@@ -420,34 +458,45 @@ function openCreate(edit) {
 }
 $('rnd').onclick = () => { cfg = randomCfg(); buildOpts(); drawAvatar($('prev'), cfg); };
 
-async function claimId() {
+// Резервирует юзернейм и случайный 6-значный ID одной транзакцией
+async function claimProfile(username) {
   for (let i = 0; i < 12; i++) {
     const code = String(100000 + rnd(900000));
-    const ok = await runTransaction(db, async tx => {
-      const r = doc(db, 'ids', code), s = await tx.get(r);
-      if (s.exists()) return false;
-      tx.set(r, {uid}); return true;
+    const res = await runTransaction(db, async tx => {
+      const ur = doc(db, 'usernames', username), ir = doc(db, 'ids', code);
+      const [us, is] = await Promise.all([tx.get(ur), tx.get(ir)]);
+      if (us.exists()) return 'taken';
+      if (is.exists()) return 'retry';
+      tx.set(ur, {uid}); tx.set(ir, {uid});
+      return code;
     });
-    if (ok) return code;
+    if (res === 'taken') return null;
+    if (res !== 'retry') return res;
   }
   throw new Error('id');
 }
+$('uname').addEventListener('input', e => { e.target.value = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''); });
 $('createGo').onclick = async () => {
   const nick = $('nick').value.trim();
+  const username = $('uname').value.trim().toLowerCase();
   const err = $('createErr'); err.textContent = '';
   if (nick.length < 2 || nick.length > 16) { err.textContent = 'Никнейм: от 2 до 16 символов'; return; }
+  if (!editing && !/^[a-z0-9_]{3,16}$/.test(username)) { err.textContent = 'Юзернейм: 3–16 символов, латиница, цифры и _'; return; }
   $('createGo').disabled = true;
   try {
     if (editing) {
       await updateDoc(doc(db, 'users', uid), {nick, avatar: {...cfg}});
       me.nick = nick; me.avatar = {...cfg}; startGame();
     } else {
-      const id = await claimId();
-      me = {id, nick, avatar: {...cfg}, coins: 0, subs: 0, taps: 0, blocks: 0, pick: 0, mic: 0, cam: 0, liveUntil: 0, liveWith: null, createdAt: Date.now()};
-      await setDoc(doc(db, 'users', uid), me);
-      startGame();
+      const id = await claimProfile(username);
+      if (!id) { err.textContent = 'Юзернейм @' + username + ' уже занят. Придумай другой'; }
+      else {
+        me = {id, username, nick, avatar: {...cfg}, coins: 0, subs: 0, taps: 0, blocks: 0, pick: 0, mic: 0, cam: 0, liveUntil: 0, liveWith: null, createdAt: Date.now()};
+        await setDoc(doc(db, 'users', uid), me);
+        startGame();
+      }
     }
-  } catch (e) { console.error(e); err.textContent = 'Не удалось сохранить. Проверь правила Firestore.'; }
+  } catch (e) { console.error(e); err.textContent = 'Не удалось сохранить. Проверь правила Firestore (файл firestore.rules).'; }
   $('createGo').disabled = false;
 };
 
@@ -590,13 +639,14 @@ function syncFriends() {
 }
 async function addFriend() {
   const err = $('fErr'); err.textContent = '';
-  const code = $('fid').value.trim();
-  if (!/^\d{6}$/.test(code)) { err.textContent = 'ID состоит из 6 цифр'; return; }
-  if (code === me.id) { err.textContent = 'Это твой собственный ID'; return; }
+  const raw = $('fid').value.trim().replace(/^@/, '').toLowerCase();
+  const byId = /^\d{6}$/.test(raw);
+  if (!byId && !/^[a-z0-9_]{3,16}$/.test(raw)) { err.textContent = 'Введи 6-значный ID или @юзернейм'; return; }
+  if (raw === me.id || raw === me.username) { err.textContent = 'Это ты сам'; return; }
   $('fAdd').disabled = true;
   try {
-    const s = await getDoc(doc(db, 'ids', code));
-    if (!s.exists()) { err.textContent = 'Игрок с таким ID не найден'; }
+    const s = await getDoc(doc(db, byId ? 'ids' : 'usernames', raw));
+    if (!s.exists()) { err.textContent = 'Игрок не найден'; }
     else {
       const fuid = s.data().uid;
       const inc = incoming.find(r => r.from === fuid), out = outgoing.find(r => r.to === fuid);
@@ -613,7 +663,7 @@ async function addFriend() {
 }
 $('fAdd').onclick = addFriend;
 $('fid').addEventListener('keydown', e => { if (e.key === 'Enter') addFriend(); });
-$('fid').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, ''); });
+$('fid').addEventListener('input', e => { e.target.value = e.target.value.toLowerCase().replace(/[^a-z0-9_@]/g, ''); });
 
 function friendRow(f) {
   const now = Date.now(), live = f.liveUntil > now, calls = live && f.liveWith === uid;
@@ -651,7 +701,11 @@ function joinDuo(f) {
 
 /* ---------- профиль ---------- */
 $('editHero').onclick = () => openCreate(true);
-$('logout').onclick = async () => { await flush(); await signOut(auth); location.reload(); };
+$('logout').onclick = async () => {
+  if (auth.currentUser && auth.currentUser.isAnonymous &&
+      !confirm('Ты играешь как гость. Если выйти, аккаунт и прогресс потеряются. Сначала привяжи Google. Выйти всё равно?')) return;
+  await flush(); await signOut(auth); location.reload();
+};
 function copyId() {
   const t = me.id;
   (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).catch(() => {
@@ -676,7 +730,8 @@ function renderAll() {
   if (tab === 'friends') { $('fMyId').textContent = me.id; renderFriends(); }
   if (tab === 'me') {
     drawAvatar($('meBig'), me.avatar);
-    $('pNick').textContent = me.nick; $('pId').textContent = me.id; $('pRank').textContent = rankOf(me.subs)[1];
+    $('pNick').textContent = me.nick; $('pId').textContent = me.id; $('pUser').textContent = me.username || '—'; $('pRank').textContent = rankOf(me.subs)[1];
+    $('linkG').style.display = (auth.currentUser && auth.currentUser.isAnonymous) ? 'block' : 'none';
     $('sSubs').textContent = fmt(me.subs); $('sCoins').textContent = fmt(me.coins);
     $('sTaps').textContent = fmt(me.taps); $('sBlocks').textContent = fmt(me.blocks);
   }

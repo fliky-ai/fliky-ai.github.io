@@ -23,7 +23,7 @@ const Accounts = {
   upsert(token, u) {
     if (!token || !u || !u.id) return;
     const a = Accounts.list();
-    const rec = { token, id: u.id, name: u.name || u.number || "", username: u.username || "", number: u.number || "",
+    const rec = { token, id: u.id, name: dispName(u), username: u.username || "", number: u.number || "",
                   avatar: u.avatar || "", is_system: u.is_system || 0 };
     const i = a.findIndex((x) => x.token === token);
     if (i >= 0) a[i] = rec; else a.push(rec);
@@ -93,8 +93,31 @@ function avatar(u, cls = "") {
   if (u.avatar) return `<div class="av ${cls}"><img src="${avatarUrl(u)}" alt="" decoding="async"></div>`;
   return `<div class="av def ${cls}">${PERSON}</div>`;
 }
-const dispName = (u) => u.name || u.number || "Пользователь";
+const dispName = (u) => [u.name, u.surname].filter(Boolean).join(" ") || u.number || "Пользователь";
 const nameHTML = (u) => esc(dispName(u)) + (u.is_system ? VERIFIED : "");
+
+// ── номер телефона и день рождения ──
+const fmtPhone = (n) => { const m = /^\+888(\d{4})(\d{4})$/.exec(n || ""); return m ? `+888 ${m[1]} ${m[2]}` : (n || ""); };
+const MON_S = ["янв.", "февр.", "мар.", "апр.", "мая", "июн.", "июл.", "авг.", "сент.", "окт.", "нояб.", "дек."];
+const MON_N = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+const MON_L = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
+const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10; return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many; };
+// "ГГГГ-ММ-ДД" или "--ММ-ДД" (без года) → {y, m, d}; y = 0, если года нет
+function parseBday(b) { const m = /^(\d{4}|-)-(\d{2})-(\d{2})$/.exec(b || ""); return m ? { y: m[1] === "-" ? 0 : +m[1], m: +m[2], d: +m[3] } : null; }
+function bdayAge(p) {
+  const n = new Date();
+  let a = n.getFullYear() - p.y;
+  if (n.getMonth() + 1 < p.m || (n.getMonth() + 1 === p.m && n.getDate() < p.d)) a--;
+  return a;
+}
+// "13 янв. 1994 (32 года)"
+function bdayText(b, age = true) {
+  const p = parseBday(b); if (!p) return "";
+  let s = `${p.d} ${MON_S[p.m - 1]}${p.y ? " " + p.y : ""}`;
+  if (p.y && age) { const a = bdayAge(p); if (a >= 0) s += ` (${a} ${plural(a, "год", "года", "лет")})`; }
+  return s;
+}
+const bdayToday = (b) => { const p = parseBday(b), n = new Date(); return !!p && p.m === n.getMonth() + 1 && p.d === n.getDate(); };
 
 // ── время: по часам и настройкам телефона (12/24ч, язык) ──
 const fmtTime = (ts) => new Date(ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });

@@ -155,7 +155,7 @@ const Chat = {
   // ───────────── заголовок и открытие ─────────────
   updateHeader() {
     const p = Chat.peer; if (!p) return;
-    $("chat-av").innerHTML = avatar(p, "sm");
+    $("chat-av").innerHTML = Stories.av(p, "sm");
     $("chat-name").innerHTML = nameHTML(p);
     const s = $("chat-sub"); s.textContent = statusText(p); s.classList.toggle("on", !!p.online && !p.is_system);
   },

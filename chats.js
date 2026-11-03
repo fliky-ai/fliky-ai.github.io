@@ -27,7 +27,7 @@ const Chats = {
   },
 
   async load() {
-    try { Chats.list = (await api("/api/chats")).chats; Chats.render(); } catch (e) {}
+    try { Chats.list = (await api("/api/chats")).chats; Chats.render(); Stories.load(); } catch (e) {}
   },
 
   upsert(peer, m, incoming) {
@@ -60,7 +60,7 @@ const Chats = {
   },
 
   row(kind, i, p, sub, right) {
-    return `<button class="row" data-k="${kind}" data-i="${i}">${avatar(p)}<div class="main">${right}<div class="bottom">${sub}</div></div></button>`;
+    return `<button class="row" data-k="${kind}" data-i="${i}">${Stories.av(p)}<div class="main">${right}<div class="bottom">${sub}</div></div></button>`;
   },
 
   render() {

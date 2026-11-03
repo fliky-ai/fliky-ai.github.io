@@ -176,8 +176,11 @@ const Attach = {
 
 // ───────────── встроенная камера (свой видоискатель вместо системного окна) ─────────────
 const Camera = {
-  el: null, stream: null, facing: "environment",
-  async open() {
+  el: null, stream: null, facing: "environment", onShot: null, pending: null,
+  // onShot(file) — если задан, снимок отдаётся ему (аватар, публикация), иначе открывается окно отправки в чат
+  async open(onShot, facing) {
+    Camera.onShot = onShot || null;
+    Camera.facing = facing || "environment";
     const el = (Camera.el = document.createElement("div"));
     el.className = "cam";
     el.innerHTML = `<video playsinline muted autoplay></video>
@@ -235,8 +238,9 @@ const Camera = {
       g.drawImage(v, 0, 0);
       blob = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.95));
     }
+    // снимок отдаём, когда окно камеры уже закрыто (иначе «назад» от закрытия камеры закроет следующее окно)
+    if (blob) Camera.pending = new File([blob], "photo_" + Date.now() + ".jpg", { type: blob.type || "image/jpeg" });
     Camera.close();
-    if (blob) Attach.preview([new File([blob], "photo_" + Date.now() + ".jpg", { type: blob.type || "image/jpeg" })]);
   },
   close() { if (Camera.release) Camera.release(); else Camera.hide(); },
   hide() {
@@ -245,6 +249,9 @@ const Camera = {
     Camera.stream = null;
     if (Camera.el) Camera.el.remove();
     Camera.el = null;
+    const f = Camera.pending, cb = Camera.onShot;
+    Camera.pending = null; Camera.onShot = null;
+    if (f) { if (cb) cb(f); else Attach.preview([f]); }
   },
 };
 

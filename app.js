@@ -90,7 +90,7 @@ const App = {
     const b = $("boot"); if (b) b.classList.add("hidden");
     $("auth").classList.add("hidden"); $("app").classList.remove("hidden");
     Profile.render();               // внутри обновляет и вкладку «Настройки»
-    Chats.load();
+    Chats.load(); Stories.load(true); Profile.loadStories();
     App.connect(); App.go("chats");
     setInterval(() => Chat.updateHeader(), 30000);
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { App.connect(); Chats.load(); Chat.sync(); } });
@@ -101,6 +101,7 @@ const App = {
     document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
     document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === "v-" + tab));
     if (tab === "chats") Chats.load();
+    if (tab === "profile") { Profile.loadStories(); Stories.load(); }
   },
 
   setOnline(v) { $("app").classList.toggle("offline", !v); },
@@ -128,6 +129,7 @@ const App = {
       else if (d.type === "pin") Chat.onPin(d);
       else if (d.type === "presence") App.presence(d);
       else if (d.type === "profile") App.profile(d.user);
+      else if (d.type === "story") { Stories.load(true); if (d.user === App.user.id) Profile.loadStories(); if (UserProfile.cur && UserProfile.cur.id === d.user) UserProfile.loadStories(d.user); }
     };
     ws.onclose = () => {
       if (App.ws !== ws) return;
@@ -144,7 +146,7 @@ const App = {
   },
   presence(d) { App.patchUser(d.user, { online: d.online, last_seen: d.last_seen }); },
   profile(u) {
-    App.patchUser(u.id, { name: u.name, username: u.username, bio: u.bio, avatar: u.avatar });
+    App.patchUser(u.id, { name: u.name, surname: u.surname, username: u.username, bio: u.bio, avatar: u.avatar });
     Chats.render(); if (u.id === App.user.id) Profile.render();
   },
 };

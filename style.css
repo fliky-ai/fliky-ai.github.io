@@ -29,15 +29,16 @@ img{-webkit-user-drag:none;pointer-events:none}
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   padding: 24px;
   z-index: 100;
   overflow-y: auto;
 }
 
+/* margin:auto вместо justify-content:center — при открытой клавиатуре верх (логотип) не обрезается */
 .auth-container {
   width: 100%;
   max-width: 380px;
+  margin: auto 0;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -62,30 +63,28 @@ img{-webkit-user-drag:none;pointer-events:none}
 }
 .auth .logo svg { width: 36px; height: 36px; }
 
-/* === Шаги: плавная смена === */
+/* === Шаги: в раскладке только активный (неактивный не занимает место и не сдвигает контент) === */
 .step {
-  position: relative;
+  display: none;
   width: 100%;
-  display: flex;
   flex-direction: column;
   align-items: stretch;
-  opacity: 0;
-  transform: translateX(24px);
-  pointer-events: none;
-  transition: opacity .28s ease, transform .28s ease;
 }
 .step.is-active {
-  opacity: 1;
-  transform: none;
-  pointer-events: auto;
+  display: flex;
+  animation: stepIn .28s ease both;
 }
-.step.is-leaving {
-  opacity: 0;
-  transform: translateX(-24px);
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
+@keyframes stepIn {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: none; }
 }
+
+/* === Заставка при запуске === */
+.boot { position: fixed; inset: 0; z-index: 200; background: var(--bg); display: grid; place-items: center; }
+.boot.hidden { display: none; }
+.spin { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.auth-cancel { margin: 6px auto 0; }
 
 .auth h1 {
   font-size: 24px;
@@ -365,6 +364,7 @@ img{-webkit-user-drag:none;pointer-events:none}
 .sheet .card{width:100%;max-width:480px;background:var(--surface);border-radius:20px 20px 0 0;padding:20px 16px calc(16px + var(--safe-b));text-align:center}
 .sheet-btns{display:flex;gap:10px;margin-top:16px}
 .sheet-btns button{flex:1;height:44px;border-radius:12px;background:var(--raised);font-weight:700}
+.sheet-btns #sheet-ok:not(.danger){color:var(--accent)}
 .toast{position:fixed;left:50%;top:calc(var(--safe-t) + 14px);transform:translate(-50%,-90px);padding:9px 16px;border-radius:14px;background:var(--raised);box-shadow:0 8px 24px rgba(0,0,0,.3);font-weight:600;font-size:14px;transition:transform .25s;z-index:80;max-width:90%;text-align:center}
 .toast.show{transform:translate(-50%,0)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}

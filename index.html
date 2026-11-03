@@ -14,6 +14,9 @@
 </head>
 <body>
 
+<!-- ЗАСТАВКА: пока проверяем сессию (чтобы не было пустого экрана) -->
+<div id="boot" class="boot" aria-hidden="true"><div class="spin"></div></div>
+
 <!-- ВХОД В СТИЛЕ TELEGRAM -->
 <section id="auth" class="auth hidden">
   <div class="auth-container">
@@ -69,6 +72,7 @@
     </div>
 
     <p id="auth-err" class="err" role="alert"></p>
+    <button id="auth-cancel" class="link auth-cancel hidden" type="button">Вернуться в аккаунт</button>
   </div>
 </section>
 

@@ -23,6 +23,8 @@ const Profile = {
     $("pf-edit").onclick = () => Profile.openEdit();
     if ($("pf-rm")) $("pf-rm").onclick = Profile.removePhoto;
     $("ed-av").innerHTML = avatar(u, "xl") + `<span class="cam">${ICON.camera}</span>`;
+    // имя и фото показаны и во вкладке «Настройки» (шапка и список аккаунтов) — обновляем их тоже
+    Settings.render();
   },
 
   // ── фото ──
@@ -63,7 +65,7 @@ const Profile = {
   hint(t, cls = "") { const h = $("ed-user-hint"); h.textContent = t; h.className = "hint2 " + cls; },
 
   check() {
-    const u = App.user, name = $("ed-name").value.trim(), un = $("ed-user").value.trim().replace(/^@/, ""), bio = $("ed-bio").value;
+    const u = App.user, un = $("ed-user").value.trim().replace(/^@/, ""), bio = $("ed-bio").value;
     $("ed-bio-cnt").textContent = bio.length + "/70";
     clearTimeout(Profile.unTimer);
     if (!un || un === u.username) { Profile.unOK = true; Profile.hint(un ? "Это ваше текущее имя пользователя" : "От 5 до 32 символов: латиница, цифры и _. Начинается с буквы."); }

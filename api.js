@@ -1,4 +1,3 @@
-
 // Общие функции: запросы, сессия (отдельная для каждого Telegram-аккаунта), аватарки, время.
 const $ = (id) => document.getElementById(id);
 const TGW = window.Telegram && Telegram.WebApp;
@@ -11,6 +10,40 @@ const Store = {
   set token(v) { v ? localStorage.setItem("tok_" + TG_ID, v) : localStorage.removeItem("tok_" + TG_ID); },
 };
 
+// Сохранённые аккаунты (переключение без выхода). Список тоже отдельный для каждого Telegram-аккаунта,
+// иначе в Mini App чужие токены дадут 401.
+const Accounts = {
+  key: "tg_accounts_" + TG_ID,
+  prevKey: "tg_prev_" + TG_ID,
+  list() {
+    try { const a = JSON.parse(localStorage.getItem(Accounts.key) || "[]"); return Array.isArray(a) ? a : []; }
+    catch (e) { return []; }
+  },
+  save(a) { try { localStorage.setItem(Accounts.key, JSON.stringify(a)); } catch (e) {} },
+  upsert(token, u) {
+    if (!token || !u || !u.id) return;
+    const a = Accounts.list();
+    const rec = { token, id: u.id, name: u.name || u.number || "", username: u.username || "", number: u.number || "",
+                  avatar: u.avatar || "", is_system: u.is_system || 0 };
+    const i = a.findIndex((x) => x.token === token);
+    if (i >= 0) a[i] = rec; else a.push(rec);
+    Accounts.save(a);
+  },
+  remove(token) { if (token) Accounts.save(Accounts.list().filter((x) => x.token !== token)); },
+  setPrev(token) { try { localStorage.setItem(Accounts.prevKey, token || ""); } catch (e) {} },
+  getPrev() { try { return localStorage.getItem(Accounts.prevKey) || ""; } catch (e) { return ""; } },
+  clearPrev() { try { localStorage.removeItem(Accounts.prevKey); } catch (e) {} },
+};
+// Старый общий список (ключ tg_accounts) переносим один раз и удаляем: в нём лежат токены.
+(function migrateAccounts() {
+  try {
+    const old = localStorage.getItem("tg_accounts");
+    if (old === null) return;
+    if (TG_ID === "web" && localStorage.getItem(Accounts.key) === null) localStorage.setItem(Accounts.key, old);
+    localStorage.removeItem("tg_accounts");
+  } catch (e) {}
+})();
+
 async function api(path, { method = "GET", body } = {}) {
   const h = {};
   if (body) h["Content-Type"] = "application/json";
@@ -21,7 +54,10 @@ async function api(path, { method = "GET", body } = {}) {
   catch (e) { throw new Error("Нет связи с сервером"); }
   let d = {};
   try { d = await r.json(); } catch (e) {}
-  if (r.status === 401 && Store.token) { Store.token = ""; location.reload(); }
+  if (r.status === 401 && Store.token) {
+    // сессия недействительна: убираем её и из списка аккаунтов, чтобы не переключаться на мёртвый токен
+    Accounts.remove(Store.token); Store.token = ""; location.reload();
+  }
   if (!r.ok || d.ok === false) throw new Error(d.error || "Ошибка " + r.status);
   return d;
 }
@@ -103,12 +139,14 @@ async function copyText(t) {
   }
 }
 
-// своё окно подтверждения (без системных диалогов)
-function ask(text, okLabel = "Выйти") {
+// своё окно подтверждения (без системных диалогов); danger=false — кнопка не красная
+function ask(text, okLabel = "Выйти", danger = true) {
   return new Promise((res) => {
-    $("sheet-t").textContent = text; $("sheet-ok").textContent = okLabel; $("sheet").classList.remove("hidden");
+    const ok = $("sheet-ok");
+    $("sheet-t").textContent = text; ok.textContent = okLabel; ok.classList.toggle("danger", !!danger);
+    $("sheet").classList.remove("hidden");
     const done = (v) => { $("sheet").classList.add("hidden"); res(v); };
-    $("sheet-ok").onclick = () => done(true);
+    ok.onclick = () => done(true);
     $("sheet-no").onclick = () => done(false);
     $("sheet").onclick = (e) => { if (e.target.id === "sheet") done(false); };
   });

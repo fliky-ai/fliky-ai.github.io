@@ -121,17 +121,14 @@ const Auth = (() => {
     if (readCode().length === codeLen) verify();
   }
 
+  // Показываем только активный шаг (остальные display:none в style.css) — раскладка не «прыгает».
   function step(n) {
     const s1 = $("step-phone");
     const s2 = $("step-code");
     const active = n === 1 ? s1 : s2;
     const other  = n === 1 ? s2 : s1;
 
-    if (other) {
-      other.classList.remove("is-active");
-      other.classList.add("is-leaving");
-      setTimeout(() => other.classList.remove("is-leaving"), 320);
-    }
+    if (other) other.classList.remove("is-active");
     if (active) active.classList.add("is-active");
 
     err("");
@@ -210,6 +207,7 @@ const Auth = (() => {
         }
       });
       Store.token = d.token;
+      Accounts.clearPrev();
       clearInterval(timer);
       onDone(d.user);
     } catch (e) {
@@ -251,6 +249,23 @@ const Auth = (() => {
         syncHiddenCode();
         step(1);
       });
+
+      // Если есть сохранённые аккаунты (пользователь нажал «Добавить аккаунт» или вышел из одного из нескольких),
+      // даём вернуться, не вводя номер заново.
+      const cancelBtn = $("auth-cancel");
+      if (cancelBtn) {
+        const accs = Accounts.list();
+        if (accs.length) {
+          cancelBtn.classList.remove("hidden");
+          cancelBtn.addEventListener("click", () => {
+            const prev = Accounts.getPrev();
+            const acc = accs.find(a => a.token === prev) || accs[0];
+            Accounts.clearPrev();
+            Store.token = acc.token;
+            location.reload();
+          });
+        }
+      }
 
       // скрытое #code — буфер для автозаполнения Telegram (one-time-code)
       const hidden = $("code");

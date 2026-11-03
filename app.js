@@ -1,4 +1,3 @@
-
 // Точка входа: сессия, навигация, вкладки, WebSocket.
 const Theme = {
   get() { return localStorage.getItem("theme") || "auto"; },
@@ -52,17 +51,34 @@ const App = {
       e.preventDefault(); try { TGW.openLink(a.href); } catch (_) { window.open(a.href, "_blank", "noopener"); }
     });
     Chats.bind(); Chat.bind(); Contacts.bind();
+    App.boot();
+  },
 
-    if (Store.token) {
-      try { const d = await api("/api/me"); return App.enter(d.user); } catch (e) {}
+  // Запуск сессии. Нет связи или сервер недоступен — НЕ выбрасываем на экран входа
+  // (это создавало бы лишние сессии), а ждём и пробуем снова. На вход отправляет только 401.
+  async boot() {
+    if (!Store.token) return App.showAuth();
+    try {
+      const d = await api("/api/me");
+      return App.enter(d.user);
+    } catch (e) {
+      if (!Store.token) return App.showAuth();   // 401: api() уже сбросил токен и перезагружает страницу
+      toast((e && e.message) || "Нет связи с сервером");
+      setTimeout(() => App.boot(), 3000);
     }
+  },
+
+  showAuth() {
+    const b = $("boot"); if (b) b.classList.add("hidden");
     Auth.init((u) => App.enter(u));
   },
 
   enter(user) {
     App.user = user;
+    const b = $("boot"); if (b) b.classList.add("hidden");
     $("auth").classList.add("hidden"); $("app").classList.remove("hidden");
-    Profile.render(); Settings.render(); Chats.load();
+    Profile.render();               // внутри обновляет и вкладку «Настройки»
+    Chats.load();
     App.connect(); App.go("chats");
     setInterval(() => Chat.updateHeader(), 30000);
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { App.connect(); Chats.load(); Chat.sync(); } });
@@ -77,25 +93,29 @@ const App = {
 
   setOnline(v) { $("app").classList.toggle("offline", !v); },
 
+  // WebSocket: токен уходит первым сообщением, а не в адресе (адреса попадают в логи прокси).
   connect() {
     if (!Store.token || (App.ws && App.ws.readyState <= 1)) return;
     clearTimeout(App.retryT);
-    const ws = new WebSocket(CONFIG.WS + "?token=" + encodeURIComponent(Store.token) + (INIT ? "&init=" + encodeURIComponent(INIT) : ""));
+    const again = () => { if (Store.token) App.retryT = setTimeout(() => App.connect(), Math.min(1000 * 2 ** App.retry++, 15000)); };
+    let ws;
+    try { ws = new WebSocket(CONFIG.WS); } catch (e) { return again(); }
     App.ws = ws;
-    ws.onopen = () => {
-      App.retry = 0; App.setOnline(true); Chats.load(); Chat.sync();
-      clearInterval(App.pingT); App.pingT = setInterval(() => ws.readyState === 1 && ws.send("ping"), 25000);
-    };
+    ws.onopen = () => { try { ws.send(JSON.stringify({ type: "auth", token: Store.token, init: INIT })); } catch (e) {} };
     ws.onmessage = (ev) => {
       let d; try { d = JSON.parse(ev.data); } catch (e) { return; }
-      if (d.type === "message") { Chat.onMessage(d.message); Chats.onMessage(d.message); }
+      if (d.type === "ready") {   // сервер принял токен
+        App.retry = 0; App.setOnline(true); Chats.load(); Chat.sync();
+        clearInterval(App.pingT); App.pingT = setInterval(() => ws.readyState === 1 && ws.send("ping"), 25000);
+      }
+      else if (d.type === "message") { Chat.onMessage(d.message); Chats.onMessage(d.message); }
       else if (d.type === "read") Chat.onRead(d.by);
       else if (d.type === "presence") App.presence(d);
       else if (d.type === "profile") App.profile(d.user);
     };
     ws.onclose = () => {
-      clearInterval(App.pingT); App.setOnline(false);
-      if (Store.token) App.retryT = setTimeout(() => App.connect(), Math.min(1000 * 2 ** App.retry++, 15000));
+      if (App.ws !== ws) return;
+      clearInterval(App.pingT); App.setOnline(false); again();
     };
     ws.onerror = () => { try { ws.close(); } catch (e) {} };
   },

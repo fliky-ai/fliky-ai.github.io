@@ -1,7 +1,6 @@
-
+// register.js — экран входа (номер +888 → код). Совместим с index.html и style.css из проекта.
 const Auth = (() => {
-  let number = "", timer = null, onDone = null, busy = false, codeLen = 5;
-  let resendLeft = 0;
+  let number = "", timer = null, onDone = null, busy = false, codeLen = 5, resendLeft = 0;
 
   const $ = (id) => document.getElementById(id);
 
@@ -17,14 +16,110 @@ const Auth = (() => {
     el.classList.add("shake");
   };
 
-  // Маска: +888 1234 5678 (пробелы только для отображения, в логике — цифры)
+  // +888 1234 5678 (8 цифр, пробел после 4-й)
   const fmtPhone = (digits) => {
-    const d = digits.replace(/\D/g, "").slice(0, 8);
-    let o = "";
-    if (d.length) o += d.slice(0, 4);
-    if (d.length > 4) o += " " + d.slice(4, 8);
-    return o;
+    const d = String(digits || "").replace(/\D/g, "").slice(0, 8);
+    if (!d) return "";
+    return d.length > 4 ? d.slice(0, 4) + " " + d.slice(4) : d;
   };
+
+  const phoneDigits = () => (($("phone") || {}).value || "").replace(/\D/g, "");
+
+  const cells = () => Array.from(document.querySelectorAll("#code-cells .code-cell"));
+  const readCode = () => cells().map(c => c.value).join("");
+  const focusCell = (i) => {
+    const list = cells();
+    const c = list[Math.max(0, Math.min(i, list.length - 1))];
+    if (c) { c.focus(); try { c.select(); } catch (_) {} }
+  };
+  const syncHiddenCode = () => {
+    const h = $("code");
+    if (h) h.value = readCode();
+  };
+
+  function syncArrow() {
+    const btn = $("btn-phone");
+    if (btn) btn.disabled = busy || phoneDigits().length !== 8;
+  }
+
+  function buildCodeCells(len) {
+    codeLen = len;
+    const wrap = $("code-cells");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    wrap.dataset.len = String(len);
+    for (let i = 0; i < len; i++) {
+      const c = document.createElement("input");
+      c.className = "code-cell";
+      c.type = "text";
+      c.inputMode = "numeric";
+      c.maxLength = 1;
+      c.autocomplete = "one-time-code";
+      c.dataset.i = String(i);
+      c.setAttribute("aria-label", `Цифра ${i + 1}`);
+      c.addEventListener("input", onCellInput);
+      c.addEventListener("keydown", onCellKey);
+      c.addEventListener("paste", onCellPaste);
+      c.addEventListener("focus", () => c.select && c.select());
+      wrap.appendChild(c);
+    }
+    syncHiddenCode();
+  }
+
+  function onCellInput(e) {
+    const el = e.target;
+    const idx = Number(el.dataset.i);
+    const v = el.value.replace(/\D/g, "");
+
+    if (v.length > 1) {
+      const all = cells();
+      let k = 0;
+      for (; k < v.length && idx + k < all.length; k++) {
+        all[idx + k].value = v[k];
+        all[idx + k].classList.add("filled");
+      }
+      focusCell(idx + v.length);
+    } else {
+      el.value = v;
+      el.classList.toggle("filled", !!v);
+      if (v) focusCell(idx + 1);
+    }
+
+    syncHiddenCode();
+    if (readCode().length === codeLen) verify();
+  }
+
+  function onCellKey(e) {
+    const el = e.target;
+    const idx = Number(el.dataset.i);
+
+    if (e.key === "Backspace") {
+      if (!el.value) {
+        focusCell(idx - 1);
+        e.preventDefault();
+      }
+    } else if (e.key === "ArrowLeft") {
+      focusCell(idx - 1); e.preventDefault();
+    } else if (e.key === "ArrowRight") {
+      focusCell(idx + 1); e.preventDefault();
+    } else if (e.key === "Enter") {
+      verify(); e.preventDefault();
+    }
+  }
+
+  function onCellPaste(e) {
+    const txt = (e.clipboardData || window.clipboardData).getData("text") || "";
+    const d = txt.replace(/\D/g, "").slice(0, codeLen);
+    if (!d) return;
+    e.preventDefault();
+    const all = cells();
+    d.split("").forEach((ch, k) => {
+      if (all[k]) { all[k].value = ch; all[k].classList.add("filled"); }
+    });
+    syncHiddenCode();
+    focusCell(d.length);
+    if (readCode().length === codeLen) verify();
+  }
 
   function step(n) {
     const s1 = $("step-phone");
@@ -35,15 +130,15 @@ const Auth = (() => {
     if (other) {
       other.classList.remove("is-active");
       other.classList.add("is-leaving");
-      setTimeout(() => other.classList.remove("is-leaving"), 300);
+      setTimeout(() => other.classList.remove("is-leaving"), 320);
     }
     if (active) active.classList.add("is-active");
 
     err("");
     setTimeout(() => {
-      if (n === 1) $("phone")?.focus();
-      else firstCodeCell()?.focus();
-    }, 120);
+      if (n === 1) $("phone") && $("phone").focus();
+      else focusCell(0);
+    }, 140);
   }
 
   function countdown(s) {
@@ -65,112 +160,16 @@ const Auth = (() => {
     timer = setInterval(() => { resendLeft--; render(); }, 1000);
   }
 
-  // ---------- Кодовые ячейки ----------
-  function buildCodeCells(len) {
-    codeLen = len;
-    const wrap = $("code-cells");
-    if (!wrap) return;
-    wrap.innerHTML = "";
-    wrap.dataset.len = String(len);
-    for (let i = 0; i < len; i++) {
-      const c = document.createElement("input");
-      c.className = "code-cell";
-      c.type = "text";
-      c.inputMode = "numeric";
-      c.maxLength = 1;
-      c.dataset.i = String(i);
-      c.autocomplete = "one-time-code";
-      c.addEventListener("input", onCellInput);
-      c.addEventListener("keydown", onCellKey);
-      c.addEventListener("paste", onCellPaste);
-      wrap.appendChild(c);
-    }
-    syncHiddenCode();
-  }
-
-  const cells = () => Array.from(document.querySelectorAll("#code-cells .code-cell"));
-  const firstCodeCell = () => cells()[0];
-  const readCode = () => cells().map(c => c.value).join("");
-  const syncHiddenCode = () => { const h = $("code"); if (h) h.value = readCode(); };
-
-  function focusCell(i) { const c = cells()[i]; if (c) { c.focus(); c.select?.(); } }
-
-  function onCellInput(e) {
-    const el = e.target;
-    let v = el.value.replace(/\D/g, "");
-    if (v.length > 1) {
-      // пользователь вставил несколько цифр в ячейку
-      const idx = Number(el.dataset.i);
-      const all = cells();
-      for (let k = 0; k < v.length && idx + k < all.length; k++) {
-        all[idx + k].value = v[k];
-        all[idx + k].classList.toggle("filled", !!v[k]);
-      }
-      focusCell(Math.min(idx + v.length, all.length - 1));
-    } else {
-      el.value = v;
-      el.classList.toggle("filled", !!v);
-      if (v) {
-        const idx = Number(el.dataset.i);
-        focusCell(idx + 1);
-      }
-    }
-    syncHiddenCode();
-    if (readCode().length === codeLen) verify();
-  }
-
-  function onCellKey(e) {
-    if (e.key === "Backspace") {
-      const el = e.target;
-      if (!el.value) {
-        const idx = Number(el.dataset.i);
-        if (idx > 0) focusCell(idx - 1);
-        e.preventDefault();
-      }
-    } else if (e.key === "ArrowLeft") {
-      focusCell(Number(e.target.dataset.i) - 1); e.preventDefault();
-    } else if (e.key === "ArrowRight") {
-      focusCell(Number(e.target.dataset.i) + 1); e.preventDefault();
-    } else if (e.key === "Enter") {
-      verify();
-    }
-  }
-
-  function onCellPaste(e) {
-    const txt = (e.clipboardData || window.clipboardData).getData("text") || "";
-    const d = txt.replace(/\D/g, "").slice(0, codeLen);
-    if (!d) return;
-    e.preventDefault();
-    const all = cells();
-    d.split("").forEach((ch, k) => {
-      if (all[k]) { all[k].value = ch; all[k].classList.add("filled"); }
-    });
-    syncHiddenCode();
-    focusCell(Math.min(d.length, all.length - 1));
-    if (readCode().length === codeLen) verify();
-  }
-
-  // ---------- API ----------
-  function phoneValid() {
-    return $("phone")?.value.replace(/\D/g, "").length === 8;
-  }
-
-  function syncArrow() {
-    const btn = $("btn-phone");
-    if (btn) btn.disabled = !phoneValid() || busy;
-  }
-
   async function sendCode() {
     if (busy) return;
-    const raw = ($("phone")?.value || "").replace(/\D/g, "");
-    if (raw.length < 8) {
+    const raw = phoneDigits();
+    if (raw.length !== 8) {
       err("Введите номер полностью (8 цифр)");
       shake(document.querySelector(".phone-input-wrap"));
       return;
     }
     busy = true;
-    const btn = $("btn-phone");
-    if (btn) btn.disabled = true;
+    syncArrow();
     err("");
 
     try {
@@ -185,7 +184,7 @@ const Auth = (() => {
       step(2);
       countdown(60);
     } catch (e) {
-      err(e.message);
+      err((e && e.message) || "Не удалось отправить код");
       shake(document.querySelector(".phone-input-wrap"));
     }
     busy = false;
@@ -196,9 +195,9 @@ const Auth = (() => {
     if (busy) return;
     const code = readCode();
     if (code.length !== codeLen) return;
+
     busy = true;
     err("");
-    const wrap = $("code-cells");
 
     try {
       const d = await api("/api/auth/verify", {
@@ -214,50 +213,54 @@ const Auth = (() => {
       clearInterval(timer);
       onDone(d.user);
     } catch (e) {
-      err(e.message);
+      err((e && e.message) || "Неверный код");
       cells().forEach(c => { c.value = ""; c.classList.remove("filled"); });
       focusCell(0);
-      shake(wrap);
+      shake($("code-cells"));
     }
     busy = false;
   }
 
-  // ---------- Публичный init ----------
   return {
     init(done) {
       onDone = done;
-      $("auth")?.classList.remove("hidden");
+      const authSec = $("auth");
+      if (authSec) authSec.classList.remove("hidden");
 
       const phoneInp = $("phone");
       if (phoneInp) {
-        // Маска с сохранением позиции курсора
-        phoneInp.addEventListener("input", (e) => {
-          const digits = e.target.value.replace(/\D/g, "");
-          e.target.value = fmtPhone(digits);
+        phoneInp.addEventListener("input", () => {
+          phoneInp.value = fmtPhone(phoneInp.value);
           syncArrow();
         });
         phoneInp.addEventListener("keydown", (e) => {
-          if (e.key === "Enter") sendCode();
+          if (e.key === "Enter") { e.preventDefault(); sendCode(); }
         });
       }
 
-      $("btn-phone")?.addEventListener("click", sendCode);
-      $("resend")?.addEventListener("click", sendCode);
-      $("change-num")?.addEventListener("click", () => {
+      const btnPhone = $("btn-phone");
+      if (btnPhone) btnPhone.addEventListener("click", sendCode);
+
+      const resendBtn = $("resend");
+      if (resendBtn) resendBtn.addEventListener("click", sendCode);
+
+      const changeBtn = $("change-num");
+      if (changeBtn) changeBtn.addEventListener("click", () => {
         clearInterval(timer);
-        // сброс кода
         cells().forEach(c => { c.value = ""; c.classList.remove("filled"); });
         syncHiddenCode();
         step(1);
       });
 
-      // скрытое поле кода — только как буфер (основной ввод в ячейках)
+      // скрытое #code — буфер для автозаполнения Telegram (one-time-code)
       const hidden = $("code");
       if (hidden) {
         hidden.addEventListener("input", () => {
           const d = hidden.value.replace(/\D/g, "").slice(0, codeLen);
           const all = cells();
-          d.split("").forEach((ch, k) => { if (all[k]) { all[k].value = ch; all[k].classList.add("filled"); } });
+          d.split("").forEach((ch, k) => {
+            if (all[k]) { all[k].value = ch; all[k].classList.add("filled"); }
+          });
           if (d.length === codeLen) verify();
         });
       }

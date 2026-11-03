@@ -21,9 +21,19 @@ const Nav = {
     $(id).classList.add("open"); $(id).setAttribute("aria-hidden", "false");
     Nav.stack.push({ id, onClose }); history.pushState({ n: Nav.stack.length }, ""); Nav.sync();
   },
+  // Слой без страницы (меню сообщения, просмотр фото, камера…): «назад» закрывает его, а не весь чат.
+  // Возвращает функцию, которой слой закрывают сами (она же вызывает onClose через историю).
+  layer(onClose) {
+    const t = { id: null, onClose };
+    Nav.stack.push(t); history.pushState({ n: Nav.stack.length }, ""); Nav.sync();
+    return () => {
+      if (Nav.stack[Nav.stack.length - 1] === t) Nav.back();
+      else { const i = Nav.stack.indexOf(t); if (i >= 0) Nav.stack.splice(i, 1); if (onClose) onClose(); }
+    };
+  },
   pop() {
     const t = Nav.stack.pop(); if (!t) return;
-    $(t.id).classList.remove("open"); $(t.id).setAttribute("aria-hidden", "true");
+    if (t.id) { $(t.id).classList.remove("open"); $(t.id).setAttribute("aria-hidden", "true"); }
     if (t.onClose) t.onClose(); Nav.sync();
   },
   back() { if (Nav.stack.length) history.back(); },
@@ -45,12 +55,14 @@ const App = {
     document.querySelectorAll(".tab").forEach((b) => (b.onclick = () => { haptic(); App.go(b.dataset.tab); }));
     ["chat-back", "up-back", "ed-back"].forEach((id) => ($(id).onclick = () => Nav.back()));
     // никаких системных меню
-    document.addEventListener("contextmenu", (e) => { if (!/INPUT|TEXTAREA/.test(e.target.tagName)) e.preventDefault(); });
+    document.addEventListener("contextmenu", (e) => { if (!/INPUT|TEXTAREA/.test(e.target.tagName) || e.target.closest("#panel")) e.preventDefault(); });
     document.addEventListener("click", (e) => {
-      const a = e.target.closest("a"); if (!a) return;
+      const a = e.target.closest("a"); if (!a || a.dataset.dl) return;
       e.preventDefault(); try { TGW.openLink(a.href); } catch (_) { window.open(a.href, "_blank", "noopener"); }
     });
     Chats.bind(); Chat.bind(); Contacts.bind();
+    // кнопка Telegram «назад» и свайп закрывают открытые окна по порядку; поле ввода не прячем под клавиатуру
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") Nav.back(); });
     App.boot();
   },
 
@@ -110,6 +122,10 @@ const App = {
       }
       else if (d.type === "message") { Chat.onMessage(d.message); Chats.onMessage(d.message); }
       else if (d.type === "read") Chat.onRead(d.by);
+      else if (d.type === "edit") { Chat.onEdit(d.message); Chats.onEdit(d.message); }
+      else if (d.type === "del") { Chat.onDel(d.ids); Chats.load(); }
+      else if (d.type === "react") Chat.onReact(d);
+      else if (d.type === "pin") Chat.onPin(d);
       else if (d.type === "presence") App.presence(d);
       else if (d.type === "profile") App.profile(d.user);
     };

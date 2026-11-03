@@ -47,6 +47,13 @@ const Chats = {
     Chats.upsert(c.peer, m, !mine);
   },
 
+  // сообщение изменили: если оно последнее в чате — обновляем подпись в списке
+  onEdit(m) {
+    const pid = m.sender === App.user.id ? m.receiver : m.sender;
+    const c = Chats.list.find((x) => x.peer.id === pid);
+    if (c && c.last && c.last.id === m.id) { c.last = m; Chats.render(); }
+  },
+
   markRead(pid) {
     const c = Chats.list.find((x) => x.peer.id === pid);
     if (c && c.unread) { c.unread = 0; Chats.render(); }
@@ -64,7 +71,7 @@ const Chats = {
     const chatRow = (c, i) => {
       const mine = c.last.sender === App.user.id;
       return Chats.row("c", i, c.peer,
-        `<span class="prev">${mine ? "<b>Вы:</b> " : ""}${esc(plain(c.last.text).split("\n")[0])}</span>${c.unread ? `<span class="badge">${c.unread}</span>` : ""}`,
+        `<span class="prev">${mine ? "<b>Вы:</b> " : ""}${esc(Rich.preview(c.last).split("\n")[0])}</span>${c.unread ? `<span class="badge">${c.unread}</span>` : ""}`,
         `<div class="top"><span class="name">${nameHTML(c.peer)}</span><span class="time">${listTime(c.last.ts)}</span></div>`);
     };
 

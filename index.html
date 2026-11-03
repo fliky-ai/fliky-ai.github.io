@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="chat.css">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
@@ -113,10 +114,30 @@
     <button id="chat-back" class="icon-btn" aria-label="Назад"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
     <button id="chat-head" class="headinfo"><span id="chat-av"></span><span class="cinfo"><span id="chat-name" class="name"></span><span id="chat-sub" class="sub2"></span></span></button>
   </header>
-  <div id="msgs" class="msgs"></div>
+  <div id="pinbar" class="pinbar hidden"></div>
+  <div class="msgs-wrap">
+    <div id="msgs" class="msgs"></div>
+    <button id="jump" class="jump hidden" aria-label="Вниз"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+  </div>
   <div id="composer" class="composer">
-    <div class="field"><textarea id="msg-input" rows="1" placeholder="Сообщение" enterkeyhint="send"></textarea></div>
-    <button id="send" class="send" aria-label="Отправить"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></button>
+    <div id="ctxbar" class="ctxbar hidden"><span class="cb-ic"></span><div class="cb-t"><b></b><span></span></div><button id="cb-x" class="cb-x" aria-label="Отмена"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="crow">
+      <div class="pill">
+        <button id="btn-emoji" class="cbtn" type="button" aria-label="Эмодзи, стикеры и GIF"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 12.5V8a4.5 4.5 0 0 0-4.5-4.5H8A4.5 4.5 0 0 0 3.5 8v8A4.5 4.5 0 0 0 8 20.5h4.5z"/><path d="M20.5 12.5a8 8 0 0 0-8 8"/><path d="M9 9.5h.01M15 9.5h.01" stroke-width="2.6"/><path d="M9 13.5a3.5 3.5 0 0 0 4 1.5"/></svg></button>
+        <div id="msg-input" class="editor" contenteditable="true" role="textbox" aria-multiline="true" data-ph="Сообщение" data-empty="1" spellcheck="false" autocorrect="off" autocapitalize="sentences" enterkeyhint="send"></div>
+        <button id="btn-attach" class="cbtn" type="button" aria-label="Прикрепить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21 11.5-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l8-8"/></svg></button>
+      </div>
+      <div id="rec" class="rec hidden"><div class="rec-l"><i class="rec-dot"></i><span id="rec-time">0:00</span></div>
+        <div id="rec-hint" class="rec-hint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>Влево — отмена</div>
+        <button id="rec-cancel" class="rec-cancel" type="button">Отмена</button></div>
+      <button id="btn-main" class="mainbtn" type="button" data-mode="mic" aria-label="Голосовое сообщение / отправить">
+        <svg class="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="11.5" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"/><path d="M12 18v3.5"/></svg>
+        <svg class="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+        <svg class="i-ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+      </button>
+      <div id="rec-lock" class="rec-lock hidden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><svg class="up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg></div>
+    </div>
+    <div id="panel" class="panel"></div>
   </div>
 </section>
 
@@ -142,14 +163,20 @@
 </section>
 
 <input id="file" type="file" accept="image/*" hidden>
-<div id="ctx" class="ctx hidden"><button id="ctx-copy">Копировать</button></div>
 <div id="sheet" class="sheet hidden"><div class="card"><p id="sheet-t"></p><div class="sheet-btns"><button id="sheet-no">Отмена</button><button id="sheet-ok" class="danger">Выйти</button></div></div></div>
 <div id="toast" class="toast"></div>
 
 <script src="config.js"></script>
 <script src="api.js"></script>
+<script src="rich.js"></script>
+<script src="ui.js"></script>
 <script src="register.js"></script>
 <script src="chats.js"></script>
+<script src="editor.js"></script>
+<script src="voice.js"></script>
+<script src="attach.js"></script>
+<script src="stickers.js"></script>
+<script src="menu.js"></script>
 <script src="chat.js"></script>
 <script src="contacts.js"></script>
 <script src="userprofile.js"></script>

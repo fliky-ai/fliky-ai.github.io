@@ -1,3 +1,4 @@
+
 :root{
   --bg:#0E1218;--surface:#151B24;--raised:#1D2531;--line:#232C3A;
   --text:#E9EEF5;--dim:#8592A6;--accent:#4F8CFF;--mint:#5FD6B0;--danger:#FF6B6B;
@@ -14,8 +15,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font:500 15px/1.4 M
 input,textarea{-webkit-user-select:text;user-select:text}
 .hidden{display:none!important}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;touch-action:manipulation}
-input,textarea{font:inherit;font-size:16px;color:inherit;background:none;border:0;outline:0;width:100%;border-radius:0}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Убираем стандартные резкие обводки со всех инпутов и текстовых полей */
+input,textarea{font:inherit;font-size:16px;color:inherit;background:none;border:0;outline:0!important;box-shadow:none!important;width:100%;border-radius:0}
+
+/* Настраиваем красивый фокус для доступности, убирая квадратные рамки браузера */
+:focus-visible{outline:none!important}
+
 img{-webkit-user-drag:none;pointer-events:none}
 
 /* ── ВХОД В СТИЛЕ TELEGRAM ── */
@@ -84,7 +90,7 @@ img{-webkit-user-drag:none;pointer-events:none}
 }
 .auth .sub b { color: var(--text); }
 
-/* Блок выбора страны (как в Telegram) */
+/* Блок выбора страны */
 .country-box {
   display: flex;
   align-items: center;
@@ -105,7 +111,7 @@ img{-webkit-user-drag:none;pointer-events:none}
 .c-name { font-size: 15px; font-weight: 700; color: var(--text); margin-top: 1px; }
 .c-arr { width: 18px; height: 18px; color: var(--dim); }
 
-/* Поле ввода номера с +888 */
+/* Поле ввода номера с +888 без квадратных рамок */
 .phone-input-wrap {
   display: flex;
   align-items: center;
@@ -119,7 +125,6 @@ img{-webkit-user-drag:none;pointer-events:none}
 }
 .phone-input-wrap:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.15);
 }
 .prefix {
   font-size: 17px;
@@ -139,6 +144,8 @@ img{-webkit-user-drag:none;pointer-events:none}
   font-weight: 600;
   color: var(--text);
   letter-spacing: 0.5px;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 /* Круглая кнопка-стрелочка (FAB) */
@@ -174,6 +181,8 @@ img{-webkit-user-drag:none;pointer-events:none}
   text-align: center;
   font-weight: 700;
   color: var(--text);
+  outline: none !important;
+  box-shadow: none !important;
 }
 .big-input.code:focus {
   border-color: var(--accent);
@@ -211,7 +220,7 @@ img{-webkit-user-drag:none;pointer-events:none}
 .scroll{flex:1;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .search{display:flex;align-items:center;gap:8px;margin:10px 12px 6px;padding:0 12px;height:40px;border-radius:12px;background:var(--surface);color:var(--dim);flex:none}
 .search svg{width:17px;height:17px;flex:none}
-.search input{color:var(--text)}
+.search input{color:var(--text);outline:none!important;box-shadow:none!important}
 .clear{width:28px;height:28px;flex:none;display:grid;place-items:center;color:var(--dim)}
 .clear svg{width:16px;height:16px}
 
@@ -279,9 +288,13 @@ img{-webkit-user-drag:none;pointer-events:none}
 .ck{width:16px;height:16px}
 .st .read{color:#A8F5D8}
 .st .fail{color:#FFB4B4}
+
+/* Поле ввода сообщения в чате без квадратных рамок */
 .composer{display:flex;align-items:flex-end;gap:8px;padding:6px 10px calc(8px + var(--safe-b));flex:none}
-.composer .field{flex:1;background:var(--surface);border-radius:22px;padding:10px 16px}
-.composer textarea{resize:none;max-height:120px;display:block;line-height:1.35;padding:0}
+.composer .field{flex:1;background:var(--surface);border-radius:22px;padding:10px 16px;border:1.5px solid var(--line);transition:border-color 0.2s}
+.composer .field:focus-within{border-color:var(--accent)}
+.composer textarea{resize:none;max-height:120px;display:block;line-height:1.35;padding:0;outline:none!important;box-shadow:none!important}
+
 .send{width:42px;height:42px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;transform:scale(0);transition:transform .14s;flex:none}
 .send.show{transform:scale(1)}
 
@@ -313,7 +326,7 @@ img{-webkit-user-drag:none;pointer-events:none}
 .dev .me{color:var(--mint);font-weight:700}
 .form{padding:4px 16px 8px}
 .form label{display:block;margin-top:12px;font-size:12px;color:var(--dim);font-weight:600}
-.form input,.form textarea{margin-top:3px;padding:10px 12px;border-radius:12px;background:var(--raised);color:var(--text)}
+.form input,.form textarea{margin-top:3px;padding:10px 12px;border-radius:12px;background:var(--raised);color:var(--text);outline:none!important;box-shadow:none!important}
 .form textarea{resize:none;display:block}
 .hint2{font-size:12px;color:var(--dim);margin-top:5px}
 .hint2.ok{color:var(--mint)}
@@ -331,4 +344,3 @@ img{-webkit-user-drag:none;pointer-events:none}
 .toast{position:fixed;left:50%;top:calc(var(--safe-t) + 14px);transform:translate(-50%,-90px);padding:9px 16px;border-radius:14px;background:var(--raised);box-shadow:0 8px 24px rgba(0,0,0,.3);font-weight:600;font-size:14px;transition:transform .25s;z-index:80;max-width:90%;text-align:center}
 .toast.show{transform:translate(-50%,0)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
-

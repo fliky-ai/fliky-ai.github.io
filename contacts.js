@@ -1,31 +1,8 @@
-// Вкладка «Контакты»: поиск людей по номеру или @username.
+// Вкладка «Контакты»: только сохранённые контакты (пока не реализовано).
 const Contacts = {
-  timer: null, users: [],
-
   bind() {
-    Contacts.empty("Найдите человека", "Введите номер или @username — минимум 3 символа.");
-    $("contact-q").addEventListener("input", (e) => {
-      clearTimeout(Contacts.timer);
-      const q = e.target.value.trim();
-      if (q.length < 3) return Contacts.empty("Найдите человека", "Введите номер или @username — минимум 3 символа.");
-      Contacts.timer = setTimeout(() => Contacts.search(q), 300);
-    });
-    $("contact-list").addEventListener("click", (e) => {
-      const r = e.target.closest(".row"); if (!r) return;
-      App.go("chats"); Chat.open(Contacts.users[+r.dataset.i]);
-    });
-  },
-
-  empty(h, p) {
-    $("contact-list").innerHTML = `<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><h3>${h}</h3><p>${p}</p></div>`;
-  },
-
-  async search(q) {
-    try {
-      Contacts.users = (await api("/api/search?q=" + encodeURIComponent(q))).users;
-      if (!Contacts.users.length) return Contacts.empty("Никого не нашли", "Проверьте номер: он выдаётся в боте командой /start.");
-      $("contact-list").innerHTML = Contacts.users.map((u, i) => `<button class="row" data-i="${i}">${avatar(u)}
-        <div class="main"><div class="name">${esc(u.name)}</div><div class="prev">${esc(u.number)}${u.username ? " · @" + esc(u.username) : ""}</div></div></button>`).join("");
-    } catch (e) { toast(e.message); }
+    $("contact-list").innerHTML = `<div class="empty">${svg('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18.5 14a6.5 6.5 0 0 1 3 6"/>')}
+      <h3>Контактов пока нет</h3><p>Здесь будут сохранённые контакты. Найти человека можно через поиск во вкладке «Чаты».</p></div>`;
   },
 };
+

@@ -1,6 +1,7 @@
+
 // Экран входа: номер → код из бота → вход.
 const Auth = (() => {
-  let number = "", timer = null, onDone = null, busy = false;
+  let number = "", timer = null, onDone = null, busy = false, codeLen = 5;
   const err = (t) => { $("auth-err").textContent = t || ""; };
   const fmt = (v) => {
     const d = v.replace(/\D/g, "").slice(0, 15);
@@ -32,20 +33,21 @@ const Auth = (() => {
     if (raw.length < 8) return err("Введите номер полностью");
     busy = true; $("btn-phone").disabled = true; err("");
     try {
-      await api("/api/auth/request", { method: "POST", body: { number: "+" + raw } });
-      number = "+" + raw;
+      const d = await api("/api/auth/request", { method: "POST", body: { number: "+" + raw } });
+      number = "+" + raw; codeLen = d.len || 5;
       $("code-num").textContent = fmt(raw);
-      $("code").value = "";
+      $("code").value = ""; $("code").maxLength = codeLen; $("code").placeholder = "•".repeat(codeLen);
       step(2); countdown(60);
     } catch (e) { err(e.message); }
     busy = false; $("btn-phone").disabled = false;
   }
   async function verify() {
     const code = $("code").value;
-    if (code.length < 5 || busy) return;
+    if (code.length < codeLen || busy) return;
     busy = true; err("");
     try {
-      const d = await api("/api/auth/verify", { method: "POST", body: { number, code } });
+      const d = await api("/api/auth/verify", { method: "POST", body: {
+        number, code, tz: new Date().getTimezoneOffset(), platform: (TGW && TGW.platform) || "" } });
       Store.token = d.token; clearInterval(timer);
       onDone(d.user);
     } catch (e) {
@@ -64,7 +66,7 @@ const Auth = (() => {
       });
       $("phone").addEventListener("keydown", (e) => { if (e.key === "Enter") sendCode(); });
       $("btn-phone").onclick = sendCode;
-      $("code").addEventListener("input", (e) => { e.target.value = e.target.value.replace(/\D/g, ""); if (e.target.value.length === 5) verify(); });
+      $("code").addEventListener("input", (e) => { e.target.value = e.target.value.replace(/\D/g, ""); verify(); });
       $("resend").onclick = sendCode;
       $("change-num").onclick = () => { clearInterval(timer); step(1); };
       $("phone").value = "+888"; step(1);

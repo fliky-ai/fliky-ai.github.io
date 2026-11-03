@@ -1,12 +1,16 @@
-// register.js — экран входа (номер +888 → код). Совместим с index.html и style.css из проекта.
+// register.js — экран входа в стиле Telegram (номер +888 → код из бота).
+// Разметка — index.html (#auth), стили — style.css (блок «ВХОД В СТИЛЕ TELEGRAM»).
 const Auth = (() => {
-  let number = "", timer = null, onDone = null, busy = false, codeLen = 5, resendLeft = 0;
+  let number = "", timer = null, onDone = null, busy = false, codeLen = 5, resendLeft = 0, cur = 1;
 
   const $ = (id) => document.getElementById(id);
 
+  // Текст ошибки под полем; на шаге с номером ещё и подсвечиваем рамку красным.
   const err = (t) => {
     const el = $("auth-err");
     if (el) el.textContent = t || "";
+    const f = $("phone-field");
+    if (f) f.classList.toggle("error", !!t && cur === 1);
   };
 
   const shake = (el) => {
@@ -16,9 +20,11 @@ const Auth = (() => {
     el.classList.add("shake");
   };
 
-  // +888 1234 5678 (8 цифр, пробел после 4-й)
+  // 1234 5678: только 8 цифр, пробел после 4-й. Вставленный целиком номер с +888 тоже понимаем.
   const fmtPhone = (digits) => {
-    const d = String(digits || "").replace(/\D/g, "").slice(0, 8);
+    let d = String(digits || "").replace(/\D/g, "");
+    if (d.length > 8 && d.startsWith("888")) d = d.slice(3);
+    d = d.slice(0, 8);
     if (!d) return "";
     return d.length > 4 ? d.slice(0, 4) + " " + d.slice(4) : d;
   };
@@ -27,6 +33,7 @@ const Auth = (() => {
 
   const cells = () => Array.from(document.querySelectorAll("#code-cells .code-cell"));
   const readCode = () => cells().map(c => c.value).join("");
+  const clearCells = () => cells().forEach(c => { c.value = ""; c.classList.remove("filled"); });
   const focusCell = (i) => {
     const list = cells();
     const c = list[Math.max(0, Math.min(i, list.length - 1))];
@@ -37,9 +44,35 @@ const Auth = (() => {
     if (h) h.value = readCode();
   };
 
+  // Кнопка «Далее» активна всегда (как в Telegram); неполный номер проверяет sendCode().
   function syncArrow() {
     const btn = $("btn-phone");
-    if (btn) btn.disabled = busy || phoneDigits().length !== 8;
+    if (btn) btn.disabled = busy;
+  }
+
+  // Стрелка «назад»: на шаге с кодом возвращает к номеру; на шаге с номером показываем её
+  // только если есть куда вернуться (сохранённые аккаунты) — иначе она бы ничего не делала.
+  function updateBack() {
+    const b = $("auth-back");
+    if (!b) return;
+    b.classList.toggle("off", !(cur === 2 || Accounts.list().length > 0));
+  }
+
+  function goBack() {
+    if (cur === 2) {
+      clearInterval(timer);
+      clearCells();
+      syncHiddenCode();
+      step(1);
+      return;
+    }
+    const accs = Accounts.list();
+    if (!accs.length) return;
+    const prev = Accounts.getPrev();
+    const acc = accs.find(a => a.token === prev) || accs[0];
+    Accounts.clearPrev();
+    Store.token = acc.token;
+    location.reload();
   }
 
   function buildCodeCells(len) {
@@ -85,6 +118,7 @@ const Auth = (() => {
       if (v) focusCell(idx + 1);
     }
 
+    err("");
     syncHiddenCode();
     if (readCode().length === codeLen) verify();
   }
@@ -123,17 +157,18 @@ const Auth = (() => {
 
   // Показываем только активный шаг (остальные display:none в style.css) — раскладка не «прыгает».
   function step(n) {
-    const s1 = $("step-phone");
-    const s2 = $("step-code");
-    const active = n === 1 ? s1 : s2;
-    const other  = n === 1 ? s2 : s1;
-
-    if (other) other.classList.remove("is-active");
-    if (active) active.classList.add("is-active");
+    cur = n;
+    const auth = $("auth");
+    if (auth) auth.dataset.step = String(n);   // на шаге 2 CSS прячет круглую кнопку
+    const s1 = $("step-phone"), s2 = $("step-code");
+    if (s1) s1.classList.toggle("is-active", n === 1);
+    if (s2) s2.classList.toggle("is-active", n === 2);
 
     err("");
+    updateBack();
     setTimeout(() => {
-      if (n === 1) $("phone") && $("phone").focus();
+      if (cur !== n) return;
+      if (n === 1) { const p = $("phone"); if (p) p.focus(); }
       else focusCell(0);
     }, 140);
   }
@@ -146,7 +181,8 @@ const Auth = (() => {
     resendLeft = s;
     const render = () => {
       if (resendLeft > 0) {
-        b.textContent = `Отправить код снова через ${resendLeft} с`;
+        const m = Math.floor(resendLeft / 60), sec = String(resendLeft % 60).padStart(2, "0");
+        b.textContent = `Отправить код снова через ${m}:${sec}`;
       } else {
         b.textContent = "Отправить код снова";
         b.disabled = false;
@@ -162,7 +198,7 @@ const Auth = (() => {
     const raw = phoneDigits();
     if (raw.length !== 8) {
       err("Введите номер полностью (8 цифр)");
-      shake(document.querySelector(".phone-input-wrap"));
+      shake($("phone-field"));
       return;
     }
     busy = true;
@@ -174,15 +210,15 @@ const Auth = (() => {
       const d = await api("/api/auth/request", { method: "POST", body: { number: fullNum } });
       number = fullNum;
 
-      const codeNumEl = $("code-num");
-      if (codeNumEl) codeNumEl.textContent = "+888 " + fmtPhone(raw);
+      const title = $("code-num");
+      if (title) title.textContent = "+888 " + fmtPhone(raw);
 
       buildCodeCells(d.len || 5);
       step(2);
       countdown(60);
     } catch (e) {
       err((e && e.message) || "Не удалось отправить код");
-      shake(document.querySelector(".phone-input-wrap"));
+      shake($("phone-field"));
     }
     busy = false;
     syncArrow();
@@ -212,7 +248,8 @@ const Auth = (() => {
       onDone(d.user);
     } catch (e) {
       err((e && e.message) || "Неверный код");
-      cells().forEach(c => { c.value = ""; c.classList.remove("filled"); });
+      clearCells();
+      syncHiddenCode();
       focusCell(0);
       shake($("code-cells"));
     }
@@ -229,6 +266,7 @@ const Auth = (() => {
       if (phoneInp) {
         phoneInp.addEventListener("input", () => {
           phoneInp.value = fmtPhone(phoneInp.value);
+          err("");
           syncArrow();
         });
         phoneInp.addEventListener("keydown", (e) => {
@@ -243,29 +281,10 @@ const Auth = (() => {
       if (resendBtn) resendBtn.addEventListener("click", sendCode);
 
       const changeBtn = $("change-num");
-      if (changeBtn) changeBtn.addEventListener("click", () => {
-        clearInterval(timer);
-        cells().forEach(c => { c.value = ""; c.classList.remove("filled"); });
-        syncHiddenCode();
-        step(1);
-      });
+      if (changeBtn) changeBtn.addEventListener("click", goBack);
 
-      // Если есть сохранённые аккаунты (пользователь нажал «Добавить аккаунт» или вышел из одного из нескольких),
-      // даём вернуться, не вводя номер заново.
-      const cancelBtn = $("auth-cancel");
-      if (cancelBtn) {
-        const accs = Accounts.list();
-        if (accs.length) {
-          cancelBtn.classList.remove("hidden");
-          cancelBtn.addEventListener("click", () => {
-            const prev = Accounts.getPrev();
-            const acc = accs.find(a => a.token === prev) || accs[0];
-            Accounts.clearPrev();
-            Store.token = acc.token;
-            location.reload();
-          });
-        }
-      }
+      const backBtn = $("auth-back");
+      if (backBtn) backBtn.addEventListener("click", goBack);
 
       // скрытое #code — буфер для автозаполнения Telegram (one-time-code)
       const hidden = $("code");

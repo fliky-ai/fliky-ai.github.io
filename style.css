@@ -344,3 +344,82 @@ img{-webkit-user-drag:none;pointer-events:none}
 .toast{position:fixed;left:50%;top:calc(var(--safe-t) + 14px);transform:translate(-50%,-90px);padding:9px 16px;border-radius:14px;background:var(--raised);box-shadow:0 8px 24px rgba(0,0,0,.3);font-weight:600;font-size:14px;transition:transform .25s;z-index:80;max-width:90%;text-align:center}
 .toast.show{transform:translate(-50%,0)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* Шапка профиля в настройках в стиле Telegram */
+.settings-profile-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 16px;
+  background: var(--surface);
+  margin: 12px 14px 0 14px;
+  border-radius: 18px;
+}
+.sph-avatar .av.xl {
+  width: 64px;
+  height: 64px;
+}
+.sph-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  text-align: left;
+}
+.sph-info h2 {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sph-sub {
+  font-size: 13px;
+  color: var(--dim);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Стили списка аккаунтов */
+.accounts-list {
+  display: flex;
+  flex-direction: column;
+}
+.account-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.account-row:active {
+  background: var(--raised);
+}
+.account-row.active-acc {
+  background: rgba(79, 140, 255, 0.08);
+}
+.acc-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+.acc-name {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.acc-phone {
+  font-size: 12px;
+  color: var(--dim);
+}
+.acc-badge {
+  color: var(--accent);
+  font-weight: 800;
+}

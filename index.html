@@ -18,62 +18,71 @@
 <div id="boot" class="boot" aria-hidden="true"><div class="spin"></div></div>
 
 <!-- ВХОД В СТИЛЕ TELEGRAM -->
-<section id="auth" class="auth hidden">
-  <div class="auth-container">
-    <div class="logo">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 3.5 10.5 14"/><path d="M21.5 3.5 14.5 21l-4-7-7-4z"/></svg>
-    </div>
+<section id="auth" class="auth hidden" data-step="1">
+  <header class="auth-bar">
+    <button id="auth-back" class="auth-back off" type="button" aria-label="Назад">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12H4"/><path d="m10 6-6 6 6 6"/></svg>
+    </button>
+  </header>
 
-    <!-- Шаг 1: Номер телефона -->
+  <div class="auth-body">
+    <!-- Шаг 1: номер телефона -->
     <div id="step-phone" class="step is-active">
       <h1>Номер телефона</h1>
       <p class="sub">Проверьте код страны и введите свой номер телефона.</p>
 
-      <!-- Блок выбора страны (декоративный, страна фиксирована) -->
-      <div class="country-box">
-        <div class="country-flag">🏴‍☠️</div>
-        <div class="country-info">
-          <span class="c-label">Страна</span>
-          <span class="c-name">Коллекционные номера</span>
+      <!-- Страна (декоративная, страна фиксирована) -->
+      <div class="field static">
+        <span class="field-label">Страна</span>
+        <div class="field-row">
+          <span class="country-flag">🏴‍☠️</span>
+          <span class="country-name">Коллекционные номера</span>
+          <svg class="c-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
         </div>
-        <svg class="c-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
       </div>
 
-      <!-- Поле ввода номера -->
-      <div class="phone-input-wrap">
-        <div class="prefix">+888</div>
-        <div class="divider-line"></div>
-        <input id="phone" type="tel" inputmode="numeric" autocomplete="off"
-               placeholder="1234 5678" maxlength="11" aria-label="Номер телефона">
-      </div>
+      <!-- Номер телефона -->
+      <label id="phone-field" class="field">
+        <span class="field-label">Номер телефона</span>
+        <span class="field-row">
+          <span class="prefix">+888</span>
+          <span class="vline"></span>
+          <input id="phone" type="tel" inputmode="numeric" autocomplete="off" placeholder="0000 0000" aria-label="Номер телефона">
+        </span>
+      </label>
 
-      <!-- Круглая кнопка продолжения -->
-      <button id="btn-phone" class="tg-fab-btn" aria-label="Далее" disabled>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-      </button>
+      <p class="hint">Нет номера? Откройте бота и отправьте /start</p>
 
-      <p class="hint" style="margin-top: 16px;">Нет номера? Откройте бота и отправьте /start</p>
+      <label class="check">
+        <input id="sync" type="checkbox" checked>
+        <span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>
+        <span>Синхронизировать контакты</span>
+      </label>
     </div>
 
-    <!-- Шаг 2: Код подтверждения -->
+    <!-- Шаг 2: код подтверждения -->
     <div id="step-code" class="step">
-      <h1>Код из бота</h1>
-      <p class="sub">Мы отправили код в Telegram для номера <b id="code-num"></b></p>
+      <h1 id="code-num"></h1>
+      <p class="sub">Мы отправили код в Telegram-бота. Откройте чат с ботом и введите код.</p>
 
-      <!-- Ячейки кода (заполняет JS), скрытый input — буфер для автозаполнения -->
+      <!-- Ячейки кода заполняет JS; скрытый input — буфер для автозаполнения -->
       <div id="code-cells" class="code-cells" data-len="5"></div>
       <input id="code" type="text" inputmode="numeric" autocomplete="one-time-code"
              class="visually-hidden" tabindex="-1" aria-hidden="true">
 
       <div class="auth-actions">
-        <button id="resend" class="link" disabled>Отправить код снова</button>
-        <button id="change-num" class="link">Изменить номер</button>
+        <button id="resend" class="link" type="button" disabled>Отправить код снова</button>
+        <button id="change-num" class="link" type="button">Неверный номер?</button>
       </div>
     </div>
 
     <p id="auth-err" class="err" role="alert"></p>
-    <button id="auth-cancel" class="link auth-cancel hidden" type="button">Вернуться в аккаунт</button>
   </div>
+
+  <!-- Круглая кнопка «Далее» (только на шаге с номером) -->
+  <button id="btn-phone" class="fab" type="button" aria-label="Далее">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"/><path d="m14 6 6 6-6 6"/></svg>
+  </button>
 </section>
 
 <!-- ПРИЛОЖЕНИЕ -->

@@ -49,15 +49,17 @@ const Accounts = {
   } catch (e) {}
 })();
 
-async function api(path, { method = "GET", body } = {}) {
+async function api(path, { method = "GET", body, timeout = 0 } = {}) {
   const h = {};
   if (body) h["Content-Type"] = "application/json";
   if (Store.token) h.Authorization = "Bearer " + Store.token;
   if (INIT) h["X-Init-Data"] = INIT;
   let r;
   const payload = body ? JSON.stringify(body) : undefined;
-  try { r = await fetch(CONFIG.API + path, { method, headers: h, body: payload }); Net.add("tx", "msg", (payload ? payload.length : 0) + 300); }
-  catch (e) { throw new Error("Нет связи с сервером"); }
+  const ctl = timeout && window.AbortController ? new AbortController() : null, tm = ctl ? setTimeout(() => ctl.abort(), timeout) : 0;
+  try { r = await fetch(CONFIG.API + path, { method, headers: h, body: payload, signal: ctl ? ctl.signal : undefined }); try { Net.add("tx", "msg", (payload ? payload.length : 0) + 300); } catch (e) {} }
+  catch (e) { throw new Error(ctl && ctl.signal.aborted ? "Сервер не отвечает" : "Нет связи с сервером"); }
+  finally { clearTimeout(tm); }
   let d = {};
   try { d = await r.json(); } catch (e) {}
   if (r.status === 401 && Store.token) {

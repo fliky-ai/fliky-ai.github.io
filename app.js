@@ -45,30 +45,46 @@ const Browser = {
   },
 };
 
+// сбой одного шага не должен ронять остальные; ошибка попадает в «страховку запуска» (см. index.html)
+function guardLog(name, e) {
+  try { if (window.__boot) window.__boot.errs.push(name + ": " + ((e && e.message) || e)); } catch (_) {}
+  try { console.error(name, e); } catch (_) {}
+}
+function guard(name, fn) { try { return fn(); } catch (e) { guardLog(name, e); } }
+
 const App = {
   user: null, ws: null, pingT: null, retry: 0, retryT: null,
 
   async start() {
-    if (TGW) {
-      try { TGW.ready(); TGW.expand(); TGW.disableVerticalSwipes(); TGW.BackButton.onClick(() => Nav.back()); } catch (e) {}
-      Theme.tg();
-    }
-    const setVH = () => document.documentElement.style.setProperty("--vh", (window.visualViewport ? visualViewport.height : innerHeight) + "px");
-    setVH(); if (window.visualViewport) visualViewport.addEventListener("resize", setVH); addEventListener("resize", setVH);
-
-    document.querySelectorAll(".tab").forEach((b) => (b.onclick = () => { haptic(); App.go(b.dataset.tab); }));
-    ["chat-back", "up-back", "ed-back"].forEach((id) => ($(id).onclick = () => Nav.back()));
-    // никаких системных меню
-    document.addEventListener("contextmenu", (e) => { if (!/INPUT|TEXTAREA/.test(e.target.tagName) || e.target.closest("#panel")) e.preventDefault(); });
-    document.addEventListener("click", (e) => {
-      const a = e.target.closest("a"); if (!a || a.dataset.dl) return;
-      e.preventDefault(); Browser.open(a.href);
+    // каждый шаг запуска — отдельно: сбой в одном (например, не загрузился какой-то файл) не должен вешать приложение на заставке
+    guard("tg", () => {
+      if (TGW) {
+        try { TGW.ready(); TGW.expand(); TGW.disableVerticalSwipes(); TGW.BackButton.onClick(() => Nav.back()); } catch (e) {}
+        Theme.tg();
+      }
     });
-    Chats.bind(); Chat.bind(); Contacts.bind();
-    Lock.init(); Notif.register(); Media.trim(); Settings.applyAnim(); Energy.update();
-    Theme.apply(false);
-    // кнопка Telegram «назад» и свайп закрывают открытые окна по порядку; поле ввода не прячем под клавиатуру
-    document.addEventListener("keydown", (e) => { if (e.key === "Escape") Nav.back(); });
+    guard("ui", () => {
+      const setVH = () => document.documentElement.style.setProperty("--vh", (window.visualViewport ? visualViewport.height : innerHeight) + "px");
+      setVH(); if (window.visualViewport) visualViewport.addEventListener("resize", setVH); addEventListener("resize", setVH);
+      document.querySelectorAll(".tab").forEach((b) => (b.onclick = () => { haptic(); App.go(b.dataset.tab); }));
+      ["chat-back", "up-back", "ed-back"].forEach((id) => { const b = $(id); if (b) b.onclick = () => Nav.back(); });
+      // никаких системных меню
+      document.addEventListener("contextmenu", (e) => { if (!/INPUT|TEXTAREA/.test(e.target.tagName) || e.target.closest("#panel")) e.preventDefault(); });
+      document.addEventListener("click", (e) => {
+        const a = e.target.closest("a"); if (!a || a.dataset.dl) return;
+        e.preventDefault(); Browser.open(a.href);
+      });
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") Nav.back(); });
+    });
+    guard("chats", () => Chats.bind());
+    guard("chat", () => Chat.bind());
+    guard("contacts", () => Contacts.bind());
+    guard("lock", () => Lock.init());
+    guard("notif", () => Notif.register());
+    guard("media", () => Media.trim());
+    guard("anim", () => Settings.applyAnim());
+    guard("energy", () => Energy.update());
+    guard("theme", () => Theme.apply(false));
     App.boot();
   },
 
@@ -76,13 +92,20 @@ const App = {
   // (это создавало бы лишние сессии), а ждём и пробуем снова. На вход отправляет только 401.
   async boot() {
     if (!Store.token) return App.showAuth();
-    try {
-      const d = await api("/api/me");
-      return App.enter(d.user);
-    } catch (e) {
+    let d;
+    try { d = await api("/api/me", { timeout: 15000 }); }
+    catch (e) {
       if (!Store.token) return App.showAuth();   // 401: api() уже сбросил токен и перезагружает страницу
-      toast((e && e.message) || "Нет связи с сервером");
-      setTimeout(() => App.boot(), 3000);
+      const m = (e && e.message) || "Нет связи с сервером";
+      if (window.__boot) window.__boot.net = m;
+      toast(m);
+      return setTimeout(() => App.boot(), 3000);
+    }
+    if (window.__boot) window.__boot.net = "";
+    try { App.enter(d.user); }
+    catch (e) {                                   // ошибка внутри приложения — это не «нет связи», повторять запуск бессмысленно
+      guardLog("enter", e);
+      const b = $("boot"); if (b) b.classList.add("hidden");
     }
   },
 
@@ -95,12 +118,13 @@ const App = {
     App.user = user;
     const b = $("boot"); if (b) b.classList.add("hidden");
     $("auth").classList.add("hidden"); $("app").classList.remove("hidden");
-    Profile.render();               // внутри обновляет и вкладку «Настройки»
-    Chats.load(); Stories.load(true); Profile.loadStories();
-    App.connect(); App.go("chats");
-    App.openHash(); Chat.loadQuick();
-    setInterval(() => Chat.updateHeader(), 30000);
-    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { App.connect(); Chats.load(); Chat.sync(); } });
+    guard("profile", () => Profile.render());               // внутри обновляет и вкладку «Настройки»
+    guard("lists", () => { Chats.load(); Stories.load(true); Profile.loadStories(); });
+    guard("ws", () => App.connect());
+    guard("go", () => App.go("chats"));
+    guard("hash", () => { App.openHash(); Chat.loadQuick(); });
+    setInterval(() => { try { Chat.updateHeader(); } catch (e) {} }, 30000);
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { guard("resume", () => { App.connect(); Chats.load(); Chat.sync(); }); } });
     addEventListener("online", () => App.connect());
   },
 

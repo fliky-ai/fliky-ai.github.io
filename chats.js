@@ -1,5 +1,8 @@
 
 // Вкладка «Чаты»: список диалогов и поиск людей (имя или @username).
+// папки живут в set_misc.js; если файл не загрузился, список чатов всё равно работает (просто без папок)
+const FO = () => (typeof Folders !== "undefined" ? Folders : { get: () => [], count: () => 0, has: () => true });
+
 const Chats = {
   list: [], q: "", found: [], timer: null, folder: "all",
 
@@ -69,12 +72,12 @@ const Chats = {
 
   // вкладки папок над списком чатов
   tabs(total) {
-    const box = $("ftabs"), fs = Folders.get();
+    const box = $("ftabs"), fs = FO().get();
     if (!fs.length || Chats.q) { box.classList.add("hidden"); if (!fs.length) Chats.folder = "all"; return; }
     if (Chats.folder !== "all" && !fs.some((f) => f.id === Chats.folder)) Chats.folder = "all";
     const unreadChats = Chats.list.filter((c) => c.unread > 0).length;
     box.classList.remove("hidden");
-    box.innerHTML = [{ id: "all", n: T("Все чаты"), k: unreadChats }].concat(fs.map((f) => ({ id: f.id, n: f.n, k: Folders.count(f) })))
+    box.innerHTML = [{ id: "all", n: T("Все чаты"), k: unreadChats }].concat(fs.map((f) => ({ id: f.id, n: f.n, k: FO().count(f) })))
       .map((f) => `<button class="ftab${Chats.folder === f.id ? " on" : ""}" role="tab" data-f="${esc(f.id)}">${esc(f.n)}${f.k ? `<i class="fb">${f.k}</i>` : ""}</button>`).join("");
     const on = box.querySelector(".ftab.on"); if (on && on.scrollIntoView) { try { on.scrollIntoView({ block: "nearest", inline: "nearest" }); } catch (e) {} }
   },
@@ -88,7 +91,7 @@ const Chats = {
 
     const tag = (c) => {
       if (!Prefs.get("ftags", false) || Chats.folder !== "all") return "";
-      const f = Folders.get().find((x) => !x.f && x.c.includes(c.peer.id));
+      const f = FO().get().find((x) => !x.f && x.c.includes(c.peer.id));
       return f ? `<span class="ftag">${esc(f.n)}</span>` : "";
     };
     const chatRow = (c, i) => {
@@ -103,8 +106,8 @@ const Chats = {
         box.innerHTML = `<div class="empty">${svg('<path d="M21 12a8.5 8.5 0 0 1-12.4 7.5L3 21l1.6-5.3A8.5 8.5 0 1 1 21 12z"/>')}<h3>Пока нет чатов</h3><p>Найдите человека через поиск: введите его имя или @username.</p></div>`;
         return;
       }
-      const fl = Chats.folder === "all" ? null : Folders.get().find((f) => f.id === Chats.folder);
-      const rows = Chats.list.map((c, i) => ({ c, i })).filter(({ c }) => !fl || Folders.has(fl, c));
+      const fl = Chats.folder === "all" ? null : FO().get().find((f) => f.id === Chats.folder);
+      const rows = Chats.list.map((c, i) => ({ c, i })).filter(({ c }) => !fl || FO().has(fl, c));
       box.innerHTML = rows.length ? rows.map(({ c, i }) => chatRow(c, i)).join("")
         : `<div class="empty">${PI.users}<h3>${esc(T("В папке нет чатов"))}</h3><p>${esc(T("Добавьте чаты в папку: Настройки → Папки с чатами."))}</p></div>`;
       return;

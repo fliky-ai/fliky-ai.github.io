@@ -99,12 +99,12 @@ const UI = {
   },
 
   // поле ввода одной строки (например, адрес ссылки). null — отмена.
-  prompt({ title = "", value = "", placeholder = "", ok = "Готово", extra = "" }) {
+  prompt({ title = "", value = "", placeholder = "", ok = "Готово", extra = "", type = "url" }) {
     return new Promise((res) => {
       const el = document.createElement("div");
       el.className = "sheet2";
       el.innerHTML = `<div class="s2-card" role="dialog"><h3>${esc(title)}</h3>
-        <input class="s2-input" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${esc(placeholder)}" value="${esc(value)}">
+        <input class="s2-input" type="${type}" inputmode="${type === "url" ? "url" : "text"}" maxlength="${type === "url" ? 600 : 32}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${esc(placeholder)}" value="${esc(value)}">
         <div class="s2-row"><button data-a="no">Отмена</button>${extra ? `<button data-a="x" class="danger">${esc(extra)}</button>` : ""}<button data-a="ok" class="accent">${esc(ok)}</button></div></div>`;
       document.body.appendChild(el);
       requestAnimationFrame(() => el.classList.add("show"));

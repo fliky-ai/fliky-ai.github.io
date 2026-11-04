@@ -21,14 +21,13 @@ const Settings = {
     if (searching) { Settings.drawResults(); return; }
 
     const grp = (...rows) => `<div class="card2 irows">${rows.join("")}</div>`;
-    const prem = u.premium ? `<span class="prem-star" title="Premium">${SI.starF}</span>` : "";
     const eco = Energy.thr();
     box.innerHTML = `
       <div class="s-top"><h1>${esc(T("Настройки"))}</h1>
         <div class="s-tools"><button id="s-sbtn" aria-label="${esc(T("Поиск"))}">${SI.search}</button><button id="s-menu" aria-label="${esc(T("Ещё"))}">${SI.dots}</button></div></div>
       <button class="s-me" id="s-me" aria-label="${esc(T("Профиль"))}">
         <span class="s-av">${Stories.av(u, "xl")}</span>
-        <span class="s-name">${esc(dispName(u))}${prem}</span>
+        <span class="s-name">${esc(dispName(u))}</span>
         <span class="s-sub">${u.number ? esc(fmtPhone(u.number)) : ""}${u.username ? " · @" + esc(u.username) : ""}</span>
       </button>
 
@@ -82,7 +81,7 @@ const Settings = {
     };
     box.onclick = (e) => {
       const el = e.target.closest("[data-a]"); if (!el || el.classList.contains("dis")) return;
-      const f = go[el.dataset.a]; if (f) { haptic(); f(el); }
+      const f = go[el.dataset.a]; if (f) { haptic(); App.safe(el.dataset.a, () => f(el)); }
     };
   },
 
@@ -173,6 +172,8 @@ const Settings = {
       E("Устройства", "", SI.laptop, "o2", () => Settings.devices(), "сеансы завершить"),
       E("Язык", "", SI.globe, "v", () => Settings.lang(), "english русский"),
       E(NAME_PREMIUM, "", SI.starF, "pr", () => Settings.premium(), "подписка"),
+      E("Эмодзи-статус", NAME_PREMIUM, SI.smile, "y", () => StatusPicker.open(), "значок звезда статус emoji status анимированный"),
+      E("Мои эмодзи", NAME_PREMIUM, SI.film, "p", () => EmojiSets.open(), "наборы стикеры свои эмодзи загрузить видео"),
       E(NAME_STARS, "", SI.starF, "y", () => Settings.stars(), "баланс пополнить"),
       E(NAME_BIZ, "", SI.bag, "v2", () => Settings.biz(), "адрес график быстрые ответы приветствие"),
       E("Отправить подарок", "", SI.gift, "p", () => Settings.gift()),
@@ -202,7 +203,7 @@ const Settings = {
     res.innerHTML = list.length
       ? `<div class="card2 irows">${list.map((x, i) => `<button class="irow" data-i="${i}">${R.ic(x.c, x.ic)}<span class="tx"><b>${esc(x.t)}</b>${x.p ? `<small>${esc(x.p)}</small>` : ""}</span></button>`).join("")}</div>`
       : `<div class="empty"><h3>${esc(T("Ничего не найдено"))}</h3><p>${esc(T("Попробуйте другое слово."))}</p></div>`;
-    res.onclick = (e) => { const b = e.target.closest("[data-i]"); if (b) list[+b.dataset.i].f(); };
+    res.onclick = (e) => { const b = e.target.closest("[data-i]"); if (b) App.safe("search", () => list[+b.dataset.i].f()); };
   },
 };
 

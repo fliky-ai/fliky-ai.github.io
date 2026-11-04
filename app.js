@@ -85,6 +85,7 @@ const App = {
     guard("anim", () => Settings.applyAnim());
     guard("energy", () => Energy.update());
     guard("theme", () => Theme.apply(false));
+    guard("health", () => App.health());
     App.boot();
   },
 
@@ -162,20 +163,20 @@ const App = {
     ws.onopen = () => { try { ws.send(JSON.stringify({ type: "auth", token: Store.token, init: INIT })); } catch (e) {} };
     ws.onmessage = (ev) => {
       let d; try { d = JSON.parse(ev.data); } catch (e) { return; }
-      Net.add("rx", "msg", (ev.data || "").length);
+      guard("rx", () => Net.add("rx", "msg", (ev.data || "").length));
       if (d.type === "ready") {   // сервер принял токен
         App.retry = 0; App.setOnline(true); Chats.load(); Chat.sync();
         clearInterval(App.pingT); App.pingT = setInterval(() => ws.readyState === 1 && ws.send("ping"), 25000);
       }
-      else if (d.type === "message") { Chat.onMessage(d.message); Chats.onMessage(d.message); Notif.onMessage(d.message); }
+      else if (d.type === "message") { Chat.onMessage(d.message); Chats.onMessage(d.message); guard("notify", () => Notif.onMessage(d.message)); }
       else if (d.type === "read") Chat.onRead(d.by);
       else if (d.type === "edit") { Chat.onEdit(d.message); Chats.onEdit(d.message); }
       else if (d.type === "del") { Chat.onDel(d.ids); Chats.load(); }
-      else if (d.type === "react") { Chat.onReact(d); Notif.onReact(d); }
+      else if (d.type === "react") { Chat.onReact(d); guard("notify", () => Notif.onReact(d)); }
       else if (d.type === "pin") Chat.onPin(d);
       else if (d.type === "presence") App.presence(d);
       else if (d.type === "profile") App.profile(d.user);
-      else if (d.type === "story") { Notif.onStory(d.user); Stories.load(true); if (d.user === App.user.id) Profile.loadStories(); if (UserProfile.cur && UserProfile.cur.id === d.user) UserProfile.loadStories(d.user); }
+      else if (d.type === "story") { guard("notify", () => Notif.onStory(d.user)); Stories.load(true); if (d.user === App.user.id) Profile.loadStories(); if (UserProfile.cur && UserProfile.cur.id === d.user) UserProfile.loadStories(d.user); }
     };
     ws.onclose = () => {
       if (App.ws !== ws) return;
@@ -194,8 +195,45 @@ const App = {
   },
   presence(d) { App.patchUser(d.user, { online: d.online, last_seen: d.last_seen }); },
   profile(u) {
-    App.patchUser(u.id, { name: u.name, surname: u.surname, username: u.username, bio: u.bio, avatar: u.avatar });
+    App.patchUser(u.id, { name: u.name, surname: u.surname, username: u.username, bio: u.bio, avatar: u.avatar, premium: u.premium ? 1 : 0, estatus: u.estatus || null });
     Chats.render(); if (u.id === App.user.id) Profile.render();
+    // открыт профиль этого человека — обновляем и его (значок, статус)
+    guard("uprofile", () => { if (UserProfile.cur && UserProfile.cur.id === u.id) { UserProfile.cur = Object.assign({}, UserProfile.cur, u); UserProfile.render(UserProfile.cur); } });
+  },
+
+  // Проверка, что на сайте лежат все файлы нужной версии: если нет, показываем, каких именно (а не молча «не работает»).
+  health() {
+    const has = (f) => { try { return !!f(); } catch (e) { return false; } };
+    const chk = {
+      "set_misc.js": () => Notif && Folders && Media && typeof Settings.notif === "function" && typeof Settings.data === "function" && typeof Settings.folders === "function",
+      "set_prem.js": () => typeof Settings.premium === "function" && typeof Settings.stars === "function",
+      "set_safe.js": () => typeof Settings.privacy === "function" && Lock,
+      "set_look.js": () => typeof Settings.chats === "function" && typeof Settings.energy === "function",
+      "premium.js": () => PB && ES && StatusPicker && EmojiSets && PremiumPromo,
+      "pg.js": () => Pg && SI && R,
+      "settings.js": () => Settings && Accounts,
+      "index.html": () => $("ftabs") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261104/.test([...document.scripts].map((x) => x.src).join(" ")),
+    };
+    const bad = Object.keys(chk).filter((k) => !has(chk[k]));
+    const miss = (window.__boot && window.__boot.miss || []).filter((x, i, a) => a.indexOf(x) === i && /\.(js|css)$/.test(x));
+    miss.forEach((x) => { if (!bad.includes(x)) bad.push(x); });
+    App.broken = bad;
+    if (!bad.length) return;
+    try { console.warn("не загружены:", bad.join(", ")); } catch (e) {}
+    const el = document.createElement("div");
+    el.className = "health";
+    el.innerHTML = `<b>${esc(T("Часть файлов не обновлена"))}</b><span>${esc(bad.join(", "))}</span><small>${esc(T("Загрузите их на GitHub рядом с index.html и обновите страницу."))}</small><button>${esc(T("Скрыть"))}</button>`;
+    el.querySelector("button").onclick = () => el.remove();
+    document.body.appendChild(el);
+  },
+  // открыть раздел настроек так, чтобы ошибка не терялась: вместо «ничего не происходит» — понятное сообщение
+  safe(name, fn) {
+    const fail = (e) => {
+      guardLog(name, e);
+      const miss = App.broken && App.broken.length ? ` (${App.broken.join(", ")})` : "";
+      toast(T("Не удалось открыть") + miss + ": " + ((e && e.message) || e));
+    };
+    try { const r = fn(); if (r && typeof r.catch === "function") r.catch(fail); return r; } catch (e) { fail(e); }
   },
 };
 App.start();

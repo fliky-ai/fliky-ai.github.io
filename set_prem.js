@@ -24,6 +24,8 @@ Object.assign(Settings, {
         } catch (e) { toast(e.message); }
       },
       stars: () => Settings.stars(),
+      est: () => StatusPicker.open(),
+      mine: () => EmojiSets.open(),
     };
   },
   drawPremium(pg) {
@@ -32,7 +34,8 @@ Object.assign(Settings, {
       [SI.userPlus, "b", "До 4 аккаунтов", "Подключайте больше аккаунтов и переключайтесь между ними"],
       [SI.bag, "v", "Инструменты для бизнеса", "Адрес, график работы, быстрые ответы, приветствие и автоответ"],
       [SI.edit, "o", "Длиннее «О себе»", "До 140 символов вместо 70"],
-      [SI.starF, "y", "Значок Premium", "Звезда рядом с именем в чатах и профиле"],
+      [SI.smile, "y", "Анимированный эмодзи-статус", "Значок рядом с именем в вашем профиле: выбирайте из каталога или загружайте свои"],
+      [SI.film, "p", "Свои эмодзи", "Наборы из картинок, GIF и коротких видео"],
       [SI.pin, "g", "Вводный экран", "Короткое приветствие, которое собеседник видит в новом чате"],
     ];
     const card = (k, t, s, extra) => `<button class="plan${plan === k ? " on" : ""}" data-a="plan" data-v="${k}"><span class="radio"></span><span class="tx"><b>${esc(T(t))}</b><small>${esc(s)}</small></span><span class="pr">${PRICE[k]} ★</span>${extra || ""}</button>`;
@@ -40,6 +43,9 @@ Object.assign(Settings, {
       <div class="prem-hero"><div class="prem-star">${SI.starF}</div><h2>${esc(T(NAME_PREMIUM))}</h2><p>${esc(T("Больше возможностей для общения"))}</p></div>
       ${on ? `<div class="prem-on">${SI.check}<span>${esc(T("Premium активен до {0}", fmtDate(u.premium_until)))}</span></div>` : ""}
       <div class="card2 irows feats">${feat.map(([ic, c, t, s]) => `<div class="irow">${R.ic(c, ic)}<span class="tx"><b>${esc(T(t))}</b><small>${esc(T(s))}</small></span></div>`).join("")}</div>
+      ${on && typeof StatusPicker !== "undefined" ? `${R.lbl(esc(T("Ваш профиль")))}${R.card(
+        R.row({ a: "est", ic: SI.smile, c: "y", t: esc(T("Эмодзи-статус")), s: esc(T("Анимированный значок рядом с именем")) }),
+        R.row({ a: "mine", ic: SI.film, c: "p", t: esc(T("Мои эмодзи")), s: esc(T("Свои наборы: картинки, GIF, видео")) }))}` : ""}
       ${R.lbl(esc(T(on ? "Продлить" : "Выберите план")))}
       <div class="plans">${card("year", "Ежегодно", T("{0} ★ в месяц", Math.round(PRICE.year / 12)), `<i class="save">−${Math.round((1 - PRICE.year / (PRICE.month * 12)) * 100)}%</i>`)}${card("month", "Ежемесячно", T("Подписка на месяц"))}</div>
       <div class="prem-bal" data-a="stars">${esc(T("Ваш баланс"))}: <b>${u.stars || 0} ★</b></div>

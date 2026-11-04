@@ -26,11 +26,13 @@ const Profile = {
     if (u.birthday) rows.push(row(esc(bdayText(u.birthday)) + (bdayToday(u.birthday) ? " 🎂" : ""), "День рождения", 'data-edit="1"'));
     rows.push(`<button class="pi" data-chan="1"><span class="pi-v">Личный канал</span><span class="pi-l">Пока в разработке</span><em class="soon sm">скоро</em></button>`);
 
+    const ph = premHero(u);
     const pill = (k, t, extra = "") => `<button class="ptab${Profile.tab === k ? " on" : ""}" data-t="${k}">${t}${extra}</button>`;
     $("profile-box").innerHTML = `
-      <div class="pf-hero">
+      <div class="pf-hero${ph.cls}"${ph.style}>${ph.pat}
         <button class="pf-av" id="pf-av" aria-label="Фото профиля">${Stories.av(u, "xl")}</button>
-        <h2>${esc(dispName(u))}</h2><div class="st2 on">в сети</div>
+        <h2>${profName(u)}</h2><div class="st2 on">в сети</div>
+        ${u.premium && typeof StatusPicker !== "undefined" ? `<button class="pf-edit-st" id="pf-est">${SI.smile}<span>${esc(T("Эмодзи-статус"))}</span></button>` : ""}
       </div>
       <div class="pf-actions">
         <button class="pa" id="pf-photo">${ICON.camera}<span>Выбрать фото</span></button>
@@ -44,6 +46,7 @@ const Profile = {
     $("pf-av").onclick = () => Profile.photoMenu();
     $("pf-photo").onclick = () => Profile.photoMenu();
     $("pf-edit").onclick = () => Profile.openEdit();
+    if ($("pf-est")) $("pf-est").onclick = () => StatusPicker.open();
     $("pf-set").onclick = () => App.go("settings");
     $("profile-box").querySelectorAll(".pi").forEach((b) => (b.onclick = () => {
       if (b.dataset.copy) { copyText(b.dataset.copy); toast("Скопировано"); haptic(); }

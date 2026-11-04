@@ -26,7 +26,8 @@ const UserProfile = {
     if (u.username) rows.push(row("@" + esc(u.username), "Имя пользователя", "@" + u.username));
     if (u.birthday) rows.push(row(esc(bdayText(u.birthday)) + (bdayToday(u.birthday) ? " 🎂" : ""), "День рождения"));
     const st = UserProfile.stories;
-    $("up-body").innerHTML = `<div class="pf-hero"><div class="pf-av">${Stories.av(u, "xl")}</div><h2>${nameHTML(u)}</h2>
+    const ph = premHero(u);
+    $("up-body").innerHTML = `<div class="pf-hero${ph.cls}"${ph.style}>${ph.pat}<div class="pf-av">${Stories.av(u, "xl")}</div><h2>${profName(u)}</h2>
       <div class="st2 ${u.online ? "on" : ""}">${esc(statusText(u))}</div></div>
       ${rows.length ? `<div class="card2 pf-info">${rows.join("")}</div>` : ""}
       ${st.length ? `<div class="up-sect">Публикации</div>${Stories.grid(st)}` : ""}`;

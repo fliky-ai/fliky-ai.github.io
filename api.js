@@ -1,5 +1,6 @@
 // Общие функции: запросы, сессия (отдельная для каждого Telegram-аккаунта), аватарки, время.
 const $ = (id) => document.getElementById(id);
+const APP_VER = "2026.11.04b";
 const TGW = window.Telegram && Telegram.WebApp;
 const INIT = (TGW && TGW.initData) || "";
 const TG_ID = (TGW && TGW.initDataUnsafe && TGW.initDataUnsafe.user && TGW.initDataUnsafe.user.id) || "web";
@@ -103,7 +104,19 @@ function avatar(u, cls = "") {
 }
 const dispName = (u) => [u.name, u.surname].filter(Boolean).join(" ") || u.number || T("Пользователь");
 const PREM_I = '<svg class="prem-i" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z"/></svg>';
-const nameHTML = (u) => esc(dispName(u)) + (u.is_system ? VERIFIED : "") + (u.premium && !u.is_system ? PREM_I : "");
+// Значок Premium показывается только на экранах профиля (см. PB в premium.js). Чтобы вернуть звезду в списки чатов — поставьте true.
+const BADGE_IN_LISTS = false;
+// имя на экране профиля: галочка + значок Premium (анимированный эмодзи-статус), по нажатию на значок открывается окно Premium
+const profName = (u) => esc(dispName(u)) + (u.is_system ? VERIFIED : "") + (typeof PB !== "undefined" ? PB.html(u) : "");
+// шапка профиля Premium-пользователя: цвета берутся из его эмодзи-статуса, на фоне мерцают искорки
+const premHero = (u) => {
+  if (!u || !u.premium || u.is_system || typeof ES === "undefined") return { cls: "", style: "", pat: "" };
+  const [c1, c2] = ES.colors(u.estatus);
+  const SPK = '<svg viewBox="0 0 24 24"><path d="M12 1.500c.8 5.600 3.500 8.700 10.500 10.500-7 1.800-9.700 4.900-10.500 10.500C11.200 17.400 8.500 14.300 1.500 12 8.500 10.200 11.200 7.100 12 1.500z"/></svg>';
+  const P = [[7, 10, 16, 0], [84, 8, 12, 0.8], [20, 40, 10, 1.6], [72, 36, 14, 2.2], [91, 56, 10, 0.4], [9, 66, 14, 1.2], [48, 5, 9, 2.8], [62, 74, 12, 0.6], [32, 82, 10, 2], [88, 80, 13, 1.4], [3, 42, 9, 3], [55, 50, 8, 3.4]];
+  return { cls: " prem", style: ` style="--c1:${c1};--c2:${c2}"`, pat: `<div class="pf-pat">${P.map(([x, y, z, d]) => `<i style="--x:${x}%;--y:${y}%;--s:${z}px;--d:${d}s">${SPK}</i>`).join("")}</div>` };
+};
+const nameHTML = (u) => esc(dispName(u)) + (u.is_system ? VERIFIED : "") + (BADGE_IN_LISTS && u.premium && !u.is_system ? PREM_I : "");
 
 // ── номер телефона и день рождения ──
 const fmtPhone = (n) => { const m = /^\+888(\d{4})(\d{4})$/.exec(n || ""); return m ? `+888 ${m[1]} ${m[2]}` : (n || ""); };

@@ -20,16 +20,21 @@ const MsgMenu = {
 
   items(m) {
     const mine = m.sender === App.user.id, k = m.kind || "text", a = m.att || {};
+    const p = Chat.peer || {}, gk = p.gk, R = p.rights || {}, P = p.perms || {};
+    const canWrite = !gk || !!p.post;
+    const canPin = !gk || !!(R.pin || (gk === "group" && P.pin));
+    const delOther = !!(gk && R.delete), editOther = gk === "channel" && !!R.edit;
     const L = [];
-    if (m.id) L.push(["reply", "Ответить"]);
+    if (k === "call") { L.push(["del", "Удалить"]); return L; }
+    if (m.id && canWrite) L.push(["reply", "Ответить"]);
     if (m.text) L.push(["copy", "Копировать"]);
     if (m.id) L.push(["forward", "Переслать"]);
-    if (m.id) L.push([m.pin ? "unpin" : "pin", m.pin ? "Открепить" : "Закрепить"]);
-    if (m.id && mine && (k === "text" || k === "photo" || k === "gif" || k === "file")) L.push(["edit", "Изменить"]);
+    if (m.id && canPin) L.push([m.pin ? "unpin" : "pin", m.pin ? "Открепить" : "Закрепить"]);
+    if (m.id && (mine || editOther) && (k === "text" || k === "photo" || k === "gif" || k === "file")) L.push(["edit", "Изменить"]);
     if (k === "sticker" && a.fid) L.push(["stk", "Добавить в мои стикеры"]);
     if (k === "gif" && a.fid) L.push(["gif", "Сохранить GIF"]);
     if ((k === "photo" || k === "file" || k === "voice" || k === "gif") && a.url && !m.pending) L.push(["dl", "Скачать"]);
-    L.push(["del", "Удалить"]);
+    if (!gk || mine || delOther) L.push(["del", "Удалить"]);
     return L;
   },
 
@@ -45,9 +50,11 @@ const MsgMenu = {
     ov.className = "mm";
     MsgMenu.born = byTouch ? Date.now() : 0;      // только при открытии пальцем: поднятие пальца даёт «хвостовой» клик
     MsgMenu.guard = 0;
-    const canReact = !!m.id;
-    ov.innerHTML = `${canReact ? `<div class="mm-react">${REACT_QUICK.map((e, i) => `<button class="${cur && cur.e === e ? "on" : ""}" data-r="${e}" style="--i:${i}">${e}</button>`).join("")}<button class="mm-more" data-more aria-label="Ещё реакции">${MIC.more}</button></div>
-      <div class="mm-grid hidden">${REACT_ALL.map((e) => `<button class="${cur && cur.e === e ? "on" : ""}" data-r="${e}">${e}</button>`).join("")}</div>` : ""}
+    const pr = Chat.peer || {}, rmode = pr.gk ? pr.react_mode || "all" : "all";
+    const canReact = !!m.id && rmode !== "none" && (m.kind || "text") !== "call";
+    const QUICK = rmode === "some" ? (pr.react_list || []).slice(0, 7) : REACT_QUICK, ALL = rmode === "some" ? pr.react_list || [] : REACT_ALL;
+    ov.innerHTML = `${canReact ? `<div class="mm-react">${QUICK.map((e, i) => `<button class="${cur && cur.e === e ? "on" : ""}" data-r="${e}" style="--i:${i}">${e}</button>`).join("")}${ALL.length > QUICK.length ? `<button class="mm-more" data-more aria-label="Ещё реакции">${MIC.more}</button>` : ""}</div>
+      <div class="mm-grid hidden">${ALL.map((e) => `<button class="${cur && cur.e === e ? "on" : ""}" data-r="${e}">${e}</button>`).join("")}</div>` : ""}
       <div class="mm-clone"></div>
       <div class="mm-menu">${MsgMenu.items(m).map(([a, t]) => `<button data-a="${a}" class="${a === "del" ? "danger" : ""}">${MIC[a === "forward" ? "fwd" : a] || ""}<span>${t}</span></button>`).join("")}</div>`;
     document.body.appendChild(ov);
@@ -136,10 +143,10 @@ const Fwd = {
     let shown = [];
     const draw = () => {
       const q = el.querySelector("#fwd-q").value.trim().toLowerCase().replace(/^@/, "");
-      const mine = Chats.list.map((c) => c.peer).filter((p) => !q || (dispName(p) + " " + (p.username || "")).toLowerCase().includes(q));
+      const mine = Chats.list.map((c) => c.peer).filter((p) => !(p.gk && !p.post)).filter((p) => !q || (dispName(p) + " " + (p.username || "")).toLowerCase().includes(q));
       const have = new Set(mine.map((p) => p.id));
       shown = mine.concat(found.filter((u) => !have.has(u.id) && u.id !== App.user.id));
-      list.innerHTML = shown.length ? shown.map((p, i) => row(p, i, p.username ? "@" + p.username : statusText(p))).join("") : '<div class="pn-hint">Никого не найдено</div>';
+      list.innerHTML = shown.length ? shown.map((p, i) => row(p, i, p.gk ? statusText(p) : p.username ? "@" + p.username : statusText(p))).join("") : '<div class="pn-hint">Никого не найдено</div>';
     };
     draw();
     el.querySelector("#fwd-q").addEventListener("input", (e) => {

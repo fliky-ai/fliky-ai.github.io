@@ -34,7 +34,7 @@ function T(s, ...a) {
   if (I18N.lang !== "en") return;
   document.documentElement.lang = "en";
   // чужой текст (сообщения, имена, подписи) не трогаем
-  const SKIP = ".b,.editor,.prev,.name,.sv-cap,.pi-v,.cb-t span,.pin-t,.s-user,[data-nt],script,style,textarea,input";
+  const SKIP = ".b,.editor,.prev,.name,.sv-cap,.pi-v,.cb-t span,.pin-t,.s-user,[data-nt],script,style,textarea,input,.crow-prev,.crow-name .nm,.sr-row .tx,.sr-file .tx,.sr-p .n,.gname,.vt-nm,.sig,.cu-name,.pk-msgs,.pk-h .nm,.gm-t,.svcm b";
   const ATTR = ["placeholder", "aria-label", "title", "data-ph", "alt"];
   const skip = (el) => !el || (el.closest && el.closest(SKIP));
   const text = (n) => {

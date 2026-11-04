@@ -3,6 +3,7 @@
 const Nav = {
   stack: [],
   open(id, onClose) {
+    $(id).style.zIndex = 21 + Nav.stack.length;        // каждая следующая страница — строго выше предыдущей
     $(id).classList.add("open"); $(id).setAttribute("aria-hidden", "false");
     Nav.stack.push({ id, onClose }); history.pushState({ n: Nav.stack.length }, ""); Nav.sync();
   },
@@ -22,6 +23,16 @@ const Nav = {
     if (t.onClose) t.onClose(); Nav.sync();
   },
   back() { if (Nav.stack.length) history.back(); },
+  // закрыть подряд все верхние страницы, подходящие под условие (например, «Новое сообщение» и «Создать группу»)
+  async unwindWhile(pred) {
+    for (let i = 0; i < 8; i++) {
+      const top = Nav.stack[Nav.stack.length - 1];
+      if (!top || !pred(top)) return;
+      const n = Nav.stack.length;
+      Nav.back();
+      for (let t = 0; t < 40 && Nav.stack.length === n; t++) await new Promise((r) => setTimeout(r, 20));
+    }
+  },
   sync() { try { Nav.stack.length ? TGW.BackButton.show() : TGW.BackButton.hide(); } catch (e) {} },
 };
 addEventListener("popstate", () => Nav.pop());
@@ -79,6 +90,8 @@ const App = {
     guard("chats", () => Chats.bind());
     guard("chat", () => Chat.bind());
     guard("contacts", () => Contacts.bind());
+    guard("groups", () => Groups.init());
+    guard("calls", () => Calls.init());
     guard("lock", () => Lock.init());
     guard("notif", () => Notif.register());
     guard("media", () => Media.trim());
@@ -120,6 +133,7 @@ const App = {
     const b = $("boot"); if (b) b.classList.add("hidden");
     $("auth").classList.add("hidden"); $("app").classList.remove("hidden");
     guard("profile", () => Profile.render());               // внутри обновляет и вкладку «Настройки»
+    guard("tabav", () => App.tabAvatar());
     guard("lists", () => { Chats.load(); Stories.load(true); Profile.loadStories(); });
     guard("ws", () => App.connect());
     guard("go", () => App.go("chats"));
@@ -129,23 +143,37 @@ const App = {
     addEventListener("online", () => App.connect());
   },
 
-  // ссылка вида  …/#c=адрес  открывает чат с владельцем ссылки и подставляет готовый текст
+  // ссылки:  …/#c=адрес — чат с владельцем ссылки;  #j=код — приглашение в группу/канал;  #p=адрес — публичная группа/канал
+  // (в Telegram те же коды приходят в start_param: c_…, j_…, p_…)
   async openHash() {
-    const m = /[#&]c=([A-Za-z0-9_]{4,32})/.exec(location.hash || "");
-    if (!m) return;
+    let code = "";
+    try { code = (TGW && TGW.initDataUnsafe && TGW.initDataUnsafe.start_param) || ""; } catch (e) {}
+    const h = /[#&]([cjp])=([A-Za-z0-9_-]{4,40})/.exec(location.hash || "");
+    let kind = "", val = "";
+    if (h) { kind = h[1]; val = h[2]; }
+    else { const m = /^([cjp])_([A-Za-z0-9_-]{4,40})$/.exec(code); if (m) { kind = m[1]; val = m[2]; } }
+    if (!kind) return;
     try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+    if (kind === "j" || kind === "p") return Groups.joinPreview(val);
     try {
-      const d = await api("/api/biz/link/" + m[1]);
+      const d = await api("/api/biz/link/" + val);
       if (d.user.id === App.user.id) return;
       Chat.open(d.user);
       if (d.text) setTimeout(() => { try { Editor.set(d.text); Editor.focus(true); Chat.syncMain(); } catch (e) {} }, 400);
     } catch (e) { toast(e.message); }
   },
 
+  // маленькая аватарка на четвёртой вкладке
+  tabAvatar() {
+    const b = $("tab-av"); if (!b || !App.user) return;
+    b.innerHTML = avatar(App.user);
+  },
+
   go(tab) {
     document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
     document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === "v-" + tab));
     if (tab === "chats") Chats.load();
+    if (tab === "contacts") Contacts.load();
     if (tab === "profile") { Profile.loadStories(); Stories.load(); }
     if (tab === "settings") { Settings.fetchUnread(); }
   },
@@ -175,6 +203,10 @@ const App = {
       else if (d.type === "react") { Chat.onReact(d); guard("notify", () => Notif.onReact(d)); }
       else if (d.type === "pin") Chat.onPin(d);
       else if (d.type === "presence") App.presence(d);
+      else if (d.type === "chat") guard("groups", () => Groups.onChat(d));
+      else if (d.type === "chat_gone") guard("groups", () => Groups.onGone(d.id));
+      else if (d.type === "vc") guard("calls", () => Calls.onVC(d));
+      else if (d.type === "rtc") guard("calls", () => Calls.onRTC(d));
       else if (d.type === "profile") App.profile(d.user);
       else if (d.type === "story") { guard("notify", () => Notif.onStory(d.user)); Stories.load(true); if (d.user === App.user.id) Profile.loadStories(); if (UserProfile.cur && UserProfile.cur.id === d.user) UserProfile.loadStories(d.user); }
     };
@@ -196,7 +228,7 @@ const App = {
   presence(d) { App.patchUser(d.user, { online: d.online, last_seen: d.last_seen }); },
   profile(u) {
     App.patchUser(u.id, { name: u.name, surname: u.surname, username: u.username, bio: u.bio, avatar: u.avatar, premium: u.premium ? 1 : 0, estatus: u.estatus || null });
-    Chats.render(); if (u.id === App.user.id) Profile.render();
+    Chats.render(); if (u.id === App.user.id) { Profile.render(); guard("tabav", () => App.tabAvatar()); }
     // открыт профиль этого человека — обновляем и его (значок, статус)
     guard("uprofile", () => { if (UserProfile.cur && UserProfile.cur.id === u.id) { UserProfile.cur = Object.assign({}, UserProfile.cur, u); UserProfile.render(UserProfile.cur); } });
   },
@@ -211,8 +243,15 @@ const App = {
       "set_look.js": () => typeof Settings.chats === "function" && typeof Settings.energy === "function",
       "premium.js": () => PB && ES && StatusPicker && EmojiSets && PremiumPromo,
       "pg.js": () => Pg && SI && R,
+      "chats.js": () => Chats && ChatPeek && ILL && CI,
+      "search.js": () => Search && typeof Search.open === "function",
+      "contacts.js": () => Contacts && NewMsg && CreateChat && ContactList,
+      "groups.js": () => Groups && Svc && Topics && Picker,
+      "grp_edit.js": () => GroupEdit && typeof GroupEdit.profile === "function",
+      "voicefx.js": () => VoiceFX && typeof VoiceFX.process === "function",
+      "call.js": () => Calls && typeof Calls.start === "function",
       "settings.js": () => Settings && Accounts,
-      "index.html": () => $("ftabs") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261104/.test([...document.scripts].map((x) => x.src).join(" ")),
+      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261104d/.test([...document.scripts].map((x) => x.src).join(" ")),
     };
     const bad = Object.keys(chk).filter((k) => !has(chk[k]));
     const miss = (window.__boot && window.__boot.miss || []).filter((x, i, a) => a.indexOf(x) === i && /\.(js|css)$/.test(x));

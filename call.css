@@ -1,0 +1,160 @@
+/* call.css — экран звонка и видеочата, мини-плашка, панель выбора голоса. Живой переливающийся фон, как в Telegram. */
+
+.callui{position:fixed;inset:0;z-index:125;color:#fff;display:flex;flex-direction:column;overflow:hidden;background:#17304f;
+  animation:cuIn .28s var(--ease,cubic-bezier(.2,.8,.2,1));-webkit-user-select:none;user-select:none;touch-action:manipulation}
+.callui.hidden{display:none}
+@keyframes cuIn{from{opacity:0;transform:translateY(24px) scale(.98)}to{opacity:1;transform:none}}
+
+/* фон: три размытых пятна, цвет зависит от состояния */
+.cu-bg{position:absolute;inset:0;overflow:hidden;background:linear-gradient(160deg,#2a6fe0,#6a49d8 60%,#2f4fb8);transition:background .8s}
+.cu-bg i{position:absolute;width:90vmax;height:90vmax;border-radius:50%;filter:blur(60px);opacity:.55;will-change:transform}
+.cu-bg i:nth-child(1){left:-30vmax;top:-30vmax;background:#31c4ff;animation:cuB1 14s ease-in-out infinite alternate}
+.cu-bg i:nth-child(2){right:-40vmax;top:20vh;background:#8a4dff;animation:cuB2 17s ease-in-out infinite alternate}
+.cu-bg i:nth-child(3){left:-20vmax;bottom:-45vmax;background:#2d5de6;animation:cuB3 19s ease-in-out infinite alternate}
+@keyframes cuB1{to{transform:translate(28vmax,22vmax) scale(1.15)}}
+@keyframes cuB2{to{transform:translate(-30vmax,18vmax) scale(.9)}}
+@keyframes cuB3{to{transform:translate(32vmax,-22vmax) scale(1.2)}}
+.callui.st-connected .cu-bg,.callui.st-reconnecting .cu-bg{background:linear-gradient(160deg,#1fa67a,#2587c9 60%,#2a63c9)}
+.callui.st-connected .cu-bg i:nth-child(1){background:#4de6a4}
+.callui.st-connected .cu-bg i:nth-child(2){background:#35b8ff}
+.callui.st-reconnecting .cu-bg{background:linear-gradient(160deg,#d28a1c,#c9632a 60%,#9c3b3b)}
+.callui.st-ended .cu-bg{background:linear-gradient(160deg,#5b6577,#3e4656);animation:none}
+.callui.st-ended .cu-bg i{opacity:.18}
+.callui.st-incoming .cu-bg{background:linear-gradient(160deg,#2f7be8,#7a4be0 60%,#d04b9b)}
+.callui.vcui .cu-bg{background:linear-gradient(160deg,#1c2a52,#3a2a7c 60%,#1b3b7a)}
+.callui.vcui.st-connected .cu-bg{background:linear-gradient(160deg,#1a3f6d,#2a2f8a 60%,#16406f)}
+
+/* видео собеседника на весь экран */
+.cu-remote{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;display:none}
+.callui.rv .cu-remote{display:block}
+.cu-shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.45),rgba(0,0,0,0) 22%,rgba(0,0,0,0) 62%,rgba(0,0,0,.62));opacity:0;transition:opacity .25s}
+.callui.rv .cu-shade{opacity:1;pointer-events:auto}
+.callui.rv .cu-bg{opacity:0}
+.callui.rv.bare .cu-top,.callui.rv.bare .cu-btns{opacity:0;pointer-events:none}
+
+/* верхняя панель */
+.cu-top{position:relative;z-index:3;display:flex;align-items:center;gap:6px;padding:calc(var(--safe-t,0px) + 10px) 10px 0;transition:opacity .25s}
+.cu-ib{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;color:#fff;flex:none;background:rgba(255,255,255,.14);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transition:transform .12s,background .15s}
+.cu-ib svg{width:24px;height:24px}
+.cu-ib:active{transform:scale(.9);background:rgba(255,255,255,.26)}
+.cu-ib.hidden{visibility:hidden;display:grid}
+.cu-mini{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center;opacity:0;transition:opacity .25s;pointer-events:none}
+.cu-mini b{font-size:16px;font-weight:800;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:0 1px 6px rgba(0,0,0,.35)}
+.cu-mini span,.cu-mini i{font-size:13px;font-style:normal;opacity:.9;font-weight:600}
+.callui.rv .cu-mini,.callui.vcui .cu-mini{opacity:1}
+.cu-mini.vc{opacity:1}
+
+/* центр: аватар, имя, статус */
+.cu-mid{position:relative;z-index:2;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:0 24px 40px;text-align:center}
+.callui.rv .cu-mid,.callui.vcui .cu-mid{display:none}
+.cu-av{position:relative;width:156px;height:156px;margin-bottom:18px;display:grid;place-items:center}
+.cu-av .av{width:156px;height:156px;position:relative;z-index:2;box-shadow:0 10px 36px rgba(0,0,0,.3)}
+.cu-av .av-l{font-size:66px}
+.cu-pulse{position:absolute;inset:0;border-radius:50%;background:rgba(255,255,255,.22);animation:cuP 2.4s ease-out infinite;z-index:1}
+.cu-pulse.p2{animation-delay:1.2s}
+@keyframes cuP{from{transform:scale(1);opacity:.7}to{transform:scale(1.9);opacity:0}}
+.callui.st-connected .cu-pulse,.callui.st-ended .cu-pulse,.callui.st-reconnecting .cu-pulse{animation-duration:3.6s;opacity:.5}
+.callui.st-ended .cu-pulse{display:none}
+.cu-name{font-size:30px;font-weight:800;letter-spacing:-.01em;display:flex;align-items:center;gap:7px;justify-content:center;max-width:100%;text-shadow:0 2px 10px rgba(0,0,0,.25);word-break:break-word}
+.cu-status{font-size:17px;font-weight:600;opacity:.92;min-height:24px;font-variant-numeric:tabular-nums}
+.callui.st-calling .cu-status,.callui.st-ringing .cu-status,.callui.st-connecting .cu-status{animation:cuBl 1.6s ease-in-out infinite}
+@keyframes cuBl{50%{opacity:.55}}
+.cu-tag{margin-top:6px;padding:5px 13px;border-radius:14px;background:rgba(255,255,255,.18);font-size:13.5px;font-weight:700;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.cu-tag.hide{display:none}
+
+/* моё видео в углу */
+.cu-lw{position:absolute;z-index:4;right:14px;top:calc(var(--safe-t,0px) + 74px);width:104px;height:150px;border-radius:16px;overflow:hidden;background:#000;box-shadow:0 8px 24px rgba(0,0,0,.4);border:2px solid rgba(255,255,255,.7);display:none;touch-action:none;cursor:grab}
+.callui.lv .cu-lw{display:block;animation:cuPop .25s var(--ease,ease)}
+@keyframes cuPop{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
+.callui.lv:not(.rv) .cu-lw{top:auto;bottom:auto;right:auto;left:50%;width:min(66vw,260px);height:min(46vh,340px);transform:translateX(-50%);position:absolute;top:calc(var(--safe-t,0px) + 80px);cursor:default}
+.callui.lv:not(.rv) .cu-mid{padding-top:calc(min(46vh,340px) + 40px)}
+.cu-local{width:100%;height:100%;object-fit:cover;display:block}
+.cu-local.mirror,.vt video.mirror{transform:scaleX(-1)}
+
+/* кнопки */
+.cu-btns{position:relative;z-index:3;display:flex;justify-content:center;align-items:flex-start;gap:clamp(8px,3.4vw,20px);padding:12px 12px calc(var(--safe-b,0px) + 28px);transition:opacity .25s}
+.cu-b{display:flex;flex-direction:column;align-items:center;gap:8px;width:76px;color:#fff;font-weight:700;font-size:12.5px;line-height:1.15;text-align:center;transition:transform .12s}
+.cu-b:active{transform:scale(.92)}
+.cu-bi{width:62px;height:62px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.2);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);transition:background .18s,color .18s,transform .18s}
+.cu-bi svg{width:28px;height:28px}
+.cu-b.on .cu-bi{background:#fff;color:#2a5bd0}
+.cu-b.red .cu-bi{background:#f2403f;color:#fff;box-shadow:0 6px 18px rgba(242,64,63,.5)}
+.cu-b.red.end .cu-bi svg{transform:rotate(135deg)}
+.cu-b.green .cu-bi{background:#2fd067;box-shadow:0 6px 18px rgba(47,208,103,.5);animation:cuRing 1.6s ease-in-out infinite}
+.cu-b.green .cu-bi svg{transform:none}
+@keyframes cuRing{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+.callui.st-incoming .cu-btns{gap:clamp(44px,20vw,110px);padding-bottom:calc(var(--safe-b,0px) + 56px)}
+.callui.st-incoming .cu-bi{width:70px;height:70px}
+.callui.st-incoming .cu-b{width:90px;font-size:14px}
+.callui.st-ended .cu-btns{opacity:0}
+
+/* ───────── видеочат группы ───────── */
+.vcu-grid{position:relative;z-index:2;flex:1;min-height:0;overflow-y:auto;display:grid;gap:10px;padding:14px 14px 8px;align-content:center;grid-template-columns:repeat(2,1fr)}
+.vcu-grid.n1{grid-template-columns:1fr;align-content:center}
+.vcu-grid.n1 .vt{aspect-ratio:3/4;max-height:56vh;margin:0 auto;width:min(100%,360px)}
+.vcu-grid.n2{align-content:center}
+.vcu-grid.n5 .vt:first-child,.vcu-grid.n7 .vt:first-child{grid-column:1/-1;aspect-ratio:16/9}
+.vt{position:relative;aspect-ratio:3/4;border-radius:20px;overflow:hidden;background:rgba(255,255,255,.12);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:grid;place-items:center;transition:box-shadow .2s,transform .2s}
+.vt video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;background:#000}
+.vt.hv video{display:block}
+.vt.hv .vt-av{display:none}
+.vt-av .av{width:84px;height:84px;box-shadow:0 6px 20px rgba(0,0,0,.28)}
+.vt-av .av-l{font-size:36px}
+.vcu-grid.n1 .vt-av .av{width:128px;height:128px}
+.vcu-grid.n1 .vt-av .av-l{font-size:54px}
+.vt-n{position:absolute;left:8px;right:8px;bottom:8px;display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:12px;background:rgba(0,0,0,.38);font-size:13.5px;font-weight:700;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.vt-nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vt-mic{display:none;flex:none;color:#ff8a8a}
+.vt-mic svg{width:16px;height:16px;display:block}
+.vt.mu .vt-mic{display:block}
+.vt.sp{box-shadow:0 0 0 3px #4de6a4,0 0 28px rgba(77,230,164,.55);transform:scale(1.015)}
+.vt.mu.sp{box-shadow:none;transform:none}
+.vcb{gap:clamp(6px,2.4vw,14px)}
+.cu-b.mic{width:112px}
+.cu-b.mic .cu-bi.big{width:78px;height:78px;background:linear-gradient(145deg,#38d98a,#1ea869);box-shadow:0 8px 24px rgba(30,168,105,.55)}
+.cu-b.mic .cu-bi.big svg{width:34px;height:34px}
+.cu-b.mic.off .cu-bi.big{background:linear-gradient(145deg,#6b7897,#4a5573);box-shadow:none}
+.vcb .cu-b:not(.mic){width:64px}
+.vcb .cu-bi{width:54px;height:54px}
+
+/* ───────── свёрнутый звонок ───────── */
+.callpill{position:fixed;z-index:124;left:50%;top:calc(var(--safe-t,0px) + 6px);transform:translateX(-50%);display:flex;align-items:center;gap:9px;max-width:86vw;padding:0 16px 0 12px;height:34px;border-radius:17px;color:#fff;font-weight:700;font-size:14px;background:linear-gradient(90deg,#1f9f6e,#2587c9);box-shadow:0 6px 20px rgba(0,0,0,.35);animation:cpIn .3s var(--ease,ease)}
+.callpill.hidden{display:none}
+@keyframes cpIn{from{transform:translate(-50%,-50px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+.cp-dot{width:9px;height:9px;border-radius:50%;background:#fff;animation:cpD 1.2s ease-in-out infinite;flex:none}
+@keyframes cpD{50%{opacity:.35;transform:scale(.75)}}
+.cp-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cp-s{opacity:.9;font-variant-numeric:tabular-nums;font-weight:600;flex:none}
+.callaudio{position:fixed;width:1px;height:1px;left:-10px;top:-10px;overflow:hidden;opacity:0;pointer-events:none}
+
+/* ───────── панель «Эффект голоса» ───────── */
+.vfx{position:fixed;inset:0;z-index:135;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0);transition:background .2s}
+.vfx.show{background:rgba(0,0,0,.5)}
+.vfx-card{width:100%;max-width:520px;max-height:88vh;overflow-y:auto;background:var(--surface);color:var(--text);border-radius:24px 24px 0 0;padding:8px 16px calc(var(--safe-b,0px) + 16px);transform:translateY(100%);transition:transform .28s var(--ease,cubic-bezier(.2,.8,.2,1))}
+.vfx.show .vfx-card{transform:none}
+.vfx-grip{width:40px;height:4px;border-radius:2px;background:var(--line);margin:4px auto 10px}
+.vfx-card h3{font-size:19px;font-weight:800;text-align:center}
+.vfx-card p{font-size:13.5px;color:var(--dim);text-align:center;margin:3px 0 12px}
+.vfx-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.vfx-t{display:flex;flex-direction:column;align-items:center;gap:4px;padding:11px 4px 9px;border-radius:16px;background:var(--raised);font-size:13px;font-weight:700;border:2px solid transparent;transition:transform .12s,border-color .15s,background .15s}
+.vfx-t:active{transform:scale(.94)}
+.vfx-e{font-size:30px;line-height:1.1}
+.vfx-t.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--raised));color:var(--accent)}
+.vfx-row{display:flex;align-items:center;gap:12px;margin:14px 2px 4px;font-weight:700;font-size:15px}
+.vfx-row .rng{flex:1}
+.vfx-row b{width:34px;text-align:right;font-variant-numeric:tabular-nums}
+.vfx-mon{display:flex;align-items:center;gap:12px;width:100%;margin-top:6px;padding:10px 4px;text-align:left;border-radius:14px}
+.vfx-mt{display:flex;flex-direction:column;flex:1;min-width:0}
+.vfx-mt b{font-size:15.5px}
+.vfx-mt small{font-size:12.5px;color:var(--dim)}
+.vfx-ok{display:block;width:100%;height:50px;border-radius:14px;margin-top:10px;background:var(--accent);color:#fff;font-weight:800;font-size:16px}
+.vfx-ok:active{filter:brightness(.92)}
+
+@media (max-height:620px){
+  .cu-av,.cu-av .av{width:110px;height:110px}
+  .cu-name{font-size:25px}
+  .cu-bi{width:54px;height:54px}
+}
+@media (prefers-reduced-motion:reduce){
+  .cu-bg i,.cu-pulse,.vc-ic::after{animation:none}
+}

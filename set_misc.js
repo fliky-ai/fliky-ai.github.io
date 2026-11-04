@@ -41,12 +41,16 @@ const Notif = {
   who(id) { const c = Chats.list.find((x) => x.peer.id === id); return c ? dispName(c.peer) : T("Новое сообщение"); },
   onMessage(m) {
     if (!App.user || m.sender === App.user.id) return;
-    const viewing = Chat.peer && Chat.peer.id === m.sender && document.visibilityState === "visible";
+    if (m.kind === "svc" || m.kind === "greet") return;
+    const pid = Chats.peerOf(m);
+    if (Chats.isMuted(pid)) return;                           // для этого чата звук выключен
+    const viewing = Chat.peer && Chat.peer.id === pid && document.visibilityState === "visible";
     if (viewing || !Notif.get("msg")) return;
     Notif.sound(); Notif.vibrate();
-    const text = Notif.get("prev") ? Rich.preview(m).split("\n")[0] : T("Новое сообщение");
-    if (document.visibilityState !== "visible") Notif.show(Notif.who(m.sender), text, "m" + m.sender);
-    else toast(Notif.get("prev") ? `${Notif.who(m.sender)}: ${text}` : Notif.who(m.sender));
+    let text = Notif.get("prev") ? (m.kind === "call" ? Svc.callText(m) : Rich.preview(m)).split("\n")[0] : T("Новое сообщение");
+    if (pid < 0 && m.from && Notif.get("prev")) text = String(m.from.name || "").split(" ")[0] + ": " + text;
+    if (document.visibilityState !== "visible") Notif.show(Notif.who(pid), text, "m" + pid);
+    else toast(Notif.get("prev") ? `${Notif.who(pid)}: ${text}` : Notif.who(pid));
   },
   onReact(d) {
     if (!App.user || !d.by || d.by === App.user.id || !d.emoji || !Notif.get("react") || !Notif.get("msg")) return;

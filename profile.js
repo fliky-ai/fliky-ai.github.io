@@ -13,6 +13,7 @@ const Profile = {
     Profile.draw();
     // имя и фото показаны и во вкладке «Настройки» (шапка и список аккаунтов) — обновляем их тоже
     Settings.render();
+    try { App.tabAvatar(); } catch (e) {}
   },
 
   draw() {

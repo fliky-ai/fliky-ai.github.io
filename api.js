@@ -1,6 +1,6 @@
 // Общие функции: запросы, сессия (отдельная для каждого Telegram-аккаунта), аватарки, время.
 const $ = (id) => document.getElementById(id);
-const APP_VER = "2026.11.04b";
+const APP_VER = "2026.11.04d";
 const TGW = window.Telegram && Telegram.WebApp;
 const INIT = (TGW && TGW.initData) || "";
 const TG_ID = (TGW && TGW.initDataUnsafe && TGW.initDataUnsafe.user && TGW.initDataUnsafe.user.id) || "web";
@@ -97,10 +97,15 @@ const ICON = {
 };
 
 function avatarUrl(u) { return CONFIG.API + "/avatar/" + encodeURIComponent(u.avatar); }
+// цвета «заглушек» аватара, как в Telegram: у каждого человека/группы свой, по номеру
+const AV_COLORS = [["#FF885E", "#FF516A"], ["#FFCD6A", "#FFA85C"], ["#82B1FF", "#665FFF"], ["#A0DE7E", "#54CB68"], ["#53EDD6", "#28C9B7"], ["#72D5FD", "#2A9EF1"], ["#E0A2F3", "#D669ED"]];
 function avatar(u, cls = "") {
   if (u.is_system) return `<div class="av sys ${cls}">${PLANE}</div>`;
   if (u.avatar) return `<div class="av ${cls}"><img src="${avatarUrl(u)}" alt="" decoding="async"></div>`;
-  return `<div class="av def ${cls}">${PERSON}</div>`;
+  const nm = String(u.name || "").trim(), ch = nm ? Array.from(nm)[0].toUpperCase() : "";
+  if (!ch) return `<div class="av def ${cls}">${PERSON}</div>`;
+  const c = AV_COLORS[Math.abs(+u.id || 0) % AV_COLORS.length];
+  return `<div class="av def ltr ${cls}" style="background:linear-gradient(160deg,${c[0]},${c[1]})"><span class="av-l">${esc(ch)}</span></div>`;
 }
 const dispName = (u) => [u.name, u.surname].filter(Boolean).join(" ") || u.number || T("Пользователь");
 const PREM_I = '<svg class="prem-i" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z"/></svg>';
@@ -161,6 +166,10 @@ function listTime(ts) {
   return d.toLocaleDateString(I18N.tloc, { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 function statusText(u) {
+  if (u.gk) {                                   // группа или канал
+    const n = u.members || 0;
+    return u.gk === "channel" ? n + " " + plural(n, T("подписчик"), T("подписчика"), T("подписчиков")) : n + " " + plural(n, T("участник"), T("участника"), T("участников"));
+  }
   if (u.is_system) return T("служебные уведомления");
   if (u.online) return T("в сети");
   if (!u.last_seen) return T("был(а) недавно");

@@ -1,5 +1,5 @@
 // attach.js — загрузка файлов кусками (оригинал без пересжатия), меню вложений, превью с подписью, просмотр фото.
-const fmtSize = (n) => (n < 1024 ? n + " Б" : n < 1048576 ? (n / 1024).toFixed(n < 10240 ? 1 : 0) + " КБ" : (n / 1048576).toFixed(n < 10485760 ? 1 : 0) + " МБ");
+const fmtSize = (n) => (n < 1024 ? n + " " + T("Б") : n < 1048576 ? (n / 1024).toFixed(n < 10240 ? 1 : 0) + " " + T("КБ") : (n / 1048576).toFixed(n < 10485760 ? 1 : 0) + " " + T("МБ"));
 const fileUrl = (u) => (u ? (/^(blob:|data:|https?:)/.test(u) ? u : CONFIG.API + u) : "");
 
 const Up = {
@@ -132,7 +132,7 @@ const Attach = {
     files = (files || []).filter((f) => f && f.size > 0);
     if (!files.length) return;
     const big = files.find((f) => f.size > Attach.max);
-    if (big) return toast(`«${big.name}» больше ${Math.round(Attach.max / 1048576)} МБ`);
+    if (big) return toast(T("«{0}» больше {1} МБ", big.name, Math.round(Attach.max / 1048576)));
     const urls = [];
     const el = document.createElement("div");
     el.className = "sheet2 pv";
@@ -142,8 +142,8 @@ const Attach = {
       return `<div class="pv-i file"><div class="fic">${esc((f.name.split(".").pop() || "file").slice(0, 4).toUpperCase())}</div><b>${esc(f.name)}</b><small>${fmtSize(f.size)}</small></div>`;
     }).join("");
     const total = files.reduce((s, f) => s + f.size, 0);
-    el.innerHTML = `<div class="s2-card" role="dialog"><h3>${files.length > 1 ? files.length + " файла" : "Отправить файл"}</h3>
-      <p class="pv-note">Отправляется оригинал без сжатия · ${fmtSize(total)}</p>
+    el.innerHTML = `<div class="s2-card" role="dialog"><h3>${files.length > 1 ? T("{0} файла", files.length) : T("Отправить файл")}</h3>
+      <p class="pv-note">${T("Отправляется оригинал без сжатия · {0}", fmtSize(total))}</p>
       <div class="pv-list">${items}</div>
       <input class="s2-input" id="pv-cap" type="text" maxlength="1000" placeholder="Добавить подпись…" autocomplete="off">
       <div class="s2-row"><button data-a="no">Отмена</button><button data-a="ok" class="accent">Отправить</button></div></div>`;

@@ -20,6 +20,8 @@ const Rec = {
   // открыть микрофон. Поток держим ещё ~20 с после записи — следующая запись стартует мгновенно, без потери первых слов.
   async open() {
     clearTimeout(Rec.idleT);
+    // запись голосового: музыку и чужие голосовые ставим на паузу (настройка «Медиа и звук»)
+    if (Prefs.get("pauserec", true)) { try { if (Player.a && !Player.a.paused) Player.a.pause(); } catch (e) {} }
     if (Rec.warm()) {
       Rec.stream.getTracks().forEach((t) => (t.enabled = true));
       if (Rec.ctx.state === "suspended") { try { await Rec.ctx.resume(); } catch (e) {} }
@@ -27,7 +29,8 @@ const Rec = {
     }
     Rec.close();
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw Object.assign(new Error("no api"), { name: "NotSupportedError" });
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    const mic = Prefs.get("micid", "");
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: Object.assign({ channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true }, mic ? { deviceId: { ideal: mic } } : {}) });
     const AC = window.AudioContext || window.webkitAudioContext;
     const ctx = new AC();
     if (ctx.state === "suspended") { try { await ctx.resume(); } catch (e) {} }

@@ -1,0 +1,85 @@
+/* theme.css — палитры (светлая / тёмная), цвета акцента, обои чата, размер текста, скругление пузырей, энергосбережение.
+   Подключается ПОСЛЕ style.css / chat.css / profile.css и переопределяет их переменные. */
+
+/* ───────── тёмная тема (по умолчанию) ───────── */
+:root{
+  --bg:#0F141B;--surface:#18202B;--raised:#212B38;--line:#26303E;
+  --text:#EAF0F7;--dim:#8794A8;--danger:#FF6B6B;--mint:#5FD6B0;
+  --accent:#4F9BFF;--accent-2:#3A6FEA;--on-accent:#fff;
+  --bubble-in:#202B3A;--bubble-in-text:var(--text);
+  --bubble-out:linear-gradient(135deg,var(--accent-2),var(--accent));
+  --field-line:#33405299;
+  --pill-bg:rgba(8,14,22,.46);--shadow-card:0 1px 0 rgba(255,255,255,.02) inset;
+  --wp-bg:linear-gradient(160deg,#0F1822,#101A26 55%,#0E1620);--wp-pat-op:.07;--wp-dim:0;
+  --fsk:1;--br:18px;color-scheme:dark;
+}
+:root[data-theme="light"]{
+  --bg:#EDF0F6;--surface:#FFFFFF;--raised:#F0F3F8;--line:#E3E8F0;
+  --text:#0F1722;--dim:#6C7B91;--danger:#E5484D;--mint:#1FA97A;
+  --accent:#2B7BF4;--accent-2:#1F63D8;
+  --bubble-in:#FFFFFF;
+  --field-line:#C7CFDC;
+  --pill-bg:rgba(48,66,92,.34);--shadow-card:0 1px 2px rgba(20,40,80,.05);
+  --wp-bg:linear-gradient(160deg,#DCEBFA,#E6F1E4 55%,#F3EBD8);--wp-pat-op:.10;
+  color-scheme:light;
+}
+
+/* ───────── цвета акцента ───────── */
+:root[data-acc="cyan"]{--accent:#2FB7D9;--accent-2:#1B93C0}
+:root[data-acc="green"]{--accent:#3DB971;--accent-2:#23965A}
+:root[data-acc="orange"]{--accent:#F28C2E;--accent-2:#D86E12}
+:root[data-acc="pink"]{--accent:#E9569B;--accent-2:#C93B80}
+:root[data-acc="violet"]{--accent:#8F6BF5;--accent-2:#6E4AE0}
+:root[data-acc="red"]{--accent:#EE5A5A;--accent-2:#CB3D3D}
+:root[data-theme="light"][data-acc="cyan"]{--accent:#0F9DC2;--accent-2:#0A7FA2}
+:root[data-theme="light"][data-acc="green"]{--accent:#259E5A;--accent-2:#16804A}
+:root[data-theme="light"][data-acc="orange"]{--accent:#E27610;--accent-2:#C25F05}
+:root[data-theme="light"][data-acc="pink"]{--accent:#D83F87;--accent-2:#B72C6D}
+:root[data-theme="light"][data-acc="violet"]{--accent:#7449E8;--accent-2:#5B33C9}
+:root[data-theme="light"][data-acc="red"]{--accent:#E03E3E;--accent-2:#BD2828}
+
+/* всё, что было «залито» акцентом, теперь учитывает выбранный цвет */
+.fab,.pf-add,.sc-go,.cr-ok,.badge.acc{background:var(--accent);color:var(--on-accent)}
+.fab{box-shadow:0 6px 18px color-mix(in srgb,var(--accent) 45%,transparent)}
+.av.sys{background:var(--accent)}
+.b.out{background:var(--bubble-out);color:#fff}
+.b.in{color:var(--bubble-in-text)}
+.b.in{box-shadow:0 1px 1px rgba(0,0,0,.08)}
+.b.out{box-shadow:0 1px 1px rgba(0,0,0,.12)}
+:root[data-theme="light"] .b.in{box-shadow:0 1px 2px rgba(30,50,90,.12)}
+
+/* ───────── карточки и списки: аккуратнее, чем просто «белое на белом» ───────── */
+.card2,.group{box-shadow:var(--shadow-card)}
+:root[data-theme="light"] .card2,:root[data-theme="light"] .group{border:1px solid rgba(20,40,80,.05)}
+.tabbar,.phead{background:color-mix(in srgb,var(--surface) 92%,transparent);-webkit-backdrop-filter:saturate(1.4) blur(14px);backdrop-filter:saturate(1.4) blur(14px)}
+.tab.active{color:var(--accent)}
+.search{background:var(--surface);box-shadow:var(--shadow-card)}
+:root[data-theme="light"] .search{background:#E4E9F1;box-shadow:none}
+.sect{letter-spacing:.01em}
+
+/* ───────── обои чата ───────── */
+#chat{background:var(--bg)}
+#chat .msgs-wrap{background:var(--wp-bg);background-size:cover;background-position:center;isolation:isolate}
+#chat .msgs-wrap::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+  background-image:var(--wp-pat,none);background-size:240px 240px;opacity:var(--wp-pat-op);mix-blend-mode:normal}
+#chat .msgs-wrap::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:#000;opacity:var(--wp-dim)}
+#chat .msgs-wrap.wp-img{background-size:cover}
+#chat .msgs{position:relative;z-index:1}
+#chat .jump{z-index:3}
+.day{background:var(--pill-bg);color:#fff;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+
+/* размер текста и скругление пузырей (настройки чатов) */
+.b{font-size:calc(15.5px * var(--fsk));border-radius:var(--br)}
+.b.in{border-bottom-left-radius:min(6px,var(--br))}
+.b.out{border-bottom-right-radius:min(6px,var(--br))}
+.b.in.cont{border-top-left-radius:min(6px,var(--br))}
+.b.out.cont{border-top-right-radius:min(6px,var(--br))}
+.editor{font-size:calc(16px * var(--fsk))}
+
+/* ───────── режим энергосбережения: без лишних анимаций ───────── */
+html.eco-anim *,html.eco-anim *::before,html.eco-anim *::after{transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}
+html.eco-anim .spin,html.eco-anim .rec-dot{animation-duration:.8s!important;animation-iteration-count:infinite!important}
+html.no-blur *{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+
+/* плавная смена темы */
+html.theming *{transition:background-color .25s,color .25s,border-color .25s!important}

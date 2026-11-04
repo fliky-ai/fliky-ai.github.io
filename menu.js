@@ -130,7 +130,7 @@ const Fwd = {
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add("show"));
     const close = () => { el.classList.remove("show"); setTimeout(() => el.remove(), 200); };
-    let found = [], T = 0;
+    let found = [], tm = 0;
     const list = el.querySelector("#fwd-list");
     const row = (p, i, sub) => `<button class="row" data-i="${i}">${avatar(p)}<div class="main"><div class="top"><span class="name">${nameHTML(p)}</span></div><div class="bottom"><span class="prev">${esc(sub)}</span></div></div></button>`;
     let shown = [];
@@ -145,8 +145,8 @@ const Fwd = {
     el.querySelector("#fwd-q").addEventListener("input", (e) => {
       draw();
       const q = e.target.value.trim().replace(/^@/, "");
-      clearTimeout(T); found = [];
-      if (q.length >= 2) T = setTimeout(async () => { try { found = (await api("/api/search?q=" + encodeURIComponent(q))).users; draw(); } catch (er) {} }, 250);
+      clearTimeout(tm); found = [];
+      if (q.length >= 2) tm = setTimeout(async () => { try { found = (await api("/api/search?q=" + encodeURIComponent(q))).users; draw(); } catch (er) {} }, 250);
     });
     el.addEventListener("click", async (e) => {
       if (e.target === el || e.target.closest("[data-x]")) return close();
@@ -155,7 +155,7 @@ const Fwd = {
       close();
       try {
         await api("/api/forward", { method: "POST", body: { ids: Fwd.ids, to: p.id } });
-        toast("Переслано · " + dispName(p));
+        toast(T("Переслано · {0}", dispName(p)));
         Chats.load();
       } catch (er) { toast(er.message); }
     });

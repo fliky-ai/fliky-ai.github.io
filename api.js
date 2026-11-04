@@ -30,6 +30,11 @@ const Accounts = {
     Accounts.save(a);
   },
   remove(token) { if (token) Accounts.save(Accounts.list().filter((x) => x.token !== token)); },
+  // жив ли сохранённый сеанс (для защиты от повторного добавления одного и того же аккаунта)
+  async alive(token) {
+    try { const r = await fetch(CONFIG.API + "/api/me", { headers: { Authorization: "Bearer " + token } }); return r.status !== 401; }
+    catch (e) { return true; }
+  },
   setPrev(token) { try { localStorage.setItem(Accounts.prevKey, token || ""); } catch (e) {} },
   getPrev() { try { return localStorage.getItem(Accounts.prevKey) || ""; } catch (e) { return ""; } },
   clearPrev() { try { localStorage.removeItem(Accounts.prevKey); } catch (e) {} },
@@ -50,7 +55,8 @@ async function api(path, { method = "GET", body } = {}) {
   if (Store.token) h.Authorization = "Bearer " + Store.token;
   if (INIT) h["X-Init-Data"] = INIT;
   let r;
-  try { r = await fetch(CONFIG.API + path, { method, headers: h, body: body ? JSON.stringify(body) : undefined }); }
+  const payload = body ? JSON.stringify(body) : undefined;
+  try { r = await fetch(CONFIG.API + path, { method, headers: h, body: payload }); Net.add("tx", "msg", (payload ? payload.length : 0) + 300); }
   catch (e) { throw new Error("Нет связи с сервером"); }
   let d = {};
   try { d = await r.json(); } catch (e) {}
@@ -58,7 +64,7 @@ async function api(path, { method = "GET", body } = {}) {
     // сессия недействительна: убираем её и из списка аккаунтов, чтобы не переключаться на мёртвый токен
     Accounts.remove(Store.token); Store.token = ""; location.reload();
   }
-  if (!r.ok || d.ok === false) throw new Error(d.error || "Ошибка " + r.status);
+  if (!r.ok || d.ok === false) throw new Error(d.error || T("Ошибка") + " " + r.status);
   return d;
 }
 
@@ -93,15 +99,20 @@ function avatar(u, cls = "") {
   if (u.avatar) return `<div class="av ${cls}"><img src="${avatarUrl(u)}" alt="" decoding="async"></div>`;
   return `<div class="av def ${cls}">${PERSON}</div>`;
 }
-const dispName = (u) => [u.name, u.surname].filter(Boolean).join(" ") || u.number || "Пользователь";
-const nameHTML = (u) => esc(dispName(u)) + (u.is_system ? VERIFIED : "");
+const dispName = (u) => [u.name, u.surname].filter(Boolean).join(" ") || u.number || T("Пользователь");
+const PREM_I = '<svg class="prem-i" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z"/></svg>';
+const nameHTML = (u) => esc(dispName(u)) + (u.is_system ? VERIFIED : "") + (u.premium && !u.is_system ? PREM_I : "");
 
 // ── номер телефона и день рождения ──
 const fmtPhone = (n) => { const m = /^\+888(\d{4})(\d{4})$/.exec(n || ""); return m ? `+888 ${m[1]} ${m[2]}` : (n || ""); };
 const MON_S = ["янв.", "февр.", "мар.", "апр.", "мая", "июн.", "июл.", "авг.", "сент.", "окт.", "нояб.", "дек."];
 const MON_N = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+if (I18N.lang === "en") {
+  MON_S.splice(0, 12, "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
+  MON_N.splice(0, 12, "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December");
+}
 const MON_L = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
-const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10; return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many; };
+const plural = (n, one, few, many) => { if (I18N.lang === "en") return n === 1 ? one : many; const a = Math.abs(n) % 100, b = a % 10; return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many; };
 // "ГГГГ-ММ-ДД" или "--ММ-ДД" (без года) → {y, m, d}; y = 0, если года нет
 function parseBday(b) { const m = /^(\d{4}|-)-(\d{2})-(\d{2})$/.exec(b || ""); return m ? { y: m[1] === "-" ? 0 : +m[1], m: +m[2], d: +m[3] } : null; }
 function bdayAge(p) {
@@ -114,37 +125,37 @@ function bdayAge(p) {
 function bdayText(b, age = true) {
   const p = parseBday(b); if (!p) return "";
   let s = `${p.d} ${MON_S[p.m - 1]}${p.y ? " " + p.y : ""}`;
-  if (p.y && age) { const a = bdayAge(p); if (a >= 0) s += ` (${a} ${plural(a, "год", "года", "лет")})`; }
+  if (p.y && age) { const a = bdayAge(p); if (a >= 0) s += ` (${a} ${I18N.lang === "en" ? (a === 1 ? "year" : "years") + " old" : plural(a, "год", "года", "лет")})`; }
   return s;
 }
 const bdayToday = (b) => { const p = parseBday(b), n = new Date(); return !!p && p.m === n.getMonth() + 1 && p.d === n.getDate(); };
 
 // ── время: по часам и настройкам телефона (12/24ч, язык) ──
-const fmtTime = (ts) => new Date(ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+const fmtTime = (ts) => new Date(ts * 1000).toLocaleTimeString(I18N.tloc, { hour: "2-digit", minute: "2-digit" });
 const sameDay = (a, b) => a.toDateString() === b.toDateString();
 function fmtDay(ts) {
   const d = new Date(ts * 1000), now = new Date();
-  if (sameDay(d, now)) return "Сегодня";
-  if (sameDay(d, new Date(Date.now() - 864e5))) return "Вчера";
-  return d.toLocaleDateString([], { day: "numeric", month: "long", ...(d.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}) });
+  if (sameDay(d, now)) return T("Сегодня");
+  if (sameDay(d, new Date(Date.now() - 864e5))) return T("Вчера");
+  return d.toLocaleDateString(I18N.tloc, { day: "numeric", month: "long", ...(d.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}) });
 }
 function listTime(ts) {
   const d = new Date(ts * 1000), now = new Date();
   if (sameDay(d, now)) return fmtTime(ts);
-  if (now - d < 6 * 864e5) return d.toLocaleDateString([], { weekday: "short" });
-  return d.toLocaleDateString([], { day: "2-digit", month: "2-digit", year: "2-digit" });
+  if (now - d < 6 * 864e5) return d.toLocaleDateString(I18N.tloc, { weekday: "short" });
+  return d.toLocaleDateString(I18N.tloc, { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 function statusText(u) {
-  if (u.is_system) return "служебные уведомления";
-  if (u.online) return "в сети";
-  if (!u.last_seen) return "был(а) недавно";
+  if (u.is_system) return T("служебные уведомления");
+  if (u.online) return T("в сети");
+  if (!u.last_seen) return T("был(а) недавно");
   const diff = Date.now() / 1000 - u.last_seen;
-  if (diff < 60) return "был(а) только что";
-  if (diff < 3600) return `был(а) ${Math.floor(diff / 60)} мин. назад`;
+  if (diff < 60) return T("был(а) только что");
+  if (diff < 3600) return T("был(а) {0} мин. назад", Math.floor(diff / 60));
   const d = new Date(u.last_seen * 1000);
-  if (sameDay(d, new Date())) return "был(а) сегодня в " + fmtTime(u.last_seen);
-  if (sameDay(d, new Date(Date.now() - 864e5))) return "был(а) вчера в " + fmtTime(u.last_seen);
-  return "был(а) недавно";
+  if (sameDay(d, new Date())) return T("был(а) сегодня в {0}", fmtTime(u.last_seen));
+  if (sameDay(d, new Date(Date.now() - 864e5))) return T("был(а) вчера в {0}", fmtTime(u.last_seen));
+  return T("был(а) недавно");
 }
 
 let toastT;

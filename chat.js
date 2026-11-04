@@ -3,6 +3,7 @@ const CK1 = '<svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColo
 const CK2 = '<svg class="ck read" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m2.5 12.5 4.5 4.5L16.5 7.5"/><path d="m11 16.5 1 .9L21.5 7.5"/></svg>';
 const CLK = '<svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
 const FAIL = '<svg class="ck fail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v6"/><path d="M12 16.5v.1"/></svg>';
+const TIMER_I = '<svg class="xi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg>';
 const X_SVG = '<svg class="x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M7 7l10 10M17 7 7 17"/></svg>';
 const PLAY_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>';
 
@@ -22,12 +23,12 @@ const sendAtt = (a) => {
 
 const Chat = {
   peer: null, msgs: [], pins: [], pinI: 0, lastDay: "", loading: false, hasMore: false, loadingMore: false,
-  replyTo: null, editing: null, kb: 0, vhMax: 0,
+  replyTo: null, editing: null, kb: 0, vhMax: 0, dl: new Set(), quick: [],
 
   // ───────────── подключение событий ─────────────
   bind() {
     Editor.init(); Voice.bind(); Player.init(); Panel.bind();
-    Editor.onChange = () => Chat.syncMain();
+    Editor.onChange = () => { Chat.syncMain(); Chat.quickCheck(); };
     const inp = Editor.el, box = $("msgs"), main = $("btn-main");
 
     inp.addEventListener("keydown", (e) => {
@@ -142,12 +143,15 @@ const Chat = {
       if (Player.a.paused) Player.toggle(mkey(m), fileUrl(a.url));
       return;
     }
+    const fl = t.closest(".fwl");
+    if (fl && m.fw && m.fw.id) return UserProfile.open({ id: m.fw.id, name: m.fw.name || "", surname: "", username: "", avatar: "", bio: "" });
+    if (t.closest(".media.dl")) { Chat.dl.add(mkey(m)); Chat.patch(m); return; }
     if (t.closest(".media") && a.url) return Viewer.open(a.fid ? Object.assign({}, a, { url: a.url }) : a);
     if (t.closest(".fcard") && a.url && !m.pending) return /^video\//.test(a.mime || "") ? Viewer.open(a) : Attach.download(a);
     // двойное касание текста — быстрая реакция
     if (m.id && (m.kind === "text" || !m.kind)) {
       const now = Date.now();
-      if (Chat.lastTap && Chat.lastTap.k === b.dataset.k && now - Chat.lastTap.t < 300) { Chat.lastTap = null; Chat.react(m, "❤️", true); }
+      if (Chat.lastTap && Chat.lastTap.k === b.dataset.k && now - Chat.lastTap.t < 300) { Chat.lastTap = null; Chat.react(m, Prefs.get("qr", "❤️"), true); }
       else Chat.lastTap = { k: b.dataset.k, t: now };
     }
   },
@@ -212,6 +216,12 @@ const Chat = {
   },
 
   // ───────────── пузыри ─────────────
+  // сообщение из одного–трёх эмодзи показываем крупно
+  isBigEmoji(t) {
+    t = String(t || "").trim();
+    if (!t || t.length > 40) return false;
+    try { return /^(?:(?:\p{Extended_Pictographic}|\p{Regional_Indicator}{2})(?:\uFE0F|\u200D\p{Extended_Pictographic}|[\u{1F3FB}-\u{1F3FF}])*\s*){1,3}$/u.test(t); } catch (e) { return false; }
+  },
   textHTML(m) { return m.sender === SYS && !m.ents ? fmtText(m.text) : Rich.render(m.text, m.ents); },
 
   replyHTML(m) {
@@ -232,12 +242,27 @@ const Chat = {
     el.style.strokeDashoffset = (C * (1 - Math.max(0.05, (m.up && m.up.pct) || 0))).toFixed(1);
   },
 
+  // скачивать ли это вложение само (настройки «Автозагрузка медиа» и «Энергосбережение»); свои и уже открытые — всегда
+  autoDl(m) {
+    if (m.sender === App.user.id || Chat.dl.has(mkey(m)) || /^(blob|data):/.test((m.att || {}).url || "")) return true;
+    const gifVid = m.kind === "gif";
+    return gifVid ? Prefs.get("dl_video", true) && !Energy.is("pre") : Prefs.get("dl_photo", true) && !Energy.is("pre");
+  },
   mediaHTML(m, time) {
     const a = m.att || {}, k = m.kind;
     const ratio = a.w && a.h ? clamp(a.w / a.h, 0.6, 1.9) : 1.25;
+    if (!Chat.autoDl(m)) {
+      return `<div class="media dl${k === "gif" ? " gif" : ""}" style="aspect-ratio:${ratio.toFixed(3)}"><span class="dlb">${SI.down}<span>${esc(T(k === "gif" ? "Нажмите, чтобы загрузить GIF" : "Нажмите, чтобы загрузить фото"))}</span></span>${time || ""}</div>`;
+    }
     const src = fileUrl(k === "gif" ? a.url : a.turl || a.url);
-    const inner = k === "gif" && /^video\//.test(a.mime || "") ? `<video src="${src}" muted loop autoplay playsinline></video>` : `<img src="${src}" alt="" decoding="async">`;
+    const play = Prefs.get("autogif", true) && !Energy.is("gif");
+    const inner = k === "gif" && /^video\//.test(a.mime || "") ? `<video src="${src}" muted loop ${play ? "autoplay" : 'preload="metadata"'} playsinline></video>` : `<img src="${src}" alt="" decoding="async">`;
     return `<div class="media${k === "gif" ? " gif" : ""}" style="aspect-ratio:${ratio.toFixed(3)}">${inner}${k === "gif" ? '<span class="gtag">GIF</span>' : ""}${m.up ? Chat.ring(m) : ""}${time || ""}</div>`;
+  },
+  // настройки поменялись (энергосбережение, автозапуск GIF): запускаем или останавливаем GIF в открытом чате
+  refreshMedia() {
+    const play = Prefs.get("autogif", true) && !Energy.is("gif");
+    document.querySelectorAll("#msgs .media.gif video").forEach((v) => { try { if (play) v.play(); else v.pause(); } catch (e) {} });
   },
   fileHTML(m) {
     const a = m.att || {}, vid = /^video\//.test(a.mime || "");
@@ -255,9 +280,11 @@ const Chat = {
     const cont = prev && prev.sender === m.sender && m.ts - prev.ts < 120 && sameDay(new Date(prev.ts * 1000), new Date(m.ts * 1000)) && (prev.kind || "text") !== "sticker" && k !== "sticker";
     const hasCap = !!(m.text && k !== "text");
     const ov = ((k === "photo" || k === "gif") && !hasCap) || k === "sticker";
-    const time = `<span class="t${ov ? " ov" : ""}">${m.edited ? "изм. " : ""}${fmtTime(m.ts)}${out ? `<span class="st">${stIcon(m)}</span>` : ""}</span>`;
+    const big = k === "text" && !m.fw && !m.reply_to && !m.reply && Prefs.get("bigemoji", true) && Chat.isBigEmoji(m.text);
+    const time = `<span class="t${ov ? " ov" : ""}">${m.exp ? TIMER_I : ""}${m.edited ? T("изм.") + " " : ""}${fmtTime(m.ts)}${out ? `<span class="st">${stIcon(m)}</span>` : ""}</span>`;
     let h = "";
-    if (m.fw) h += `<div class="fw">Переслано от <b>${esc(m.fw.name || "")}</b></div>`;
+    if (m.auto) h += `<span class="auto">${esc(T("Автоматическое сообщение"))}</span>`;
+    if (m.fw) h += `<div class="fw">${T("Переслано от")} ${m.fw.id ? `<b class="fwl" role="link">${esc(m.fw.name || "")}</b>` : `<b>${esc(m.fw.name || "")}</b>`}</div>`;
     if (m.reply_to || m.reply) h += Chat.replyHTML(m);
     if (k === "text") h += `<span class="tx">${Chat.textHTML(m)}</span>`;
     else if (k === "photo" || k === "gif") h += Chat.mediaHTML(m, ov ? time : "");
@@ -267,7 +294,7 @@ const Chat = {
     if (hasCap) h += `<div class="capw"><span class="tx cap">${Chat.textHTML(m)}</span>${time}</div>`;     // подпись и время в одной строке
     const rx = m.reacts && m.reacts.length
       ? `<div class="rx">${m.reacts.map((r) => `<button class="rx-chip${r.mine ? " mine" : ""}" data-e="${esc(r.e)}"><span class="e">${r.e}</span>${r.n > 1 ? `<span class="n">${r.n}</span>` : ""}</button>`).join("")}</div>` : "";
-    return `<div class="b ${out ? "out" : "in"}${cont ? " cont" : ""} k-${k}${hasCap ? " hascap" : ""}${m.failed ? " failed" : ""}${m.pending ? " pending" : ""}${isNew ? " new" : ""}" data-k="${mkey(m)}"${m.id ? ` data-id="${m.id}"` : ""}>${h}${ov || hasCap ? "" : time}${rx}</div>`;
+    return `<div class="b ${out ? "out" : "in"}${big ? " big" : ""}${cont ? " cont" : ""} k-${k}${hasCap ? " hascap" : ""}${m.failed ? " failed" : ""}${m.pending ? " pending" : ""}${isNew ? " new" : ""}" data-k="${mkey(m)}"${m.id ? ` data-id="${m.id}"` : ""}>${h}${ov || hasCap ? "" : time}${rx}</div>`;
   },
   dayHead(m) {
     const day = new Date(m.ts * 1000).toDateString();
@@ -278,7 +305,9 @@ const Chat = {
   render(keep) {
     const box = $("msgs"); Chat.lastDay = ""; let html = "", prev = null;
     const fromBottom = box.scrollHeight - box.scrollTop;
-    if (!Chat.msgs.length) html = `<div class="empty"><h3>Сообщений пока нет</h3><p>${Chat.peer && Chat.peer.is_system ? "Это официальный аккаунт: он принимает любые сообщения, но не отвечает." : "Напишите первым."}</p></div>`;
+    const pi = Chat.peer && Chat.peer.intro;
+    if (!Chat.msgs.length && pi) html = `<div class="intro-card"><div class="intro-e">${esc(pi.emoji || "👋")}</div>${pi.title ? `<b>${esc(pi.title)}</b>` : ""}${pi.text ? `<span>${esc(pi.text)}</span>` : ""}</div>`;
+    else if (!Chat.msgs.length) html = `<div class="empty"><h3>Сообщений пока нет</h3><p>${Chat.peer && Chat.peer.is_system ? "Это официальный аккаунт: он принимает любые сообщения, но не отвечает." : "Напишите первым."}</p></div>`;
     for (const m of Chat.msgs) { html += Chat.dayHead(m) + Chat.bubble(m, prev); prev = m; }
     box.innerHTML = html;
     box.scrollTop = keep ? box.scrollHeight - fromBottom : box.scrollHeight;
@@ -289,7 +318,7 @@ const Chat = {
   append(m) {
     const box = $("msgs"), prev = Chat.msgs[Chat.msgs.length - 2] || null;
     const near = box.scrollHeight - box.scrollTop - box.clientHeight < 200 || m.sender === App.user.id;
-    const empty = box.querySelector(".empty"); if (empty) empty.remove();
+    const empty = box.querySelector(".empty, .intro-card"); if (empty) empty.remove();
     box.insertAdjacentHTML("beforeend", Chat.dayHead(m) + Chat.bubble(m, prev, true));
     Player.paint();
     if (near) {
@@ -502,10 +531,10 @@ const Chat = {
     bar.classList.toggle("hidden", !m);
     if (!m) return;
     const edit = !!Chat.editing;
-    const who = edit ? "Редактирование" : "Ответ " + (m.sender === App.user.id ? "себе" : dispName(Chat.peer || {}));
+    const who = edit ? T("Редактирование") : m.sender === App.user.id ? T("Ответ себе") : T("Ответ {0}", dispName(Chat.peer || {}));
     bar.querySelector(".cb-ic").innerHTML = edit ? ICON.edit : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 6 6v3"/></svg>';
-    bar.querySelector("b").textContent = who;
-    bar.querySelector("span").textContent = Rich.preview(m) || "Сообщение";
+    bar.querySelector(".cb-t b").textContent = who;
+    bar.querySelector(".cb-t span").textContent = Rich.preview(m) || T("Сообщение");
   },
 
   async saveEdit(text, ents) {
@@ -573,7 +602,7 @@ const Chat = {
     if (!n) return;
     const i = Chat.pinI % n, p = Chat.pins[i];
     const segs = n > 1 ? `<span class="pb-segs">${Chat.pins.map((_, j) => `<i class="${j === i ? "on" : ""}"></i>`).join("")}</span>` : '<span class="pb-segs"><i class="on"></i></span>';
-    bar.innerHTML = `${segs}<div class="pb-t"><b>Закреплённое сообщение${n > 1 ? " #" + (n - i) : ""}</b><span>${esc(Rich.preview({ kind: p.kind, text: p.text, att: { em: p.em, name: p.name } }) || "Сообщение")}</span></div>
+    bar.innerHTML = `${segs}<div class="pb-t"><b>${T("Закреплённое сообщение")}${n > 1 ? " #" + (n - i) : ""}</b><span>${esc(Rich.preview({ kind: p.kind, text: p.text, att: { em: p.em, name: p.name } }) || T("Сообщение"))}</span></div>
       <button class="pb-x" data-act="unpin" aria-label="Открепить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>`;
   },
   pinClick(e) {
@@ -603,7 +632,7 @@ const Chat = {
     if (!m.id) { Chat.msgs = Chat.msgs.filter((x) => x !== m); Chat.render(true); return; }   // ещё не ушло — просто убираем
     let all = false;
     if (mine) {
-      const v = await UI.sheet({ title: "Удалить сообщение?", actions: [{ label: "Удалить у меня", value: "me", danger: true }, { label: "Удалить у " + dispName(Chat.peer), value: "all", danger: true }] });
+      const v = await UI.sheet({ title: "Удалить сообщение?", actions: [{ label: "Удалить у меня", value: "me", danger: true }, { label: T("Удалить у {0}", dispName(Chat.peer)), value: "all", danger: true }] });
       if (!v) return;
       all = v === "all";
     } else {
@@ -631,3 +660,21 @@ const Chat = {
     if (a === "dl") return m.att && Attach.download(m.att);
   },
 };
+
+// быстрые ответы: пишем «/» в поле сообщения и выбираем готовый текст (нужен Premium, настраивается в «Для бизнеса»)
+Object.assign(Chat, {
+  async loadQuick() {
+    if (!App.user || !App.user.premium) { Chat.quick = []; return; }
+    try { Chat.quick = ((await api("/api/biz/me")).biz.quick) || []; } catch (e) {}
+  },
+  quickCheck() {
+    const box = $("composer"); let el = $("qk");
+    const t = Rich.readRaw(Editor.el).text;
+    const m = /^\/([A-Za-z0-9_]*)$/.exec(t);
+    const list = m && Chat.quick.length ? Chat.quick.filter((x) => x.name.toLowerCase().startsWith(m[1].toLowerCase())) : [];
+    if (!list.length) { if (el) el.remove(); return; }
+    if (!el) { el = document.createElement("div"); el.id = "qk"; el.className = "qk"; box.appendChild(el); el.addEventListener("pointerdown", (e) => e.preventDefault()); }
+    el.innerHTML = list.map((x, i) => `<button data-i="${i}"><b>/${esc(x.name)}</b><span data-nt="1">${esc(x.text)}</span></button>`).join("");
+    el.onclick = (e) => { const b = e.target.closest("button"); if (!b) return; const q = list[+b.dataset.i]; el.remove(); Editor.set(q.text); Editor.focus(false); Chat.syncMain(); };
+  },
+});

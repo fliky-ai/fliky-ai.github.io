@@ -1,7 +1,7 @@
 // register.js — экран входа в стиле Telegram (номер +888 → код из бота).
 // Разметка — index.html (#auth), стили — style.css (блок «ВХОД В СТИЛЕ TELEGRAM»).
 const Auth = (() => {
-  let number = "", timer = null, onDone = null, busy = false, codeLen = 5, resendLeft = 0, cur = 1;
+  let number = "", timer = null, onDone = null, busy = false, codeLen = 5, resendLeft = 0, cur = 1, ticket = "";
 
   const $ = (id) => document.getElementById(id);
 
@@ -55,14 +55,16 @@ const Auth = (() => {
   function updateBack() {
     const b = $("auth-back");
     if (!b) return;
-    b.classList.toggle("off", !(cur === 2 || Accounts.list().length > 0));
+    b.classList.toggle("off", !(cur >= 2 || Accounts.list().length > 0));
   }
 
   function goBack() {
-    if (cur === 2) {
+    if (cur === 2 || cur === 3) {
       clearInterval(timer);
       clearCells();
       syncHiddenCode();
+      ticket = "";
+      const p = $("pass"); if (p) p.value = "";
       step(1);
       return;
     }
@@ -89,7 +91,7 @@ const Auth = (() => {
       c.maxLength = 1;
       c.autocomplete = "one-time-code";
       c.dataset.i = String(i);
-      c.setAttribute("aria-label", `Цифра ${i + 1}`);
+      c.setAttribute("aria-label", T("Цифра {0}", i + 1));
       c.addEventListener("input", onCellInput);
       c.addEventListener("keydown", onCellKey);
       c.addEventListener("paste", onCellPaste);
@@ -160,15 +162,17 @@ const Auth = (() => {
     cur = n;
     const auth = $("auth");
     if (auth) auth.dataset.step = String(n);   // на шаге 2 CSS прячет круглую кнопку
-    const s1 = $("step-phone"), s2 = $("step-code");
+    const s1 = $("step-phone"), s2 = $("step-code"), s3 = $("step-pass");
     if (s1) s1.classList.toggle("is-active", n === 1);
     if (s2) s2.classList.toggle("is-active", n === 2);
+    if (s3) s3.classList.toggle("is-active", n === 3);
 
     err("");
     updateBack();
     setTimeout(() => {
       if (cur !== n) return;
       if (n === 1) { const p = $("phone"); if (p) p.focus(); }
+      else if (n === 3) { const p = $("pass"); if (p) p.focus(); }
       else focusCell(0);
     }, 140);
   }
@@ -182,7 +186,7 @@ const Auth = (() => {
     const render = () => {
       if (resendLeft > 0) {
         const m = Math.floor(resendLeft / 60), sec = String(resendLeft % 60).padStart(2, "0");
-        b.textContent = `Отправить код снова через ${m}:${sec}`;
+        b.textContent = T("Отправить код снова через {0}", `${m}:${sec}`);
       } else {
         b.textContent = "Отправить код снова";
         b.disabled = false;
@@ -207,6 +211,10 @@ const Auth = (() => {
 
     try {
       const fullNum = "+888" + raw;
+      // этот номер уже добавлен (в том числе текущий аккаунт) — второй раз войти в него нельзя
+      const dup = Accounts.list().find((a) => a.number === fullNum);
+      if (dup && (await Accounts.alive(dup.token))) throw new Error(T("Этот аккаунт уже добавлен"));
+      if (dup) Accounts.remove(dup.token);                // сеанс умер — убираем запись, можно войти заново
       const d = await api("/api/auth/request", { method: "POST", body: { number: fullNum } });
       number = fullNum;
 
@@ -242,16 +250,55 @@ const Auth = (() => {
           platform: (typeof TGW !== "undefined" && TGW && TGW.platform) || ""
         }
       });
-      Store.token = d.token;
-      Accounts.clearPrev();
-      clearInterval(timer);
-      onDone(d.user);
+      if (d.need_password) {                 // у аккаунта есть облачный пароль — просим его
+        ticket = d.ticket;
+        const h = $("pass-hint"); if (h) h.textContent = d.hint ? T("Подсказка: {0}", d.hint) : "";
+        const p = $("pass"); if (p) p.value = "";
+        clearInterval(timer);
+        step(3);
+      } else await finish(d);
     } catch (e) {
+      if (e && e.message === T("Этот аккаунт уже добавлен")) { clearCells(); syncHiddenCode(); step(1); err(e.message); busy = false; return; }
       err((e && e.message) || "Неверный код");
       clearCells();
       syncHiddenCode();
       focusCell(0);
       shake($("code-cells"));
+    }
+    busy = false;
+  }
+
+  // вход выполнен: проверяем, что такого аккаунта в списке ещё нет
+  async function finish(d) {
+    const same = Accounts.list().find((a) => a.id === d.user.id && a.token !== d.token);
+    if (same) {
+      if (await Accounts.alive(same.token)) {
+        // этот аккаунт уже добавлен: новый сеанс закрываем, чтобы он не остался «висеть» в устройствах
+        try { await fetch(CONFIG.API + "/api/auth/logout", { method: "POST", headers: { Authorization: "Bearer " + d.token, "Content-Type": "application/json" }, body: "{}" }); } catch (e) {}
+        throw new Error(T("Этот аккаунт уже добавлен"));
+      }
+      Accounts.remove(same.token);
+    }
+    Store.token = d.token;
+    Accounts.clearPrev();
+    clearInterval(timer);
+    onDone(d.user);
+  }
+
+  async function submitPass() {
+    if (busy) return;
+    const inp = $("pass"), pw = inp ? inp.value : "";
+    if (!pw) { err(T("Введите пароль")); shake($("pass-field")); return; }
+    busy = true; err("");
+    try {
+      const d = await api("/api/auth/password", { method: "POST", body: { ticket, password: pw } });
+      await finish(d);
+    } catch (e) {
+      if (e && e.message === T("Этот аккаунт уже добавлен")) { const p = $("pass"); if (p) p.value = ""; busy = false; step(1); err(e.message); return; }
+      err((e && e.message) || T("Неверный пароль"));
+      if (inp) { inp.value = ""; inp.focus(); }
+      shake($("pass-field"));
+      if (/истекло|заново/i.test((e && e.message) || "")) setTimeout(() => goBack(), 900);
     }
     busy = false;
   }
@@ -275,7 +322,12 @@ const Auth = (() => {
       }
 
       const btnPhone = $("btn-phone");
-      if (btnPhone) btnPhone.addEventListener("click", sendCode);
+      if (btnPhone) btnPhone.addEventListener("click", () => (cur === 3 ? submitPass() : sendCode()));
+      const passInp = $("pass");
+      if (passInp) {
+        passInp.addEventListener("input", () => err(""));
+        passInp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submitPass(); } });
+      }
 
       const resendBtn = $("resend");
       if (resendBtn) resendBtn.addEventListener("click", sendCode);

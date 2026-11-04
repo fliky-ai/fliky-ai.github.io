@@ -1,19 +1,4 @@
 // Точка входа: сессия, навигация, вкладки, WebSocket.
-const Theme = {
-  get() { return localStorage.getItem("theme") || "auto"; },
-  set(t) {
-    localStorage.setItem("theme", t);
-    t === "auto" ? delete document.documentElement.dataset.theme : (document.documentElement.dataset.theme = t);
-    Theme.tg();
-  },
-  tg() {
-    try {
-      const c = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
-      TGW.setHeaderColor(c); TGW.setBackgroundColor(c);
-    } catch (e) {}
-  },
-};
-
 // Стек страниц поверх вкладок. Назад = кнопка Telegram / кнопка браузера / стрелка.
 const Nav = {
   stack: [],
@@ -41,6 +26,25 @@ const Nav = {
 };
 addEventListener("popstate", () => Nav.pop());
 
+// Встроенный браузер: страница открывается поверх приложения. Часть сайтов запрещает показ внутри чужих страниц —
+// поэтому сверху всегда есть кнопка «открыть в браузере».
+const Browser = {
+  external(url) { try { TGW.openLink(url); } catch (_) { window.open(url, "_blank", "noopener"); } },
+  open(url) {
+    if (!/^https?:/i.test(url) || !Prefs.get("browser", false)) return Browser.external(url);
+    const el = document.createElement("div");
+    el.className = "ibr";
+    let host = url; try { host = new URL(url).hostname; } catch (e) {}
+    el.innerHTML = `<div class="ibr-top"><button class="ibr-x" aria-label="${esc(T("Закрыть"))}">${SI.x}</button><div class="ibr-t"><b>${esc(host)}</b><small>${esc(T("Если страница не открылась, нажмите справа"))}</small></div>
+      <button class="ibr-o" aria-label="${esc(T("Открыть в браузере"))}">${SI.compass}</button></div><iframe class="ibr-f" src="${esc(url)}" referrerpolicy="no-referrer" sandbox="allow-scripts allow-forms allow-same-origin allow-popups"></iframe>`;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add("show"));
+    const close = Nav.layer(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 220); });
+    el.querySelector(".ibr-x").onclick = close;
+    el.querySelector(".ibr-o").onclick = () => Browser.external(url);
+  },
+};
+
 const App = {
   user: null, ws: null, pingT: null, retry: 0, retryT: null,
 
@@ -58,9 +62,11 @@ const App = {
     document.addEventListener("contextmenu", (e) => { if (!/INPUT|TEXTAREA/.test(e.target.tagName) || e.target.closest("#panel")) e.preventDefault(); });
     document.addEventListener("click", (e) => {
       const a = e.target.closest("a"); if (!a || a.dataset.dl) return;
-      e.preventDefault(); try { TGW.openLink(a.href); } catch (_) { window.open(a.href, "_blank", "noopener"); }
+      e.preventDefault(); Browser.open(a.href);
     });
     Chats.bind(); Chat.bind(); Contacts.bind();
+    Lock.init(); Notif.register(); Media.trim(); Settings.applyAnim(); Energy.update();
+    Theme.apply(false);
     // кнопка Telegram «назад» и свайп закрывают открытые окна по порядку; поле ввода не прячем под клавиатуру
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") Nav.back(); });
     App.boot();
@@ -92,9 +98,23 @@ const App = {
     Profile.render();               // внутри обновляет и вкладку «Настройки»
     Chats.load(); Stories.load(true); Profile.loadStories();
     App.connect(); App.go("chats");
+    App.openHash(); Chat.loadQuick();
     setInterval(() => Chat.updateHeader(), 30000);
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { App.connect(); Chats.load(); Chat.sync(); } });
     addEventListener("online", () => App.connect());
+  },
+
+  // ссылка вида  …/#c=адрес  открывает чат с владельцем ссылки и подставляет готовый текст
+  async openHash() {
+    const m = /[#&]c=([A-Za-z0-9_]{4,32})/.exec(location.hash || "");
+    if (!m) return;
+    try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+    try {
+      const d = await api("/api/biz/link/" + m[1]);
+      if (d.user.id === App.user.id) return;
+      Chat.open(d.user);
+      if (d.text) setTimeout(() => { try { Editor.set(d.text); Editor.focus(true); Chat.syncMain(); } catch (e) {} }, 400);
+    } catch (e) { toast(e.message); }
   },
 
   go(tab) {
@@ -102,6 +122,7 @@ const App = {
     document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === "v-" + tab));
     if (tab === "chats") Chats.load();
     if (tab === "profile") { Profile.loadStories(); Stories.load(); }
+    if (tab === "settings") { Settings.fetchUnread(); }
   },
 
   setOnline(v) { $("app").classList.toggle("offline", !v); },
@@ -117,23 +138,26 @@ const App = {
     ws.onopen = () => { try { ws.send(JSON.stringify({ type: "auth", token: Store.token, init: INIT })); } catch (e) {} };
     ws.onmessage = (ev) => {
       let d; try { d = JSON.parse(ev.data); } catch (e) { return; }
+      Net.add("rx", "msg", (ev.data || "").length);
       if (d.type === "ready") {   // сервер принял токен
         App.retry = 0; App.setOnline(true); Chats.load(); Chat.sync();
         clearInterval(App.pingT); App.pingT = setInterval(() => ws.readyState === 1 && ws.send("ping"), 25000);
       }
-      else if (d.type === "message") { Chat.onMessage(d.message); Chats.onMessage(d.message); }
+      else if (d.type === "message") { Chat.onMessage(d.message); Chats.onMessage(d.message); Notif.onMessage(d.message); }
       else if (d.type === "read") Chat.onRead(d.by);
       else if (d.type === "edit") { Chat.onEdit(d.message); Chats.onEdit(d.message); }
       else if (d.type === "del") { Chat.onDel(d.ids); Chats.load(); }
-      else if (d.type === "react") Chat.onReact(d);
+      else if (d.type === "react") { Chat.onReact(d); Notif.onReact(d); }
       else if (d.type === "pin") Chat.onPin(d);
       else if (d.type === "presence") App.presence(d);
       else if (d.type === "profile") App.profile(d.user);
-      else if (d.type === "story") { Stories.load(true); if (d.user === App.user.id) Profile.loadStories(); if (UserProfile.cur && UserProfile.cur.id === d.user) UserProfile.loadStories(d.user); }
+      else if (d.type === "story") { Notif.onStory(d.user); Stories.load(true); if (d.user === App.user.id) Profile.loadStories(); if (UserProfile.cur && UserProfile.cur.id === d.user) UserProfile.loadStories(d.user); }
     };
     ws.onclose = () => {
       if (App.ws !== ws) return;
       clearInterval(App.pingT); App.setOnline(false); again();
+      // сеанс могли завершить на другом устройстве: запрос вернёт 401, и api() сам выведет на экран входа
+      if (App.retry >= 2) api("/api/me").catch(() => {});
     };
     ws.onerror = () => { try { ws.close(); } catch (e) {} };
   },

@@ -222,10 +222,10 @@ const Rich = (() => {
     if (!m) return "";
     const a = m.att || {};
     const cap = String(m.text || "").replace(/\s+/g, " ").trim();
-    const kinds = { photo: "Фото", gif: "GIF", voice: "Голосовое сообщение", sticker: (a.em ? a.em + " " : "") + "Стикер", file: a.name || "Файл" };
+    const kinds = { photo: T("Фото"), gif: "GIF", voice: T("Голосовое сообщение"), sticker: (a.em ? a.em + " " : "") + T("Стикер"), file: a.name || T("Файл") };
     const k = m.kind || "text";
     if (k === "text") return cap;
-    const base = kinds[k] || "Сообщение";
+    const base = kinds[k] || T("Сообщение");
     return cap && k !== "voice" && k !== "sticker" ? base + ", " + cap : base;
   }
 

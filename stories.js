@@ -24,16 +24,16 @@ const PI = {
 // fmtDur (м:сс) берём из voice.js
 function agoText(ts) {
   const d = Date.now() / 1000 - ts;
-  if (d < 60) return "только что";
-  if (d < 3600) return Math.floor(d / 60) + " мин. назад";
-  if (d < 86400) return Math.floor(d / 3600) + " ч назад";
+  if (d < 60) return T("только что");
+  if (d < 3600) return T("{0} мин. назад", Math.floor(d / 60));
+  if (d < 86400) return T("{0} ч назад", Math.floor(d / 3600));
   return fmtDay(ts) + ", " + fmtTime(ts);
 }
 // сколько осталось жить публикации: «ещё 5 ч» / «ещё 12 мин.»
 function leftText(exp) {
   const d = exp - Date.now() / 1000;
   if (d <= 0) return "";
-  return d < 3600 ? `ещё ${Math.max(1, Math.round(d / 60))} мин.` : `ещё ${Math.round(d / 3600)} ч`;
+  return d < 3600 ? T("ещё {0} мин.", Math.max(1, Math.round(d / 60))) : T("ещё {0} ч", Math.round(d / 3600));
 }
 
 const Stories = {
@@ -281,7 +281,7 @@ const Stories = {
       if (Math.abs(d.dx) > 70 && Math.abs(d.dx) > Math.abs(d.dy) * 1.5) {
         if (d.dx < 0 && gi < groups.length - 1) go(gi + 1, null); else if (d.dx > 0 && gi > 0) go(gi - 1, null);
       } else if (!d.hold && Math.abs(d.dx) < 12 && Math.abs(d.dy) < 12) {
-        e.clientX < innerWidth * 0.33 ? prev() : next();
+        if (Prefs.get("tapnav", true)) e.clientX < innerWidth * 0.33 ? prev() : next();
       }
     };
     tap.addEventListener("pointerup", end); tap.addEventListener("pointercancel", end);
@@ -383,7 +383,7 @@ const Stories = {
 
   compose(file) {
     if (!file || !/^(image|video)\//.test(file.type)) return toast("Выберите фото или видео");
-    if (file.size > Attach.max) return toast(`Файл больше ${Math.round(Attach.max / 1048576)} МБ`);
+    if (file.size > Attach.max) return toast(T("Файл больше {0} МБ", Math.round(Attach.max / 1048576)));
     const el = document.createElement("div");
     el.className = "sc";
     el.innerHTML = `<header class="sc-top"><button class="sc-back" aria-label="Назад">${PI.back}</button><b>Новая публикация</b><span></span></header>
@@ -424,15 +424,15 @@ const Stories = {
 
     q("#sc-hours").onclick = async () => {
       const h = await UI.sheet({ title: "Сколько показывать", text: "Потом публикация уйдёт в ваш архив.",
-        actions: [6, 12, 24, 48].map((x) => ({ label: x + " часов" + (x === S.hours ? "  ✓" : ""), value: x })) });
-      if (h) { S.hours = h; q("#sc-hours").textContent = h + " ч"; }
+        actions: [6, 12, 24, 48].map((x) => ({ label: T("{0} часов", x) + (x === S.hours ? "  ✓" : ""), value: x })) });
+      if (h) { S.hours = h; q("#sc-hours").textContent = T("{0} ч", h); }
     };
     q("#sc-aud").onclick = async () => {
       const a = await UI.sheet({ title: "Кто видит публикацию", actions: [
-        { label: "Все пользователи" + (S.aud === 0 ? "  ✓" : ""), value: 0 }, { label: "Только мои собеседники" + (S.aud === 1 ? "  ✓" : ""), value: 1 }] });
+        { label: T("Все пользователи") + (S.aud === 0 ? "  ✓" : ""), value: 0 }, { label: T("Только мои собеседники") + (S.aud === 1 ? "  ✓" : ""), value: 1 }] });
       if (a === 0 || a === 1) {
         S.aud = a; q("#sc-aud").firstElementChild.outerHTML = a ? PI.users : PI.globe;
-        q("#sc-aud b").textContent = a ? "собеседники" : "все";
+        q("#sc-aud b").textContent = a ? T("собеседники") : T("все");
       }
     };
 

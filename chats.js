@@ -1,7 +1,7 @@
 
 // Вкладка «Чаты»: список диалогов и поиск людей (имя или @username).
 const Chats = {
-  list: [], q: "", found: [], timer: null,
+  list: [], q: "", found: [], timer: null, folder: "all",
 
   bind() {
     const inp = $("chat-q");
@@ -16,6 +16,10 @@ const Chats = {
         }, 250);
       }
       Chats.render();
+    });
+    $("ftabs").addEventListener("click", (e) => {
+      const b = e.target.closest(".ftab"); if (!b) return;
+      Chats.folder = b.dataset.f; haptic(); Chats.render(); $("chat-list").scrollTop = 0;
     });
     $("chat-q-clear").onclick = () => { inp.value = ""; inp.dispatchEvent(new Event("input")); inp.focus(); };
     $("chat-list").addEventListener("click", (e) => {
@@ -63,16 +67,35 @@ const Chats = {
     return `<button class="row" data-k="${kind}" data-i="${i}">${Stories.av(p)}<div class="main">${right}<div class="bottom">${sub}</div></div></button>`;
   },
 
+  // вкладки папок над списком чатов
+  tabs(total) {
+    const box = $("ftabs"), fs = Folders.get();
+    if (!fs.length || Chats.q) { box.classList.add("hidden"); if (!fs.length) Chats.folder = "all"; return; }
+    if (Chats.folder !== "all" && !fs.some((f) => f.id === Chats.folder)) Chats.folder = "all";
+    const unreadChats = Chats.list.filter((c) => c.unread > 0).length;
+    box.classList.remove("hidden");
+    box.innerHTML = [{ id: "all", n: T("Все чаты"), k: unreadChats }].concat(fs.map((f) => ({ id: f.id, n: f.n, k: Folders.count(f) })))
+      .map((f) => `<button class="ftab${Chats.folder === f.id ? " on" : ""}" role="tab" data-f="${esc(f.id)}">${esc(f.n)}${f.k ? `<i class="fb">${f.k}</i>` : ""}</button>`).join("");
+    const on = box.querySelector(".ftab.on"); if (on && on.scrollIntoView) { try { on.scrollIntoView({ block: "nearest", inline: "nearest" }); } catch (e) {} }
+  },
+
   render() {
     const total = Chats.list.reduce((s, c) => s + c.unread, 0);
     const b = $("tab-badge"); b.textContent = total > 99 ? "99+" : total; b.classList.toggle("hidden", !total);
+    try { Notif.badge(total); } catch (e) {}
+    try { Chats.tabs(total); } catch (e) {}
     const box = $("chat-list"), q = Chats.q.toLowerCase();
 
+    const tag = (c) => {
+      if (!Prefs.get("ftags", false) || Chats.folder !== "all") return "";
+      const f = Folders.get().find((x) => !x.f && x.c.includes(c.peer.id));
+      return f ? `<span class="ftag">${esc(f.n)}</span>` : "";
+    };
     const chatRow = (c, i) => {
       const mine = c.last.sender === App.user.id;
       return Chats.row("c", i, c.peer,
-        `<span class="prev">${mine ? "<b>Вы:</b> " : ""}${esc(Rich.preview(c.last).split("\n")[0])}</span>${c.unread ? `<span class="badge">${c.unread}</span>` : ""}`,
-        `<div class="top"><span class="name">${nameHTML(c.peer)}</span><span class="time">${listTime(c.last.ts)}</span></div>`);
+        `<span class="prev">${mine ? "<b>" + esc(T("Вы:")) + "</b> " : ""}${esc(Rich.preview(c.last).split("\n")[0])}</span>${c.unread ? `<span class="badge">${c.unread}</span>` : ""}`,
+        `<div class="top"><span class="name">${nameHTML(c.peer)}${tag(c)}</span><span class="time">${listTime(c.last.ts)}</span></div>`);
     };
 
     if (!q) {
@@ -80,7 +103,10 @@ const Chats = {
         box.innerHTML = `<div class="empty">${svg('<path d="M21 12a8.5 8.5 0 0 1-12.4 7.5L3 21l1.6-5.3A8.5 8.5 0 1 1 21 12z"/>')}<h3>Пока нет чатов</h3><p>Найдите человека через поиск: введите его имя или @username.</p></div>`;
         return;
       }
-      box.innerHTML = Chats.list.map(chatRow).join("");
+      const fl = Chats.folder === "all" ? null : Folders.get().find((f) => f.id === Chats.folder);
+      const rows = Chats.list.map((c, i) => ({ c, i })).filter(({ c }) => !fl || Folders.has(fl, c));
+      box.innerHTML = rows.length ? rows.map(({ c, i }) => chatRow(c, i)).join("")
+        : `<div class="empty">${PI.users}<h3>${esc(T("В папке нет чатов"))}</h3><p>${esc(T("Добавьте чаты в папку: Настройки → Папки с чатами."))}</p></div>`;
       return;
     }
 

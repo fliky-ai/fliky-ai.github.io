@@ -26,7 +26,7 @@ const Profile = {
     if (u.birthday) rows.push(row(esc(bdayText(u.birthday)) + (bdayToday(u.birthday) ? " 🎂" : ""), "День рождения", 'data-edit="1"'));
     rows.push(`<button class="pi" data-chan="1"><span class="pi-v">Личный канал</span><span class="pi-l">Пока в разработке</span><em class="soon sm">скоро</em></button>`);
 
-    const pill = (k, t, extra = "") => `<button class="pill${Profile.tab === k ? " on" : ""}" data-t="${k}">${t}${extra}</button>`;
+    const pill = (k, t, extra = "") => `<button class="ptab${Profile.tab === k ? " on" : ""}" data-t="${k}">${t}${extra}</button>`;
     $("profile-box").innerHTML = `
       <div class="pf-hero">
         <button class="pf-av" id="pf-av" aria-label="Фото профиля">${Stories.av(u, "xl")}</button>
@@ -38,7 +38,7 @@ const Profile = {
         <button class="pa" id="pf-set">${PI.gear}<span>Настройки</span></button>
       </div>
       <div class="card2 pf-info">${rows.join("")}</div>
-      <div class="pf-tabs">${pill("posts", "Публикации")}${pill("archive", "Архив публикаций")}${pill("gifts", "Подарки", '<i class="soon sm">скоро</i>')}</div>
+      <div class="pf-tabs">${pill("posts", "Публикации")}${pill("archive", "Архив публикаций")}${pill("gifts", "Подарки")}</div>
       <div id="pf-tab"></div>`;
 
     $("pf-av").onclick = () => Profile.photoMenu();
@@ -51,9 +51,9 @@ const Profile = {
       else if (b.dataset.chan) Profile.channelInfo();
     }));
     $("profile-box").querySelector(".pf-tabs").onclick = (e) => {
-      const b = e.target.closest(".pill"); if (!b || b.dataset.t === Profile.tab) return;
+      const b = e.target.closest(".ptab"); if (!b || b.dataset.t === Profile.tab) return;
       Profile.tab = b.dataset.t;
-      $("profile-box").querySelectorAll(".pill").forEach((x) => x.classList.toggle("on", x === b));
+      $("profile-box").querySelectorAll(".ptab").forEach((x) => x.classList.toggle("on", x === b));
       Profile.drawTab();
     };
     Profile.drawTab();
@@ -136,7 +136,7 @@ const Profile = {
   openEdit() {
     const u = App.user;
     $("ed-name").value = u.name || ""; $("ed-surname").value = u.surname || "";
-    $("ed-user").value = u.username || ""; $("ed-bio").value = u.bio || "";
+    $("ed-user").value = u.username || ""; $("ed-bio").maxLength = u.premium ? 140 : 70; $("ed-bio").value = u.bio || "";
     $("ed-phone-v").textContent = fmtPhone(u.number);
     Profile.draft = { birthday: u.birthday || "", vis: u.birthday_vis || "contacts" };
     Profile.drawBday();
@@ -154,7 +154,7 @@ const Profile = {
 
   check() {
     const u = App.user, un = $("ed-user").value.trim().replace(/^@/, ""), bio = $("ed-bio").value;
-    $("ed-bio-cnt").textContent = String(70 - bio.length);
+    $("ed-bio-cnt").textContent = String((u.premium ? 140 : 70) - bio.length);
     clearTimeout(Profile.unTimer);
     const rules = "От 5 до 32 символов: латиница, цифры и _. Начинается с буквы.";
     if (!un || un === u.username) { Profile.unOK = true; Profile.hint("Имя пользователя"); }

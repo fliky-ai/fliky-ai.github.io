@@ -166,18 +166,18 @@ const Panel = {
   render() {
     const p = $("panel");
     if (!Panel.open) return;
-    const T = Panel.tab;
+    const tab = Panel.tab;
     const tabs = `<div class="pn-tabs">
-      <button data-tab="emoji" class="${T === "emoji" ? "on" : ""}" aria-label="Эмодзи"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M8 14.5a4.5 4.5 0 0 0 8 0"/><path d="M9 9.5h.01M15 9.5h.01" stroke-width="2.6"/></svg></button>
-      <button data-tab="stk" class="${T === "stk" ? "on" : ""}" aria-label="Стикеры"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 12.5V8a4.5 4.5 0 0 0-4.5-4.5H8A4.5 4.5 0 0 0 3.5 8v8A4.5 4.5 0 0 0 8 20.5h4.5z"/><path d="M20.5 12.5a8 8 0 0 0-8 8"/><path d="M9 9.5h.01M15 9.5h.01" stroke-width="2.6"/><path d="M9 13.5a3.5 3.5 0 0 0 4 1.5"/></svg></button>
+      <button data-tab="emoji" class="${tab === "emoji" ? "on" : ""}" aria-label="Эмодзи"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M8 14.5a4.5 4.5 0 0 0 8 0"/><path d="M9 9.5h.01M15 9.5h.01" stroke-width="2.6"/></svg></button>
+      <button data-tab="stk" class="${tab === "stk" ? "on" : ""}" aria-label="Стикеры"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 12.5V8a4.5 4.5 0 0 0-4.5-4.5H8A4.5 4.5 0 0 0 3.5 8v8A4.5 4.5 0 0 0 8 20.5h4.5z"/><path d="M20.5 12.5a8 8 0 0 0-8 8"/><path d="M9 9.5h.01M15 9.5h.01" stroke-width="2.6"/><path d="M9 13.5a3.5 3.5 0 0 0 4 1.5"/></svg></button>
       <button data-tab="gif" class="${T === "gif" ? "on" : ""}" aria-label="GIF"><b>GIF</b></button>
-      <span class="grow"></span>${T === "emoji" ? `<button data-act="bs" aria-label="Стереть"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H9l-6 7 6 7h12z"/><path d="m13 9 5 6M18 9l-5 6"/></svg></button>` : ""}</div>`;
+      <span class="grow"></span>${tab === "emoji" ? `<button data-act="bs" aria-label="Стереть"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H9l-6 7 6 7h12z"/><path d="m13 9 5 6M18 9l-5 6"/></svg></button>` : ""}</div>`;
     let head = "", body = "";
-    if (T === "emoji") {
+    if (tab === "emoji") {
       const rec = ls.get("emoji_recent", []);
       body = (rec.length ? `<div class="em-h">Недавние</div><div class="em-g">${rec.map((e) => `<button data-e="${e}">${e}</button>`).join("")}</div>` : "") +
         EMOJI.map((c) => `<div class="em-h">${c.name}</div><div class="em-g">${c.list.map((e) => `<button data-e="${e}">${e}</button>`).join("")}</div>`).join("");
-    } else if (T === "stk") {
+    } else if (tab === "stk") {
       const packs = [{ id: "recent", icon: "🕘" }, { id: "mine", icon: "⭐" }].concat(Stk.PACKS);
       head = `<div class="pn-packs">${packs.map((k) => `<button data-pack="${k.id}" class="${Panel.pack === k.id ? "on" : ""}">${k.icon}</button>`).join("")}</div>`;
       body = Panel.stickerBody();
@@ -186,9 +186,9 @@ const Panel = {
       head = `<div class="pn-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="gif-q" placeholder="${Panel.mine.gif_search ? "Поиск GIF" : "Поиск GIF недоступен"}" ${Panel.mine.gif_search ? "" : "disabled"} value="${esc(Panel.gifQ)}" autocomplete="off"></div>`;
     }
     const keep = p.querySelector(".pn-body");
-    const top = keep && p.dataset.t === T + Panel.pack ? keep.scrollTop : 0;
+    const top = keep && p.dataset.t === tab + Panel.pack ? keep.scrollTop : 0;
     p.innerHTML = `${head}<div class="pn-body">${body}</div>${tabs}`;
-    p.dataset.t = T + Panel.pack;
+    p.dataset.t = tab + Panel.pack;
     p.querySelector(".pn-body").scrollTop = top;
     const q = $("gif-q");
     if (q) q.oninput = () => { Panel.gifQ = q.value.trim(); clearTimeout(Panel.gifT); Panel.gifT = setTimeout(() => Panel.gifSearch(), 350); };

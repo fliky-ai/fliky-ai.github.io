@@ -1,0 +1,77 @@
+/* modern.css — обновлённый вид: крупные заголовки, поле поиска, папки-«таблетки», мягкие карточки чатов, закруглённая нижняя панель.
+   Подключается ПОСЛЕ всех остальных стилей и только переопределяет их. Чтобы вернуть прежний вид, достаточно убрать эту строку из index.html. */
+
+:root{
+  --pill:var(--surface);--pill-line:color-mix(in srgb,var(--text) 8%,transparent);
+  --press:color-mix(in srgb,var(--accent) 10%,var(--list-bg));
+  --dock-sh:0 -8px 28px rgba(5,12,24,.20);
+}
+:root[data-theme="light"]{
+  --pill:#F0F3F8;--pill-line:transparent;
+  --list-bg:#FFFFFF;
+  --dock-sh:0 -6px 24px rgba(30,50,90,.10);
+}
+
+/* ───────── заголовки главных вкладок ───────── */
+#app .tgh{background:var(--list-bg);color:var(--text);box-shadow:none}
+#app .tgh-row{height:64px;padding:0 12px 0 20px}
+#app .tgh-title{font-size:30px;font-weight:800;letter-spacing:-.025em;color:var(--text)}
+#app .tgh-title .tt-spin{border-color:var(--line);border-top-color:var(--accent)}
+#app .tgh-btn{color:var(--text);background:var(--pill);box-shadow:inset 0 0 0 1px var(--pill-line)}
+#app .tgh-btn:active{background:var(--press)}
+#app #btn-search,#app #btn-csearch{display:none}
+#v-contacts .tgh-row{height:60px}
+
+/* поле поиска под заголовком */
+.sbar{display:flex;align-items:center;gap:10px;width:calc(100% - 28px);height:44px;margin:2px 14px 10px;padding:0 16px;border-radius:16px;
+  background:var(--pill);color:var(--dim);font-size:16px;font-weight:500;box-shadow:inset 0 0 0 1px var(--pill-line);transition:background .15s,transform .15s}
+.sbar svg{width:20px;height:20px;flex:none;opacity:.85}
+.sbar:active{transform:scale(.985);background:var(--press)}
+
+/* ───────── папки: «таблетки» вместо подчёркивания ───────── */
+#v-chats .ftabs{padding:0 14px 12px;gap:8px;border-bottom:0;background:transparent}
+#v-chats .ftab{color:var(--dim);padding:8px 15px;border-radius:99px;background:var(--pill);font-size:14px;font-weight:700;box-shadow:inset 0 0 0 1px var(--pill-line);
+  transition:background .2s,color .2s,transform .15s}
+#v-chats .ftab:active{transform:scale(.96)}
+#v-chats .ftab.on{background:var(--accent);color:var(--on-accent);box-shadow:0 4px 14px color-mix(in srgb,var(--accent) 38%,transparent)}
+#v-chats .ftab.on::after{display:none}
+#v-chats .ftab .fb{background:var(--accent);color:#fff;min-width:19px;height:19px}
+#v-chats .ftab.on .fb{background:rgba(255,255,255,.28);color:#fff}
+#v-chats .ftab:not(.on) .fb{background:var(--accent);color:#fff}
+:root[data-theme="dark"] #v-chats .ftab.on{color:var(--on-accent)}
+:root[data-theme="dark"] #v-chats .ftab.on::after{display:none}
+
+/* ───────── строки чатов: мягкие карточки без разделителей ───────── */
+#chat-list{padding:2px 0 96px}
+.chrow{width:calc(100% - 16px);margin:1px 8px;padding:9px 12px 9px 10px;border-radius:20px;background:transparent;contain-intrinsic-size:auto 76px}
+.chrow::after{display:none}
+.chrow:active,.chrow.press{background:var(--press)}
+.chrow.pin{background:color-mix(in srgb,var(--accent) 6%,var(--list-bg))}
+.chrow .av,.chrow .ring .av{width:56px;height:56px}
+.crow-av .on-dot{width:15px;height:15px;right:1px;bottom:2px}
+.crow-main{gap:4px}
+.crow-name{font-size:16.5px;font-weight:700;letter-spacing:-.005em}
+.crow-prev{font-size:14.5px}
+.chrow.unr .crow-prev{color:var(--text);font-weight:500}
+.crow-meta{font-size:12.5px}
+.crow-end .bdg{min-width:23px;height:23px;border-radius:12px;box-shadow:0 3px 8px color-mix(in srgb,var(--unread) 38%,transparent)}
+.crow-end .bdg.mut{box-shadow:none}
+
+/* ───────── нижняя панель: закруглённая «полка» ───────── */
+.tabbar{background:var(--surface);border-top:0;border-radius:24px 24px 0 0;box-shadow:var(--dock-sh);padding:8px 8px calc(8px + var(--safe-b));position:relative;z-index:5}
+:root[data-theme="light"] .tabbar{box-shadow:var(--dock-sh)}
+.tab .tab-ic{width:64px;height:34px;border-radius:17px}
+.tab .tab-ic::before{border-radius:17px;background:color-mix(in srgb,var(--accent) 17%,transparent)}
+.tab .tab-t{font-size:11px}
+
+/* ───────── кнопка «+» ───────── */
+.cfab{right:18px;bottom:18px;width:60px;height:60px;border-radius:22px}
+.cfab svg{width:26px;height:26px}
+
+/* ───────── карточки в настройках и профиле ───────── */
+.card2,.group{border-radius:22px}
+.pf-actions .pa,.irows .irow{transition:background .15s}
+
+/* ───────── шапки внутренних экранов ───────── */
+.phead{border-bottom:0;box-shadow:0 1px 0 var(--line);min-height:58px}
+.phead .ptitle{font-size:19px;font-weight:800;letter-spacing:-.01em}

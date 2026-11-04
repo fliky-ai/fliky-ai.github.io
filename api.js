@@ -1,6 +1,6 @@
 // Общие функции: запросы, сессия (отдельная для каждого Telegram-аккаунта), аватарки, время.
 const $ = (id) => document.getElementById(id);
-const APP_VER = "2026.11.04d";
+const APP_VER = "2026.11.04e";
 const TGW = window.Telegram && Telegram.WebApp;
 const INIT = (TGW && TGW.initData) || "";
 const TG_ID = (TGW && TGW.initDataUnsafe && TGW.initDataUnsafe.user && TGW.initDataUnsafe.user.id) || "web";
@@ -82,6 +82,18 @@ function fmtText(s) {
 }
 const plain = (s) => String(s).replace(/\*\*|`/g, "");
 
+// установлено как приложение (экран «Домой») или открыто во вкладке
+const isStandalone = () => { try { return matchMedia("(display-mode: standalone)").matches || navigator.standalone === true; } catch (e) { return false; } };
+// что сообщаем серверу об устройстве, чтобы в «Новом входе» было настоящее название (модель, версия системы)
+async function devInfo() {
+  const o = { app: isStandalone() };
+  try {
+    const u = navigator.userAgentData;
+    if (u && u.getHighEntropyValues) { const v = await u.getHighEntropyValues(["model", "platformVersion"]); o.model = v.model || ""; o.pv = v.platformVersion || ""; }
+  } catch (e) {}
+  return o;
+}
+
 const PLANE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 3.5 10.5 14"/><path d="M21.5 3.5 14.5 21l-4-7-7-4z"/></svg>';
 const PERSON = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="9" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>';
 const VERIFIED = '<svg class="ver" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="m7.5 12.3 3 3 6-6.3" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -100,28 +112,31 @@ function avatarUrl(u) { return CONFIG.API + "/avatar/" + encodeURIComponent(u.av
 // цвета «заглушек» аватара, как в Telegram: у каждого человека/группы свой, по номеру
 const AV_COLORS = [["#FF885E", "#FF516A"], ["#FFCD6A", "#FFA85C"], ["#82B1FF", "#665FFF"], ["#A0DE7E", "#54CB68"], ["#53EDD6", "#28C9B7"], ["#72D5FD", "#2A9EF1"], ["#E0A2F3", "#D669ED"]];
 function avatar(u, cls = "") {
-  if (u.is_system) return `<div class="av sys ${cls}">${PLANE}</div>`;
+  if (u.is_system) return `<div class="av sys ${cls}">${PLANE}<img class="sysimg" src="official.png" alt="" draggable="false" onerror="this.remove()"></div>`;
   if (u.avatar) return `<div class="av ${cls}"><img src="${avatarUrl(u)}" alt="" decoding="async"></div>`;
-  const nm = String(u.name || "").trim(), ch = nm ? Array.from(nm)[0].toUpperCase() : "";
+  const nm = cleanName(u.name) || cleanName(u.surname) || String(u.username || "").trim(), ch = nm ? Array.from(nm)[0].toUpperCase() : "";
   if (!ch) return `<div class="av def ${cls}">${PERSON}</div>`;
   const c = AV_COLORS[Math.abs(+u.id || 0) % AV_COLORS.length];
   return `<div class="av def ltr ${cls}" style="background:linear-gradient(160deg,${c[0]},${c[1]})"><span class="av-l">${esc(ch)}</span></div>`;
 }
-const dispName = (u) => [u.name, u.surname].filter(Boolean).join(" ") || u.number || T("Пользователь");
+// имена из невидимых символов (пустой «Hangul filler», нулевой пробел и т.п.) показываем как @username или номер
+const INVIS_RE = /[\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180B-\u180E\u200B-\u200F\u202A-\u202E\u2060-\u206F\u2800\u3164\uFEFF\uFFA0]/g;
+const cleanName = (s) => String(s == null ? "" : s).replace(INVIS_RE, "").replace(/\s+/g, " ").trim();
+const dispName = (u) => [cleanName(u.name), cleanName(u.surname)].filter(Boolean).join(" ") || (u.username ? "@" + u.username : "") || u.number || T("Пользователь");
 const PREM_I = '<svg class="prem-i" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z"/></svg>';
 // Значок Premium показывается только на экранах профиля (см. PB в premium.js). Чтобы вернуть звезду в списки чатов — поставьте true.
 const BADGE_IN_LISTS = false;
 // имя на экране профиля: галочка + значок Premium (анимированный эмодзи-статус), по нажатию на значок открывается окно Premium
-const profName = (u) => esc(dispName(u)) + (u.is_system ? VERIFIED : "") + (typeof PB !== "undefined" ? PB.html(u) : "");
-// шапка профиля Premium-пользователя: цвета берутся из его эмодзи-статуса, на фоне мерцают искорки
+const isVer = (u) => !!(u && (u.is_system || u.verified));
+const profName = (u) => esc(dispName(u)) + (isVer(u) ? VERIFIED : "") + (typeof PB !== "undefined" ? PB.html(u) : "");
+// шапка профиля: обычный эмодзи-статус фон НЕ меняет. Фон и узор меняет только надетый коллекционный подарок (NFT)
 const premHero = (u) => {
-  if (!u || !u.premium || u.is_system || typeof ES === "undefined") return { cls: "", style: "", pat: "" };
-  const [c1, c2] = ES.colors(u.estatus);
-  const SPK = '<svg viewBox="0 0 24 24"><path d="M12 1.500c.8 5.600 3.500 8.700 10.500 10.500-7 1.800-9.700 4.900-10.500 10.500C11.200 17.400 8.500 14.300 1.500 12 8.500 10.200 11.200 7.100 12 1.500z"/></svg>';
-  const P = [[7, 10, 16, 0], [84, 8, 12, 0.8], [20, 40, 10, 1.6], [72, 36, 14, 2.2], [91, 56, 10, 0.4], [9, 66, 14, 1.2], [48, 5, 9, 2.8], [62, 74, 12, 0.6], [32, 82, 10, 2], [88, 80, 13, 1.4], [3, 42, 9, 3], [55, 50, 8, 3.4]];
-  return { cls: " prem", style: ` style="--c1:${c1};--c2:${c2}"`, pat: `<div class="pf-pat">${P.map(([x, y, z, d]) => `<i style="--x:${x}%;--y:${y}%;--s:${z}px;--d:${d}s">${SPK}</i>`).join("")}</div>` };
+  if (!u || !u.premium || u.is_system || !u.nft || !u.nft.backdrop) return { cls: "", style: "", pat: "" };
+  const n = u.nft, b = n.backdrop, e = esc((n.pattern && n.pattern.e) || "✨");
+  const P = [[7, 12, 20, 0], [86, 10, 16, 0.8], [20, 44, 14, 1.6], [76, 40, 18, 2.2], [92, 62, 14, 0.4], [8, 70, 18, 1.2], [50, 5, 12, 2.8], [64, 78, 16, 0.6], [32, 84, 14, 2], [88, 84, 17, 1.4], [3, 44, 12, 3], [56, 52, 11, 3.4], [40, 22, 11, 1], [68, 20, 12, 2.4]];
+  return { cls: " prem", style: ` style="--c1:${esc(b.c1)};--c2:${esc(b.c2)}"`, pat: `<div class="pf-pat">${P.map(([x, y, z, d]) => `<i class="e" style="--x:${x}%;--y:${y}%;--s:${z}px;--d:${d}s">${e}</i>`).join("")}</div>` };
 };
-const nameHTML = (u) => esc(dispName(u)) + (u.is_system ? VERIFIED : "") + (BADGE_IN_LISTS && u.premium && !u.is_system ? PREM_I : "");
+const nameHTML = (u) => esc(dispName(u)) + (isVer(u) ? VERIFIED : "") + (BADGE_IN_LISTS && u.premium && !u.is_system ? PREM_I : "");
 
 // ── номер телефона и день рождения ──
 const fmtPhone = (n) => { const m = /^\+888(\d{4})(\d{4})$/.exec(n || ""); return m ? `+888 ${m[1]} ${m[2]}` : (n || ""); };

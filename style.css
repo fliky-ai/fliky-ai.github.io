@@ -244,3 +244,7 @@ img{-webkit-user-drag:none;pointer-events:none}
 .health{position:fixed;left:10px;right:10px;top:calc(var(--safe-t,0px) + 8px);z-index:400;display:flex;flex-direction:column;gap:2px;padding:12px 14px;border-radius:14px;background:#2b1d12;color:#ffd9a8;border:1px solid rgba(255,170,60,.45);box-shadow:0 8px 28px rgba(0,0,0,.4);font-size:13.5px;line-height:1.35}
 .health b{font-size:14.5px;color:#ffb85c}.health span{font-weight:700;word-break:break-word}.health small{opacity:.85}
 .health button{align-self:flex-end;margin-top:6px;height:30px;padding:0 14px;border-radius:15px;background:rgba(255,184,92,.2);color:#ffd9a8;font-weight:700}
+
+/* официальный служебный аккаунт: картинка official.png поверх значка (если файла нет — остаётся значок) */
+.av.sys{position:relative}
+.av.sys .sysimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%}

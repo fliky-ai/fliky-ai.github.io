@@ -299,3 +299,33 @@ html.locked #app,html.locked main{filter:blur(18px)}
 .prem-i{width:15px;height:15px;color:#F5B301;flex:none;margin-left:3px;vertical-align:-2px}
 
 #composer{position:relative}
+
+/* ───────── большие анимированные эмодзи (fx.js) ───────── */
+.b.big .tx{display:inline-flex;gap:2px;align-items:center}
+.b.big .bem{display:inline-block;cursor:pointer;transform-origin:50% 72%;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;font-size:calc(58px * var(--fsk));line-height:1.1;filter:drop-shadow(0 6px 10px rgba(0,0,0,.18))}
+.b.big.new .bem{animation:bemIn .62s cubic-bezier(.2,1.7,.4,1) both;animation-delay:calc(var(--i) * 70ms)}
+@keyframes bemIn{0%{transform:scale(.1) rotate(-25deg);opacity:0}60%{opacity:1}100%{transform:none}}
+.bem.fx-star{filter:drop-shadow(0 0 10px rgba(255,200,40,.55))}
+.bem.fx-star.play{animation:bemStar 1.2s cubic-bezier(.3,.8,.3,1)}
+@keyframes bemStar{0%{transform:scale(1) rotate(0)}25%{transform:scale(1.5) rotate(120deg);filter:drop-shadow(0 0 22px rgba(255,210,60,.95))}60%{transform:scale(1.25) rotate(300deg)}100%{transform:scale(1) rotate(360deg)}}
+.bem.fx-heart.play{animation:bemBeat 1s ease-in-out}
+@keyframes bemBeat{0%,100%{transform:scale(1)}15%{transform:scale(1.38)}30%{transform:scale(1.02)}45%{transform:scale(1.32)}70%{transform:scale(1)}}
+.bem.fx-fire.play{animation:bemFire 1s ease-out}
+@keyframes bemFire{0%,100%{transform:scale(1,1)}20%{transform:scale(.88,1.28)}40%{transform:scale(1.15,.9)}60%{transform:scale(.92,1.2)}80%{transform:scale(1.06,.96)}}
+.bem.fx-party.play{animation:bemParty 1s ease-out}
+@keyframes bemParty{0%{transform:scale(1) rotate(0)}20%{transform:scale(1.4) rotate(-18deg)}40%{transform:scale(1.3) rotate(16deg)}60%{transform:scale(1.2) rotate(-10deg)}100%{transform:scale(1) rotate(0)}}
+.bem.fx-laugh.play,.bem.fx-angry.play{animation:bemShake .9s ease-in-out}
+@keyframes bemShake{0%,100%{transform:translateX(0) rotate(0)}12%{transform:translateX(-7px) rotate(-12deg)}30%{transform:translateX(7px) rotate(12deg)}48%{transform:translateX(-6px) rotate(-9deg)}66%{transform:translateX(5px) rotate(8deg)}84%{transform:translateX(-2px) rotate(-3deg)}}
+.bem.fx-cry.play{animation:bemWob 1s ease-in-out}
+@keyframes bemWob{0%,100%{transform:rotate(0) scale(1)}25%{transform:rotate(-10deg) scale(1.08)}50%{transform:rotate(8deg) scale(1.12)}75%{transform:rotate(-5deg) scale(1.04)}}
+.bem.fx-clap.play{animation:bemClap .9s cubic-bezier(.3,1.6,.4,1)}
+@keyframes bemClap{0%{transform:scale(1) rotate(0)}30%{transform:scale(1.4) rotate(-22deg)}55%{transform:scale(1.2) rotate(10deg)}100%{transform:scale(1) rotate(0)}}
+.bem.fx-ghost.play{animation:bemFloat 1.1s ease-in-out}
+@keyframes bemFloat{0%,100%{transform:translateY(0)}35%{transform:translateY(-16px) rotate(-6deg)}65%{transform:translateY(-6px) rotate(5deg)}}
+.bem.fx-wow.play,.bem.fx-pop.play{animation:bemPopA .8s cubic-bezier(.3,1.7,.4,1)}
+@keyframes bemPopA{0%{transform:scale(1)}30%{transform:scale(1.5)}60%{transform:scale(.92)}100%{transform:scale(1)}}
+.fxl{position:fixed;inset:0;z-index:140;pointer-events:none;overflow:hidden}
+.fxp{position:absolute;display:block;font-style:normal;line-height:1;margin:-10px 0 0 -10px;opacity:0;animation:fxFly var(--dur,1.2s) cubic-bezier(.15,.7,.3,1) var(--dl,0s) forwards;will-change:transform,opacity}
+.fxp.cf{width:8px;height:12px;border-radius:2px;margin:-6px 0 0 -4px}
+@keyframes fxFly{0%{opacity:0;transform:translate(0,0) scale(.3) rotate(0)}12%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(1.1) rotate(var(--rot))}}
+html.eco-anim .b.big.new .bem{animation:none}

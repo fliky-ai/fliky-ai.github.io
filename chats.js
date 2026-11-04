@@ -52,6 +52,7 @@ const Chats = {
     if (until) m[String(id)] = until; else delete m[String(id)];
     try { await Prefs.cloudSet("chat_mute", Object.keys(m).length ? m : null); } catch (e) {}
     Chats.render();
+    try { UserProfile.paintActs(); } catch (e) {}
   },
   async setUnread(id, on) {
     const a = Chats.unrMarks().filter((x) => x !== id);
@@ -80,6 +81,7 @@ const Chats = {
   bind() {
     const list = $("chat-list");
     $("btn-search").onclick = () => { haptic(); Search.open(); };
+    if ($("chat-sbar")) $("chat-sbar").onclick = $("btn-search").onclick;
     $("chat-fab").onclick = () => { haptic(); NewMsg.open(); };
     $("ftabs").addEventListener("click", (e) => {
       const b = e.target.closest(".ftab"); if (!b) return;
@@ -89,21 +91,33 @@ const Chats = {
       if (Chats.noClick && Date.now() - Chats.noClick < 600) return;
       const r = e.target.closest(".chrow"); if (!r) return;
       const c = Chats.byId(+r.dataset.id); if (!c) return;
-      if (e.target.closest(".crow-av")) { haptic(); return ChatPeek.open(c, false); }       // тихий просмотр, ничего не отмечается прочитанным
-      Chats.openChat(c.peer);
+      Chats.openChat(c.peer);                       // обычное нажатие (и по аватарке, и по имени) открывает чат
     });
     // долгое нажатие: просмотр чата и меню
     let lp = 0, st = null;
-    const stop = () => { clearTimeout(lp); if (st) st.r.classList.remove("press"); st = null; };
-    list.addEventListener("touchstart", (e) => {
-      const r = e.target.closest(".chrow"); if (!r || e.touches.length > 1) return;
-      st = { r, x: e.touches[0].clientX, y: e.touches[0].clientY };
+    const stop = () => { clearTimeout(lp); if (st) st.r.classList.remove("press"); st = null; if (typeof unring === "function") unring(); };
+    // Тихий просмотр: аватарку нужно удерживать ~2,5 секунды (вокруг неё бежит кольцо). Остальная строка — меню через 0,4 с.
+    const HOLD = 2500;
+    const ring = (av) => { const n = document.createElement("i"); n.className = "hring"; n.innerHTML = '<svg viewBox="0 0 50 50"><circle cx="25" cy="25" r="22.5"/></svg>'; av.appendChild(n); return n; };
+    let rg = null;
+    const unring = () => { if (rg) { rg.remove(); rg = null; } };
+    const begin = (e, x, y) => {
+      const r = e.target.closest(".chrow"); if (!r) return;
+      const av = e.target.closest(".crow-av");
+      st = { r, x, y, av: !!av };
+      if (av) { setTimeout(() => { if (st && st.r === r && !rg) rg = ring(av); }, 380); }
       lp = setTimeout(() => {
-        const c = Chats.byId(+r.dataset.id); r.classList.remove("press"); st = null;
-        if (c) { Chats.noClick = Date.now(); haptic("medium"); ChatPeek.open(c, true); }
-      }, 420);
+        const c = Chats.byId(+r.dataset.id); r.classList.remove("press"); st = null; unring();
+        if (!c) return;
+        Chats.noClick = Date.now();
+        if (av) { haptic("medium"); ChatPeek.open(c, false); }       // тихий просмотр: ничего не отмечается прочитанным
+        else { haptic("medium"); ChatPeek.open(c, true); }
+      }, av ? HOLD : 420);
       setTimeout(() => { if (st && st.r === r) r.classList.add("press"); }, 120);
-    }, { passive: true });
+    };
+    list.addEventListener("touchstart", (e) => { if (e.touches.length > 1) return; begin(e, e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+    list.addEventListener("mousedown", (e) => { if (e.button === 0 && e.target.closest(".crow-av")) begin(e, e.clientX, e.clientY); });
+    list.addEventListener("mouseup", () => stop()); list.addEventListener("mouseleave", () => stop());
     list.addEventListener("touchmove", (e) => {
       if (!st) return;
       if (Math.abs(e.touches[0].clientX - st.x) > 9 || Math.abs(e.touches[0].clientY - st.y) > 9) stop();
@@ -113,6 +127,7 @@ const Chats = {
     list.addEventListener("contextmenu", (e) => {
       const r = e.target.closest(".chrow"); if (!r) return;
       e.preventDefault();
+      if (st && st.av) return;                      // идёт удержание аватарки — ждём 2,5 с, меню не показываем
       const c = Chats.byId(+r.dataset.id);
       if (c && !ChatPeek.el) { Chats.noClick = Date.now(); ChatPeek.open(c, true); }
     });

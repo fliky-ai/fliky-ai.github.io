@@ -94,7 +94,7 @@ const Stk = (() => {
   const byId = {};
   FACES.forEach((f) => (byId[f.id] = f));
   WORDS.forEach((w) => (byId[w.id] = w));
-  const PACKS = [{ id: "k", name: "Колобки", icon: "😀", items: FACES }, { id: "w", name: "Слова", icon: "🔤", items: WORDS }];
+  const PACKS = [{ id: "k", name: "Колобки", icon: "😀", crop: "76 46 360 360", items: FACES }, { id: "w", name: "Слова", icon: "🔤", crop: "14 112 484 288", items: WORDS }];
   return {
     PACKS, byId,
     svg(id) { const s = byId[id]; return s ? (s.t ? word(s) : face(s)) : ""; },
@@ -112,6 +112,26 @@ const EMOJI = [
   ["Активности", "⚽ 🏀 🏈 ⚾ 🎾 🏐 🎱 🏓 🥊 🎯 🎮 🎲 🎧 🎤 🎸 🎹 🎬 🎨 🏄 🚴 🏊"],
   ["Мир", "🚗 🚕 🚌 🏎 🚓 🚑 🚒 ✈️ 🚀 🚁 🚂 🚢 🏠 🏝 🌍 🌙 ☀️ ⛅ ☁️ 🌧 ⛈ ❄️ 🌈 📱 💻 ⌚ 📷 💡 🔑 🔒 💰 💎 📌 ✏️ 📚 ⏰ 🎈"],
 ].map(([n, s]) => ({ name: n, list: s.split(" ") }));
+
+// ───────────── свои значки панели (вместо системных эмодзи) ─────────────
+const PNI = (d, w = 1.9) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const PIC = {
+  recent: PNI('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>'),
+  smile: PNI('<circle cx="12" cy="12" r="9.5"/><path d="M8 14.5a4.5 4.5 0 0 0 8 0"/><path d="M9 9.5h.01M15 9.5h.01" stroke-width="2.6"/>'),
+  hand: PNI('<path d="M7 11v9H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1z"/><path d="M7 11l4-8a2.5 2.5 0 0 1 2.5 2.5V9h5.2a2 2 0 0 1 2 2.3l-1.2 7a2 2 0 0 1-2 1.7H7"/>'),
+  heart: PNI('<path d="M12 20.5s-8-4.7-8-10.5A4.5 4.5 0 0 1 12 7.6 4.5 4.5 0 0 1 20 10c0 5.8-8 10.5-8 10.5z"/>'),
+  paw: PNI('<path d="M5 9 4 3.5 9 6.2a8 8 0 0 1 6 0L20 3.5 19 9a8 8 0 0 1 1.2 4.3c0 4-3.6 7-8.2 7s-8.2-3-8.2-7A8 8 0 0 1 5 9z"/><path d="M9.5 13h.01M14.5 13h.01" stroke-width="2.6"/>'),
+  food: PNI('<path d="M5 8h11v6a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z"/><path d="M16 9h2a2.5 2.5 0 0 1 0 5h-2"/><path d="M8 3v2M12 3v2"/>'),
+  ball: PNI('<circle cx="12" cy="12" r="9.5"/><path d="M12 2.5v19M2.5 12h19"/><path d="M5 5c4 3 10 3 14 0M5 19c4-3 10-3 14 0"/>'),
+  globe: PNI('<circle cx="12" cy="12" r="9.5"/><path d="M2.5 12h19"/><path d="M12 2.5c3.2 3.2 3.2 15.8 0 19M12 2.5c-3.2 3.2-3.2 15.8 0 19"/>'),
+  star: PNI('<path d="M12 3l2.7 5.6 6.1.8-4.5 4.3 1.1 6.1L12 16.9l-5.4 2.9 1.1-6.1L3.2 9.4l6.1-.8z"/>'),
+  stk: PNI('<path d="M20.5 12.5V8a4.5 4.5 0 0 0-4.5-4.5H8A4.5 4.5 0 0 0 3.5 8v8A4.5 4.5 0 0 0 8 20.5h4.5z"/><path d="M20.5 12.5a8 8 0 0 0-8 8"/><path d="M9 9.5h.01M15 9.5h.01" stroke-width="2.6"/><path d="M9 13.5a3.5 3.5 0 0 0 4 1.5"/>'),
+  gif: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="2" y="5" width="20" height="14" rx="4.5"/><text x="12" y="15.4" text-anchor="middle" font-family="Manrope,Arial,sans-serif" font-weight="800" font-size="9" fill="currentColor" stroke="none">GIF</text></svg>',
+  bs: PNI('<path d="M21 5H9l-6 7 6 7h12z"/><path d="m13 9 5 6M18 9l-5 6"/>'),
+  film: PNI('<rect x="3" y="4.5" width="18" height="15" rx="3.5"/><path d="M10 9.5v5l4.2-2.5z" fill="currentColor"/>'),
+  plus: PNI('<path d="M12 5v14M5 12h14"/>', 2.4),
+};
+const CAT_IC = ["smile", "hand", "heart", "paw", "food", "ball", "globe"];
 
 const ls = {
   get(k, d) { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } },
@@ -149,6 +169,7 @@ const Panel = {
     $("composer").classList.add("panel-open");
     $("btn-emoji").classList.add("on");
     if (!Panel.loaded) Panel.load();
+    if (!React.sets || Date.now() - React.loadedAt > 60000) React.loadSets().then(() => { if (Panel.open && Panel.tab === "emoji") Panel.render(); });
     Panel.render();
   },
   hide() {
@@ -167,31 +188,57 @@ const Panel = {
     const p = $("panel");
     if (!Panel.open) return;
     const tab = Panel.tab;
-    const tabs = `<div class="pn-tabs">
-      <button data-tab="emoji" class="${tab === "emoji" ? "on" : ""}" aria-label="Эмодзи"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M8 14.5a4.5 4.5 0 0 0 8 0"/><path d="M9 9.5h.01M15 9.5h.01" stroke-width="2.6"/></svg></button>
-      <button data-tab="stk" class="${tab === "stk" ? "on" : ""}" aria-label="Стикеры"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 12.5V8a4.5 4.5 0 0 0-4.5-4.5H8A4.5 4.5 0 0 0 3.5 8v8A4.5 4.5 0 0 0 8 20.5h4.5z"/><path d="M20.5 12.5a8 8 0 0 0-8 8"/><path d="M9 9.5h.01M15 9.5h.01" stroke-width="2.6"/><path d="M9 13.5a3.5 3.5 0 0 0 4 1.5"/></svg></button>
-      <button data-tab="gif" class="${T === "gif" ? "on" : ""}" aria-label="GIF"><b>GIF</b></button>
-      <span class="grow"></span>${tab === "emoji" ? `<button data-act="bs" aria-label="Стереть"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H9l-6 7 6 7h12z"/><path d="m13 9 5 6M18 9l-5 6"/></svg></button>` : ""}</div>`;
+    const tb = (k, label) => `<button data-tab="${k}" class="${tab === k ? "on" : ""}" aria-label="${label}">${PIC[k === "emoji" ? "smile" : k]}</button>`;
+    const tabs = `<div class="pn-tabs">${tb("emoji", T("Эмодзи"))}${tb("stk", T("Стикеры"))}${tb("gif", "GIF")}<span class="grow"></span>${tab === "emoji" ? `<button data-act="bs" class="bs" aria-label="${T("Стереть")}">${PIC.bs}</button>` : ""}</div>`;
     let head = "", body = "";
     if (tab === "emoji") {
       const rec = ls.get("emoji_recent", []);
-      body = (rec.length ? `<div class="em-h">Недавние</div><div class="em-g">${rec.map((e) => `<button data-e="${e}">${e}</button>`).join("")}</div>` : "") +
-        EMOJI.map((c) => `<div class="em-h">${c.name}</div><div class="em-g">${c.list.map((e) => `<button data-e="${e}">${e}</button>`).join("")}</div>`).join("");
+      const prem = !!(App.user && App.user.premium), sets = prem ? React.sets || [] : [];
+      const secs = [];
+      if (rec.length) secs.push({ ic: PIC.recent, n: T("Недавние"), g: `<div class="em-g">${rec.map((e) => `<button data-e="${e}">${e}</button>`).join("")}</div>` });
+      sets.forEach((st) => secs.push({ ic: `<span class="cs-ic">${CE.media(st.items[0])}</span>`, n: st.title, ce: 1, g: `<div class="em-g ce-g">${st.items.map((i) => `<button data-ce="${i.id}" data-em="${esc(i.emoji || "🙂")}" aria-label="${esc(i.emoji || "")}">${CE.media(i)}</button>`).join("")}</div>` }));
+      EMOJI.forEach((c, k) => secs.push({ ic: PIC[CAT_IC[k] || "smile"], n: T(c.name), g: `<div class="em-g">${c.list.map((e) => `<button data-e="${e}">${e}</button>`).join("")}</div>` }));
+      head = `<div class="pn-cats">${secs.map((c, i) => `<button data-cat="${i}" class="${i ? "" : "on"}" aria-label="${esc(c.n)}">${c.ic}</button>`).join("")}</div>`;
+      const lock = prem ? "" : `<button class="ce-lock" data-act="prem"><span class="mg-li">${PREM_I}</span><span><b>${esc(T("Анимированные эмодзи"))}</b><small>${esc(T("Свои эмодзи в тексте сообщений — с Premium"))}</small></span><i>›</i></button>`;
+      const none = prem && !sets.length && React.sets ? `<div class="ce-none">${esc(T("Свои эмодзи появятся здесь. Создайте набор: Настройки → Premium → Свои эмодзи"))}</div>` : "";
+      body = lock + none + secs.map((c, i) => `<div class="em-h" id="emc-${i}">${esc(c.n)}${c.ce ? `<i class="ce-tag">${PREM_I}</i>` : ""}</div>${c.g}`).join("");
     } else if (tab === "stk") {
-      const packs = [{ id: "recent", icon: "🕘" }, { id: "mine", icon: "⭐" }].concat(Stk.PACKS);
-      head = `<div class="pn-packs">${packs.map((k) => `<button data-pack="${k.id}" class="${Panel.pack === k.id ? "on" : ""}">${k.icon}</button>`).join("")}</div>`;
+      const packs = [{ id: "recent", ic: PIC.recent }, { id: "mine", ic: PIC.star }].concat(Stk.PACKS.map((k) => ({ id: k.id, ic: `<span class="pk-art">${Stk.svg(k.items[0].id).replace('viewBox="0 0 512 512"', `viewBox="${k.crop || "0 0 512 512"}"`)}</span>` })));
+      head = `<div class="pn-packs">${packs.map((k) => `<button data-pack="${k.id}" class="${Panel.pack === k.id ? "on" : ""}">${k.ic}</button>`).join("")}</div>`;
       body = Panel.stickerBody();
     } else {
       body = Panel.gifBody();
-      head = `<div class="pn-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="gif-q" placeholder="${Panel.mine.gif_search ? "Поиск GIF" : "Поиск GIF недоступен"}" ${Panel.mine.gif_search ? "" : "disabled"} value="${esc(Panel.gifQ)}" autocomplete="off"></div>`;
+      head = `<div class="pn-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="gif-q" placeholder="${Panel.mine.gif_search ? T("Поиск GIF") : T("Поиск GIF недоступен")}" ${Panel.mine.gif_search ? "" : "disabled"} value="${esc(Panel.gifQ)}" autocomplete="off"></div>`;
     }
     const keep = p.querySelector(".pn-body");
     const top = keep && p.dataset.t === tab + Panel.pack ? keep.scrollTop : 0;
     p.innerHTML = `${head}<div class="pn-body">${body}</div>${tabs}`;
     p.dataset.t = tab + Panel.pack;
-    p.querySelector(".pn-body").scrollTop = top;
+    const bd = p.querySelector(".pn-body");
+    bd.scrollTop = top;
+    if (tab === "emoji") Panel.spy(bd);
     const q = $("gif-q");
     if (q) q.oninput = () => { Panel.gifQ = q.value.trim(); clearTimeout(Panel.gifT); Panel.gifT = setTimeout(() => Panel.gifSearch(), 350); };
+  },
+
+  // подсветка категории по прокрутке + прыжок к категории по нажатию
+  spy(bd) {
+    const btns = [...$("panel").querySelectorAll(".pn-cats button")];
+    const hs = btns.map((_, i) => $("emc-" + i));
+    const upd = () => {
+      let cur = 0;
+      hs.forEach((h, i) => { if (h && h.offsetTop - bd.offsetTop <= bd.scrollTop + 14) cur = i; });
+      btns.forEach((b, i) => b.classList.toggle("on", i === cur));
+      const on = btns[cur], bar = on && on.parentNode;
+      if (on && bar) { const l = on.offsetLeft - bar.clientWidth / 2 + on.clientWidth / 2; if (Math.abs(bar.scrollLeft - l) > 30) bar.scrollTo({ left: l, behavior: "smooth" }); }
+    };
+    let raf = 0;
+    bd.addEventListener("scroll", () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; upd(); }); }, { passive: true });
+    upd();
+  },
+  jump(i) {
+    const bd = $("panel").querySelector(".pn-body"), h = $("emc-" + i);
+    if (bd && h) bd.scrollTo({ top: h.offsetTop - bd.offsetTop, behavior: "smooth" });
   },
 
   stickerBody() {
@@ -218,7 +265,7 @@ const Panel = {
     const m = Panel.mine, list = Panel.gifQ || Panel.gifRes.length ? Panel.gifRes : [];
     const tile = (src, attrs, del = "") => `<button class="gf" ${attrs} ${del}><img src="${src}" alt="" loading="lazy"></button>`;
     let html = "";
-    html += `<div class="em-h">Мои GIF</div><div class="gf-g"><button class="gf add" data-act="addgif"><span>＋</span><small>Добавить</small></button>` +
+    html += `<div class="em-h">Мои GIF</div><div class="gf-g"><button class="gf add mk" data-act="mkgif">${PIC.film}<small>${T("Создать GIF")}</small></button><button class="gf add" data-act="addgif"><span>＋</span><small>${T("Добавить")}</small></button>` +
       m.gifs.map((g) => tile(fileUrl(g.url), `data-fid="${g.fid}" data-gid="${g.id}" data-w="${g.w}" data-h="${g.h}"`, `data-del="${g.id}" data-kind="gif"`)).join("") + "</div>";
     if (m.gif_search) {
       html += `<div class="em-h">${Panel.gifQ ? "Результаты" : "Популярные"}</div>`;
@@ -255,7 +302,10 @@ const Panel = {
     if (Panel.noClick) { Panel.noClick = false; return; }
     const t = e.target.closest("button"); if (!t) return;
     if (t.dataset.tab) { Panel.tab = t.dataset.tab; if (Panel.tab === "gif" && !Panel.gifRes.length) Panel.gifSearch(); return Panel.render(); }
+    if (t.dataset.cat !== undefined) return Panel.jump(+t.dataset.cat);
     if (t.dataset.pack) { Panel.pack = t.dataset.pack; return Panel.render(); }
+    if (t.dataset.ce) { haptic("light"); return Editor.insertCE({ id: +t.dataset.ce, emoji: t.dataset.em }); }
+    if (t.dataset.act === "prem") return PremiumPromo.open(App.user);
     if (t.dataset.e) {
       haptic("light");
       Editor.insert(t.dataset.e);
@@ -266,6 +316,7 @@ const Panel = {
     if (t.dataset.act === "bs") return Editor.backspace();
     if (t.dataset.act === "mk") return StickerMaker.start();
     if (t.dataset.act === "addgif") return Panel.addGif();
+    if (t.dataset.act === "mkgif") return GifMaker.start();
     if (t.dataset.b) { haptic("light"); Panel.remember({ b: t.dataset.b }); return Chat.sendSticker({ b: t.dataset.b, em: Stk.emoji(t.dataset.b) }); }
     if (t.dataset.sid) {
       haptic("light");

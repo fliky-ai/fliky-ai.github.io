@@ -1,0 +1,161 @@
+/* gifts.css — подарки: рисунок, магазин, окно подарка, карточка в переписке */
+
+/* ── рисунок подарка ── */
+.ga{--s:96px;position:relative;width:var(--s);height:var(--s);border-radius:calc(var(--s)*.27);display:grid;place-items:center;overflow:hidden;flex:none;isolation:isolate;font-size:calc(var(--s)*.5);line-height:1}
+.ga-e{position:relative;z-index:2;font-size:1em;line-height:1;filter:hue-rotate(var(--hue,0deg)) drop-shadow(0 .06em .07em rgba(0,0,0,.28));animation:ga-fl 3.8s ease-in-out infinite}
+.ga-ac{position:absolute;z-index:3;right:12%;top:10%;font-size:.34em;line-height:1;animation:ga-tw 2.6s ease-in-out infinite}
+.ga-pat{position:absolute;inset:0;z-index:0}
+.ga-pat i{position:absolute;left:var(--x);top:var(--y);font-style:normal;font-size:calc(var(--s)*var(--z));line-height:1;opacity:.3;transform:translate(-50%,-50%) rotate(var(--r))}
+.ga-sh{position:absolute;inset:0;z-index:4;pointer-events:none;background:linear-gradient(115deg,transparent 38%,rgba(255,255,255,.5) 50%,transparent 62%);transform:translateX(-130%);animation:ga-sh 5s ease-in-out infinite}
+.ga.nft{background:radial-gradient(circle at 50% 36%,var(--c1),var(--c2) 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+.ga.reg{background:radial-gradient(circle at 30% 18%,hsl(var(--h) 90% 72%/.6),hsl(var(--h) 80% 58%/.32)),var(--surface)}
+.ga.prem{background:linear-gradient(150deg,#8e5bff,#ff5fa2 58%,#ffb347);color:#fff;font-size:calc(var(--s)*.2);align-content:center;gap:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,.2)}
+.ga.prem .ga-st{width:46%;height:46%;filter:drop-shadow(0 4px 8px rgba(0,0,0,.3));margin-bottom:2%;animation:ga-fl 3.2s ease-in-out infinite}
+.ga.prem .ga-st svg{width:100%;height:100%;display:block}
+.ga.prem b{font-size:1.45em;font-weight:900;line-height:1;text-shadow:0 2px 6px rgba(0,0,0,.25)}
+.ga.prem small{font-size:.62em;font-weight:700;opacity:.92;line-height:1.2}
+.ga.wide{width:100%;border-radius:0;--s:220px;height:var(--s)}
+.ga.mini{border-radius:16px}
+@keyframes ga-fl{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-4%) rotate(2deg)}}
+@keyframes ga-tw{0%,100%{transform:scale(.8) rotate(0);opacity:.7}50%{transform:scale(1.15) rotate(18deg);opacity:1}}
+@keyframes ga-sh{0%,55%{transform:translateX(-130%)}85%,100%{transform:translateX(130%)}}
+html.eco-anim .ga-e,html.eco-anim .ga-ac,html.eco-anim .ga-sh,html.eco-anim .ga.prem .ga-st{animation:none}
+
+/* ── звёзды: цена ── */
+.gs-s{display:inline-flex;align-items:center;gap:3px;font-weight:800;color:#f5a623;font-variant-numeric:tabular-nums}
+.gs-s svg{width:.95em;height:.95em;flex:none}
+
+/* ── магазин ── */
+.gs-ov,.gb-ov,.gd-ov{position:fixed;inset:0;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0);transition:background .25s}
+.gs-ov.show,.gb-ov.show,.gd-ov.show{background:rgba(0,0,0,.5)}
+.gs-card,.gb-card,.gd-card{width:100%;max-width:520px;background:var(--bg);border-radius:26px 26px 0 0;transform:translateY(100%);transition:transform .32s cubic-bezier(.2,.85,.25,1);box-shadow:0 -10px 40px rgba(0,0,0,.35);position:relative}
+.show>.gs-card,.show>.gb-card,.show>.gd-card{transform:none}
+.gs-card{height:min(92vh,760px);display:flex;flex-direction:column;overflow:hidden}
+.gs-top{display:flex;align-items:center;gap:8px;padding:12px 14px 6px}
+.gs-top b{flex:1;text-align:center;font-size:16px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gs-x{width:36px;height:36px;border-radius:50%;background:var(--surface);display:grid;place-items:center;color:var(--dim);flex:none}
+.gs-x svg{width:18px;height:18px}
+.gs-bal{height:36px;padding:0 12px;border-radius:18px;background:var(--surface);flex:none;font-size:14px}
+.gs-tabs{position:relative;display:grid;grid-template-columns:repeat(3,1fr);margin:6px 14px 8px;padding:3px;border-radius:14px;background:var(--surface);--i:0}
+.gs-tabs i{position:absolute;left:3px;top:3px;bottom:3px;width:calc((100% - 6px)/3);border-radius:11px;background:var(--accent);box-shadow:0 3px 10px rgba(0,0,0,.2);transform:translateX(calc(var(--i)*100%));transition:transform .28s cubic-bezier(.3,.9,.3,1)}
+.gs-tabs button{position:relative;height:34px;font-size:13.5px;font-weight:700;color:var(--dim);transition:color .2s;border-radius:11px}
+.gs-tabs button.on{color:var(--on-accent)}
+.gs-body{flex:1;overflow-y:auto;padding:4px 14px calc(22px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
+.gs-wait{display:grid;place-items:center;padding:60px 0}
+.gs-hint{font-size:13px;color:var(--dim);text-align:center;margin:4px 8px 14px;line-height:1.4}
+.gs-note{display:block;text-align:center;font-size:12px;color:var(--dim);margin:14px 10px 0;line-height:1.4}
+.gg{container-type:inline-size;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.gt{display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 6px 10px;border-radius:18px;background:var(--surface);text-align:center;transition:transform .15s}
+.gt:active{transform:scale(.96)}
+.gt .ga{--s:104px;width:100%;height:auto;aspect-ratio:1;--s:calc((100cqw - 20px)/3 - 12px)}
+.gt b{font-size:12.5px;font-weight:700;line-height:1.2;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gt .gs-s{font-size:13px}
+.gt-l{font-size:10.5px;color:var(--dim);line-height:1.2}
+.gt.gone{opacity:.5;filter:grayscale(.7)}
+
+/* Premium-вкладка */
+.gs-prem{text-align:center}
+.gpr-hero{position:relative;height:150px;display:grid;place-items:center;margin:0 -14px;overflow:hidden}
+.gpr-rays{position:absolute;inset:-60%;background:conic-gradient(from 0deg,transparent,rgba(143,107,245,.28),transparent 14%,rgba(255,95,162,.22) 28%,transparent 42%,rgba(255,179,71,.25) 58%,transparent 72%,rgba(143,107,245,.2) 86%,transparent);animation:gpr-rot 18s linear infinite;-webkit-mask:radial-gradient(circle,#000 20%,transparent 62%);mask:radial-gradient(circle,#000 20%,transparent 62%)}
+.gpr-st{position:relative;width:96px;height:96px;filter:drop-shadow(0 10px 22px rgba(245,166,35,.55));animation:ga-fl 3.4s ease-in-out infinite}
+.gpr-st svg{width:100%;height:100%;display:block}
+.gpr-s{position:absolute;font-style:normal;font-size:20px;animation:ga-tw 2.4s ease-in-out infinite}
+.gpr-s.a{left:24%;top:22%}.gpr-s.b{right:24%;top:30%;animation-delay:.5s}.gpr-s.c{left:30%;bottom:16%;animation-delay:1s}.gpr-s.d{right:30%;bottom:12%;animation-delay:1.4s}
+@keyframes gpr-rot{to{transform:rotate(360deg)}}
+.gs-prem h2{font-size:22px;font-weight:900;margin:4px 0 6px;background:linear-gradient(90deg,#8e5bff,#ff5fa2,#ffb347);-webkit-background-clip:text;background-clip:text;color:transparent}
+.gs-prem>p{font-size:14px;color:var(--dim);line-height:1.45;margin:0 10px 16px}
+.gpr-plans{display:flex;flex-direction:column;gap:10px;text-align:left}
+.gpr-plan{text-align:left;width:100%;display:flex;align-items:center;gap:12px;padding:10px 14px 10px 10px;border-radius:20px;background:var(--surface);box-shadow:inset 0 0 0 1.5px transparent;transition:transform .15s,box-shadow .2s}
+.gpr-plan:active{transform:scale(.98)}
+.gpr-plan:nth-child(3){box-shadow:inset 0 0 0 1.5px #ff5fa2;background:linear-gradient(135deg,rgba(142,91,255,.12),rgba(255,95,162,.12))}
+.gpr-t{flex:1;display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;min-width:0}
+.gpr-t b{font-size:16px;font-weight:800}
+.gpr-t em{font-style:normal;font-size:11.5px;font-weight:800;color:#fff;background:linear-gradient(90deg,#8e5bff,#ff5fa2);padding:2px 7px;border-radius:9px}
+.gpr-t small{flex-basis:100%;font-size:12.5px;color:var(--dim)}
+.gpr-pr{font-size:16px;flex:none}
+
+/* ── подтверждение покупки ── */
+.gb-card{padding:26px 18px calc(18px + env(safe-area-inset-bottom));text-align:center}
+.gb-x{position:absolute;right:12px;top:12px;width:34px;height:34px;border-radius:50%;background:var(--surface);color:var(--dim);display:grid;place-items:center}
+.gb-x svg{width:17px;height:17px}
+.gb-art{display:grid;place-items:center;margin-bottom:10px}
+.gb-art .ga{--s:128px}
+.gb-card h3{font-size:20px;font-weight:900;margin:2px 0 4px}
+.gb-sub{font-size:13.5px;color:var(--dim);line-height:1.4;margin:0 6px 14px}
+.gb-msg textarea{width:100%;resize:none;border-radius:14px;background:var(--surface);padding:12px 14px;font-size:15px;line-height:1.35;color:var(--text);min-height:44px;max-height:90px;display:block}
+.gb-anon{display:flex;align-items:center;justify-content:space-between;margin:10px 0 4px;padding:10px 14px;border-radius:14px;background:var(--surface);font-size:15px;cursor:pointer;text-align:left}
+.gb-sw{position:relative;width:46px;height:28px;border-radius:14px;background:var(--line);flex:none;transition:background .2s}
+.gb-sw::after{content:"";position:absolute;left:2px;top:2px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.28);transition:transform .2s cubic-bezier(.3,.9,.3,1)}
+.gb-anon[aria-checked="true"] .gb-sw{background:var(--mint)}
+.gb-anon[aria-checked="true"] .gb-sw::after{transform:translateX(18px)}
+.gb-buy{width:100%;margin-top:12px;height:52px;border-radius:16px;font-size:16px;font-weight:800;color:#fff;background:linear-gradient(135deg,#8e5bff,#ff5fa2);display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 8px 22px rgba(255,95,162,.35);transition:transform .15s,opacity .2s}
+.gb-buy .gs-s{color:#fff}
+.gb-buy:active{transform:scale(.98)}
+.gb-buy.wait{opacity:.6;pointer-events:none}
+.gb-bal{display:block;margin-top:10px;font-size:12px;color:var(--dim)}
+
+/* ── окно подарка ── */
+.gd-card{padding:0 0 calc(16px + env(safe-area-inset-bottom));overflow:hidden;max-height:92vh;overflow-y:auto}
+.gd-x{position:absolute;right:12px;top:12px;z-index:6;width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,.28);color:#fff;display:grid;place-items:center;backdrop-filter:blur(8px)}
+.gd-x svg{width:17px;height:17px}
+.gd-hero{position:relative;display:grid;background:var(--surface)}
+.gd-hero .ga{--s:196px}
+.gd-hero.reveal .ga-e{animation:gd-pop .9s cubic-bezier(.2,1.4,.3,1) both}
+.gd-hero.reveal .ga{animation:gd-flash 1s ease-out both}
+@keyframes gd-pop{0%{transform:scale(.2) rotate(-40deg);opacity:0}60%{transform:scale(1.25) rotate(8deg);opacity:1}100%{transform:scale(1) rotate(0)}}
+@keyframes gd-flash{0%{filter:brightness(2.2)}100%{filter:none}}
+.gd-card h2{text-align:center;font-size:21px;font-weight:900;margin:14px 16px 2px}
+.gd-sub{text-align:center;font-size:13px;color:var(--dim);margin:0 16px 12px}
+.gd-q{margin:0 16px 12px;padding:10px 14px;border-radius:14px;background:var(--surface);font-size:14.5px;line-height:1.4;border-left:3px solid var(--accent);overflow-wrap:anywhere}
+.gd-rows{margin:0 14px;border-radius:16px;background:var(--surface);overflow:hidden}
+.gd-r{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;font-size:15px}
+.gd-r+.gd-r{border-top:1px solid var(--line)}
+.gd-r>span{color:var(--dim);flex:none}
+.gd-r>b{font-weight:700;display:inline-flex;align-items:center;gap:6px;min-width:0;text-align:right}
+.gd-r em{font-style:normal;font-size:11px;font-weight:800;color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,transparent);padding:2px 7px;border-radius:8px}
+.gd-u{display:inline-flex;align-items:center;gap:8px;color:var(--accent);font-weight:700;min-width:0}
+.gd-u .av{width:26px;height:26px;font-size:12px}
+.gd-u span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gd-u.off{color:var(--dim)}.gd-u.off svg{width:15px;height:15px}
+.gd-acts{display:flex;flex-direction:column;gap:8px;margin:14px 14px 0}
+.gd-b{display:flex;align-items:center;justify-content:center;gap:8px;height:48px;border-radius:15px;background:var(--surface);font-size:15px;font-weight:700;color:var(--accent);flex:1;transition:transform .15s,opacity .2s}
+.gd-b:active{transform:scale(.98)}
+.gd-b[disabled]{opacity:.45;pointer-events:none}
+.gd-b svg{width:19px;height:19px;flex:none}
+.gd-b.main{background:var(--accent);color:var(--on-accent)}
+.gd-b.main .gs-s{color:#fff}
+.gd-row2{display:flex;gap:8px}
+
+/* ── карточка подарка в переписке ── */
+.gcard{display:flex;flex-direction:column;align-items:center;gap:6px;width:min(250px,76%);margin:12px auto;padding:14px 14px 12px;border-radius:22px;background:var(--surface);text-align:center;cursor:pointer;box-shadow:var(--shadow-card,0 2px 10px rgba(0,0,0,.12));transition:transform .15s}
+.gcard:active{transform:scale(.98)}
+.gcard.new{animation:gc-in .5s cubic-bezier(.2,1.2,.3,1)}
+@keyframes gc-in{from{transform:scale(.6) translateY(20px);opacity:0}}
+.gc-h{font-size:12.5px;color:var(--dim);line-height:1.35}
+.gc-n{font-size:16px;font-weight:800}
+.gc-m{font-size:13.5px;line-height:1.35;overflow-wrap:anywhere}
+.gc-b{margin-top:4px;padding:7px 20px;border-radius:15px;background:var(--accent);color:var(--on-accent);font-size:13px;font-weight:800}
+
+/* ── плитки подарков в профиле ── */
+.gg.pf .gt{position:relative;padding:6px 5px 8px}
+.gt .gt-p{position:absolute;right:8px;top:8px;z-index:5;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,.4);color:#fff;display:grid;place-items:center}
+.gt .gt-p svg{width:12px;height:12px}
+.gt.hid .ga{opacity:.45}
+.gt .gt-n{position:absolute;left:8px;top:8px;z-index:5;font-size:10px;font-weight:800;color:#fff;background:rgba(0,0,0,.4);padding:1px 6px;border-radius:8px}
+
+/* ───── QR-код профиля ───── */
+.pi-qr{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:12px;display:grid;place-items:center;color:var(--accent);background:var(--raised);cursor:pointer}
+.pi-qr svg{width:21px;height:21px}
+.pi-qr:active{transform:translateY(-50%) scale(.92)}
+.pi:has(.pi-qr) .pi-v{padding-right:48px}
+.qr-card{padding-top:30px}
+.qr-box{width:min(264px,72vw);margin:0 auto 14px;padding:14px;background:#fff;border-radius:22px;box-shadow:0 6px 24px rgba(0,0,0,.18)}
+.qr-code{position:relative;width:100%;aspect-ratio:1}
+.qr-code>svg{display:block;width:100%;height:100%}
+.qr-av{position:absolute;left:50%;top:50%;width:var(--hole);aspect-ratio:1;transform:translate(-50%,-50%);display:block;border-radius:50%;background:#fff;padding:2.5%;box-sizing:border-box}
+.qr-av .av{width:100%;height:100%;font-size:inherit}
+.qr-un{color:var(--accent);font-weight:700;margin:0 0 4px;font-size:15px}
+.qr-hint{color:var(--dim);font-size:13.5px;margin:0 0 16px}
+.qr-b{display:flex;gap:10px}
+.qr-b button{flex:1;padding:13px 10px;border-radius:14px;font-weight:700;font-size:15px;background:var(--raised);color:var(--accent)}
+.qr-b button:last-child{background:var(--accent);color:#fff}

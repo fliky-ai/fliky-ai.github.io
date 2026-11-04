@@ -3,35 +3,42 @@ const fmtSize = (n) => (n < 1024 ? n + " " + T("Б") : n < 1048576 ? (n / 1024).
 const fileUrl = (u) => (u ? (/^(blob:|data:|https?:)/.test(u) ? u : CONFIG.API + u) : "");
 
 const Up = {
-  // Загрузка по кускам по 512 КБ: прокси хостинга не режут большие тела, есть прогресс и докачка.
+  cap: 4194304,                    // предел размера куска (опускается, если сервер или прокси отвечают 413)
+  // Загрузка кусками (старт 1 МБ, дальше размер подстраивается под скорость, до 4 МБ): есть прогресс и докачка.
   // opts: {fid (докачка), onProgress(0..1), ctl ({aborted, abort()})}. Возвращает fid.
   async upload(file, opts = {}) {
     const ctl = opts.ctl || {};
     ctl.abort = () => { ctl.aborted = true; if (ctl.xhr) try { ctl.xhr.abort(); } catch (e) {} };
-    let fid = opts.fid, CH = 524288, off = 0;
+    let fid = opts.fid, CH = 1048576, off = 0;
+    const MIN = 262144;
     if (fid) {
       const s = await api("/api/upload/" + fid);
       if (s.done) return fid;
       off = s.got;
     } else {
       const d = await api("/api/upload/init", { method: "POST", body: { name: opts.name || file.name || "file", size: file.size, mime: opts.mime || file.type } });
-      fid = d.fid; CH = d.chunk || CH;
+      fid = d.fid; CH = Math.min(d.chunk || CH, Up.cap);
       if (opts.onFid) opts.onFid(fid);
     }
+    // Размер куска подстраивается под связь: быстрый кусок (меньше ~1,2 с) — следующий вдвое больше, сбой — вдвое меньше.
     while (off < file.size) {
       if (ctl.aborted) throw Object.assign(new Error("Отменено"), { aborted: true });
-      const end = Math.min(file.size, off + CH), base = off;
       let tries = 0;
       for (;;) {
+        const end = Math.min(file.size, off + CH), base = off, t0 = Date.now();
         try {
           const r = await Up.chunk(fid, base, file.slice(base, end), ctl, (l) => opts.onProgress && opts.onProgress((base + l) / file.size));
           off = r.got;
+          if (end - base === CH && Date.now() - t0 < 1200) CH = Math.min(Up.cap, CH * 2);
+          else if (Date.now() - t0 > 6000) CH = Math.max(MIN, CH >> 1);
           break;
         } catch (e) {
           if (e.aborted) throw e;
           if (e.got !== undefined) { off = e.got; break; }      // сервер уже принял больше/меньше — продолжаем с его позиции
-          if (++tries > 4) throw e;
-          await sleep(500 * tries);
+          if (++tries > 5) throw e;
+          if (e.status === 413) Up.cap = Math.max(MIN, Math.min(Up.cap, (end - base) >> 1));   // сервер или прокси не берёт такие большие куски — запоминаем предел
+          CH = Math.max(MIN, Math.min(CH >> 1, Up.cap));         // сбой — пробуем меньшим куском
+          await sleep(400 * tries);
         }
       }
     }
@@ -53,6 +60,7 @@ const Up = {
         if (x.status === 401 && Store.token) { Accounts.remove(Store.token); Store.token = ""; location.reload(); }
         if (x.status === 200 && d.ok) return res(d);
         const er = new Error(d.error || "Ошибка " + x.status);
+        er.status = x.status;
         if (x.status === 409 && d.got !== undefined) er.got = d.got;
         rej(er);
       };
@@ -65,7 +73,7 @@ const Up = {
   },
 
   // миниатюра для ленты (оригинал уходит отдельно и не меняется). null — если картинку не удалось прочитать.
-  async thumb(file, max = 560) {
+  async thumb(file, max = 1280) {
     if (!/^image\//.test(file.type) || /svg/.test(file.type)) return null;
     try {
       let src, w, h, done = () => {};
@@ -81,9 +89,10 @@ const Up = {
       c.width = cw; c.height = ch;
       const g = c.getContext("2d");
       g.fillStyle = "#fff"; g.fillRect(0, 0, cw, ch);
+      g.imageSmoothingQuality = "high";
       g.drawImage(src, 0, 0, cw, ch);
       done();
-      const blob = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.82));
+      const blob = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.9));
       return blob ? { blob, w, h } : { blob: null, w, h };
     } catch (e) { return null; }
   },

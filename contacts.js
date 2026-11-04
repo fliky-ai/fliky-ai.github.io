@@ -17,6 +17,7 @@ const Contacts = {
   bind() {
     const f = $("contact-fab"), s = $("btn-csearch");
     if (s) s.onclick = () => { haptic(); Search.open(); };
+    if ($("contact-sbar")) $("contact-sbar").onclick = () => { haptic(); Search.open(); };
     if (f) f.onclick = () => { haptic(); Search.open(); };
     $("contact-list").addEventListener("click", (e) => {
       const a = e.target.closest("[data-act]");
@@ -32,14 +33,13 @@ const Contacts = {
   render() {
     const box = $("contact-list"); if (!box) return;
     const people = Contacts.people();
-    const acts = `<button class="nm-act" data-act="group">${SI.userPlus}<span>${esc(T("Создать группу"))}</span></button>
-      <button class="nm-act" data-act="channel">${svg('<path d="m3 11 17-6v14L3 13z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>')}<span>${esc(T("Создать канал"))}</span></button><div class="nm-sep"></div>`;
+    const acts = "";                  // «Создать группу / канал» живут в кнопке «+» на главном экране, а не во вкладке контактов
     if (!people.length) {
       box.innerHTML = acts + `<div class="cempty">${ILL.chat}<h3>${esc(T("Контактов пока нет"))}</h3><p>${esc(T("Здесь будут люди, с которыми вы переписываетесь. Найти человека можно через поиск."))}</p></div>`;
       return;
     }
     const y = box.scrollTop;
-    box.innerHTML = acts + ContactList.html(people, {}) ;
+    box.innerHTML = acts + ContactList.html(people, { solo: true });
     box.scrollTop = y;
     ContactList.mountIndex(box);
   },

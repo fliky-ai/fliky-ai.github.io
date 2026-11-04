@@ -33,7 +33,7 @@ const Editor = {
   clear() { Editor.el.innerHTML = ""; Editor.last = null; Editor.hideTb(); Editor.changed(); },
   changed() {
     const el = Editor.el;
-    if (el.textContent === "" && el.innerHTML !== "") el.innerHTML = "";   // убираем «хвосты» <br>/<div>, чтобы вернулся placeholder
+    if (el.textContent === "" && el.innerHTML !== "" && !el.querySelector("[data-ce]")) el.innerHTML = "";   // убираем «хвосты» <br>/<div>, чтобы вернулся placeholder
     el.dataset.empty = Rich.readRaw(el).text.length === 0 ? "1" : "";
     if (Editor.onChange) Editor.onChange();
   },
@@ -62,6 +62,19 @@ const Editor = {
       const s = getSelection();
       if (s.rangeCount) { const r = s.getRangeAt(0); r.deleteContents(); r.insertNode(document.createTextNode(str)); r.collapse(false); }
     }
+    Editor.changed();
+  },
+  // вставить свой (Premium) эмодзи: в поле он виден картинкой, при отправке уходит как значок + сущность ce
+  insertCE(it) {
+    const el = Editor.el;
+    if (document.activeElement !== el) { el.focus({ preventScroll: true }); Editor.restore(); }
+    const node = CE.node(it.id, it.emoji || "🙂");
+    const s = getSelection();
+    if (!s.rangeCount || !el.contains(s.anchorNode)) Editor.caretEnd();
+    const r = getSelection().getRangeAt(0);
+    r.deleteContents(); r.insertNode(node); r.setStartAfter(node); r.collapse(true);
+    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    Editor.last = r.cloneRange();
     Editor.changed();
   },
   backspace() {
@@ -132,6 +145,7 @@ const Editor = {
     Editor.placeTb();
   },
   selChanged() {
+    if (Editor.mute && Date.now() < Editor.mute) return;
     const r = Editor.range();
     if (r) Editor.last = r.cloneRange();
     if (!r || r.collapsed || document.activeElement !== Editor.el) {
@@ -191,5 +205,9 @@ const Editor = {
       return Editor.format("a", u);
     }
     Editor.format(a);
+    // как в Telegram: после выбора начертания меню сразу закрывается, выделение остаётся
+    Editor.mute = Date.now() + 500;
+    Editor.tbMore(false);
+    Editor.hideTb();
   },
 };

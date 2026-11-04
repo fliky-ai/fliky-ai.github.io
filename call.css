@@ -66,16 +66,20 @@
 .cu-lw{position:absolute;z-index:4;right:14px;top:calc(var(--safe-t,0px) + 74px);width:104px;height:150px;border-radius:16px;overflow:hidden;background:#000;box-shadow:0 8px 24px rgba(0,0,0,.4);border:2px solid rgba(255,255,255,.7);display:none;touch-action:none;cursor:grab}
 .callui.lv .cu-lw{display:block;animation:cuPop .25s var(--ease,ease)}
 @keyframes cuPop{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
-.callui.lv:not(.rv) .cu-lw{top:auto;bottom:auto;right:auto;left:50%;width:min(66vw,260px);height:min(46vh,340px);transform:translateX(-50%);position:absolute;top:calc(var(--safe-t,0px) + 80px);cursor:default}
-.callui.lv:not(.rv) .cu-mid{padding-top:calc(min(46vh,340px) + 40px)}
+/* своя камера включена, у собеседника видео ещё нет: я на весь экран (как в Telegram), имя и время сверху, кнопки внизу */
+.callui.lv:not(.rv) .cu-lw{inset:0;width:100%;height:100%;border-radius:0;border:0;box-shadow:none;transform:none;z-index:-1;pointer-events:none;animation:none}
+.callui.lv:not(.rv) .cu-bg{opacity:0}
+.callui.lv:not(.rv) .cu-shade{opacity:1}
+.callui.lv:not(.rv) .cu-av{display:none}
+.callui.lv:not(.rv) .cu-mid{flex:none;justify-content:flex-start;padding:18px 24px 0}
 .cu-local{width:100%;height:100%;object-fit:cover;display:block}
 .cu-local.mirror,.vt video.mirror{transform:scaleX(-1)}
 
 /* кнопки */
-.cu-btns{position:relative;z-index:3;display:flex;justify-content:center;align-items:flex-start;gap:clamp(8px,3.4vw,20px);padding:12px 12px calc(var(--safe-b,0px) + 28px);transition:opacity .25s}
-.cu-b{display:flex;flex-direction:column;align-items:center;gap:8px;width:76px;color:#fff;font-weight:700;font-size:12.5px;line-height:1.15;text-align:center;transition:transform .12s}
+.cu-btns{position:relative;z-index:3;display:flex;justify-content:center;align-items:flex-start;gap:clamp(4px,2vw,16px);padding:12px 10px calc(var(--safe-b,0px) + 28px);margin-top:auto;transition:opacity .25s}
+.cu-b{display:flex;flex-direction:column;align-items:center;gap:8px;flex:1 1 0;min-width:0;max-width:80px;color:#fff;font-weight:700;font-size:12px;line-height:1.15;text-align:center;transition:transform .12s}
 .cu-b:active{transform:scale(.92)}
-.cu-bi{width:62px;height:62px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.2);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);transition:background .18s,color .18s,transform .18s}
+.cu-bi{width:min(62px,15.6vw);height:min(62px,15.6vw);flex:none;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.2);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);transition:background .18s,color .18s,transform .18s}
 .cu-bi svg{width:28px;height:28px}
 .cu-b.on .cu-bi{background:#fff;color:#2a5bd0}
 .cu-b.red .cu-bi{background:#f2403f;color:#fff;box-shadow:0 6px 18px rgba(242,64,63,.5)}
@@ -85,7 +89,7 @@
 @keyframes cuRing{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
 .callui.st-incoming .cu-btns{gap:clamp(44px,20vw,110px);padding-bottom:calc(var(--safe-b,0px) + 56px)}
 .callui.st-incoming .cu-bi{width:70px;height:70px}
-.callui.st-incoming .cu-b{width:90px;font-size:14px}
+.callui.st-incoming .cu-b{flex:none;width:90px;max-width:none;font-size:14px}
 .callui.st-ended .cu-btns{opacity:0}
 
 /* ───────── видеочат группы ───────── */
@@ -110,11 +114,11 @@
 .vt.sp{box-shadow:0 0 0 3px #4de6a4,0 0 28px rgba(77,230,164,.55);transform:scale(1.015)}
 .vt.mu.sp{box-shadow:none;transform:none}
 .vcb{gap:clamp(6px,2.4vw,14px)}
-.cu-b.mic{width:112px}
+.cu-b.mic{flex:none;width:112px;max-width:none}
 .cu-b.mic .cu-bi.big{width:78px;height:78px;background:linear-gradient(145deg,#38d98a,#1ea869);box-shadow:0 8px 24px rgba(30,168,105,.55)}
 .cu-b.mic .cu-bi.big svg{width:34px;height:34px}
 .cu-b.mic.off .cu-bi.big{background:linear-gradient(145deg,#6b7897,#4a5573);box-shadow:none}
-.vcb .cu-b:not(.mic){width:64px}
+.vcb .cu-b:not(.mic){flex:none;width:64px}
 .vcb .cu-bi{width:54px;height:54px}
 
 /* ───────── свёрнутый звонок ───────── */

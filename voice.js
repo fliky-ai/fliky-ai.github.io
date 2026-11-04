@@ -133,12 +133,13 @@ const Voice = {
     b.addEventListener("contextmenu", (e) => e.preventDefault());
     b.addEventListener("pointerdown", (e) => {
       if (Chat.mainMode() !== "mic" || Voice.st !== "idle" || (e.pointerType === "mouse" && e.button !== 0)) return;
+      if (Chat.slowLeft() > 0) { e.preventDefault(); return Chat.slowShake(); }
       e.preventDefault();
       Voice.down(e);
     });
     b.addEventListener("pointermove", (e) => Voice.move(e));
     b.addEventListener("pointerup", (e) => Voice.up(e));
-    b.addEventListener("pointercancel", () => { Voice.held = false; if (Voice.st === "rec" || Voice.st === "starting") Voice.cancel(); });
+    b.addEventListener("pointercancel", () => { Voice.held = false; if (Voice.st === "rec" || Voice.st === "starting") Voice.cancel(); else if (Voice.st === "arming") Voice.reset(); });
     $("rec-cancel").onclick = () => Voice.cancel();
   },
 
@@ -158,7 +159,7 @@ const Voice = {
   },
 
   reset() {
-    Voice.st = "idle"; Voice.held = false; Voice.lockGesture = false;
+    Voice.st = "idle"; Voice.held = false; Voice.lockGesture = false; $("btn-main").classList.remove("arming");
     clearInterval(Voice.timer); cancelAnimationFrame(Voice.raf);
     Voice.ui(false);
   },
@@ -203,9 +204,16 @@ const Voice = {
 
   async down(e) {
     const id = ++Voice.pid;
-    Voice.st = "starting"; Voice.held = true;
+    Voice.st = "arming"; Voice.held = true;
     Voice.p0 = { x: e.clientX, y: e.clientY };
     try { $("btn-main").setPointerCapture(e.pointerId); } catch (err) {}
+    // микрофон включается только если кнопку удерживают полсекунды — случайное касание ничего не запускает
+    $("btn-main").classList.add("arming");
+    await new Promise((r) => setTimeout(r, 500));
+    $("btn-main").classList.remove("arming");
+    if (id !== Voice.pid || Voice.st !== "arming") return;
+    if (!Voice.held) { Voice.reset(); return toast("Удерживайте кнопку, чтобы записать голосовое"); }
+    Voice.st = "starting";
     Voice.ui(true);
     $("btn-main").classList.add("rec");
     const ok = await Voice.ensure();

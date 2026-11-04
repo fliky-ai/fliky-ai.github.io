@@ -199,7 +199,7 @@ const Search = {
       return Chats.openChat(p);
     }
     if (kind === "msgmedia") { const a = it.message.att || {}; return Viewer.open(a); }
-    if (kind === "msgfile") { const a = it.message.att || {}; return /^video\//.test(a.mime || "") ? Viewer.open(a) : Attach.download(a); }
+    if (kind === "msgfile") { const a = it.message.att || {}; return FV.open(a); }
     if (kind === "msglink") { const u = (/(https?:\/\/[^\s]+|www\.[^\s]+|t\.me\/[^\s]+)/i.exec(it.message.text || "") || [""])[0]; if (u) Browser.open(/^https?:/i.test(u) ? u : "https://" + u); return; }
     if (kind === "msg") {
       const p = (Chats.byId(it.peer.id) || { peer: it.peer }).peer, id = it.message.id;

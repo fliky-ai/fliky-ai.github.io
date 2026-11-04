@@ -10,6 +10,7 @@ const Profile = {
 
   // ───────────── вкладка «Профиль» ─────────────
   render() {
+    Profile.gf = null;                // список подарков перечитывается заново
     Profile.draw();
     // имя и фото показаны и во вкладке «Настройки» (шапка и список аккаунтов) — обновляем их тоже
     Settings.render();
@@ -22,10 +23,13 @@ const Profile = {
     const rows = [];
     if (u.bio) rows.push(row(esc(u.bio), "О себе", 'data-copy="' + esc(u.bio) + '"'));
     rows.push(row(esc(fmtPhone(u.number)), "Телефон", 'data-copy="' + esc(u.number) + '"'));
-    rows.push(u.username ? row("@" + esc(u.username), "Имя пользователя", 'data-copy="@' + esc(u.username) + '"')
+    rows.push(u.username ? row("@" + esc(u.username) + (typeof QRCard !== "undefined" ? QRCard.btn() : ""), "Имя пользователя", 'data-copy="@' + esc(u.username) + '"')
                          : row('<span class="dim">Не задано</span>', "Имя пользователя", 'data-edit="1"'));
     if (u.birthday) rows.push(row(esc(bdayText(u.birthday)) + (bdayToday(u.birthday) ? " 🎂" : ""), "День рождения", 'data-edit="1"'));
-    rows.push(`<button class="pi" data-chan="1"><span class="pi-v">Личный канал</span><span class="pi-l">Пока в разработке</span><em class="soon sm">скоро</em></button>`);
+    const pc = Profile.curPc();
+    Profile._pcDrawn = pc ? pc.gid : 0;
+    if (pc) rows.push(row(esc(pc.name), "Личный канал", 'data-chan="1"'));
+    if (!Profile.pc) Profile.loadPc();
 
     const ph = premHero(u);
     const pill = (k, t, extra = "") => `<button class="ptab${Profile.tab === k ? " on" : ""}" data-t="${k}">${t}${extra}</button>`;
@@ -49,7 +53,8 @@ const Profile = {
     $("pf-edit").onclick = () => Profile.openEdit();
     if ($("pf-est")) $("pf-est").onclick = () => StatusPicker.open();
     $("pf-set").onclick = () => App.go("settings");
-    $("profile-box").querySelectorAll(".pi").forEach((b) => (b.onclick = () => {
+    $("profile-box").querySelectorAll(".pi").forEach((b) => (b.onclick = (e) => {
+      if (e && e.target.closest("[data-qr]")) { e.stopPropagation(); haptic(); return QRCard.open(App.user); }
       if (b.dataset.copy) { copyText(b.dataset.copy); toast("Скопировано"); haptic(); }
       else if (b.dataset.edit) Profile.openEdit();
       else if (b.dataset.chan) Profile.channelInfo();
@@ -63,9 +68,42 @@ const Profile = {
     Profile.drawTab();
   },
 
-  channelInfo() {
-    return UI.sheet({ title: "Личный канал", text: "Личные каналы пока в разработке. Скоро вы сможете добавить свой канал, и он появится в вашем профиле.",
-      icon: PI.channel, actions: [], cancel: "Понятно" });
+  // ───────────── личный канал: один из ваших каналов показывается в вашем профиле ─────────────
+  pc: null, _pcDrawn: 0, gf: null,
+  async loadPc() {
+    try { Profile.pc = await api("/api/me/channels"); } catch (e) { return; }
+    Profile.paintPc();
+  },
+  curPc() { const p = Profile.pc; return p && p.current ? (p.channels || []).find((c) => c.gid === p.current) || null : null; },
+  paintPc() {
+    const c = Profile.curPc();
+    const r = $("ed-chan"); if (r) r.querySelector(".irow-r").textContent = c ? c.name : "Добавить";
+    if ((c ? c.gid : 0) !== Profile._pcDrawn && $("profile-box").children.length) Profile.draw();
+  },
+  async channelInfo() {
+    await Profile.loadPc();
+    const p = Profile.pc;
+    if (!p) return toast("Не удалось загрузить каналы");
+    const chans = p.channels || [], cur = Profile.curPc();
+    if (!chans.length) {
+      const v = await UI.sheet({ title: "Личный канал", icon: PI.channel,
+        text: "Личный канал показывается в вашем профиле. У вас пока нет своих каналов — создайте канал, и его можно будет добавить.",
+        actions: [{ label: "Создать канал", value: "new", accent: true }], cancel: "Понятно" });
+      if (v === "new") CreateChat.open("channel");
+      return;
+    }
+    const v = await UI.sheet({ title: "Личный канал", icon: PI.channel,
+      text: "Выберите канал, который будет показан в вашем профиле. Можно выбрать только один.",
+      actions: chans.map((c) => ({ label: c.name + (cur && cur.gid === c.gid ? "  ✓" : ""), value: "c" + c.gid })).concat(cur ? [{ label: "Убрать из профиля", value: "rm", danger: true }] : []) });
+    if (!v) return;
+    const id = v === "rm" ? 0 : +v.slice(1);
+    if (cur && cur.gid === id) return;
+    try {
+      await api("/api/me/pchan", { method: "POST", body: { id } });
+      Profile.pc.current = id;
+      Profile.paintPc();
+      toast(id ? "Канал добавлен в профиль" : "Канал убран из профиля");
+    } catch (e) { toast(e.message); }
   },
 
   // ───────────── публикации ─────────────
@@ -87,8 +125,16 @@ const Profile = {
     const box = $("pf-tab"); if (!box) return;
     const t = Profile.tab;
     if (t === "gifts") {
-      box.innerHTML = `<div class="pf-empty"><div class="pf-eic gift">${PI.gift}</div><h3>Подарки</h3>
-        <p>Скоро здесь можно будет дарить подарки друзьям и получать их от других. Раздел в разработке.</p><span class="soon">Скоро</span></div>`;
+      if (!Profile.gf) {
+        box.innerHTML = '<div class="pf-load"><div class="spin"></div></div>';
+        api("/api/gifts/user/" + App.user.id).then((d) => { Profile.gf = d; }).catch(() => { Profile.gf = { gifts: [] }; }).then(() => { if (Profile.tab === "gifts") Profile.drawTab(); });
+        return;
+      }
+      const list = Profile.gf.gifts || [];
+      box.innerHTML = list.length
+        ? `<div class="gg pf">${list.map((g) => `<button class="gt${g.shown ? "" : " hid"}" data-g="${g.id}">${g.pin ? `<span class="gt-p">${GIC.pin}</span>` : ""}${g.nft ? `<span class="gt-n">№${g.nft.num}</span>` : ""}${GiftArt.html(g)}<b>${esc(g.name || Gifts.title(g))}</b>${Gifts.stars(g.price)}</button>`).join("")}</div>`
+        : `<div class="pf-empty"><div class="pf-eic gift">${PI.gift}</div><h3>Нет подарков</h3><p>Подарки, которые вам отправят, появятся здесь. Подарить подарок другу можно из его профиля.</p></div>`;
+      box.onclick = (e) => { const b = e.target.closest(".gt[data-g]"); if (!b) return; const x = list.find((k) => k.id === +b.dataset.g); if (x) Gifts.detail(x); };
       return;
     }
     if (!Profile.st.loaded) { box.innerHTML = '<div class="pf-load"><div class="spin"></div></div>'; return; }

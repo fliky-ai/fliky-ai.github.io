@@ -247,7 +247,8 @@ const Auth = (() => {
           number,
           code,
           tz: new Date().getTimezoneOffset(),
-          platform: (typeof TGW !== "undefined" && TGW && TGW.platform) || ""
+          platform: (typeof TGW !== "undefined" && TGW && TGW.platform) || "",
+          dev: await devInfo()
         }
       });
       if (d.need_password) {                 // у аккаунта есть облачный пароль — просим его

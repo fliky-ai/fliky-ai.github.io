@@ -121,10 +121,14 @@ const Chat = {
   // тапы по содержимому пузырей
   tap(e) {
     if (Chat.noTap && Date.now() - Chat.noTap < 400) return;
+    const gc = e.target.closest(".gcard");
+    if (gc) { const gm = Chat.byEl(gc); if (gm && gm.gift) { haptic(); Gifts.detail(gm.gift); } return; }
     const b = e.target.closest(".b");
     if (!b) return;
     const m = Chat.byEl(b), t = e.target;
     if (!m) return;
+    const bem = t.closest(".bem");
+    if (bem) { Fx.play(bem); return; }
     const sp = t.closest(".sp");
     if (sp) { sp.classList.toggle("open"); return; }
     if (t.closest("a")) return;                                       // ссылки открывает общий обработчик
@@ -151,7 +155,7 @@ const Chat = {
     if (fl && m.fw && m.fw.id) return UserProfile.open({ id: m.fw.id, name: m.fw.name || "", surname: "", username: "", avatar: "", bio: "" });
     if (t.closest(".media.dl")) { Chat.dl.add(mkey(m)); Chat.patch(m); return; }
     if (t.closest(".media") && a.url) return Viewer.open(a.fid ? Object.assign({}, a, { url: a.url }) : a);
-    if (t.closest(".fcard") && a.url && !m.pending) return /^video\//.test(a.mime || "") ? Viewer.open(a) : Attach.download(a);
+    if (t.closest(".fcard") && a.url && !m.pending) return FV.open(a);
     // двойное касание текста — быстрая реакция
     if (m.id && (m.kind === "text" || !m.kind)) {
       const now = Date.now();
@@ -172,29 +176,73 @@ const Chat = {
       const s = $("chat-sub"); s.textContent = statusText(p); s.classList.toggle("on", !!p.online && !p.is_system && !p.gk);
     }
     try { Groups.syncBars(); Chat.applyAccess(); } catch (e) {}
+    if (p.slow_left > 0 && !(Chat.slowEnd[p.id] > Date.now())) Chat.slowEnd[p.id] = Date.now() + p.slow_left * 1000;
+    Chat.slowTick();
   },
 
   openProfile() {
     const p = Chat.peer; if (!p) return;
     if (p.gk) return GroupEdit.profile(p);
-    if (!p.is_system) UserProfile.open(p);
+    UserProfile.open(p);
   },
 
+  // ── медленный режим: на кнопке отправки бежит обратный отсчёт, как в Telegram ──
+  slowEnd: {},
+  slowLeft() {
+    const p = Chat.peer; if (!p || p.gk !== "group" || !p.slow || p.role !== "member") return 0;
+    return Math.max(0, Math.ceil(((Chat.slowEnd[p.id] || 0) - Date.now()) / 1000));
+  },
+  slowMark(peer, sec) {
+    if (!peer || !sec) return;
+    Chat.slowEnd[peer.id] = Date.now() + sec * 1000;
+    Chat.slowTick();
+  },
+  slowTick() {
+    clearInterval(Chat.slowTm);
+    const b = $("btn-main"); if (!b) return;
+    const upd = () => {
+      const n = Chat.slowLeft(), on = n > 0 && !Chat.editing;
+      b.classList.toggle("slow", on);
+      if (on) { b.dataset.n = n >= 60 ? Math.ceil(n / 60) + "м" : String(n); b.style.setProperty("--p", String(Math.min(100, Math.round((1 - n / Math.max(1, Chat.peer.slow)) * 100)))); }
+      else { delete b.dataset.n; b.style.removeProperty("--p"); clearInterval(Chat.slowTm); }
+    };
+    upd();
+    if (Chat.slowLeft() > 0) Chat.slowTm = setInterval(upd, 250);
+  },
+  slowShake() { const b = $("btn-main"); b.classList.remove("shake"); void b.offsetWidth; b.classList.add("shake"); haptic("light"); },
+
   // что показывать вместо поля ввода: в канале — «Выключить звук», если писать нельзя — пояснение
+  // актуальные признаки блокировки для открытого личного чата
+  async syncBlock() {
+    const p = Chat.peer; if (!p || p.gk || p.is_system || p.id <= 0) return;
+    try {
+      const d = await api("/api/user/" + p.id);
+      if (Chat.peer !== p) return;
+      p.blocked = !!d.user.blocked; p.blocked_me = !!d.user.blocked_me; Chat.applyAccess();
+    } catch (e) {}
+  },
+  async unblock() {
+    const p = Chat.peer; if (!p) return;
+    try { await api("/api/block", { method: "POST", body: { id: p.id, on: false } }); p.blocked = false; Chat.applyAccess(); toast(T("Пользователь разблокирован")); haptic(); } catch (e) { toast(e.message); }
+  },
   applyAccess() {
     const p = Chat.peer, box = $("composer"); if (!p || !box) return;
     let bar = $("cbar");
-    if (!bar) { bar = document.createElement("div"); bar.id = "cbar"; bar.className = "cbar hidden"; box.insertBefore(bar, box.firstChild); bar.addEventListener("click", (e) => { if (e.target.closest("[data-mute]") && Chat.peer) { const id = Chat.peer.id; haptic(); (Chats.isMuted(id) ? Chats.setMute(id, false) : ChatPeek.act("mute", { peer: Chat.peer, unread: 0 })); setTimeout(() => Chat.applyAccess(), 400); } }); }
+    if (!bar) { bar = document.createElement("div"); bar.id = "cbar"; bar.className = "cbar hidden"; box.insertBefore(bar, box.firstChild); bar.addEventListener("click", (e) => { if (e.target.closest("[data-mute]") && Chat.peer) { const id = Chat.peer.id; haptic(); (Chats.isMuted(id) ? Chats.setMute(id, false) : ChatPeek.act("mute", { peer: Chat.peer, unread: 0 })); setTimeout(() => Chat.applyAccess(), 400); } if (e.target.closest("[data-unblock]") && Chat.peer) Chat.unblock(); }); }
     let mode = "";
     if (p.gk) {
       if (!p.post) mode = p.gk === "channel" ? "mute" : "deny";
       else if (Chat.topic && Chat.topic.closed && p.role === "member") mode = "closed";
+    } else if (!p.is_system) {
+      if (p.blocked) mode = "blocked"; else if (p.blocked_me) mode = "blockedme";
     }
     box.classList.toggle("nowrite", !!mode);
     bar.classList.toggle("hidden", !mode);
     if (mode === "mute") { const m = Chats.isMuted(p.id); bar.innerHTML = `<button data-mute type="button">${m ? CMI.bell : CMI.mute}<span>${esc(T(m ? "Включить звук" : "Выключить звук"))}</span></button>`; }
     else if (mode === "deny") bar.innerHTML = `<span class="cb-note">${esc(T("Вам запрещено отправлять сообщения в этой группе"))}</span>`;
     else if (mode === "closed") bar.innerHTML = `<span class="cb-note">${esc(T("Тема закрыта"))}</span>`;
+    else if (mode === "blocked") bar.innerHTML = `<button data-unblock type="button" class="cb-unb">${esc(T("Разблокировать"))}</button>`;
+    else if (mode === "blockedme") bar.innerHTML = `<span class="cb-note">${esc(T("Этот человек ограничил вам возможность писать"))}</span>`;
     else bar.innerHTML = "";
   },
 
@@ -209,6 +257,7 @@ const Chat = {
       $("composer").classList.remove("nowrite");
     });
     if (peer.gk) Groups.refresh(peer);                // свежие права и число участников
+    else Chat.syncBlock();
     await Chat.fetch();
     Chats.markRead(peer.id);
   },
@@ -334,6 +383,7 @@ const Chat = {
   bubble(m, prev, isNew, next) {
     const k = m.kind || "text";
     if (k === "svc" || k === "greet") return Chat.svcHTML(m, isNew);
+    if (k === "gift") return Gifts.cardHTML(m, isNew);
     const gk = Chat.peer && Chat.peer.gk;
     const out = m.sender === App.user.id && gk !== "channel";            // посты канала показываем как входящие
     const inGroup = gk === "group" && !out;
@@ -341,25 +391,24 @@ const Chat = {
     const hasCap = !!(m.text && k !== "text");
     const ov = ((k === "photo" || k === "gif") && !hasCap) || k === "sticker";
     const big = k === "text" && !m.fw && !m.reply_to && !m.reply && Prefs.get("bigemoji", true) && Chat.isBigEmoji(m.text);
-    const sig = gk === "channel" && m.from && m.from.sig ? `<i class="sig">${esc(m.from.name || "")}</i>` : "";
+    const sig = gk === "channel" && m.from && m.from.sig ? `<i class="sig">${esc(cleanName(m.from.name) || dispName(m.from))}</i>` : "";
     const time = `<span class="t${ov ? " ov" : ""}">${sig}${m.exp ? TIMER_I : ""}${m.edited ? T("изм.") + " " : ""}${fmtTime(m.ts)}${out ? `<span class="st">${stIcon(m)}</span>` : ""}</span>`;
     let h = "";
     if (inGroup && !cont && k !== "sticker") {
       const f = m.from || {}, lab = f.tag || (f.role === "owner" ? T("владелец") : f.role === "admin" ? T("админ") : "");
-      h += `<span class="gname" data-uid="${m.sender}" style="color:${uColor(m.sender)}">${esc(f.name || "")}${f.premium ? PREM_I : ""}${lab ? `<em class="grole">${esc(lab)}</em>` : ""}</span>`;
+      h += `<span class="gname" data-uid="${m.sender}" style="color:${uColor(m.sender)}">${esc(dispName(f))}${f.premium ? PREM_I : ""}${lab ? `<em class="grole">${esc(lab)}</em>` : ""}</span>`;
     }
     if (m.auto) h += `<span class="auto">${esc(T("Автоматическое сообщение"))}</span>`;
     if (m.fw) h += `<div class="fw">${T("Переслано от")} ${m.fw.id ? `<b class="fwl" role="link">${esc(m.fw.name || "")}</b>` : `<b>${esc(m.fw.name || "")}</b>`}</div>`;
     if (m.reply_to || m.reply) h += Chat.replyHTML(m);
-    if (k === "text") h += `<span class="tx">${Chat.textHTML(m)}</span>`;
+    if (k === "text") h += `<span class="tx">${big ? Fx.html(m.text) : Chat.textHTML(m)}</span>`;
     else if (k === "photo" || k === "gif") h += Chat.mediaHTML(m, ov ? time : "");
     else if (k === "file") h += Chat.fileHTML(m);
     else if (k === "voice") h += Player.html(m);
     else if (k === "sticker") h += Chat.stickerHTML(m, time);
     else if (k === "call") h += Chat.callHTML(m);
     if (hasCap) h += `<div class="capw"><span class="tx cap">${Chat.textHTML(m)}</span>${time}</div>`;     // подпись и время в одной строке
-    const rx = m.reacts && m.reacts.length
-      ? `<div class="rx">${m.reacts.map((r) => `<button class="rx-chip${r.mine ? " mine" : ""}" data-e="${esc(r.e)}"><span class="e">${r.e}</span>${r.n > 1 ? `<span class="n">${r.n}</span>` : ""}</button>`).join("")}</div>` : "";
+    const rx = React.chips(m);
     let av = "";
     if (inGroup && !(next && Chat.cont(m, next))) { const f = m.from || {}; av = `<span class="gav" data-uid="${m.sender}">${avatar({ id: m.sender, name: f.name || "", avatar: f.avatar || "" })}</span>`; }
     return `<div class="b ${out ? "out" : "in"}${inGroup ? " g" : ""}${big ? " big" : ""}${cont ? " cont" : ""} k-${k}${hasCap ? " hascap" : ""}${m.failed ? " failed" : ""}${m.pending ? " pending" : ""}${isNew ? " new" : ""}" data-k="${mkey(m)}"${m.id ? ` data-id="${m.id}"` : ""}>${h}${ov || hasCap ? "" : time}${rx}${av}</div>`;
@@ -392,6 +441,7 @@ const Chat = {
     // аватарка группы остаётся только у последнего сообщения в «стопке»
     if (prev && lastEl && lastEl.classList.contains("g") && Chat.cont(prev, m) && m.sender !== App.user.id) { const g = lastEl.querySelector(":scope > .gav"); if (g) g.remove(); }
     Player.paint();
+    if (m.kind === "text" || !m.kind) { const le = box.lastElementChild; if (le && le.classList.contains("big")) setTimeout(() => Fx.appear(le), 260); }
     if (near) {
       const go = () => { box.scrollTop = box.scrollHeight; };
       requestAnimationFrame(go);
@@ -490,6 +540,7 @@ const Chat = {
     if (Chat.editing) return Chat.saveEdit(text, ents);
     if (!text) return;
     if (peer.gk === "group" && peer.perms && !peer.perms.text && peer.role === "member") return toast(T("В этой группе запрещено отправлять текстовые сообщения"));
+    if (Chat.slowLeft() > 0) return Chat.slowShake();
     const r = Chat.replyTo;
     Editor.clear(); Chat.clearReply(); haptic("light");
     Chat.post({ kind: "text", text, ents: ents.length ? ents : undefined, reply_to: r ? r.id : undefined, reply: r ? Chat.replyOf(r) : undefined });
@@ -515,7 +566,12 @@ const Chat = {
       Object.assign(m, d.message, { pending: false, failed: false, up: null, file: null });
       Chat.keepLocal(m, old);
       Chats.upsert(peer, m, false);
-    } catch (e) { m.pending = false; m.failed = true; toast(e.message); }
+      if (peer.gk === "group" && peer.slow && peer.role === "member") Chat.slowMark(peer, peer.slow);
+    } catch (e) {
+      m.pending = false; m.failed = true;
+      const w = /Медленный режим: подождите (\d+)\s*(с|мин)/.exec(e.message || "");
+      if (w) Chat.slowMark(peer, +w[1] * (w[2] === "мин" ? 60 : 1)); else toast(e.message);
+    }
     if (Chat.peer === peer) Chat.patch(m);
   },
 
@@ -557,12 +613,15 @@ const Chat = {
     m.up.ctl = {};
     Chat.patch(m);
     try {
-      if (file.__thumb && !m.tfid) m.tfid = await Up.upload(file.__thumb, { name: "thumb.jpg", mime: "image/jpeg" });
+      // миниатюра (небольшая) уходит одновременно с оригиналом, а не перед ним
+      const tp = file.__thumb && !m.tfid ? Up.upload(file.__thumb, { name: "thumb.jpg", mime: "image/jpeg" }).then((id) => { m.tfid = id; }) : null;
+      if (tp) tp.catch(() => {});
       const fid = await Up.upload(file, {
         fid: m.fidTmp, ctl: m.up.ctl, name: m.att.name, mime: m.att.mime,
         onFid: (id) => { m.fidTmp = id; },
         onProgress: (p) => { m.up.pct = p; Chat.paintProgress(m); },
       });
+      if (tp) await tp;
       m.sentFid = true;
       m.att = Object.assign({}, m.att, { fid, tfid: m.tfid });
       await Chat.transmit(m);
@@ -624,25 +683,36 @@ const Chat = {
   },
 
   // ───────────── реакции, закреп, удаление ─────────────
+  // реакции как в Telegram: без Premium — одна на сообщение, с Premium — до трёх (в том числе свои эмодзи).
+  // quick (двойное касание) только ставит реакцию и не снимает её.
   async react(m, e, quick) {
     if (!m || !m.id) return;
     if (Chat.peer && Chat.peer.gk && Chat.peer.react_mode === "none") return toast(T("В этом чате реакции отключены"));
-    const cur = (m.reacts || []).find((r) => r.mine);
-    const remove = !!cur && cur.e === e && !quick;
+    if (String(e).startsWith("c:") && !(App.user && App.user.premium)) return PremiumPromo.open(App.user);
+    const mine = React.mineOf(m), has = mine.includes(e);
+    if (has && quick) return;
     const prev = (m.reacts || []).map((r) => Object.assign({}, r));
     let list = prev.map((r) => Object.assign({}, r));
-    list.forEach((r) => { if (r.mine) { r.n--; r.mine = false; } });      // свою прежнюю реакцию снимаем
-    list = list.filter((r) => r.n > 0);
-    if (!remove) {
+    const drop = (x) => { const r = list.find((q) => q.e === x); if (r) { r.n--; r.mine = false; } };
+    if (has) drop(e);
+    else {
+      const left = mine.slice();
+      while (left.length >= React.limit()) drop(left.shift());
       const t = list.find((r) => r.e === e);
-      if (t) { t.n++; t.mine = true; } else list.push({ e, n: 1, mine: true });
+      if (t) { t.n++; t.mine = true; }
+      else {
+        const x = { e, n: 1, mine: true };
+        if (String(e).startsWith("c:") && CE.items[+e.slice(2)]) { x.url = CE.items[+e.slice(2)].url; x.mime = CE.items[+e.slice(2)].mime; }
+        list.push(x);
+      }
     }
+    list = list.filter((r) => r.n > 0);
     m.reacts = list;
     Chat.patch(m);
-    if (!remove) Chat.fly(m, e);
+    if (!has) Chat.fly(m, e);
     haptic("light");
     try {
-      const d = await api("/api/react", { method: "POST", body: { id: m.id, emoji: remove ? "" : e } });
+      const d = await api("/api/react", { method: "POST", body: { id: m.id, emoji: e, mode: "toggle" } });
       m.reacts = d.reacts; Chat.patch(m);
     } catch (er) { m.reacts = prev; Chat.patch(m); toast(er.message); }
   },
@@ -650,7 +720,7 @@ const Chat = {
   fly(m, e) {
     const el = $("msgs").querySelector(`[data-k="${mkey(m)}"]`); if (!el) return;
     const f = document.createElement("div");
-    f.className = "rx-fly"; f.textContent = e;
+    f.className = "rx-fly"; f.innerHTML = React.glyph({ e });
     el.appendChild(f);
     setTimeout(() => f.remove(), 900);
   },

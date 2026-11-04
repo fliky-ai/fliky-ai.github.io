@@ -63,6 +63,10 @@ function guardLog(name, e) {
 }
 function guard(name, fn) { try { return fn(); } catch (e) { guardLog(name, e); } }
 
+// браузер предлагает установить сайт как приложение — запоминаем, чтобы показать свою кнопку в настройках
+addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); try { App.installEv = e; } catch (_) {} });
+addEventListener("appinstalled", () => { try { App.installEv = null; } catch (_) {} });
+
 const App = {
   user: null, ws: null, pingT: null, retry: 0, retryT: null,
 
@@ -82,14 +86,17 @@ const App = {
       // никаких системных меню
       document.addEventListener("contextmenu", (e) => { if (!/INPUT|TEXTAREA/.test(e.target.tagName) || e.target.closest("#panel")) e.preventDefault(); });
       document.addEventListener("click", (e) => {
+        const mn = e.target.closest(".mention");
+        if (mn) { e.preventDefault(); haptic(); return Links.mention(mn.dataset.mention); }
         const a = e.target.closest("a"); if (!a || a.dataset.dl) return;
-        e.preventDefault(); Browser.open(a.href);
+        e.preventDefault(); Links.open(a.href);
       });
       document.addEventListener("keydown", (e) => { if (e.key === "Escape") Nav.back(); });
     });
     guard("chats", () => Chats.bind());
     guard("chat", () => Chat.bind());
     guard("contacts", () => Contacts.bind());
+    guard("uprofile", () => UserProfile.bind());
     guard("groups", () => Groups.init());
     guard("calls", () => Calls.init());
     guard("lock", () => Lock.init());
@@ -125,7 +132,11 @@ const App = {
 
   showAuth() {
     const b = $("boot"); if (b) b.classList.add("hidden");
-    Auth.init((u) => App.enter(u));
+    const go = () => Auth.init((u) => App.enter(u));
+    // вводный экран — один раз и только когда нет сохранённых аккаунтов
+    let first = false;
+    try { first = typeof Intro !== "undefined" && !Intro.seen() && !Accounts.list().length; } catch (e) {}
+    if (first) { go(); Intro.show(() => {}); } else go();
   },
 
   enter(user) {
@@ -143,24 +154,18 @@ const App = {
     addEventListener("online", () => App.connect());
   },
 
-  // ссылки:  …/#c=адрес — чат с владельцем ссылки;  #j=код — приглашение в группу/канал;  #p=адрес — публичная группа/канал
-  // (в Telegram те же коды приходят в start_param: c_…, j_…, p_…)
+  // ссылки:  …/#c=адрес — чат с владельцем ссылки;  #j=код — приглашение;  #p=адрес — публичная группа/канал;
+  // #e=код — набор эмодзи;  #u=имя — профиль  (в Telegram те же коды приходят в start_param: c_…, j_…, p_…, e_…, u_…)
   async openHash() {
     let code = "";
     try { code = (TGW && TGW.initDataUnsafe && TGW.initDataUnsafe.start_param) || ""; } catch (e) {}
-    const h = /[#&]([cjp])=([A-Za-z0-9_-]{4,40})/.exec(location.hash || "");
+    const h = /[#&]([cjpeu])=([A-Za-z0-9_-]{2,40})/.exec(location.hash || "");
     let kind = "", val = "";
     if (h) { kind = h[1]; val = h[2]; }
-    else { const m = /^([cjp])_([A-Za-z0-9_-]{4,40})$/.exec(code); if (m) { kind = m[1]; val = m[2]; } }
+    else { const m = /^([cjpeu])_([A-Za-z0-9_-]{2,40})$/.exec(code); if (m) { kind = m[1]; val = m[2]; } }
     if (!kind) return;
     try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
-    if (kind === "j" || kind === "p") return Groups.joinPreview(val);
-    try {
-      const d = await api("/api/biz/link/" + val);
-      if (d.user.id === App.user.id) return;
-      Chat.open(d.user);
-      if (d.text) setTimeout(() => { try { Editor.set(d.text); Editor.focus(true); Chat.syncMain(); } catch (e) {} }, 400);
-    } catch (e) { toast(e.message); }
+    return Links.go(kind, val);
   },
 
   // маленькая аватарка на четвёртой вкладке
@@ -208,6 +213,7 @@ const App = {
       else if (d.type === "vc") guard("calls", () => Calls.onVC(d));
       else if (d.type === "rtc") guard("calls", () => Calls.onRTC(d));
       else if (d.type === "profile") App.profile(d.user);
+      else if (d.type === "block") guard("block", () => App.onBlock(d));
       else if (d.type === "story") { guard("notify", () => Notif.onStory(d.user)); Stories.load(true); if (d.user === App.user.id) Profile.loadStories(); if (UserProfile.cur && UserProfile.cur.id === d.user) UserProfile.loadStories(d.user); }
     };
     ws.onclose = () => {
@@ -226,8 +232,15 @@ const App = {
     if (App.user && App.user.id === id && !("online" in patch)) Object.assign(App.user, patch);
   },
   presence(d) { App.patchUser(d.user, { online: d.online, last_seen: d.last_seen }); },
+  // нас заблокировали / разблокировали (by) или мы сами с другого устройства (peer)
+  onBlock(d) {
+    const id = d.peer || d.by;
+    if (d.peer) App.patchUser(id, { blocked: !!d.on }); else App.patchUser(id, { blocked_me: !!d.on });
+    if (Chat.peer && Chat.peer.id === id) Chat.applyAccess();
+    try { UserProfile.onBlock(d); } catch (e) {}
+  },
   profile(u) {
-    App.patchUser(u.id, { name: u.name, surname: u.surname, username: u.username, bio: u.bio, avatar: u.avatar, premium: u.premium ? 1 : 0, estatus: u.estatus || null });
+    App.patchUser(u.id, { name: u.name, surname: u.surname, username: u.username, bio: u.bio, avatar: u.avatar, premium: u.premium ? 1 : 0, estatus: u.estatus || null, nft: u.nft || null, verified: u.verified ? 1 : 0 });
     Chats.render(); if (u.id === App.user.id) { Profile.render(); guard("tabav", () => App.tabAvatar()); }
     // открыт профиль этого человека — обновляем и его (значок, статус)
     guard("uprofile", () => { if (UserProfile.cur && UserProfile.cur.id === u.id) { UserProfile.cur = Object.assign({}, UserProfile.cur, u); UserProfile.render(UserProfile.cur); } });
@@ -243,6 +256,15 @@ const App = {
       "set_look.js": () => typeof Settings.chats === "function" && typeof Settings.energy === "function",
       "premium.js": () => PB && ES && StatusPicker && EmojiSets && PremiumPromo,
       "pg.js": () => Pg && SI && R,
+      "fx.js": () => Fx && typeof Fx.play === "function",
+      "intro.js": () => Intro && typeof Intro.show === "function",
+      "gifts.js": () => Gifts && GiftArt && typeof Gifts.shop === "function",
+      "cemoji.js": () => CE && React && EmojiPack,
+      "links.js": () => Links && typeof Links.go === "function",
+      "fileview.js": () => FV && typeof FV.open === "function",
+      "qr.js": () => QR && QRCard && typeof QR.matrix === "function" && typeof QRCard.open === "function",
+      "userprofile.js": () => UserProfile && typeof UserProfile.open === "function",
+      "gifmaker.js": () => GifMaker && GifEnc,
       "chats.js": () => Chats && ChatPeek && ILL && CI,
       "search.js": () => Search && typeof Search.open === "function",
       "contacts.js": () => Contacts && NewMsg && CreateChat && ContactList,
@@ -251,7 +273,7 @@ const App = {
       "voicefx.js": () => VoiceFX && typeof VoiceFX.process === "function",
       "call.js": () => Calls && typeof Calls.start === "function",
       "settings.js": () => Settings && Accounts,
-      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261104d/.test([...document.scripts].map((x) => x.src).join(" ")),
+      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261104e/.test([...document.scripts].map((x) => x.src).join(" ")),
     };
     const bad = Object.keys(chk).filter((k) => !has(chk[k]));
     const miss = (window.__boot && window.__boot.miss || []).filter((x, i, a) => a.indexOf(x) === i && /\.(js|css)$/.test(x));

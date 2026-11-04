@@ -51,6 +51,7 @@ const Settings = {
         R.row({ a: "stars", ic: SI.starF, c: "y", t: esc(T(NAME_STARS)), r: u.stars ? String(u.stars) : "" }),
         R.row({ a: "biz", ic: SI.bag, c: "v2", t: esc(T(NAME_BIZ)) }),
         R.row({ a: "gift", ic: SI.gift, c: "p", t: esc(T("Отправить подарок")) }))}
+      ${isStandalone() ? "" : grp(R.row({ a: "install", ic: SI.laptop, c: "b", t: esc(T("Установить Dicegram")), s: esc(T("Как приложение на экран «Домой»")) }))}
       ${grp(
         R.row({ a: "ask", ic: SI.headset, c: "b", t: esc(T("Задать вопрос")) }),
         R.row({ ic: SI.help, c: "g", t: esc(T("Вопросы")), soon: 1, dis: 1 }),
@@ -77,12 +78,28 @@ const Settings = {
       data: () => Settings.data(), energy: () => Settings.energy(), folders: () => Settings.folders(), devices: () => Settings.devices(),
       lang: () => Settings.lang(), premium: () => Settings.premium(), stars: () => Settings.stars(), biz: () => Settings.biz(),
       gift: () => Settings.gift(), ask: () => Settings.ask(), policy: () => Settings.policy(), out: () => Settings.logout(),
-      addacc: () => Settings.addAccount(), acc: (el) => Settings.switchTo(+el.dataset.v),
+      addacc: () => Settings.addAccount(), acc: (el) => Settings.switchTo(+el.dataset.v), install: () => Settings.install(),
     };
     box.onclick = (e) => {
       const el = e.target.closest("[data-a]"); if (!el || el.classList.contains("dis")) return;
       const f = go[el.dataset.a]; if (f) { haptic(); App.safe(el.dataset.a, () => f(el)); }
     };
+  },
+
+  // ─────────── установка как приложение ───────────
+  async install() {
+    const ev = App.installEv;
+    if (ev) {
+      try { ev.prompt(); const r = await ev.userChoice; App.installEv = null; if (r && r.outcome === "accepted") toast(T("Dicegram установлен")); return; } catch (e) {}
+    }
+    const inTg = !!(TGW && TGW.initData);
+    const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const text = inTg
+      ? T("Мини-приложение нельзя установить. Откройте Dicegram в браузере по ссылке, а затем добавьте его на экран «Домой».")
+      : ios ? T("Нажмите «Поделиться» в Safari и выберите «На экран «Домой»».")
+      : T("Откройте меню браузера (три точки) и выберите «Установить приложение» или «Добавить на главный экран».");
+    const v = await UI.sheet({ title: T("Установить Dicegram"), text, actions: inTg ? [{ label: T("Открыть в браузере"), value: "open", accent: true }] : [], cancel: inTg ? T("Закрыть") : T("Понятно") });
+    if (v === "open") { try { TGW.openLink(location.origin + location.pathname, { try_instant_view: false }); } catch (e) { window.open(location.href, "_blank"); } }
   },
 
   // ─────────── аккаунты ───────────

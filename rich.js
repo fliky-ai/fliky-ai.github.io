@@ -2,7 +2,7 @@
 // t: b жирный, i курсив, u подчёркнутый, s зачёркнутый, c моноширинный, sp скрытый, q цитата, a ссылка (u — адрес).
 // Смещения o/l — в единицах UTF-16 (как в JS-строках), сервер проверяет их по тому же правилу.
 const Rich = (() => {
-  const RANK = { a: 0, b: 1, i: 2, u: 3, s: 4, c: 5, sp: 6, q: 7 };
+  const RANK = { a: 0, b: 1, i: 2, u: 3, s: 4, c: 5, sp: 6, q: 7, ce: 8 };
   const URL_RE = /(https?:\/\/[^\s<]*[^\s<.,;:!?)\]}'"»])/g;
   const safeUrl = (u) => (/^(https?:\/\/|tg:\/\/|mailto:)/i.test(u || "") ? u : "");
 
@@ -20,6 +20,11 @@ const Rich = (() => {
     return html;
   }
 
+  // @имя в тексте — синяя нажимаемая метка (откроет профиль, группу или канал); ссылки не трогаем
+  const MENTION_RE = /(^|[^\w@/.])@([A-Za-z][A-Za-z0-9_]{2,31})(?![\w@])/g;
+  const mention = (h) => h.replace(MENTION_RE, '$1<span class="mention" role="link" data-mention="$2">@$2</span>');
+  const linkify = (html) => html.split(URL_RE).map((p, i) => (i % 2 ? `<a href="${p}" rel="noopener">${p}</a>` : mention(p))).join("");
+
   // кусок текста [a,b) со всеми сущностями (кроме q в обычном режиме)
   function seg(text, ents, a, b, ed) {
     const cuts = new Set([a, b]);
@@ -34,10 +39,10 @@ const Rich = (() => {
       const s = pts[i], t = pts[i + 1];
       let html = esc(text.slice(s, t));
       const act = ents.filter((e) => e.o <= s && e.o + e.l >= t).sort((x, y) => RANK[y.t] - RANK[x.t]);
+      const ce = act.find((e) => e.t === "ce" && e.o === s && e.o + e.l === t && e.id);
+      if (ce && typeof CE !== "undefined") { out += CE.html(ce.id, text.slice(s, t), ed); continue; }      // свой эмодзи вместо значка
       if (ed) html = html.replace(/\n/g, "<br>");
-      else if (!act.some((e) => e.t === "a" || e.t === "c")) {
-        html = html.replace(URL_RE, (m) => `<a href="${m}" rel="noopener">${m}</a>`);
-      }
+      else if (!act.some((e) => e.t === "a" || e.t === "c")) html = linkify(html);
       act.forEach((e) => { html = wrap(html, e, ed); });
       out += html;
     }
@@ -100,8 +105,8 @@ const Rich = (() => {
 
   function mergeEnts(ents) {
     const by = {};
-    ents.forEach((e) => { (by[e.t + "|" + (e.u || "")] = by[e.t + "|" + (e.u || "")] || []).push(e); });
     const out = [];
+    ents.forEach((e) => { if (e.t === "ce") out.push(Object.assign({}, e)); else (by[e.t + "|" + (e.u || "")] = by[e.t + "|" + (e.u || "")] || []).push(e); });
     Object.values(by).forEach((list) => {
       list.sort((x, y) => x.o - y.o);
       let cur = null;
@@ -121,6 +126,7 @@ const Rich = (() => {
       if (n.nodeType === 3) { text += n.nodeValue.replace(/[​﻿]/g, ""); return; }
       if (n.nodeType !== 1) return;
       if (n.tagName === "BR") { text += "\n"; return; }
+      if (n.dataset && n.dataset.ce) { const f = n.dataset.e || "🙂"; ents.push({ t: "ce", o: text.length, l: f.length, id: +n.dataset.ce }); text += f; return; }
       const block = n.tagName === "DIV" || n.tagName === "P";
       if (block && text && !text.endsWith("\n")) text += "\n";
       const start = text.length, types = typesOf(n);
@@ -181,6 +187,10 @@ const Rich = (() => {
       } else if (n.tagName === "BR") {
         if (left === 0) return [n.parentNode, Array.prototype.indexOf.call(n.parentNode.childNodes, n)];
         left -= 1;
+      } else if (n.dataset && n.dataset.ce) {
+        if (left === 0) return [n.parentNode, Array.prototype.indexOf.call(n.parentNode.childNodes, n)];
+        left -= (n.dataset.e || "🙂").length;
+        if (left === 0) return [n.parentNode, Array.prototype.indexOf.call(n.parentNode.childNodes, n) + 1];
       }
     }
     return [root, root.childNodes.length];
@@ -190,7 +200,7 @@ const Rich = (() => {
   function subtract(ents, t, s, e) {
     const out = [];
     ents.forEach((x) => {
-      if (t && x.t !== t) { out.push(x); return; }
+      if ((t && x.t !== t) || (!t && x.t === "ce")) { out.push(x); return; }
       const xe = x.o + x.l;
       if (xe <= s || x.o >= e) { out.push(x); return; }
       if (x.o < s) out.push(Object.assign({}, x, { l: s - x.o }));

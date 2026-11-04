@@ -194,19 +194,25 @@ const ES = {
 // ═════════════ ЗНАЧОК В ПРОФИЛЕ ═════════════
 const PB = {
   users: {},
-  // кнопка со значком рядом с именем; нажатие открывает окно «Premium»
+  // значок надетого коллекционного подарка (его эмодзи в цвете модели)
+  nft(n) { return `<span class="nft-e" style="--hue:${+(n.model && n.model.hue) || 0}deg">${esc(n.e || "🎁")}</span>`; },
+  // кнопка со значком рядом с именем; нажатие открывает окно «Premium» (или подарок, если значок — NFT).
+  // Пока ни статус, ни подарок не выбраны, значка нет.
   html(u, cls = "") {
     if (!u || !u.premium || u.is_system) return "";
+    if (!u.nft && !u.estatus) return "";
     PB.users[u.id] = u;
-    return `<button class="pbadge ${cls}" data-pb="${u.id}" aria-label="Premium">${ES.node(u.estatus)}</button>`;
+    return `<button class="pbadge ${cls}${u.nft ? " nftb" : ""}" data-pb="${u.id}" aria-label="Premium">${u.nft ? PB.nft(u.nft) : ES.node(u.estatus)}</button>`;
   },
   // имя с галочкой и значком (для экранов профиля)
-  name(u) { return esc(dispName(u)) + (u.is_system ? VERIFIED : "") + PB.html(u); },
+  name(u) { return esc(dispName(u)) + (isVer(u) ? VERIFIED : "") + PB.html(u); },
 };
 document.addEventListener("click", (e) => {
   const b = e.target.closest && e.target.closest(".pbadge"); if (!b) return;
   e.preventDefault(); e.stopPropagation();
-  const u = PB.users[b.dataset.pb]; if (u) { haptic(); PremiumPromo.open(u); }
+  const u = PB.users[b.dataset.pb];
+  if (u && u.nft && typeof Gifts !== "undefined") { haptic(); Gifts.detail({ id: u.nft.gid, key: "c:" + u.nft.coll, nft: u.nft, name: u.nft.name, e: u.nft.e }); }
+  else if (u) { haptic(); PremiumPromo.open(u); }
 }, true);
 
 // ═════════════ ОКНО «PREMIUM» ═════════════
@@ -407,8 +413,13 @@ const EmojiSets = {
     };
     pg.on = {
       menu: async () => {
-        const v = await UI.sheet({ title: pg.data.set ? pg.data.set.title : "", actions: [{ label: T("Переименовать"), value: "ren" }, { label: T("Удалить набор"), value: "del", danger: true }] });
-        if (v === "ren") {
+        const v = await UI.sheet({ title: pg.data.set ? pg.data.set.title : "", actions: [{ label: T("Копировать ссылку на набор"), value: "copy" }, { label: T("Поделиться набором"), value: "share" }, { label: T("Переименовать"), value: "ren" }, { label: T("Удалить набор"), value: "del", danger: true }] });
+        const link = pg.data.set && pg.data.set.link;
+        if (v === "copy" || v === "share") {
+          if (!link) return toast(T("У набора пока нет ссылки"));
+          if (v === "share") { try { if (navigator.share) return await navigator.share({ title: pg.data.set.title, url: link }); } catch (e) { return; } }
+          copyText(link); toast(T("Ссылка скопирована"));
+        } else if (v === "ren") {
           const t = await UI.prompt({ title: T("Название набора"), value: pg.data.set.title, ok: T("Сохранить"), type: "text" });
           if (t) { try { await api("/api/emoji/set/rename", { method: "POST", body: { id, title: t } }); toast(T("Название изменено")); reload(); } catch (e) { toast(e.message); } }
         } else if (v === "del") {

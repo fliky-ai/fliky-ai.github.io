@@ -49,8 +49,8 @@ const Notif = {
     Notif.sound(); Notif.vibrate();
     let text = Notif.get("prev") ? (m.kind === "call" ? Svc.callText(m) : Rich.preview(m)).split("\n")[0] : T("Новое сообщение");
     if (pid < 0 && m.from && Notif.get("prev")) text = String(m.from.name || "").split(" ")[0] + ": " + text;
+    // внутри приложения никаких всплывающих плашек: только звук/вибрация (если включены); системное уведомление — когда приложение свёрнуто
     if (document.visibilityState !== "visible") Notif.show(Notif.who(pid), text, "m" + pid);
-    else toast(Notif.get("prev") ? `${Notif.who(pid)}: ${text}` : Notif.who(pid));
   },
   onReact(d) {
     if (!App.user || !d.by || d.by === App.user.id || !d.emoji || !Notif.get("react") || !Notif.get("msg")) return;
@@ -58,14 +58,13 @@ const Notif = {
     if (m && m.sender !== App.user.id) return;            // реакция на чужое сообщение — не про нас
     Notif.sound();
     if (document.visibilityState !== "visible") Notif.show(Notif.who(d.by), T("Поставил(а) реакцию {0} на ваше сообщение", d.emoji), "r" + d.id);
-    else toast(`${Notif.who(d.by)} ${d.emoji}`);
   },
   onStory(uid) {
     if (!App.user || uid === App.user.id || !Notif.get("story") || !Notif.get("msg")) return;
     if (document.visibilityState !== "visible") Notif.show(Notif.who(uid), T("Опубликовал(а) новую публикацию"), "s" + uid);
   },
   badge(n) {
-    document.title = n && Notif.get("badge") ? `(${n > 99 ? "99+" : n}) ${T("Мессенджер")}` : T("Мессенджер");
+    document.title = n && Notif.get("badge") ? `(${n > 99 ? "99+" : n}) Dicegram` : "Dicegram";
     try { if (navigator.setAppBadge) (n && Notif.get("badge")) ? navigator.setAppBadge(n) : navigator.clearAppBadge(); } catch (e) {}
   },
 };
@@ -80,7 +79,7 @@ Object.assign(Settings, {
       badge: loc("badge"), story: loc("story"), react: loc("react"),
       botOn: bot("bot"), botPrev: bot("preview"), botSilent: bot("silent"),
       allow: async () => {
-        if (inTG()) return toast(T("Внутри Telegram системные уведомления недоступны. Включите уведомления через бота ниже."));
+        if (inTG()) return toast(T("В мини-приложении системные уведомления недоступны. Установите Dicegram как приложение или включите уведомления через бота ниже."));
         if (Notif.perm() === "unsupported") return toast(T("Этот браузер не поддерживает уведомления"));
         if (Notif.perm() === "denied") return UI.sheet({ title: T("Уведомления заблокированы"), text: T("Разрешите уведомления для этого сайта в настройках браузера или телефона, затем вернитесь сюда."), actions: [], cancel: T("Понятно") });
         try { await Notification.requestPermission(); } catch (e) {}
@@ -99,7 +98,7 @@ Object.assign(Settings, {
   drawNotif(pg) {
     const g = (k, d = true) => Notif.get(k, d), p = Notif.perm();
     const n = Object.assign({ bot: false, preview: true, silent: false }, Prefs.cloud("notif", {}));
-    const st = inTG() && p !== "granted" ? T("Недоступны в Telegram") : { granted: T("Разрешены"), denied: T("Заблокированы в браузере"), default: T("Не запрошены"), unsupported: T("Не поддерживаются") }[p];
+    const st = inTG() && p !== "granted" ? T("Недоступны в мини-приложении") : { granted: T("Разрешены"), denied: T("Заблокированы в браузере"), default: T("Не запрошены"), unsupported: T("Не поддерживаются") }[p];
     pg.set(`
       ${R.lbl(esc(T("Сообщения")))}
       ${R.card(
@@ -114,7 +113,7 @@ Object.assign(Settings, {
         R.row({ a: "react", ic: SI.heart, c: "r", t: esc(T("Реакции на сообщения")), sw: 1, on: g("react") }))}
       ${R.lbl(esc(T(inTG() ? "В приложении" : "В браузере")))}
       ${R.card(R.row({ a: "allow", ic: SI.bell, c: "t", t: esc(T("Системные уведомления")), r: esc(st), chev: p !== "granted" }), R.row({ a: "test", ic: SI.zap, c: "y2", t: esc(T("Проверить уведомление")), chev: false }))}
-      ${R.hint(esc(T("Работают, пока приложение открыто или свёрнуто. Внутри Telegram системные уведомления могут быть недоступны — для этого есть уведомления через бота.")))}
+      ${R.hint(esc(T("Работают, пока приложение открыто или свёрнуто. В мини-приложении системные уведомления могут быть недоступны — для этого есть уведомления через бота.")))}
       ${R.lbl(esc(T("Через бота в Telegram")))}
       ${R.card(
         R.row({ a: "botOn", ic: SI.bot, c: "b", t: esc(T("Присылать в Telegram")), s: esc(T("Если вы не в сети, бот напишет вам о новом сообщении")), sw: 1, on: !!n.bot }),

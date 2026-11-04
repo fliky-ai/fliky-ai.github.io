@@ -45,16 +45,15 @@ const MsgMenu = {
     try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch (e) {}
     const rc = el.getBoundingClientRect(), mine = m.sender === App.user.id;
     const vh = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--vh")) || innerHeight, vw = innerWidth;
-    const cur = (m.reacts || []).find((r) => r.mine);
     const ov = (MsgMenu.ov = document.createElement("div"));
     ov.className = "mm";
     MsgMenu.born = byTouch ? Date.now() : 0;      // только при открытии пальцем: поднятие пальца даёт «хвостовой» клик
     MsgMenu.guard = 0;
     const pr = Chat.peer || {}, rmode = pr.gk ? pr.react_mode || "all" : "all";
-    const canReact = !!m.id && rmode !== "none" && (m.kind || "text") !== "call";
-    const QUICK = rmode === "some" ? (pr.react_list || []).slice(0, 7) : REACT_QUICK, ALL = rmode === "some" ? pr.react_list || [] : REACT_ALL;
-    ov.innerHTML = `${canReact ? `<div class="mm-react">${QUICK.map((e, i) => `<button class="${cur && cur.e === e ? "on" : ""}" data-r="${e}" style="--i:${i}">${e}</button>`).join("")}${ALL.length > QUICK.length ? `<button class="mm-more" data-more aria-label="Ещё реакции">${MIC.more}</button>` : ""}</div>
-      <div class="mm-grid hidden">${ALL.map((e) => `<button class="${cur && cur.e === e ? "on" : ""}" data-r="${e}">${e}</button>`).join("")}</div>` : ""}
+    const canReact = !!m.id && rmode !== "none" && (m.kind || "text") !== "call" && (m.kind || "text") !== "gift";
+    const RX = canReact ? React.menuHTML(m, pr) : { bar: "", grid: "" };
+    if (canReact && App.user && App.user.premium) React.loadSets().then(() => { const g = ov.querySelector(".mm-grid"); if (g && ov.isConnected && !ov.classList.contains("expanded")) { const h = React.menuHTML(m, pr).grid; const t = document.createElement("div"); t.innerHTML = h; g.innerHTML = t.firstChild.innerHTML; } });
+    ov.innerHTML = `${RX.bar}${RX.grid}
       <div class="mm-clone"></div>
       <div class="mm-menu">${MsgMenu.items(m).map(([a, t]) => `<button data-a="${a}" class="${a === "del" ? "danger" : ""}">${MIC[a === "forward" ? "fwd" : a] || ""}<span>${t}</span></button>`).join("")}</div>`;
     document.body.appendChild(ov);
@@ -100,6 +99,7 @@ const MsgMenu = {
       if (age < (e.target.closest(".mm-menu, .mm-react, .mm-grid") ? 180 : 450)) return;
       const more = e.target.closest("[data-more]");
       if (more) { ov.classList.add("expanded"); bar.classList.add("hidden"); menu.classList.add("hidden"); grid.classList.remove("hidden"); if (clone) clone.classList.add("dim"); return; }
+      if (e.target.closest("[data-prem]")) { MsgMenu.close(); return setTimeout(() => PremiumPromo.open(App.user), 220); }
       const r = e.target.closest("[data-r]");
       if (r) { MsgMenu.close(); return Chat.react(m, r.dataset.r); }
       const b = e.target.closest("[data-a]");

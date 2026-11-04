@@ -1,6 +1,6 @@
 // set_prem.js — Premium, звёзды, «Для бизнеса», подарки, поддержка, политика конфиденциальности.
 
-const PRICE = { year: 1000, month: 160 };
+const PRICE = { year: 4990, month: 500 };            // должно совпадать с PREMIUM_PRICE на сервере
 const fmtDate = (ts) => new Date(ts * 1000).toLocaleDateString(I18N.loc, { day: "numeric", month: "long", year: "numeric" });
 
 Object.assign(Settings, {
@@ -26,6 +26,7 @@ Object.assign(Settings, {
       stars: () => Settings.stars(),
       est: () => StatusPicker.open(),
       mine: () => EmojiSets.open(),
+      gift: () => Settings.gift(),
     };
   },
   drawPremium(pg) {
@@ -46,11 +47,12 @@ Object.assign(Settings, {
       ${on && typeof StatusPicker !== "undefined" ? `${R.lbl(esc(T("Ваш профиль")))}${R.card(
         R.row({ a: "est", ic: SI.smile, c: "y", t: esc(T("Эмодзи-статус")), s: esc(T("Анимированный значок рядом с именем")) }),
         R.row({ a: "mine", ic: SI.film, c: "p", t: esc(T("Мои эмодзи")), s: esc(T("Свои наборы: картинки, GIF, видео")) }))}` : ""}
-      ${R.lbl(esc(T(on ? "Продлить" : "Выберите план")))}
-      <div class="plans">${card("year", "Ежегодно", T("{0} ★ в месяц", Math.round(PRICE.year / 12)), `<i class="save">−${Math.round((1 - PRICE.year / (PRICE.month * 12)) * 100)}%</i>`)}${card("month", "Ежемесячно", T("Подписка на месяц"))}</div>
+      ${on ? "" : `${R.lbl(esc(T("Выберите план")))}
+      <div class="plans">${card("year", "Ежегодно", T("{0} ★ в месяц", Math.round(PRICE.year / 12)), `<i class="save">−${Math.round((1 - PRICE.year / (PRICE.month * 12)) * 100)}%</i>`)}${card("month", "Ежемесячно", T("Подписка на месяц"))}</div>`}
       <div class="prem-bal" data-a="stars">${esc(T("Ваш баланс"))}: <b>${u.stars || 0} ★</b></div>
-      <div class="pad-btn"><button class="pbtn prem-btn" data-a="buy">${esc(on ? T("Продлить за {0} ★", PRICE[plan]) : T("Оформить за {0} ★", PRICE[plan]))}</button></div>
-      ${R.hint(esc(T("Оплата списывается звёздами с вашего баланса. Покупка продлевает уже действующую подписку.")))}`);
+      ${on ? "" : `<div class="pad-btn"><button class="pbtn prem-btn" data-a="buy">${esc(T("Оформить за {0} ★", PRICE[plan]))}</button></div>`}
+      <button class="prem-gift" data-a="gift"><span class="pg-ic">${PI.gift}</span><span class="tx"><b>${esc(T("Подарить Premium"))}</b><small>${esc(T("На 3, 6 или 12 месяцев — другу в красивой открытке"))}</small></span><i>›</i></button>
+      ${R.hint(esc(T("Оплата списывается звёздами с вашего баланса.")))}`);
   },
 
   // ═════════════ ЗВЁЗДЫ ═════════════
@@ -100,7 +102,7 @@ Object.assign(Settings, {
     const pg = Pg.open({ title: T("Заработать звёзды"), build: (pg) => {
       pg.set(`${R.hero(SI.starF, "", esc(T("Здесь собраны сервисы, которые начисляют звёзды. Пока доступен только один.")), "slim")}
         ${R.lbl(esc(T("Боты")))}
-        <div class="card2 irows"><button class="irow" data-a="bot"><span class="av sys sm">${PLANE}</span><span class="tx"><b>Telegram</b><small>${esc(T("служебные уведомления"))}</small></span><svg class="irow-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button></div>
+        <div class="card2 irows"><button class="irow" data-a="bot"><span class="av sys sm">${PLANE}</span><span class="tx"><b>Dicegram</b><small>${esc(T("служебные уведомления"))}</small></span><svg class="irow-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button></div>
         ${R.hint(esc(T("Новые сервисы появятся позже.")))}`);
     } });
     pg.on = {
@@ -128,7 +130,7 @@ Object.assign(Settings, {
     } });
     pg.on = {
       q: (v) => { pg.data.q = v; pg.refresh(); },
-      to: () => UI.sheet({ title: T("Подарки в разработке"), icon: PI.gift, text: T("Скоро здесь можно будет дарить подарки друзьям. Раздел в разработке."), actions: [], cancel: T("Понятно") }),
+      to: (el) => { const c = Chats.byId(+el.dataset.v); if (c) Gifts.shop(c.peer); },
     };
   },
 

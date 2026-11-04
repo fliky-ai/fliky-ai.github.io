@@ -125,6 +125,38 @@ const UserProfile = {
 
   tier(l) { return l >= 10 ? 4 : l >= 6 ? 3 : l >= 3 ? 2 : 1; },
 
+  // ── «Добавить в контакты»: своё имя/фамилия для человека + поделиться с ним номером (как в Telegram) ──
+  addContactSheet(u) {
+    return new Promise((res) => {
+      const myPhone = (App.user && App.user.number) || "";
+      const L = Gifts.layer("gb-ov ac-ov", `<div class="gb-card ac-card" role="dialog">
+        <button class="gb-x" data-x aria-label="${esc(T("Закрыть"))}">${GIC.x}</button>
+        <h3>${esc(T("Добавить в контакты"))}</h3>
+        <div class="card2 fields ac-f">
+          <input id="acp-name" maxlength="60" autocomplete="off" autocapitalize="words" value="${esc(u.name || "")}" placeholder="${esc(T("Имя"))}" aria-label="${esc(T("Имя"))}">
+          <input id="acp-sur" maxlength="60" autocomplete="off" autocapitalize="words" value="${esc(u.surname || "")}" placeholder="${esc(T("Фамилия (необязательно)"))}" aria-label="${esc(T("Фамилия"))}">
+        </div>
+        <div class="card2 irows ac-f">${R.row({ a: "share", t: esc(T("Поделиться номером телефона")), s: esc(myPhone ? fmtPhone(myPhone) : ""), sw: true, on: false })}</div>
+        <div class="qr-b"><button data-cancel>${esc(T("Отмена"))}</button><button data-ok>${esc(T("Готово"))}</button></div></div>`, 128);
+      const nameI = L.el.querySelector("#acp-name"), surI = L.el.querySelector("#acp-sur"), ok = L.el.querySelector("[data-ok]");
+      const upd = () => { ok.disabled = !nameI.value.trim(); };
+      nameI.addEventListener("input", upd); upd();
+      setTimeout(() => { try { nameI.focus(); nameI.select(); } catch (e) {} }, 260);
+      L.el.addEventListener("click", (e) => {
+        if (e.target.closest("[data-x]")) return res(null);
+        if (e.target.closest("[data-cancel]")) { L.close(); return res(null); }
+        const shareRow = e.target.closest("[data-a=share]");
+        if (shareRow) { haptic(); const sw = shareRow.querySelector(".sw"); const on = !sw.classList.contains("on"); sw.classList.toggle("on", on); shareRow.setAttribute("aria-checked", on); return; }
+        if (e.target.closest("[data-ok]")) {
+          if (!nameI.value.trim()) return;
+          const share = L.el.querySelector("[data-a=share] .sw").classList.contains("on");
+          L.close();
+          return res({ name: nameI.value.trim(), surname: surI.value.trim(), share });
+        }
+      });
+    });
+  },
+
   paintActs() {
     const u = UserProfile.cur, box = $("up-acts"); if (!u || !box) return;
     const I = UserProfile.UI_I, m = Chats.isMuted(u.id), b = box.querySelector('[data-a="mute"]');
@@ -195,10 +227,23 @@ const UserProfile = {
       if (u.blocked_me) return toast(T("Этот человек ограничил вам возможность писать"));
       return Gifts.shop(u);
     }
-    if (a === "pchan") { const c = u.pchan; const k = Chats.byId(c.id); return Chats.openChat(k ? k.peer : c); }
+    if (a === "pchan") {
+      const c = u.pchan, k = Chats.byId(c.id);
+      if (k) return Chats.openChat(k.peer);
+      return Groups.joinPreview(c.jslug || c.username);   // подписчик ещё не в канале — открываем через окно «Подписаться», как по ссылке
+    }
     if (a === "rating") return UserProfile.rating(u);
     if (a === "contact") {
-      try { const d = await api("/api/contact", { method: "POST", body: { id: u.id, on: !u.saved } }); u.saved = d.saved; toast(T(u.saved ? "Добавлено в контакты" : "Удалено из контактов")); UserProfile.render(u); try { Contacts.load(); } catch (e) {} } catch (e) { toast(e.message); }
+      if (u.saved) {
+        try { const d = await api("/api/contact", { method: "POST", body: { id: u.id, on: false } }); u.saved = d.saved; toast(T("Удалено из контактов")); UserProfile.render(u); try { Contacts.load(); } catch (e) {} } catch (e) { toast(e.message); }
+        return;
+      }
+      const r = await UserProfile.addContactSheet(u);
+      if (!r) return;
+      try {
+        const d = await api("/api/contact", { method: "POST", body: { id: u.id, on: true, name: r.name, surname: r.surname, share_phone: r.share } });
+        u.saved = d.saved; toast(T("Добавлено в контакты")); UserProfile.reload(); try { Contacts.load(); } catch (e) {}
+      } catch (e) { toast(e.message); }
       return;
     }
     if (a === "unblock") return UserProfile.block(false);

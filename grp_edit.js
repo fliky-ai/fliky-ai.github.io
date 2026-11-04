@@ -36,6 +36,26 @@ const GroupEdit = {
     Chats.render();
     return d.chat;
   },
+  // ───────────── обсуждение: привязка группы к каналу (комментарии под постами) ─────────────
+  async discussion(peer, pg) {
+    let groups;
+    try { groups = (await api("/api/me/groups")).groups || []; } catch (e) { return toast(T("Не удалось загрузить группы")); }
+    if (!groups.length) {
+      const v = await UI.sheet({ title: T("Обсуждение"), icon: SI.chat,
+        text: T("Привяжите группу — под постами канала появится возможность обсудить их в комментариях. Нужна группа, которой вы управляете."),
+        actions: [{ label: T("Создать группу"), value: "new", accent: true }], cancel: T("Понятно") });
+      if (v === "new") CreateChat.open("group");
+      return;
+    }
+    const actions = groups.map((g) => ({ label: g.name + (peer.disc_chat_id === g.gid ? "  ✓" : ""), value: "g" + g.gid }));
+    if (peer.disc_chat_id) actions.push({ label: T("Отвязать группу"), value: "rm", danger: true });
+    const v = await UI.sheet({ title: T("Обсуждение"), text: T("Выберите группу — её участники смогут обсуждать посты канала в комментариях."), actions, cancel: T("Отмена") });
+    if (!v) return;
+    const gid = v === "rm" ? 0 : +v.slice(1);
+    try { await GroupEdit.upd(peer, { disc_chat_id: gid }); toast(T(gid ? "Группа привязана" : "Группа отвязана")); if (pg && pg.alive) pg.refresh(); }
+    catch (e) { toast(e.message); }
+  },
+
   isAdmin(p) { return p.role === "owner" || p.role === "admin"; },
   canEdit(p) { return !!(p.rights && p.rights.info) || (p.gk === "group" && !!(p.perms && p.perms.info)); },
   settings(p) { return !!(p.rights && p.rights.info); },
@@ -180,6 +200,7 @@ const GroupEdit = {
       hist: () => GroupEdit.hist(pg.data.peer),
       topics: async (on) => { try { await GroupEdit.upd(pg.data.peer, { topics: !!on }); } catch (e) { toast(e.message); pg.refresh(); } },
       sign: async (on) => { try { await GroupEdit.upd(pg.data.peer, { sign: !!on }); } catch (e) { toast(e.message); pg.refresh(); } },
+      disc: () => GroupEdit.discussion(pg.data.peer, pg),
       react: () => GroupEdit.reactions(pg.data.peer),
       greet: () => GroupEdit.greeting(pg.data.peer),
       perms: () => GroupEdit.perms(pg.data.peer),
@@ -187,6 +208,7 @@ const GroupEdit = {
       admins: () => GroupEdit.admins(pg.data.peer),
       members: () => GroupEdit.members(pg.data.peer),
       banned: () => GroupEdit.banned(pg.data.peer),
+      actions: () => GroupEdit.actions(pg.data.peer),
       auto: async () => {
         const p = pg.data.peer;
         const v = await UI.sheet({ title: T("Автоудаление сообщений"), actions: AUTO_DEL.map(([s, n]) => ({ label: ((p.auto_del || 0) === s ? "✓ " : "") + T(n), value: s + 1 })) });
@@ -215,6 +237,7 @@ const GroupEdit = {
       rows.push(R.row({ a: "type", ic: SI.lock, c: "g", t: esc(T(ch ? "Тип канала" : "Тип группы")), r: esc(T(p.username ? "Публичная" : "Частная")) }));
       if (!ch) rows.push(R.row({ a: "hist", ic: SI.clock, c: "o", t: esc(T("История чата")), r: esc(T(p.hist ? "Видна" : "Скрыта")) }));
       if (ch) rows.push(R.row({ a: "sign", ic: SI.edit, c: "v", t: esc(T("Подписывать сообщения")), s: esc(T("Под постами будет имя администратора")), sw: 1, on: !!p.sign }));
+      if (ch) rows.push(R.row({ a: "disc", ic: SI.chat, c: "p", t: esc(T("Обсуждение")), r: esc(p.disc_name || T("Не выбрано")) }));
       h += `<div class="gap-s"></div>${R.card(...rows)}`;
       if (!ch) h += `${R.card(R.row({ a: "topics", ic: SI.layers, c: "b", t: esc(T("Темы")), sw: 1, on: !!p.topics }))}${R.hint(esc(T("Темы превращают группу в форум: каждое обсуждение живёт в своей теме, у каждой есть название и цвет. Создавать темы могут только владелец и администраторы, а также участники, которым это разрешено.")))}`;
       h += `<div class="gap-s"></div>` + R.card(
@@ -225,7 +248,8 @@ const GroupEdit = {
         R.row({ a: "admins", ic: SI.shield, c: "g", t: esc(T("Администраторы")), r: p.admins ? String(p.admins) : "" }),
         R.row({ a: "members", ic: SI.user, c: "t", t: esc(T(ch ? "Подписчики" : "Участники")), r: String(p.members || "") }),
         R.row({ a: "auto", ic: SI.timer, c: "o2", t: esc(T("Автоудаление сообщений")), r: esc(autoDelText(p.auto_del || 0)) }),
-        R.row({ a: "banned", ic: SI.x, c: "r", t: esc(T("Заблокированные")), r: p.banned ? String(p.banned) : "" }));
+        R.row({ a: "banned", ic: SI.x, c: "r", t: esc(T("Заблокированные")), r: p.banned ? String(p.banned) : "" }),
+        R.row({ a: "actions", ic: SI.clock, c: "o2", t: esc(T("Последние действия")) }));
     }
     h += `<div class="gap-s"></div>` + R.card(R.row({ a: "del", ic: SI.out, c: "r", t: esc(T(owner ? (ch ? "Удалить канал" : "Удалить группу") : ch ? "Покинуть канал" : "Покинуть группу")), danger: 1, noch: 1 }));
     // не сбрасываем введённое при перерисовке: фокус и каретка остаются у поля
@@ -651,6 +675,50 @@ const GroupEdit = {
       if (!(await UI.sheet({ title: T("Разблокировать {0}?", dispName(b.user)), actions: [{ label: T("Разблокировать"), value: true, accent: true }] }))) return;
       try { await api("/api/chat/" + peer.gid + "/unban", { method: "POST", body: { user: b.user.id } }); toast(T("Разблокирован")); load(); Groups.refresh(peer); } catch (e) { toast(e.message); }
     } };
+    load();
+  },
+
+  // ═════════════ ЖУРНАЛ ПОСЛЕДНИХ ДЕЙСТВИЙ (как в Telegram «Recent actions») ═════════════
+  actions(peer) {
+    const K = {
+      join: { ic: SI.user, c: "g", t: (a) => T("{0} вступил(а)", dispName(a)) },
+      add: { ic: SI.user, c: "g", t: (a, b) => T("{0} добавил(а) {1}", dispName(a), dispName(b)) },
+      leave: { ic: SI.out, c: "o", t: (a) => T("{0} вышел(а)", dispName(a)) },
+      kick: { ic: SI.x, c: "r", t: (a, b) => T("{0} удалил(а) {1}", dispName(a), dispName(b)) },
+      ban: { ic: SI.x, c: "r", t: (a, b) => T("{0} заблокировал(а) {1}", dispName(a), dispName(b)) },
+      unban: { ic: SI.shield, c: "g", t: (a, b) => T("{0} разблокировал(а) {1}", dispName(a), dispName(b)) },
+      promote: { ic: SI.shield, c: "b", t: (a, b) => T("{0} назначил(а) {1} администратором", dispName(a), dispName(b)) },
+      demote: { ic: SI.shield, c: "o", t: (a, b) => T("{0} снял(а) {1} с должности администратора", dispName(a), dispName(b)) },
+      rights: { ic: SI.key, c: "y", t: (a, b) => T("{0} изменил(а) права {1}", dispName(a), dispName(b)) },
+      restrict: { ic: SI.lock, c: "o", t: (a, b) => T("{0} ограничил(а) {1}", dispName(a), dispName(b)) },
+      unrestrict: { ic: SI.lock, c: "g", t: (a, b) => T("{0} снял(а) ограничения с {1}", dispName(a), dispName(b)) },
+      settings: { ic: SI.edit, c: "p", t: (a) => T("{0} изменил(а) настройки", dispName(a)) },
+      photo: { ic: ICON.camera, c: "v", t: (a) => T("{0} сменил(а) фото", dispName(a)) },
+      photo_rm: { ic: ICON.camera, c: "v", t: (a) => T("{0} убрал(а) фото", dispName(a)) },
+    };
+    const pg = GroupEdit.page(peer, {
+      title: T("Последние действия"), data: { list: null, more: false },
+      build: (pg) => {
+        const L = pg.data.list;
+        if (!L) return pg.set('<div class="sr-load"><div class="spin"></div></div>');
+        if (!L.length) return pg.set(R.hero(SI.clock, esc(T("Пока нет действий")), esc(T("Здесь появятся действия администраторов: кто кого добавил, удалил, назначил или что изменил в настройках.")), "slim"));
+        let h = R.card(...L.map((x) => {
+          const k = K[x.kind] || { ic: SI.clock, c: "b", t: () => x.kind };
+          return `<div class="irow gp-m"><i class="ic ${k.c}">${k.ic}</i><span class="tx"><b>${esc(k.t(x.actor, x.target))}</b></span><em class="irow-v">${esc(listTime(x.ts))}</em></div>`;
+        }));
+        if (pg.data.more) h += R.card(R.row({ a: "more", ic: SI.down, c: "b", t: esc(T("Показать ещё")) }));
+        pg.set(h);
+      },
+    });
+    const load = async (before) => {
+      try {
+        const d = await api("/api/chat/" + peer.gid + "/actions?limit=50" + (before ? "&before=" + before : ""));
+        pg.data.list = before ? (pg.data.list || []).concat(d.actions) : d.actions;
+        pg.data.more = !!d.has_more;
+        pg.refresh();
+      } catch (e) { toast(e.message); pg.close(); }
+    };
+    pg.on = { more: () => { const L = pg.data.list; if (L && L.length) load(L[L.length - 1].id); } };
     load();
   },
 };

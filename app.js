@@ -207,6 +207,7 @@ const App = {
       else if (d.type === "del") { Chat.onDel(d.ids); Chats.load(); }
       else if (d.type === "react") { Chat.onReact(d); guard("notify", () => Notif.onReact(d)); }
       else if (d.type === "pin") Chat.onPin(d);
+      else if (d.type === "cc") Chat.onCC(d);
       else if (d.type === "presence") App.presence(d);
       else if (d.type === "chat") guard("groups", () => Groups.onChat(d));
       else if (d.type === "chat_gone") guard("groups", () => Groups.onGone(d.id));
@@ -267,13 +268,13 @@ const App = {
       "gifmaker.js": () => GifMaker && GifEnc,
       "chats.js": () => Chats && ChatPeek && ILL && CI,
       "search.js": () => Search && typeof Search.open === "function",
-      "contacts.js": () => Contacts && NewMsg && CreateChat && ContactList,
+      "contacts.js": () => Contacts && NewMsg && CreateChat && ContactList && AddContact,
       "groups.js": () => Groups && Svc && Topics && Picker,
       "grp_edit.js": () => GroupEdit && typeof GroupEdit.profile === "function",
       "voicefx.js": () => VoiceFX && typeof VoiceFX.process === "function",
       "call.js": () => Calls && typeof Calls.start === "function",
       "settings.js": () => Settings && Accounts,
-      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261104e/.test([...document.scripts].map((x) => x.src).join(" ")),
+      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261104f/.test([...document.scripts].map((x) => x.src).join(" ")),
     };
     const bad = Object.keys(chk).filter((k) => !has(chk[k]));
     const miss = (window.__boot && window.__boot.miss || []).filter((x, i, a) => a.indexOf(x) === i && /\.(js|css)$/.test(x));

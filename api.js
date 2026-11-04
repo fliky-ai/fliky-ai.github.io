@@ -1,6 +1,6 @@
 // Общие функции: запросы, сессия (отдельная для каждого Telegram-аккаунта), аватарки, время.
 const $ = (id) => document.getElementById(id);
-const APP_VER = "2026.11.04e";
+const APP_VER = "2026.11.04f";
 const TGW = window.Telegram && Telegram.WebApp;
 const INIT = (TGW && TGW.initData) || "";
 const TG_ID = (TGW && TGW.initDataUnsafe && TGW.initDataUnsafe.user && TGW.initDataUnsafe.user.id) || "web";

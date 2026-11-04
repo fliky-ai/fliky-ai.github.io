@@ -18,7 +18,7 @@ const Contacts = {
     const f = $("contact-fab"), s = $("btn-csearch");
     if (s) s.onclick = () => { haptic(); Search.open(); };
     if ($("contact-sbar")) $("contact-sbar").onclick = () => { haptic(); Search.open(); };
-    if (f) f.onclick = () => { haptic(); Search.open(); };
+    if (f) f.onclick = () => { haptic(); AddContact.open(); };
     $("contact-list").addEventListener("click", (e) => {
       const a = e.target.closest("[data-act]");
       if (a) { haptic(); return a.dataset.act === "group" ? CreateChat.open("group") : CreateChat.open("channel"); }
@@ -232,6 +232,54 @@ const CreateChat = {
       requestAnimationFrame(() => el.classList.add("show"));
       const done = (v) => { el.classList.remove("show"); setTimeout(() => el.remove(), 200); res(v); };
       el.addEventListener("click", (e) => { const b = e.target.closest("[data-e]"); if (b) return done(b.dataset.e || null); if (e.target === el) done(null); });
+    });
+  },
+};
+
+// ═════════════ «Новый контакт»: номер телефона + имя/фамилия, как в Telegram ═════════════
+const AddContact = {
+  el: null,
+  group(digits) { const d = String(digits || "").replace(/\D/g, "").slice(0, 8); return d.length > 4 ? d.slice(0, 4) + " " + d.slice(4) : d; },
+  open() {
+    if (AddContact.el) return;
+    const el = (AddContact.el = document.createElement("section"));
+    el.id = "addcontact"; el.className = "page"; el.setAttribute("aria-hidden", "true");
+    el.innerHTML = `<header class="phead"><button class="icon-btn" data-back aria-label="${esc(T("Назад"))}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+        <div class="ptitle">${esc(T("Новый контакт"))}</div>
+        <button id="ac-ok" class="ed-ok" type="button" disabled aria-label="${esc(T("Сохранить"))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></button></header>
+      <div class="scroll ed-body">
+        <label id="ac-phone-field" class="field"><span class="field-label">${esc(T("Номер телефона"))}</span>
+          <span class="field-row"><span class="prefix">+888</span><span class="vline"></span>
+            <input id="ac-phone" type="tel" inputmode="numeric" autocomplete="off" placeholder="0000 0000" aria-label="${esc(T("Номер телефона"))}"></span></label>
+        <div class="ed-lbl">${esc(T("Имя"))}</div>
+        <div class="card2 fields">
+          <input id="ac-name" maxlength="60" autocomplete="off" autocapitalize="words" placeholder="${esc(T("Имя"))}" aria-label="${esc(T("Имя"))}">
+          <input id="ac-surname" maxlength="60" autocomplete="off" autocapitalize="words" placeholder="${esc(T("Фамилия (необязательно)"))}" aria-label="${esc(T("Фамилия"))}">
+        </div>
+        <div class="ed-hint">${esc(T("Это имя будете видеть только вы — у этого человека останется своё."))}</div>
+        <div class="err" id="ac-err"></div>
+      </div>`;
+    document.body.appendChild(el);
+    void el.offsetWidth;
+    Nav.open("addcontact", () => { AddContact.el = null; setTimeout(() => el.remove(), 320); });
+    const phone = el.querySelector("#ac-phone"), name = el.querySelector("#ac-name"), sur = el.querySelector("#ac-surname"), ok = el.querySelector("#ac-ok"), errEl = el.querySelector("#ac-err"), field = el.querySelector("#ac-phone-field");
+    const upd = () => { ok.disabled = phone.value.replace(/\D/g, "").length !== 8 || !name.value.trim(); };
+    phone.addEventListener("input", () => { phone.value = AddContact.group(phone.value); field.classList.remove("error"); errEl.textContent = ""; upd(); });
+    name.addEventListener("input", upd);
+    setTimeout(() => { try { phone.focus(); } catch (e) {} }, 300);
+    let busy = false;
+    el.addEventListener("click", async (e) => {
+      if (e.target.closest("[data-back]")) return Nav.back();
+      if (e.target.closest("#ac-ok")) {
+        if (busy || ok.disabled) return;
+        busy = true; haptic("medium"); errEl.textContent = "";
+        try {
+          await api("/api/contact/add", { method: "POST", body: { number: "+888" + phone.value.replace(/\D/g, ""), name: name.value.trim(), surname: sur.value.trim() } });
+          toast(T("Добавлено в контакты"));
+          try { Contacts.load(true); } catch (er) {}
+          Nav.back();
+        } catch (er) { errEl.textContent = er.message; field.classList.add("error"); busy = false; }
+      }
     });
   },
 };

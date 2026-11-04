@@ -21,6 +21,13 @@
 .b.failed{opacity:.75}
 .b.hl{animation:hl 1.3s ease}
 @keyframes hl{0%,100%{box-shadow:0 0 0 0 transparent}25%{box-shadow:0 0 0 6px rgba(79,140,255,.45)}}
+
+/* пилюля «Комментарии» под постом канала — ведёт в привязанную группу обсуждения */
+.cmbar{align-self:flex-start;display:flex;align-items:center;gap:7px;max-width:82%;margin:-2px 0 6px;padding:8px 12px;border-radius:14px;background:var(--bubble-in);color:var(--accent);font-size:13.5px;font-weight:700;cursor:pointer;border:none;-webkit-user-select:none;user-select:none}
+.cmbar svg{width:17px;height:17px;flex:none;opacity:.9}
+.cmbar svg:last-child{width:13px;height:13px;opacity:.55;margin-left:4px}
+.cmbar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmbar:active{filter:brightness(.93)}
 .b a{color:inherit;text-decoration:underline;pointer-events:auto}
 .b code,.editor code{font-family:ui-monospace,Menlo,Consolas,monospace;background:rgba(127,127,127,.24);padding:1px 5px;border-radius:5px;font-size:.92em}
 .b blockquote{margin:3px 0;padding:3px 10px;border-left:3px solid currentColor;background:rgba(127,127,127,.15);border-radius:0 8px 8px 0;white-space:pre-wrap}

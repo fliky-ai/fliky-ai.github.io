@@ -159,3 +159,10 @@ html.eco-anim .ga-e,html.eco-anim .ga-ac,html.eco-anim .ga-sh,html.eco-anim .ga.
 .qr-b{display:flex;gap:10px}
 .qr-b button{flex:1;padding:13px 10px;border-radius:14px;font-weight:700;font-size:15px;background:var(--raised);color:var(--accent)}
 .qr-b button:last-child{background:var(--accent);color:#fff}
+
+/* ───── «Добавить в контакты»: имя/фамилия + поделиться номером ───── */
+.ac-card{text-align:left;padding-top:28px}
+.ac-card h3{text-align:center;margin:2px 0 18px}
+.ac-f{margin:0 0 12px}
+.ac-f .irow{padding:12px 14px}
+.ac-card .qr-b{margin-top:6px}

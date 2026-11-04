@@ -6,6 +6,8 @@ const FAIL = '<svg class="ck fail" viewBox="0 0 24 24" fill="none" stroke="curre
 const TIMER_I = '<svg class="xi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg>';
 const X_SVG = '<svg class="x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M7 7l10 10M17 7 7 17"/></svg>';
 const PLAY_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>';
+const CMNT_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H8l-5 3 1.2-5.3A8 8 0 1 1 21 12z"/></svg>';
+const CMNT_CHEV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
 
 const SYS = 1;     // официальный аккаунт: его сообщения могут содержать **жирный** и `код`
 const PAGE = 50;   // сколько сообщений грузим за раз
@@ -123,6 +125,8 @@ const Chat = {
     if (Chat.noTap && Date.now() - Chat.noTap < 400) return;
     const gc = e.target.closest(".gcard");
     if (gc) { const gm = Chat.byEl(gc); if (gm && gm.gift) { haptic(); Gifts.detail(gm.gift); } return; }
+    const cm = e.target.closest(".cmbar");
+    if (cm) { const m = Chat.msgs.find((x) => x.id === +cm.dataset.id); if (m) Chat.openComments(m); return; }
     const b = e.target.closest(".b");
     if (!b) return;
     const m = Chat.byEl(b), t = e.target;
@@ -411,7 +415,13 @@ const Chat = {
     const rx = React.chips(m);
     let av = "";
     if (inGroup && !(next && Chat.cont(m, next))) { const f = m.from || {}; av = `<span class="gav" data-uid="${m.sender}">${avatar({ id: m.sender, name: f.name || "", avatar: f.avatar || "" })}</span>`; }
-    return `<div class="b ${out ? "out" : "in"}${inGroup ? " g" : ""}${big ? " big" : ""}${cont ? " cont" : ""} k-${k}${hasCap ? " hascap" : ""}${m.failed ? " failed" : ""}${m.pending ? " pending" : ""}${isNew ? " new" : ""}" data-k="${mkey(m)}"${m.id ? ` data-id="${m.id}"` : ""}>${h}${ov || hasCap ? "" : time}${rx}${av}</div>`;
+    const bubble = `<div class="b ${out ? "out" : "in"}${inGroup ? " g" : ""}${big ? " big" : ""}${cont ? " cont" : ""} k-${k}${hasCap ? " hascap" : ""}${m.failed ? " failed" : ""}${m.pending ? " pending" : ""}${isNew ? " new" : ""}" data-k="${mkey(m)}"${m.id ? ` data-id="${m.id}"` : ""}>${h}${ov || hasCap ? "" : time}${rx}${av}</div>`;
+    // под постами канала с привязанным обсуждением — пилюля «Комментарии», как в Telegram
+    if (gk === "channel" && Chat.peer.disc && m.id) {
+      const cmTxt = m.cc ? m.cc + " " + plural(m.cc, T("комментарий"), T("комментария"), T("комментариев")) : T("Оставить комментарий");
+      return bubble + `<button class="cmbar" data-id="${m.id}">${CMNT_SVG}<span>${esc(cmTxt)}</span>${CMNT_CHEV}</button>`;
+    }
+    return bubble;
   },
   dayHead(m) {
     const day = new Date(m.ts * 1000).toDateString();
@@ -454,12 +464,14 @@ const Chat = {
     const box = $("msgs");
     const el = box.querySelector(`[data-k="${mkey(m)}"]`) || (m.id && box.querySelector(`[data-id="${m.id}"]`));
     if (!el) return;
+    // у поста канала может быть вторым элементом пилюля «Комментарии» — её тоже нужно заменить/убрать
+    const oldCm = m.id && el.nextElementSibling && el.nextElementSibling.matches(`.cmbar[data-id="${m.id}"]`) ? el.nextElementSibling : null;
     const i = Chat.msgs.indexOf(m);
     const tmp = document.createElement("div");
     tmp.innerHTML = Chat.bubble(m, Chat.msgs[i - 1] || null, false, Chat.msgs[i + 1] || null);
-    const fresh = tmp.firstElementChild;
     const near = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
-    el.replaceWith(fresh);
+    el.replaceWith(...tmp.childNodes);
+    if (oldCm) oldCm.remove();
     Player.paint();
     if (near) box.scrollTop = box.scrollHeight;
   },
@@ -515,6 +527,24 @@ const Chat = {
   onReact(d) {
     const m = Chat.msgs.find((q) => q.id === d.id);
     if (m) { m.reacts = d.reacts; Chat.patch(m); }
+  },
+  onCC(d) {
+    if (!Chat.peer || Chat.peer.id !== d.chat) return;
+    const m = Chat.msgs.find((q) => q.id === d.id);
+    if (m) { m.cc = d.cc; Chat.patch(m); }
+  },
+  // открыть (или создать) ветку обсуждения поста канала в привязанной группе — пилюля «Комментарии»
+  async openComments(m) {
+    const p = Chat.peer;
+    if (!p || !p.disc || !m.id) return;
+    haptic();
+    try {
+      const d = await api(`/api/chat/${p.gid}/comment/${m.id}`, { method: "POST" });
+      await Chat.open(d.chat);                      // напрямую, минуя список тем — комментарии всегда в общей ленте
+      await Chat.jumpTo(d.anchor);
+      const anchor = Chat.msgs.find((x) => x.id === d.anchor);
+      if (anchor) Chat.setReply(anchor);
+    } catch (e) { toast(e.message); }
   },
   onPin(d) {
     const m = Chat.msgs.find((q) => q.id === d.id);

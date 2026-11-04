@@ -1,0 +1,108 @@
+/* games.css — раздел «Игры»: хаб, таблицы лидеров, общий каркас игровых экранов и четыре игры. */
+
+/* ── общий полноэкранный каркас игры (как .sup для поддержки) ── */
+.gameplay .spg-body{display:flex;flex-direction:column;padding:0;overflow:hidden}
+
+.g-hud{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--line);flex:none}
+.g-hudv{display:flex;align-items:baseline;gap:7px}
+.g-hudv small{color:var(--dim);font-size:13px}
+.g-hudv b{font-size:20px;font-weight:800}
+.g-restart{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:var(--accent);background:var(--raised);flex:none}
+.g-restart svg{width:19px;height:19px}
+
+.g-stage{position:relative;flex:1;display:flex;align-items:center;justify-content:center;padding:14px;min-height:0}
+.g-hint{text-align:center;color:var(--dim);font-size:13px;padding:0 20px calc(14px + var(--safe-b));flex:none}
+
+.g-over{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(3px);border-radius:16px;animation:gpopin .2s ease}
+.g-over p{font-size:17px;font-weight:700}
+.g-over .pbtn{width:auto;padding:0 28px}
+@keyframes gpopin{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+
+/* ── хаб ── */
+.gameshub .hero{padding-top:18px}
+
+/* ── таблица лидеров ── */
+.g-load,.g-empty{padding:40px 20px;text-align:center;color:var(--dim);font-size:14.5px}
+.g-board{margin:10px 14px;border-radius:16px;background:var(--surface);overflow:hidden}
+.g-row{display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid var(--line)}
+.g-row:first-child{border-top:0}
+.g-row.me{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.g-rank{width:26px;flex:none;text-align:center;font-weight:800;color:var(--dim);font-size:14.5px}
+.g-rank.t1{color:#FFB800}.g-rank.t2{color:#9FA6B2}.g-rank.t3{color:#C5793A}
+.g-row .av{width:34px;height:34px;flex:none}
+.g-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;font-size:14.5px}
+.g-score{font-weight:800;color:var(--accent);font-size:15px}
+.g-meline{margin:-2px 14px 14px;border-radius:16px;background:var(--surface);border:1.5px dashed var(--accent)}
+.g-meline .g-row{border-top:0}
+
+/* ── Тапалка ── */
+.gclicker .g-stage{flex-direction:column;gap:6px}
+.g-wallet{display:flex;align-items:center;gap:8px;color:var(--text);margin-top:4px}
+.g-wallet svg{width:26px;height:26px;color:#F5B301}
+.g-wallet b{font-size:30px;font-weight:800}
+.g-wallet small{color:var(--dim);font-size:14px}
+.g-today{color:var(--dim);font-size:13.5px;margin-bottom:10px}
+.g-tap{width:170px;height:170px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#fff;background:radial-gradient(circle at 32% 28%,#FFD54A,#F5A623 60%,#E08B0E);box-shadow:0 10px 30px rgba(245,166,35,.4);transition:transform .08s}
+.g-tap svg{width:46px;height:46px}
+.g-tap span{font-weight:800;font-size:16px}
+.g-tap:active{transform:scale(.94)}
+.g-tap:disabled{opacity:.6}
+.g-cap{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;max-width:280px}
+.g-cap p{color:var(--dim);font-size:14px}
+.g-capq{font-size:30px;font-weight:800;letter-spacing:1px}
+.g-capin{width:100%;height:48px;border-radius:12px;background:var(--raised);border:1.5px solid var(--line);text-align:center;font-size:18px;font-weight:700;color:var(--text)}
+.g-capin:focus{border-color:var(--accent)}
+.g-caperr{color:var(--danger);font-size:13px}
+.g-cap .pbtn{max-width:280px}
+
+/* ── 2048 ── */
+.g2048 .g-stage{flex-direction:column}
+.g-tiles{position:relative;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(4,1fr);gap:8px;width:100%;max-width:360px;aspect-ratio:1;background:var(--line);padding:8px;border-radius:12px}
+.g-tile{border-radius:8px;display:grid;place-items:center;font-weight:800;font-size:22px;background:color-mix(in srgb,var(--line) 60%,transparent);color:var(--text);transition:background .1s}
+.g-tile[data-v="2"]{background:#EEE4DA;color:#776E65}
+.g-tile[data-v="4"]{background:#EDE0C8;color:#776E65}
+.g-tile[data-v="8"]{background:#F2B179;color:#fff}
+.g-tile[data-v="16"]{background:#F59563;color:#fff}
+.g-tile[data-v="32"]{background:#F67C5F;color:#fff}
+.g-tile[data-v="64"]{background:#F65E3B;color:#fff}
+.g-tile[data-v="128"]{background:#EDCF72;color:#fff;font-size:19px}
+.g-tile[data-v="256"]{background:#EDCC61;color:#fff;font-size:19px}
+.g-tile[data-v="512"]{background:#EDC850;color:#fff;font-size:19px}
+.g-tile[data-v="1024"]{background:#EDC53F;color:#fff;font-size:16px}
+.g-tile[data-v="2048"]{background:#EDC22E;color:#fff;font-size:16px;box-shadow:0 0 0 2px #fff inset}
+
+/* ── Block Blast ── */
+.gblocks .g-stage{flex-direction:column}
+.g-bgrid{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;width:100%;max-width:340px;aspect-ratio:1;background:var(--line);padding:5px;border-radius:10px}
+.g-bcell{border-radius:4px;background:color-mix(in srgb,var(--line) 55%,transparent)}
+.g-bcell.cango{background:color-mix(in srgb,var(--accent) 22%,transparent)}
+.g-tray{display:flex;align-items:center;justify-content:center;gap:16px;padding:14px 16px;flex:none}
+.g-piece{min-width:64px;min-height:56px;display:grid;place-items:center;border-radius:12px;padding:6px;transition:transform .12s,background .12s}
+.g-piece.sel{background:color-mix(in srgb,var(--accent) 16%,transparent);transform:translateY(-4px)}
+.g-piece.used{opacity:0}
+.g-pmini{display:grid;grid-template-columns:repeat(var(--cols),11px);grid-template-rows:repeat(var(--rows),11px);gap:2px}
+.g-pmini i{border-radius:2.5px}
+.g-pmini i.on{background:var(--accent)}
+
+.g-bcell.c1,.g-pmini i.on.c1{background:#FF6B6B}
+.g-bcell.c2,.g-pmini i.on.c2{background:#4DABF7}
+.g-bcell.c3,.g-pmini i.on.c3{background:#51CF66}
+.g-bcell.c4,.g-pmini i.on.c4{background:#FFD43B}
+.g-bcell.c5,.g-pmini i.on.c5{background:#DA77F2}
+.g-bcell.c6,.g-pmini i.on.c6{background:#22D3C5}
+
+/* ── Sand Fall ── */
+.gsand .g-stage{padding:10px}
+.g-sgrid{display:grid;grid-template-columns:repeat(var(--cols),1fr);grid-template-rows:repeat(var(--rows),1fr);gap:1px;height:100%;max-height:100%;width:auto;aspect-ratio:var(--cols)/var(--rows);background:var(--line);padding:3px;border-radius:10px}
+.g-sgrid i{border-radius:1.5px}
+.g-sgrid i.c1{background:#FF6B6B}
+.g-sgrid i.c2{background:#FFD43B}
+.g-sgrid i.c3{background:#DA77F2}
+.g-sgrid i.c4{background:#FFA94D}
+.g-sgrid i.c5{background:#4DABF7}
+.g-sgrid i.c6{background:#51CF66}
+.g-sgrid i.c7{background:#FF6BAE}
+.g-ctl{display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 16px calc(14px + var(--safe-b));flex:none}
+.g-cbtn{flex:1;max-width:72px;height:50px;border-radius:14px;background:var(--surface);border:1px solid var(--line);display:grid;place-items:center;color:var(--accent)}
+.g-cbtn svg{width:22px;height:22px}
+.g-cbtn:active{transform:scale(.94)}

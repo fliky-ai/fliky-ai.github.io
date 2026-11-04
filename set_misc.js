@@ -12,6 +12,37 @@ const Notif = {
   async register() {
     try { if ("serviceWorker" in navigator) Notif.reg = await navigator.serviceWorker.register("sw.js"); } catch (e) {}
   },
+  // Web Push: чтобы звонки звонили системным уведомлением, даже когда вкладка/приложение свёрнуты или закрыты.
+  // Нужно разрешение на уведомления (Notif.perm() === "granted") и регистрация sw.js (Notif.reg).
+  b64ToKey(b64) {
+    const s = (b64 + "=".repeat((4 - (b64.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/");
+    const raw = atob(s), out = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  },
+  async sendSub(sub) {
+    try { const j = sub.toJSON(); await api("/api/push/subscribe", { method: "POST", body: { endpoint: j.endpoint, keys: j.keys } }); }
+    catch (e) {}
+  },
+  async subscribePush() {
+    try {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window) || Notif.perm() !== "granted") return;
+      const reg = Notif.reg || (await navigator.serviceWorker.getRegistration());
+      if (!reg || !reg.pushManager) return;
+      const { key } = await api("/api/push/vapid_key");
+      if (!key) return;
+      const appKey = Notif.b64ToKey(key);
+      const existing = await reg.pushManager.getSubscription();
+      if (existing) {
+        const cur = existing.options && existing.options.applicationServerKey ? new Uint8Array(existing.options.applicationServerKey) : null;
+        const same = cur && cur.length === appKey.length && cur.every((b, i) => b === appKey[i]);
+        if (same) return Notif.sendSub(existing);
+        await existing.unsubscribe().catch(() => {});
+      }
+      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appKey });
+      await Notif.sendSub(sub);
+    } catch (e) {}
+  },
   sound() {
     if (!Notif.get("snd")) return;
     try {
@@ -83,7 +114,7 @@ Object.assign(Settings, {
         if (Notif.perm() === "unsupported") return toast(T("Этот браузер не поддерживает уведомления"));
         if (Notif.perm() === "denied") return UI.sheet({ title: T("Уведомления заблокированы"), text: T("Разрешите уведомления для этого сайта в настройках браузера или телефона, затем вернитесь сюда."), actions: [], cancel: T("Понятно") });
         try { await Notification.requestPermission(); } catch (e) {}
-        await Notif.register(); Settings.drawNotif(pg);
+        await Notif.register(); guard("push", () => Notif.subscribePush()); Settings.drawNotif(pg);
       },
       test: () => {
         Notif.sound(); Notif.vibrate();

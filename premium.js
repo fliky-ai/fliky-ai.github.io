@@ -205,7 +205,7 @@ const PB = {
     return `<button class="pbadge ${cls}${u.nft ? " nftb" : ""}" data-pb="${u.id}" aria-label="Premium">${u.nft ? PB.nft(u.nft) : ES.node(u.estatus)}</button>`;
   },
   // имя с галочкой и значком (для экранов профиля)
-  name(u) { return esc(dispName(u)) + (isVer(u) ? VERIFIED : "") + PB.html(u); },
+  name(u) { return esc(dispName(u)) + verBadge(u) + PB.html(u); },
 };
 document.addEventListener("click", (e) => {
   const b = e.target.closest && e.target.closest(".pbadge"); if (!b) return;

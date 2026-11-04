@@ -1,6 +1,6 @@
 // Общие функции: запросы, сессия (отдельная для каждого Telegram-аккаунта), аватарки, время.
 const $ = (id) => document.getElementById(id);
-const APP_VER = "2026.11.04f";
+const APP_VER = "2026.11.04i";
 const TGW = window.Telegram && Telegram.WebApp;
 const INIT = (TGW && TGW.initData) || "";
 const TG_ID = (TGW && TGW.initDataUnsafe && TGW.initDataUnsafe.user && TGW.initDataUnsafe.user.id) || "web";
@@ -97,6 +97,14 @@ async function devInfo() {
 const PLANE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 3.5 10.5 14"/><path d="M21.5 3.5 14.5 21l-4-7-7-4z"/></svg>';
 const PERSON = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="9" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>';
 const VERIFIED = '<svg class="ver" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="m7.5 12.3 3 3 6-6.3" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+// значок с галочкой: у Major/Official — свой цвет и подсказка «Подтверждено Dicegram» (не настоящий текст Telegram)
+function verBadge(u) {
+  if (!isVer(u)) return "";
+  const tier = (u && u.vtier) || "";
+  const cls = tier === "official" ? " ver-official" : tier === "major" ? " ver-major" : "";
+  const tip = tier ? ` title="${esc(T("Подтверждено Dicegram"))}"` : "";
+  return `<svg class="ver${cls}" viewBox="0 0 24 24"${tip}><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="m7.5 12.3 3 3 6-6.3" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
 const svg = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 const ICON = {
   camera: svg('<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>'),
@@ -128,7 +136,7 @@ const PREM_I = '<svg class="prem-i" viewBox="0 0 24 24" fill="currentColor"><pat
 const BADGE_IN_LISTS = false;
 // имя на экране профиля: галочка + значок Premium (анимированный эмодзи-статус), по нажатию на значок открывается окно Premium
 const isVer = (u) => !!(u && (u.is_system || u.verified));
-const profName = (u) => esc(dispName(u)) + (isVer(u) ? VERIFIED : "") + (typeof PB !== "undefined" ? PB.html(u) : "");
+const profName = (u) => esc(dispName(u)) + verBadge(u) + (typeof PB !== "undefined" ? PB.html(u) : "");
 // шапка профиля: обычный эмодзи-статус фон НЕ меняет. Фон и узор меняет только надетый коллекционный подарок (NFT)
 const premHero = (u) => {
   if (!u || !u.premium || u.is_system || !u.nft || !u.nft.backdrop) return { cls: "", style: "", pat: "" };
@@ -136,7 +144,7 @@ const premHero = (u) => {
   const P = [[7, 12, 20, 0], [86, 10, 16, 0.8], [20, 44, 14, 1.6], [76, 40, 18, 2.2], [92, 62, 14, 0.4], [8, 70, 18, 1.2], [50, 5, 12, 2.8], [64, 78, 16, 0.6], [32, 84, 14, 2], [88, 84, 17, 1.4], [3, 44, 12, 3], [56, 52, 11, 3.4], [40, 22, 11, 1], [68, 20, 12, 2.4]];
   return { cls: " prem", style: ` style="--c1:${esc(b.c1)};--c2:${esc(b.c2)}"`, pat: `<div class="pf-pat">${P.map(([x, y, z, d]) => `<i class="e" style="--x:${x}%;--y:${y}%;--s:${z}px;--d:${d}s">${e}</i>`).join("")}</div>` };
 };
-const nameHTML = (u) => esc(dispName(u)) + (isVer(u) ? VERIFIED : "") + (BADGE_IN_LISTS && u.premium && !u.is_system ? PREM_I : "");
+const nameHTML = (u) => esc(dispName(u)) + verBadge(u) + (BADGE_IN_LISTS && u.premium && !u.is_system ? PREM_I : "");
 
 // ── номер телефона и день рождения ──
 const fmtPhone = (n) => { const m = /^\+888(\d{4})(\d{4})$/.exec(n || ""); return m ? `+888 ${m[1]} ${m[2]}` : (n || ""); };

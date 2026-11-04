@@ -304,6 +304,20 @@ const Calls = {
     Calls.send({ type: "rtc", call: c.id, k: "fx", d: { id: c.fx.id } });
   },
 
+  // Ответ/отказ, нажатый в системном push-уведомлении о звонке (см. App.bindPushCall/App.resolvePendingCall).
+  fromPush(action, data) {
+    const cid = data.call;
+    if (Calls.cur && Calls.cur.id === cid) {
+      if (action === "decline") return Calls.decline();
+      if (Calls.cur.st === "incoming") return Calls.accept();
+      return;                                        // уже отвечен или завершается — ничего не делаем
+    }
+    if (action === "decline") { Calls.send({ type: "rtc", call: cid, k: "decline" }); return; }
+    const u = data.user || { id: data.from || 0, name: data.name || "" };
+    Calls.onInvite({ call: cid, from: u.id, v: data.v, user: u });
+    if (Calls.cur && Calls.cur.id === cid) Calls.accept();   // onInvite мог отказать (Calls.busy()) — тогда не принимаем
+  },
+
   onRTC(d) {
     if (d.k === "invite") return Calls.onInvite(d);
     const c = Calls.cur;

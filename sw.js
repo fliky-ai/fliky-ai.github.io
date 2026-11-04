@@ -43,10 +43,56 @@ async function handle(req, url) {
   }
 }
 
+// ───────── Web Push: звонки звонят системным уведомлением, даже когда вкладка/приложение свёрнуты или закрыты ─────────
+self.addEventListener("push", (e) => {
+  let data = {};
+  try { data = e.data ? e.data.json() : {}; } catch (_) { return; }
+  if (data.type !== "rtc" || !data.call) return;     // Web Push пока используется только для звонков
+  e.waitUntil(onCallPush(data));
+});
+
+async function onCallPush(data) {
+  const tag = "call-" + data.call;
+  if (data.k !== "invite") {
+    // звонок уже не актуален (отменён/отклонён/завершён/занято/офлайн) — убираем уведомление, если оно есть
+    try { (await self.registration.getNotifications({ tag })).forEach((n) => n.close()); } catch (e) {}
+    return;
+  }
+  // приложение открыто и видно — экран входящего звонка уже показывается внутри самого приложения:
+  // системное уведомление не нужно (иначе будет дублирование)
+  try {
+    const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    if (wins.some((c) => c.visibilityState === "visible")) return;
+  } catch (e) {}
+  try {
+    await self.registration.showNotification(data.v ? "Входящий видеозвонок" : "Входящий звонок", {
+      tag, body: String(data.name || "Dicegram").slice(0, 60), icon: "icon-192.png", badge: "icon-192.png",
+      requireInteraction: true, vibrate: [400, 200, 400], data,
+      actions: [{ action: "answer", title: "Ответить" }, { action: "decline", title: "Отклонить" }],
+    });
+  } catch (e) {}
+}
+
 self.addEventListener("notificationclick", (e) => {
+  const d = e.notification.data;
   e.notification.close();
+  if (!d || !d.call) {
+    e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      for (const c of list) if ("focus" in c) return c.focus();
+      if (self.clients.openWindow) return self.clients.openWindow("./");
+    }));
+    return;
+  }
+  // звонок: либо сообщаем уже открытой странице (она сама знает, что делать — Calls.fromPush),
+  // либо (приложение полностью закрыто) открываем его с данными звонка в адресе
+  const action = e.action === "decline" ? "decline" : "answer";
   e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
-    for (const c of list) if ("focus" in c) return c.focus();
-    if (self.clients.openWindow) return self.clients.openWindow("./");
+    for (const c of list) {
+      if ("focus" in c) { try { c.postMessage({ type: "push-call", action, data: d }); } catch (er) {} return c.focus(); }
+    }
+    if (self.clients.openWindow) {
+      const q = action === "decline" ? "call_decline" : "call_answer";
+      return self.clients.openWindow("./?" + q + "=" + encodeURIComponent(JSON.stringify(d)));
+    }
   }));
 });

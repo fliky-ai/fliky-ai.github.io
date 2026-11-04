@@ -50,8 +50,9 @@ const Settings = {
         R.row({ a: "premium", ic: SI.starF, c: "pr", t: esc(T(NAME_PREMIUM)), r: u.premium ? esc(T("активен")) : "" }),
         R.row({ a: "stars", ic: SI.starF, c: "y", t: esc(T(NAME_STARS)), r: u.stars ? String(u.stars) : "" }),
         R.row({ a: "biz", ic: SI.bag, c: "v2", t: esc(T(NAME_BIZ)) }),
-        R.row({ a: "gift", ic: SI.gift, c: "p", t: esc(T("Отправить подарок")) }))}
-      ${isStandalone() ? "" : grp(R.row({ a: "install", ic: SI.laptop, c: "b", t: esc(T("Установить Dicegram")), s: esc(T("Как приложение на экран «Домой»")) }))}
+        R.row({ a: "gift", ic: SI.gift, c: "p", t: esc(T("Отправить подарок")) }),
+        R.row({ a: "games", ic: SI.games, c: "t", t: esc(T("Игры")), s: esc(T("4 игры и таблицы лидеров дня")) }))}
+      ${isStandalone() ? "" : grp(R.row({ a: "install", ic: SI.laptop, c: "b", t: esc(T("Установить Dicegram")), s: esc(/Android/i.test(navigator.userAgent) ? T("Скачать APK или на экран «Домой»") : T("Как приложение на экран «Домой»")) }))}
       ${grp(
         R.row({ a: "ask", ic: SI.headset, c: "b", t: esc(T("Задать вопрос")) }),
         R.row({ ic: SI.help, c: "g", t: esc(T("Вопросы")), soon: 1, dis: 1 }),
@@ -77,7 +78,7 @@ const Settings = {
       edit: () => Profile.openEdit(), chats: () => Settings.chats(), privacy: () => Settings.privacy(), notif: () => Settings.notif(),
       data: () => Settings.data(), energy: () => Settings.energy(), folders: () => Settings.folders(), devices: () => Settings.devices(),
       lang: () => Settings.lang(), premium: () => Settings.premium(), stars: () => Settings.stars(), biz: () => Settings.biz(),
-      gift: () => Settings.gift(), ask: () => Settings.ask(), policy: () => Settings.policy(), out: () => Settings.logout(),
+      gift: () => Settings.gift(), games: () => Games.open(), ask: () => Settings.ask(), policy: () => Settings.policy(), out: () => Settings.logout(),
       addacc: () => Settings.addAccount(), acc: (el) => Settings.switchTo(+el.dataset.v), install: () => Settings.install(),
     };
     box.onclick = (e) => {
@@ -87,19 +88,51 @@ const Settings = {
   },
 
   // ─────────── установка как приложение ───────────
+  // На Android — по умолчанию предлагаем установить APK (обычное приложение, не PWA): ссылка на base.apk
+  // рядом с index.html. На iOS APK не работает — там остаётся «На экран «Домой»» через Safari.
+  async downloadApk() {
+    try {
+      const r = await fetch("base.apk", { method: "HEAD" });
+      if (!r.ok) return toast(T("Файл APK ещё не загружен"));
+    } catch (e) { return toast(T("Файл APK ещё не загружен")); }
+    const a = document.createElement("a");
+    a.href = "base.apk"; a.download = "Dicegram.apk";
+    document.body.appendChild(a); a.click(); a.remove();
+  },
+
   async install() {
     const ev = App.installEv;
+    const inTg = !!(TGW && TGW.initData);
+    const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const android = /Android/i.test(navigator.userAgent);
+    if (inTg) {
+      const v = await UI.sheet({ title: T("Установить Dicegram"),
+        text: T("Мини-приложение нельзя установить. Откройте Dicegram в браузере по ссылке, а затем установите его."),
+        actions: [{ label: T("Открыть в браузере"), value: "open", accent: true }], cancel: T("Закрыть") });
+      if (v === "open") { try { TGW.openLink(location.origin + location.pathname, { try_instant_view: false }); } catch (e) { window.open(location.href, "_blank"); } }
+      return;
+    }
+    if (ios) {
+      await UI.sheet({ title: T("Установить Dicegram"), text: T("Нажмите «Поделиться» в Safari и выберите «На экран «Домой»»."), cancel: T("Понятно") });
+      return;
+    }
+    if (android) {
+      const acts = [{ label: T("Скачать APK"), value: "apk", accent: true }];
+      if (ev) acts.push({ label: T("Установить как веб-приложение"), value: "pwa" });
+      const v = await UI.sheet({ title: T("Установить Dicegram"),
+        text: T("Скачайте APK-файл и установите его как обычное приложение. Если система предупредит о «неизвестном источнике» — это нормально для файлов не из Google Play."),
+        actions: acts, cancel: T("Отмена") });
+      if (v === "apk") Settings.downloadApk();
+      else if (v === "pwa" && ev) { try { ev.prompt(); const r = await ev.userChoice; App.installEv = null; if (r && r.outcome === "accepted") toast(T("Dicegram установлен")); } catch (e) {} }
+      return;
+    }
     if (ev) {
       try { ev.prompt(); const r = await ev.userChoice; App.installEv = null; if (r && r.outcome === "accepted") toast(T("Dicegram установлен")); return; } catch (e) {}
     }
-    const inTg = !!(TGW && TGW.initData);
-    const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const text = inTg
-      ? T("Мини-приложение нельзя установить. Откройте Dicegram в браузере по ссылке, а затем добавьте его на экран «Домой».")
-      : ios ? T("Нажмите «Поделиться» в Safari и выберите «На экран «Домой»».")
-      : T("Откройте меню браузера (три точки) и выберите «Установить приложение» или «Добавить на главный экран».");
-    const v = await UI.sheet({ title: T("Установить Dicegram"), text, actions: inTg ? [{ label: T("Открыть в браузере"), value: "open", accent: true }] : [], cancel: inTg ? T("Закрыть") : T("Понятно") });
-    if (v === "open") { try { TGW.openLink(location.origin + location.pathname, { try_instant_view: false }); } catch (e) { window.open(location.href, "_blank"); } }
+    const v = await UI.sheet({ title: T("Установить Dicegram"),
+      text: T("Откройте меню браузера (три точки) и выберите «Установить приложение» или «Добавить на главный экран». На телефоне с Android можно скачать APK-файл."),
+      actions: [{ label: T("Скачать APK для Android"), value: "apk" }], cancel: T("Понятно") });
+    if (v === "apk") Settings.downloadApk();
   },
 
   // ─────────── аккаунты ───────────

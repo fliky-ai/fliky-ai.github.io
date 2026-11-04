@@ -248,19 +248,24 @@ const Gifts = {
       const from = G.from ? `<button class="gd-u" data-u="${G.from.id}">${avatar({ id: G.from.id, name: G.from.name, avatar: G.from.avatar }, "sm")}<span>${esc(dispName(G.from))}</span></button>`
         : `<span class="gd-u off">${GIC.lock}<span>${esc(G.from_me ? T("Вы (имя скрыто)") : T("Скрытый отправитель"))}</span></span>`;
       const n = G.nft;
+      const ownerRow = isNft && owner && !mine ? [T("Владелец"), `<button class="gd-u" data-u="${owner.id}">${avatar({ id: owner.id, name: owner.name, avatar: owner.avatar }, "sm")}<span>${esc(dispName(owner))}</span></button>`] : null;
       const rows = [
         [T("От"), from],
+        ...(ownerRow ? [ownerRow] : []),
         [T("Дата"), esc(Gifts.date(G.ts))],
         [T("Стоимость"), Gifts.stars(G.price)],
       ];
       if (n) rows.push([T("Модель"), `${esc(n.model.n)}<em>${n.model.r}%</em>`], [T("Фон"), `${esc(n.backdrop.n)}<em>${n.backdrop.r}%</em>`], [T("Узор"), `${esc(n.pattern.n)}<em>${n.pattern.r}%</em>`]);
       if (prem && G.until && mine) rows.push([T("Premium до"), esc(Gifts.date(G.until))]);
+      if (mine && G.can_sell) rows.push([T("Продажа доступна до"), esc(Gifts.date(G.sell_until))]);
       const act = [];
       if (mine && !prem) {
         if (isNft) act.push(`<button class="gd-b main" data-a="equip">${GIC.wear}${esc(worn ? T("Снять с профиля") : T("Поставить в профиль"))}</button>`);
         if (!isNft && G.up) act.push(`<button class="gd-b main" data-a="up">${GIC.up}${esc(T("Улучшить до коллекционного"))} ${Gifts.stars(G.up)}</button>`);
         act.push(`<div class="gd-row2"><button class="gd-b" data-a="show">${G.shown ? GIC.eyeOff : GIC.eye}${esc(G.shown ? T("Скрыть") : T("Показать"))}</button>
           <button class="gd-b" data-a="pin" ${G.shown ? "" : "disabled"}>${GIC.pin}${esc(G.pin ? T("Открепить") : T("Закрепить"))}</button></div>`);
+        if (G.can_sell) act.push(`<button class="gd-b sell" data-a="sell">${GIC.star}${esc(T("Продать за {0}", G.sell_price + " ⭐"))}</button>`);
+        else if (G.sold) act.push(`<div class="gd-sold">${esc(T("Подарок продан"))}</div>`);
       }
       card.querySelector(".gd-in").innerHTML = `
         <button class="gd-x" data-x aria-label="${esc(T("Закрыть"))}">${GIC.x}</button>
@@ -275,7 +280,12 @@ const Gifts = {
     draw(full);
     card.addEventListener("click", async (e) => {
       const u = e.target.closest("[data-u]");
-      if (u) { L.close(); return setTimeout(() => UserProfile.open({ id: +u.dataset.u, name: full.from.name, surname: full.from.surname || "", avatar: full.from.avatar || "", username: "", bio: "" }), 280); }
+      if (u) {
+        const uid = +u.dataset.u;
+        const src = owner && owner.id === uid ? owner : full.from;
+        L.close();
+        return setTimeout(() => UserProfile.open({ id: uid, name: src.name, surname: src.surname || "", avatar: src.avatar || "", username: "", bio: "" }), 280);
+      }
       const b = e.target.closest("[data-a]"); if (!b || b.disabled) return;
       haptic();
       const a = b.dataset.a;
@@ -297,6 +307,16 @@ const Gifts = {
           draw(full);
           const h = card.querySelector(".gd-hero"); if (h) { h.classList.add("reveal"); try { Fx.burst(h, "star", "⭐"); Fx.burst(h, "party", "🎉"); } catch (x) {} }
           haptic("medium");
+        } else if (a === "sell") {
+          const price = full.sell_price;
+          const ok = await UI.sheet({ title: T("Продать подарок?"), icon: SI.starF, text: T("Подарок исчезнет из профиля, а на баланс поступит {0} ⭐. Отменить это нельзя.", price), actions: [{ label: T("Продать"), value: "go", accent: true }] });
+          if (ok !== "go") return;
+          b.disabled = true;
+          const d = await api("/api/gift/sell", { method: "POST", body: { id: full.id } });
+          App.user = d.user;
+          full = Object.assign({}, full, d.gift, { owner });
+          toast(T("Подарок продан за {0}", price + " ⭐"));
+          L.close();
         }
         Gifts.changed(App.user.id);
       } catch (x) { toast(x.message); }

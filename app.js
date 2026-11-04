@@ -38,22 +38,81 @@ const Nav = {
 addEventListener("popstate", () => Nav.pop());
 
 // Встроенный браузер: страница открывается поверх приложения. Часть сайтов запрещает показ внутри чужих страниц —
-// поэтому сверху всегда есть кнопка «открыть в браузере».
+// поэтому сверху всегда есть кнопка «открыть в браузере». Карточку можно свернуть в плавающий пилл (как у звонка)
+// и продолжить читать чаты, не закрывая страницу — она остаётся загруженной, пока её не закроют явно.
 const Browser = {
+  cur: null, pill: null,
   external(url) { try { TGW.openLink(url); } catch (_) { window.open(url, "_blank", "noopener"); } },
   open(url) {
     if (!/^https?:/i.test(url) || !Prefs.get("browser", false)) return Browser.external(url);
+    if (Browser.cur) { if (Browser.cur.url === url) return Browser.restore(); return Browser._replace(url); }
+    Browser._create(url);
+  },
+  _create(url) {
+    let host = url; try { host = new URL(url).hostname; } catch (e) {}
     const el = document.createElement("div");
     el.className = "ibr";
-    let host = url; try { host = new URL(url).hostname; } catch (e) {}
-    el.innerHTML = `<div class="ibr-top"><button class="ibr-x" aria-label="${esc(T("Закрыть"))}">${SI.x}</button><div class="ibr-t"><b>${esc(host)}</b><small>${esc(T("Если страница не открылась, нажмите справа"))}</small></div>
-      <button class="ibr-o" aria-label="${esc(T("Открыть в браузере"))}">${SI.compass}</button></div><iframe class="ibr-f" src="${esc(url)}" referrerpolicy="no-referrer" sandbox="allow-scripts allow-forms allow-same-origin allow-popups"></iframe>`;
+    el.innerHTML = `<div class="ibr-top"><button class="ibr-min" aria-label="${esc(T("Свернуть"))}">${CUI.down}</button>
+      <div class="ibr-t"><b>${esc(host)}</b><small>${esc(T("Если страница не открылась, нажмите справа"))}</small></div>
+      <button class="ibr-o" aria-label="${esc(T("Открыть в браузере"))}">${SI.compass}</button>
+      <button class="ibr-x" aria-label="${esc(T("Закрыть"))}">${SI.x}</button></div>
+      <iframe class="ibr-f" src="${esc(url)}" referrerpolicy="no-referrer" sandbox="allow-scripts allow-forms allow-same-origin allow-popups"></iframe>`;
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add("show"));
-    const close = Nav.layer(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 220); });
-    el.querySelector(".ibr-x").onclick = close;
+    // закрытие истории (жест «назад» или наш же pop() из minimize/_dismiss) асинхронно для верхнего слоя —
+    // onClose привязан к ЭТОЙ конкретной карточке (b), а не к Browser.cur, чтобы не снести следующую,
+    // если к моменту срабатывания пользователь уже открыл другую ссылку
+    const b = { el, url, host, min: false };
+    b.pop = Nav.layer(() => { if (!b.min) Browser._wipe(b); });
+    Browser.cur = b;
+    el.querySelector(".ibr-x").onclick = () => Browser._dismiss();
     el.querySelector(".ibr-o").onclick = () => Browser.external(url);
+    el.querySelector(".ibr-min").onclick = () => Browser.minimize();
   },
+  // открыли другую ссылку, пока текущая (не свёрнутая) ещё видна: закрываем старую и создаём новую одним
+  // прыжком истории — не back()+pushState() по отдельности (между ними возможна гонка, см. _wipe)
+  _replace(url) {
+    const old = Browser.cur;
+    if (old.min) { Browser._wipe(old); return Browser._create(url); }
+    Browser._wipe(old);
+    if (Nav.stack.length && Nav.stack[Nav.stack.length - 1] && !Nav.stack[Nav.stack.length - 1].id) Nav.stack.pop();
+    Browser._create(url);
+  },
+  _wipe(b) {
+    if (Browser.cur === b) { Browser.cur = null; Browser.hidePill(); }
+    b.el.classList.remove("show");
+    setTimeout(() => b.el.remove(), 220);
+  },
+  _dismiss() { const b = Browser.cur; if (!b) return; if (b.min) Browser._wipe(b); else b.pop(); },
+  minimize() {
+    const b = Browser.cur; if (!b) return;
+    b.min = true;
+    b.el.classList.remove("show");
+    Browser.showPill();
+    b.pop();                               // снимаем экран из истории; карточка остаётся плавающим пиллом
+  },
+  restore() {
+    const b = Browser.cur; if (!b) return;
+    b.min = false;
+    b.pop = Nav.layer(() => { if (!b.min) Browser._wipe(b); });
+    requestAnimationFrame(() => b.el.classList.add("show"));
+    Browser.hidePill();
+  },
+  destroy() { const b = Browser.cur; if (b) Browser._wipe(b); },
+  showPill() {
+    if (!Browser.pill) {
+      Browser.pill = document.createElement("button");
+      Browser.pill.className = "ibrpill";
+      Browser.pill.addEventListener("click", (e) => {
+        if (e.target.closest("[data-x]")) { e.stopPropagation(); Browser.destroy(); } else Browser.restore();
+      });
+      document.body.appendChild(Browser.pill);
+    }
+    const b = Browser.cur;
+    Browser.pill.innerHTML = `<i class="ibp-dot"></i><span class="ibp-t">${esc(b.host)}</span><span class="ibp-x" data-x aria-label="${esc(T("Закрыть"))}">${SI.x}</span>`;
+    Browser.pill.classList.remove("hidden");
+  },
+  hidePill() { if (Browser.pill) Browser.pill.classList.add("hidden"); },
 };
 
 // сбой одного шага не должен ронять остальные; ошибка попадает в «страховку запуска» (см. index.html)
@@ -101,6 +160,7 @@ const App = {
     guard("calls", () => Calls.init());
     guard("lock", () => Lock.init());
     guard("notif", () => Notif.register());
+    guard("pushcall", () => App.bindPushCall());
     guard("media", () => Media.trim());
     guard("anim", () => Settings.applyAnim());
     guard("energy", () => Energy.update());
@@ -149,6 +209,8 @@ const App = {
     guard("ws", () => App.connect());
     guard("go", () => App.go("chats"));
     guard("hash", () => { App.openHash(); Chat.loadQuick(); });
+    // разрешение на уведомления могли дать раньше — подписку на Web Push (звонки в фоне) проверяем/обновляем каждый запуск
+    guard("push", () => { if (Notif.perm() === "granted") Notif.subscribePush(); });
     setInterval(() => { try { Chat.updateHeader(); } catch (e) {} }, 30000);
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { guard("resume", () => { App.connect(); Chats.load(); Chat.sync(); }); } });
     addEventListener("online", () => App.connect());
@@ -166,6 +228,33 @@ const App = {
     if (!kind) return;
     try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
     return Links.go(kind, val);
+  },
+
+  // Звонок принят/отклонён из системного push-уведомления (вкладка была свёрнута или полностью закрыта).
+  // Если страница уже была открыта — sw.js шлёт сообщение; если её пришлось открывать заново — данные в адресе.
+  bindPushCall() {
+    try {
+      if (navigator.serviceWorker) navigator.serviceWorker.addEventListener("message", (e) => {
+        const m = e.data; if (!m || m.type !== "push-call" || !m.data || !m.data.call) return;
+        App.pendingCall = { action: m.action, data: m.data };
+        if (Calls.online()) App.resolvePendingCall();
+      });
+    } catch (e) {}
+    try {
+      const u = new URL(location.href);
+      const ans = u.searchParams.get("call_answer"), dec = u.searchParams.get("call_decline");
+      if (ans || dec) {
+        let data = null; try { data = JSON.parse(ans || dec); } catch (e) {}
+        u.searchParams.delete("call_answer"); u.searchParams.delete("call_decline");
+        try { history.replaceState(null, "", u.pathname + u.search + u.hash); } catch (e) {}
+        if (data && data.call) App.pendingCall = { action: ans ? "answer" : "decline", data };
+      }
+    } catch (e) {}
+  },
+  resolvePendingCall() {
+    const p = App.pendingCall; App.pendingCall = null;
+    if (!p || !Calls.online()) return;
+    guard("calls", () => Calls.fromPush(p.action, p.data));
   },
 
   // маленькая аватарка на четвёртой вкладке
@@ -200,6 +289,7 @@ const App = {
       if (d.type === "ready") {   // сервер принял токен
         App.retry = 0; App.setOnline(true); Chats.load(); Chat.sync();
         clearInterval(App.pingT); App.pingT = setInterval(() => ws.readyState === 1 && ws.send("ping"), 25000);
+        if (App.pendingCall) guard("pushcall", () => App.resolvePendingCall());
       }
       else if (d.type === "message") { Chat.onMessage(d.message); Chats.onMessage(d.message); guard("notify", () => Notif.onMessage(d.message)); }
       else if (d.type === "read") Chat.onRead(d.by);
@@ -264,6 +354,10 @@ const App = {
       "links.js": () => Links && typeof Links.go === "function",
       "fileview.js": () => FV && typeof FV.open === "function",
       "qr.js": () => QR && QRCard && typeof QR.matrix === "function" && typeof QRCard.open === "function",
+      "games.js": () => Games && GameSession && GameClicker && typeof Games.open === "function" && typeof GameClicker.open === "function",
+      "game2048.js": () => G2048 && Game2048 && typeof Game2048.open === "function",
+      "gameblocks.js": () => GBlocks && GameBlocks && typeof GameBlocks.open === "function",
+      "gamesand.js": () => GSand && GameSand && typeof GameSand.open === "function",
       "userprofile.js": () => UserProfile && typeof UserProfile.open === "function",
       "gifmaker.js": () => GifMaker && GifEnc,
       "chats.js": () => Chats && ChatPeek && ILL && CI,
@@ -274,7 +368,7 @@ const App = {
       "voicefx.js": () => VoiceFX && typeof VoiceFX.process === "function",
       "call.js": () => Calls && typeof Calls.start === "function",
       "settings.js": () => Settings && Accounts,
-      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261104f/.test([...document.scripts].map((x) => x.src).join(" ")),
+      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261104i/.test([...document.scripts].map((x) => x.src).join(" ")),
     };
     const bad = Object.keys(chk).filter((k) => !has(chk[k]));
     const miss = (window.__boot && window.__boot.miss || []).filter((x, i, a) => a.indexOf(x) === i && /\.(js|css)$/.test(x));

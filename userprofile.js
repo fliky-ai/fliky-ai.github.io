@@ -78,7 +78,7 @@ const UserProfile = {
     } else {
       if (u.number) rows.push(row(esc(fmtPhone(u.number)), T("Телефон"), u.number));
       if (u.bio) rows.push(row(esc(u.bio), T("О себе"), u.bio));
-      if (u.username) rows.push(row("@" + esc(u.username) + (typeof QRCard !== "undefined" ? QRCard.btn() : ""), T("Имя пользователя"), "@" + u.username));
+      if (u.username) rows.push(row("@" + esc(u.username) + (u.uname_nft ? `<i class="uname-nft">NFT · ${(+u.uname_ton || 0).toLocaleString(I18N.lang === "en" ? "en-US" : "ru-RU")} TON</i>` : "") + (typeof QRCard !== "undefined" ? QRCard.btn() : ""), T("Имя пользователя"), "@" + u.username));
       if (u.birthday) rows.push(row(esc(bdayText(u.birthday)) + (bdayToday(u.birthday) ? " 🎂" : ""), T("День рождения")));
       const b = u.biz;
       if (b && b.hours) {
@@ -113,8 +113,10 @@ const UserProfile = {
     const scroll = $("up-body").scrollTop;
     $("up-title").innerHTML = esc(dispName(u));
     $("uprofile").classList.toggle("nftp", nft);
+    $("uprofile").classList.toggle("owner-theme", !!u.owner_theme);
     $("up-more").hidden = sys || me;
-    $("up-body").innerHTML = `<div class="pf-hero uhero${ph.cls}${nft ? " nft" : ""}"${ph.style}>${ph.pat}<div class="pf-av">${Stories.av(u, "xl")}</div><h2>${profName(u)}</h2>
+    const official = !sys && u.vtier === "official" ? `<div class="pf-official">${verBadge(u)}<b>${esc(T("Официальный аккаунт"))}</b><small>${esc(T("Подтверждено Dicegram"))}</small></div>` : "";
+    $("up-body").innerHTML = `${official}<div class="pf-hero uhero${ph.cls}${nft ? " nft" : ""}"${ph.style}>${ph.pat}<div class="pf-av">${Stories.av(u, "xl")}</div><h2>${profName(u)}</h2>
         <div class="st2 ${u.online && !sys ? "on" : ""}">${esc(sys ? T("служебные уведомления") : statusText(u))}</div>${rt}</div>
       ${acts}${blocked}${pc}
       ${rows.length ? `<div class="card2 pf-info">${rows.join("")}</div>` : ""}

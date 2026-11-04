@@ -68,6 +68,7 @@ const SI = {
   smile2: svg('<circle cx="12" cy="12" r="9.500"/><path d="M8 14a4.500 4.500 0 0 0 8 0"/><path d="M9 9.500h.01M15 9.500h.01"/>'),
   heart: svg('<path d="M12 21s-8-5.500-8-11a4.500 4.500 0 0 1 8-2.800A4.500 4.500 0 0 1 20 10c0 5.500-8 11-8 11z"/>'),
   layers: svg('<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>'),
+  games: svg('<rect x="2" y="7" width="20" height="11" rx="5"/><path d="M8 10v4M6 12h4"/><circle cx="16" cy="10.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="18.300" cy="13" r="1.1" fill="currentColor" stroke="none"/>'),
 };
 
 const Pg = {

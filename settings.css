@@ -290,11 +290,20 @@ html.locked #app,html.locked main{filter:blur(18px)}
 /* ───────── встроенный браузер ───────── */
 .ibr{position:fixed;inset:0;z-index:140;background:var(--bg);display:flex;flex-direction:column;transform:translateY(30px);opacity:0;transition:transform .22s,opacity .2s}
 .ibr.show{transform:none;opacity:1}
-.ibr-top{display:flex;align-items:center;gap:6px;padding:calc(var(--safe-t) + 6px) 8px 6px;background:var(--surface);border-bottom:1px solid var(--line)}
-.ibr-x,.ibr-o{width:42px;height:42px;display:grid;place-items:center;border-radius:50%;color:var(--accent)}
-.ibr-x svg,.ibr-o svg{width:22px;height:22px}
+.ibr-top{display:flex;align-items:center;gap:4px;padding:calc(var(--safe-t) + 6px) 8px 6px;background:var(--surface);border-bottom:1px solid var(--line)}
+.ibr-x,.ibr-o,.ibr-min{width:42px;height:42px;display:grid;place-items:center;border-radius:50%;color:var(--accent);flex:none}
+.ibr-x svg,.ibr-o svg,.ibr-min svg{width:22px;height:22px}
 .ibr-t{flex:1;min-width:0}.ibr-t b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ibr-t small{display:block;color:var(--dim);font-size:11.5px}
 .ibr-f{flex:1;border:0;background:#fff;width:100%}
+
+/* свёрнутый мини-браузер: плавающая карточка (как пилл активного звонка), страница остаётся загруженной */
+.ibrpill{position:fixed;z-index:123;left:12px;right:12px;bottom:calc(var(--safe-b,0px) + 70px);display:flex;align-items:center;gap:9px;max-width:420px;margin:0 auto;padding:0 8px 0 14px;height:46px;border-radius:23px;color:var(--text);font-weight:600;font-size:14px;background:var(--surface);box-shadow:0 8px 24px rgba(0,0,0,.28);border:1px solid var(--line);animation:ibpIn .25s var(--ease,ease)}
+.ibrpill.hidden{display:none}
+@keyframes ibpIn{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
+.ibp-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;animation:cpD 1.4s ease-in-out infinite}
+.ibp-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.ibp-x{width:34px;height:34px;display:grid;place-items:center;border-radius:50%;color:var(--dim);flex:none}
+.ibp-x svg{width:18px;height:18px}
 
 .prem-i{width:15px;height:15px;color:#F5B301;flex:none;margin-left:3px;vertical-align:-2px}
 

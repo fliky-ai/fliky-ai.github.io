@@ -1,8 +1,4 @@
-// gamesand.js — «Sand Fall»: гибрид Тетриса и песочной симуляции. Фигура падает и управляется
-// игроком как обычный тетромино; как только она касается дна или других клеток, она «рассыпается»
-// на отдельные песчинки, которые затем падают по клеточным правилам (вниз, иначе по диагонали).
-// Полностью заполненные строки осевшего песка очищаются. Логика — в GSand (без DOM, тестируется
-// отдельно), экран и игровой цикл — в GameSand.
+// gamesand.js — «Sand Fall»: тетрис с эффектом песка, физика падения песчинок и автоматическая очистка заполненных рядов.
 
 const GSand = {
   COLS: 9, ROWS: 16,
@@ -10,7 +6,6 @@ const GSand = {
   FALL_EVERY: 6,
   TYPES: ["I", "O", "T", "L", "J", "S", "Z"],
   COLORS: { I: 1, O: 2, T: 3, L: 4, J: 5, S: 6, Z: 7 },
-  // 4 состояния поворота на каждую фигуру, координаты в сетке 4×4 (классические таблицы тетромино)
   TETRO: {
     I: [[[1, 0], [1, 1], [1, 2], [1, 3]], [[0, 2], [1, 2], [2, 2], [3, 2]], [[2, 0], [2, 1], [2, 2], [2, 3]], [[0, 1], [1, 1], [2, 1], [3, 1]]],
     O: [[[1, 1], [1, 2], [2, 1], [2, 2]], [[1, 1], [1, 2], [2, 1], [2, 2]], [[1, 1], [1, 2], [2, 1], [2, 2]], [[1, 1], [1, 2], [2, 1], [2, 2]]],
@@ -53,14 +48,12 @@ const GSand = {
     return null;
   },
 
-  // переносит клетки упавшей фигуры на сетку как отдельные песчинки
   dissolve(grid, piece) {
     const g = grid.slice();
     for (const [r, c] of GSand.cells(piece)) if (r >= 0 && r < GSand.ROWS && c >= 0 && c < GSand.COLS) g[r * GSand.COLS + c] = piece.color;
     return g;
   },
 
-  // один шаг симуляции падающего песка: вниз, иначе по диагонали, иначе остаётся на месте
   settleStep(grid) {
     const g = grid.slice();
     let moved = false;
@@ -194,7 +187,7 @@ const GameSand = {
     if (d.phase === "clear") {
       const { grid, lines } = GSand.clearFullRows(d.grid);
       d.grid = grid;
-      d.score += 1 + lines * 20;
+      d.score += 1 + lines * 25;
       if (lines) haptic("medium");
       const np = GSand.spawnPiece();
       if (GSand.isOver(d.grid, np)) { d.over = true; d.phase = "over"; GameSand.finish(pg); }
@@ -226,3 +219,4 @@ const GameSand = {
     `);
   },
 };
+

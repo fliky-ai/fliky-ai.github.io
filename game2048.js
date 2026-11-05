@@ -1,5 +1,4 @@
-// game2048.js — классическая «2048». Чистая игровая логика в G2048 (без DOM, легко тестируется
-// отдельно), экран и управление — в Game2048 (использует каркас страниц Pg и игровые сессии).
+// game2048.js — классическая «2048» с плавной логикой в G2048 и удобным свайп/клавиатурным управлением в Game2048.
 
 const G2048 = {
   SIZE: 4,
@@ -10,7 +9,6 @@ const G2048 = {
     return g;
   },
 
-  // добавляет новую плитку (2 — 90%, 4 — 10%) в случайную пустую клетку; false, если пусто нет
   spawn(g) {
     const empty = [];
     for (let i = 0; i < g.length; i++) if (!g[i]) empty.push(i);
@@ -19,7 +17,6 @@ const G2048 = {
     return true;
   },
 
-  // сдвигает и один раз объединяет равные соседние значения в ряду влево; без мутации входа
   slideLeft(row) {
     const vals = row.filter((v) => v);
     const out = [];
@@ -43,7 +40,6 @@ const G2048 = {
     for (let k = 0; k < G2048.SIZE; k++) { if (horiz) g[i * G2048.SIZE + k] = a[k]; else g[k * G2048.SIZE + i] = a[k]; }
   },
 
-  // dir: 'left' | 'right' | 'up' | 'down' — возвращает новую сетку, не мутирует переданную
   move(g, dir) {
     const out = g.slice();
     const horiz = dir === "left" || dir === "right";
@@ -95,7 +91,6 @@ const Game2048 = {
     GameSession.start("2048").then((s) => { if (pg.alive) pg.data.session = s; });
   },
 
-  // делегирование на устойчивый pg.el: .g-stage пересоздаётся при каждой отрисовке
   bindTouch(pg) {
     let sx = 0, sy = 0, on = false;
     pg.el.addEventListener("touchstart", (e) => {
@@ -134,7 +129,8 @@ const Game2048 = {
         <button class="g-restart" data-a="restart" aria-label="${esc(T("Заново"))}">${SI.shuffle}</button></div>
       <div class="g-stage"><div class="g-tiles">${tiles}</div>
         ${d.over ? `<div class="g-over"><p>${esc(T("Игра окончена"))}</p><button class="pbtn" data-a="restart">${esc(T("Играть снова"))}</button></div>` : ""}</div>
-      <p class="g-hint">${esc(T("Свайп или стрелки — сдвинуть плитки"))}</p>
+      <p class="g-hint">${esc(T("Свайп или стрелки на клавиатуре — сдвинуть плитки"))}</p>
     `);
   },
 };
+

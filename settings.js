@@ -100,12 +100,33 @@ const Settings = {
     document.body.appendChild(a); a.click(); a.remove();
   },
 
+  // Внутри Telegram Mini App файлы вообще не скачиваются (платформа это блокирует) — поэтому
+  // раньше мы открывали во внешнем браузере САЙТ (и там человек должен был нажать «Установить»
+  // ещё раз, чтобы получить сам APK — лишний шаг и выглядело как «просто перекидывает на сайт»).
+  // Теперь во внешнем браузере сразу открывается САМ base.apk, чтобы он скачался/поставился в один тап.
+  async openApkExternal() {
+    const apkUrl = new URL("base.apk", location.href).toString();
+    try {
+      const r = await fetch("base.apk", { method: "HEAD" });
+      if (!r.ok) return toast(T("Файл APK ещё не загружен"));
+    } catch (e) { return toast(T("Файл APK ещё не загружен")); }
+    try { TGW.openLink(apkUrl, { try_instant_view: false }); }
+    catch (e) { window.open(apkUrl, "_blank"); }
+  },
+
   async install() {
     const ev = App.installEv;
     const inTg = !!(TGW && TGW.initData);
     const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent);
     const android = /Android/i.test(navigator.userAgent);
     if (inTg) {
+      if (android) {
+        const v = await UI.sheet({ title: T("Установить Dicegram"),
+          text: T("Внутри Telegram скачивание файлов недоступно — откроем загрузку APK в вашем браузере. Если система предупредит о «неизвестном источнике» — это нормально для файлов не из Google Play."),
+          actions: [{ label: T("Скачать APK"), value: "apk", accent: true }], cancel: T("Отмена") });
+        if (v === "apk") await Settings.openApkExternal();
+        return;
+      }
       const v = await UI.sheet({ title: T("Установить Dicegram"),
         text: T("Мини-приложение нельзя установить. Откройте Dicegram в браузере по ссылке, а затем установите его."),
         actions: [{ label: T("Открыть в браузере"), value: "open", accent: true }], cancel: T("Закрыть") });

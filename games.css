@@ -1,5 +1,5 @@
 
-/* games.css — Премиальный дизайн мини-игр мессенджера (включая Block Blast в оригинальном стиле) */
+css_content = """/* games.css — Премиальный дизайн мини-игр мессенджера (включая Block Blast в оригинальном стиле) */
 
 .gameplay .spg-body{display:flex;flex-direction:column;padding:0;overflow:hidden;background:var(--bg)}
 
@@ -103,60 +103,72 @@
 .g-cbtn svg{width:22px;height:22px}
 .g-cbtn:active{transform:scale(0.92);background:var(--raised)}
 
+/* --- Чистый минималистичный Block Blast (Точно как в оригинале) --- */
+.gblocks-clean .spg-body { background: #0f0f11; color: #fff; user-select: none; -webkit-user-select: none; overflow: hidden; }
 
-/* --- Оригинальный стиль Block Blast (Идеальный UX) --- */
-.gblocks-orig .spg-body { background: #121214; color: #fff; user-select: none; -webkit-user-select: none; }
-.g-orig-header { display: flex; gap: 8px; padding: 10px 16px; }
-.g-orig-topbtn { background: #27272a; border: none; color: #fff; padding: 8px 16px; border-radius: 20px; font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
-.g-orig-scorebox { display: flex; align-items: center; justify-content: space-between; padding: 0 18px; margin-bottom: 4px; }
-.g-orig-coins { background: #27272a; padding: 6px 12px; border-radius: 16px; font-weight: 700; font-size: 14px; color: #fbbf24; }
-.g-orig-mainscore { font-size: 36px; font-weight: 900; letter-spacing: -1px; color: #fff; }
-.g-orig-topbar-right { display: flex; gap: 8px; align-items: center; }
-.g-orig-iconbtn { background: #27272a; border: none; width: 36px; height: 36px; border-radius: 50%; color: #fff; display: grid; place-items: center; cursor: pointer; }
+.g-clean-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; }
+.g-clean-btn { background: #1c1c21; border: none; color: #fff; width: 42px; height: 42px; border-radius: 50%; font-size: 20px; display: grid; place-items: center; cursor: pointer; transition: transform 0.1s; }
+.g-clean-btn:active { transform: scale(0.92); }
 
-.g-orig-combo { margin: 0 auto 6px; background: linear-gradient(135deg, #f43f5e, #fb7185); color: #fff; padding: 5px 18px; border-radius: 20px; font-weight: 900; font-size: 13.5px; width: fit-content; box-shadow: 0 4px 15px rgba(244,63,94,0.4); animation: gpopin 0.2s ease; }
+.g-clean-scorebox { text-align: center; }
+.g-clean-mainscore { font-size: 40px; font-weight: 900; letter-spacing: -1px; color: #ffffff; text-shadow: 0 2px 10px rgba(255,255,255,0.1); }
 
-.g-orig-stage { position: relative; flex: 1; display: flex; align-items: center; justify-content: center; padding: 10px; }
-.g-orig-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; width: 100%; max-width: 350px; aspect-ratio: 1; background: #1a1a1e; padding: 8px; border-radius: 18px; border: 2px solid #27272a; }
+.g-clean-combo { margin: 0 auto 4px; background: linear-gradient(135deg, #f43f5e, #fb7185); color: #fff; padding: 4px 16px; border-radius: 20px; font-weight: 900; font-size: 13px; width: fit-content; box-shadow: 0 4px 15px rgba(244,63,94,0.4); animation: gpopin 0.2s ease; }
 
-.g-orig-cell { border-radius: 6px; background: #222227; transition: background 0.15s ease; }
-.g-orig-cell.hover-target { background: rgba(59, 130, 246, 0.45) !important; border-radius: 6px; }
+.g-clean-stage { position: relative; flex: 1; display: flex; align-items: center; justify-content: center; padding: 10px; }
+.g-clean-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; width: 100%; max-width: 360px; aspect-ratio: 1; background: #18181d; padding: 10px; border-radius: 22px; border: 2px solid #23232b; }
 
-/* Анимация взрыва/исчезновения линий */
-@keyframes cellExplode {
-  0% { transform: scale(1); background: #ffffff; opacity: 1; }
-  50% { transform: scale(1.25); filter: brightness(1.8); }
-  100% { transform: scale(0); opacity: 0; background: #222227; }
+.g-clean-cell { border-radius: 8px; background: #212128; transition: background 0.1s ease; }
+.g-clean-cell.hover-target { background: rgba(59, 130, 246, 0.5) !important; border-radius: 8px; }
+
+/* Анимация исчезновения линий */
+@keyframes cellExplodeClean {
+  0% { transform: scale(1); background: #fff; opacity: 1; }
+  50% { transform: scale(1.2); filter: brightness(2); }
+  100% { transform: scale(0); opacity: 0; background: #212128; }
 }
-.g-orig-cell.cell-exploding { animation: cellExplode 0.35s ease forwards; }
+.g-clean-cell.cell-exploding { animation: cellExplodeClean 0.3s ease forwards; }
 
-.g-orig-tray { display: flex; align-items: center; justify-content: space-around; padding: 16px 16px calc(18px + var(--safe-b)); background: #18181b; border-top: 1px solid #27272a; min-height: 120px; }
-.g-orig-piece { background: #222227; border-radius: 16px; padding: 10px; min-width: 76px; min-height: 76px; display: grid; place-items: center; border: 1px solid #2f2f35; cursor: grab; touch-action: none; transition: transform 0.15s ease; }
-.g-orig-piece:active { transform: scale(0.95); }
-.g-orig-piece.empty { border: none; background: transparent; cursor: default; }
+.g-clean-tray { display: flex; align-items: center; justify-content: space-around; padding: 16px 16px calc(24px + var(--safe-b)); background: #141418; border-top: 1px solid #23232b; min-height: 130px; }
+.g-clean-piece { background: #1c1c21; border-radius: 18px; padding: 12px; min-width: 80px; min-height: 80px; display: grid; place-items: center; border: 1px solid #2c2c35; cursor: grab; touch-action: none; }
+.g-clean-piece.empty { border: none; background: transparent; cursor: default; }
 
-/* Призрак перетаскивания (летит за пальцем) */
-.piece-ghost {
+/* Чистый призрак без фонов и рамок */
+.piece-ghost-clean {
   position: fixed;
   pointer-events: none;
   z-index: 1000;
-  background: rgba(34, 34, 39, 0.85);
-  backdrop-filter: blur(4px);
-  border-radius: 16px;
-  box-shadow: 0 15px 30px rgba(0,0,0,0.5);
   display: grid;
   place-items: center;
+  filter: drop-shadow(0 12px 20px rgba(0,0,0,0.6));
   transition: transform 0.05s linear;
 }
 
-.g-orig-pmini { display: grid; grid-template-columns: repeat(var(--cols), 13px); grid-template-rows: repeat(var(--rows), 13px); gap: 2.5px; }
-.g-orig-pmini i { border-radius: 3px; }
-.g-orig-pmini i.on { background: #3b82f6; }
+.g-clean-pmini { display: grid; grid-template-columns: repeat(var(--cols), 14px); grid-template-rows: repeat(var(--rows), 14px); gap: 3px; }
+.g-clean-pmini i { border-radius: 4px; }
+.g-clean-pmini i.on { background: #3b82f6; }
 
-/* Качественные цвета блоков под оригинал с внутренним свечением */
-.g-orig-cell.filled.c1, .g-orig-pmini i.on.c1 { background: #ef4444; box-shadow: inset 0 2px 4px rgba(255,255,255,0.35); border-radius: 6px; }
-.g-orig-cell.filled.c2, .g-orig-pmini i.on.c2 { background: #3b82f6; box-shadow: inset 0 2px 4px rgba(255,255,255,0.35); border-radius: 6px; }
-.g-orig-cell.filled.c3, .g-orig-pmini i.on.c3 { background: #22c55e; box-shadow: inset 0 2px 4px rgba(255,255,255,0.35); border-radius: 6px; }
-.g-orig-cell.filled.c4, .g-orig-pmini i.on.c4 { background: #eab308; box-shadow: inset 0 2px 4px rgba(255,255,255,0.35); border-radius: 6px; }
-.g-orig-cell.filled.c5, .g-orig-pmini i.on.c5 { background: #a855f7; box-shadow: inset 0 2px 4px rgba(255,255,255,0.35); border-radius: 6px; }
-.g-orig-cell.filled.c6, .g-orig-pmini i.on.c6 { background: #06b6d4; box-shadow: inset 0 2px 4px rgba(255,255,255,0.35); border-radius: 6px; }
+/* Фирменные цвета плиток Block Blast */
+.g-clean-cell.filled.c1, .g-clean-pmini i.on.c1 { background: #ef4444; box-shadow: inset 0 2px 4px rgba(255,255,255,0.4); border-radius: 8px; }
+.g-clean-cell.filled.c2, .g-clean-pmini i.on.c2 { background: #3b82f6; box-shadow: inset 0 2px 4px rgba(255,255,255,0.4); border-radius: 8px; }
+.g-clean-cell.filled.c3, .g-clean-pmini i.on.c3 { background: #22c55e; box-shadow: inset 0 2px 4px rgba(255,255,255,0.4); border-radius: 8px; }
+.g-clean-cell.filled.c4, .g-clean-pmini i.on.c4 { background: #eab308; box-shadow: inset 0 2px 4px rgba(255,255,255,0.4); border-radius: 8px; }
+.g-clean-cell.filled.c5, .g-clean-pmini i.on.c5 { background: #a855f7; box-shadow: inset 0 2px 4px rgba(255,255,255,0.4); border-radius: 8px; }
+.g-clean-cell.filled.c6, .g-clean-pmini i.on.c6 { background: #06b6d4; box-shadow: inset 0 2px 4px rgba(255,255,255,0.4); border-radius: 8px; }
+
+/* Модальное окно подтверждения */
+.g-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); display: grid; place-items: center; z-index: 2000; animation: fadeIn 0.15s ease; }
+.g-modal-dialog { background: #1c1c22; border: 1px solid #2c2c35; border-radius: 24px; padding: 24px; width: 90%; max-width: 320px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+.g-modal-dialog h3 { font-size: 18px; font-weight: 800; margin-bottom: 8px; color: #fff; }
+.g-modal-dialog p { font-size: 13.5px; color: #94a3b8; margin-bottom: 20px; }
+.g-modal-actions { display: flex; gap: 10px; }
+.g-modal-actions .pbtn { flex: 1; height: 44px; border-radius: 14px; font-weight: 700; font-size: 14px; }
+.g-modal-actions .pbtn.alt { background: #27272a; color: #fff; }
+.g-modal-actions .pbtn.alt:active { background: #3f3f46; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+"""
+
+with open("games.css", "w", encoding="utf-8") as f:
+    f.write(css_content)
+print("games.css generated successfully")
+

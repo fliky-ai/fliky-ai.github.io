@@ -1,5 +1,5 @@
 
-// gameblocks.js — Block Blast (Оригинальная механика, плавная анимация перетаскивания, комбо и автосохранение)
+// gameblocks.js — Block Blast (Идеальный чистый оригинал: без мусора, точный Drag-and-Drop, модалка рестарта)
 
 const GBlocks = {
   SIZE: 8,
@@ -12,14 +12,14 @@ const GBlocks = {
     [[0, 0], [0, 1], [0, 2], [0, 3]],
     [[0, 0], [1, 0], [2, 0], [3, 0]],
     [[0, 0], [0, 1], [1, 0], [1, 1]], // Квадрат 2x2
-    [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2]], // Прямоугольник 2x3
+    [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2]], // 2x3
     [[0, 0], [1, 0], [1, 1]], // Уголок
     [[0, 0], [0, 1], [1, 1]],
     [[0, 1], [1, 0], [1, 1]],
     [[0, 0], [0, 1], [1, 0]],
-    [[0, 0], [1, 0], [1, 1], [2, 1]], // Z-фигура
+    [[0, 0], [1, 0], [1, 1], [2, 1]], // Z
     [[0, 1], [1, 0], [1, 1], [2, 0]],
-    [[0, 0], [0, 1], [0, 2], [1, 1]], // T-фигура
+    [[0, 0], [0, 1], [0, 2], [1, 1]], // T
     [[0, 1], [1, 0], [1, 1], [1, 2]],
   ],
 
@@ -45,7 +45,6 @@ const GBlocks = {
     return g;
   },
 
-  // Проверка линий и столбцов
   clearFull(grid) {
     const N = GBlocks.SIZE;
     const fullRows = [], fullCols = [];
@@ -101,27 +100,29 @@ const GBlocks = {
 
 const GameBlocks = {
   cur: null,
-  SAVE_KEY: "dicegram_blockblast_save",
+  SAVE_KEY: "dicegram_blockblast_save_v2",
 
   open() {
     const saved = GameBlocks.loadState();
     const pg = Pg.open({
-      title: T("Block Blast"), cls: "gameplay gblocks-orig",
+      title: T("Block Blast"), cls: "gameplay gblocks-clean",
       data: saved || { 
         grid: GBlocks.newGrid(), 
         pieces: GBlocks.randomPieces(3), 
         score: 0, 
-        coins: 1500, 
         combo: 0, 
         over: false, 
+        showModal: false,
         session: null 
       },
       build: (p) => GameBlocks.draw(p),
       onClose: () => { GameBlocks.cur = null; },
     });
     GameBlocks.cur = pg;
-    pg.on.restart = () => GameBlocks.restart(pg);
-    pg.on.lb = () => Games.leaderboard("block_blast", "Block Blast");
+    pg.on.askRestart = () => { pg.data.showModal = true; GameBlocks.draw(pg); };
+    pg.on.confirmRestart = () => { pg.data.showModal = false; GameBlocks.restart(pg); };
+    pg.on.cancelRestart = () => { pg.data.showModal = false; GameBlocks.draw(pg); };
+    pg.on.back = () => Pg.back();
 
     GameBlocks.bindDragAndDrop(pg);
     GameSession.start("block_blast").then((s) => { if (pg.alive) pg.data.session = s; });
@@ -129,19 +130,10 @@ const GameBlocks = {
 
   saveState(data) {
     try {
-      if (!data) {
-        localStorage.removeItem(GameBlocks.SAVE_KEY);
-        return;
-      }
-      const payload = {
-        grid: data.grid,
-        pieces: data.pieces,
-        score: data.score,
-        coins: data.coins,
-        combo: data.combo,
-        over: data.over
-      };
-      localStorage.setItem(GameBlocks.SAVE_KEY, JSON.stringify(payload));
+      if (!data) { localStorage.removeItem(GameBlocks.SAVE_KEY); return; }
+      localStorage.setItem(GameBlocks.SAVE_KEY, JSON.stringify({
+        grid: data.grid, pieces: data.pieces, score: data.score, combo: data.combo, over: data.over
+      }));
     } catch(e) {}
   },
 
@@ -150,9 +142,7 @@ const GameBlocks = {
       const raw = localStorage.getItem(GameBlocks.SAVE_KEY);
       if (!raw) return null;
       const data = JSON.parse(raw);
-      if (data && Array.isArray(data.grid) && Array.isArray(data.pieces)) {
-        return data;
-      }
+      if (data && Array.isArray(data.grid) && Array.isArray(data.pieces)) return data;
     } catch(e) {}
     return null;
   },
@@ -163,42 +153,40 @@ const GameBlocks = {
     pg.data.score = 0;
     pg.data.combo = 0;
     pg.data.over = false;
+    pg.data.showModal = false;
     GameBlocks.saveState(pg.data);
     GameBlocks.draw(pg);
     GameSession.start("block_blast").then((s) => { if (pg.alive) pg.data.session = s; });
   },
 
-  // Плавный Drag-and-Drop с физикой следования за пальцем
+  // Чистый и точный Drag-and-Drop без подложек, с мгновенным магнитным притяжением к сетке
   bindDragAndDrop(pg) {
-    let draggingEl = null;
-    let pieceIdx = null;
     let ghostEl = null;
+    let pieceIdx = null;
     let startX = 0, startY = 0;
 
     pg.el.addEventListener("pointerdown", (e) => {
-      const pieceBtn = e.target.closest(".g-orig-piece");
-      if (!pieceBtn || pg.data.over) return;
-      
-      const idx = +pieceBtn.dataset.v;
+      const pieceEl = e.target.closest(".g-clean-piece");
+      if (!pieceEl || pg.data.over || pg.data.showModal) return;
+
+      const idx = +pieceEl.dataset.v;
       if (!pg.data.pieces[idx]) return;
 
       pieceIdx = idx;
-      draggingEl = pieceBtn;
-      
-      const rect = pieceBtn.getBoundingClientRect();
+      const rect = pieceEl.getBoundingClientRect();
       startX = e.clientX;
       startY = e.clientY;
 
-      // Создаем "призрака" для плавно следующего блока за пальцем
-      ghostEl = pieceBtn.cloneNode(true);
-      ghostEl.classList.add("piece-ghost");
+      // Создаем абсолютно чистую фигуру без рамок и квадратов фонов
+      ghostEl = pieceEl.cloneNode(true);
+      ghostEl.className = "piece-ghost-clean";
       ghostEl.style.width = rect.width + "px";
       ghostEl.style.height = rect.height + "px";
-      ghostEl.style.left = (rect.left) + "px";
-      ghostEl.style.top = (rect.top) + "px";
+      ghostEl.style.left = rect.left + "px";
+      ghostEl.style.top = rect.top + "px";
       document.body.appendChild(ghostEl);
 
-      pieceBtn.style.opacity = "0.3";
+      pieceEl.style.opacity = "0.2";
       document.addEventListener("pointermove", onPointerMove);
       document.addEventListener("pointerup", onPointerUp);
     });
@@ -207,26 +195,24 @@ const GameBlocks = {
       if (!ghostEl) return;
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
-      ghostEl.style.transform = `translate(${dx}px, ${dy}px) scale(1.15) translateY(-35px)`;
+      // Плавное следование за пальцем со смещением вверх, чтобы палец не закрывал обзор
+      ghostEl.style.transform = `translate(${dx}px, ${dy}px) scale(1.25) translateY(-50px)`;
 
       // Подсветка ячеек сетки под пальцем
-      const gridEl = pg.el.querySelector(".g-orig-grid");
-      if (gridEl) {
-        const cells = pg.el.querySelectorAll(".g-orig-cell");
-        cells.forEach(c => c.classList.remove("hover-target"));
+      const cells = pg.el.querySelectorAll(".g-clean-cell");
+      cells.forEach(c => c.classList.remove("hover-target"));
 
-        const targetCell = document.elementFromPoint(e.clientX, e.clientY)?.closest(".g-orig-cell");
-        if (targetCell) {
-          const cellIdx = +targetCell.dataset.v;
-          const piece = pg.data.pieces[pieceIdx];
-          const r = Math.floor(cellIdx / GBlocks.SIZE), c = cellIdx % GBlocks.SIZE;
-          if (piece && GBlocks.canPlace(pg.data.grid, piece.shape, r, c)) {
-            piece.shape.forEach(([dr, dc]) => {
-              const tIdx = (r + dr) * GBlocks.SIZE + (c + dc);
-              const cEl = pg.el.querySelector(`[data-v="${tIdx}"]`);
-              if (cEl) cEl.classList.add("hover-target");
-            });
-          }
+      const targetCell = document.elementFromPoint(e.clientX, e.clientY)?.closest(".g-clean-cell");
+      if (targetCell) {
+        const cellIdx = +targetCell.dataset.v;
+        const piece = pg.data.pieces[pieceIdx];
+        const r = Math.floor(cellIdx / GBlocks.SIZE), c = cellIdx % GBlocks.SIZE;
+        if (piece && GBlocks.canPlace(pg.data.grid, piece.shape, r, c)) {
+          piece.shape.forEach(([dr, dc]) => {
+            const tIdx = (r + dr) * GBlocks.SIZE + (c + dc);
+            const cEl = pg.el.querySelector(`[data-v="${tIdx}"]`);
+            if (cEl) cEl.classList.add("hover-target");
+          });
         }
       }
     }
@@ -236,9 +222,10 @@ const GameBlocks = {
       document.removeEventListener("pointerup", onPointerUp);
 
       if (ghostEl) ghostEl.remove();
-      if (draggingEl) draggingEl.style.opacity = "1";
+      const origPiece = pg.el.querySelector(`[data-v="${pieceIdx}"]`);
+      if (origPiece) origPiece.style.opacity = "1";
 
-      const targetCell = document.elementFromPoint(e.clientX, e.clientY)?.closest(".g-orig-cell");
+      const targetCell = document.elementFromPoint(e.clientX, e.clientY)?.closest(".g-clean-cell");
       if (targetCell && pieceIdx !== null) {
         const cellIdx = +targetCell.dataset.v;
         const piece = pg.data.pieces[pieceIdx];
@@ -248,7 +235,6 @@ const GameBlocks = {
         }
       }
 
-      draggingEl = null;
       pieceIdx = null;
       ghostEl = null;
       GameBlocks.draw(pg);
@@ -259,30 +245,25 @@ const GameBlocks = {
     const d = pg.data;
     const piece = d.pieces[idx];
     
-    // 1. Очки за размещение (по количеству блоков в фигуре)
+    // Очки за установку фигуры
     let gained = piece.shape.length;
     let grid = GBlocks.place(d.grid, piece.shape, r, c, piece.color);
     
-    // 2. Проверка очистки линий
+    // Проверка заполненных линий
     const { grid: g2, lines, clearedIndices } = GBlocks.clearFull(grid);
 
     if (lines > 0) {
       d.combo++;
-      // Формула геометрического роста очков комбо: 10 * линии * комбо
       gained += lines * 10 * d.combo;
       haptic("medium");
-      
-      // Запуск визуальной анимации взрыва/удаления плиток
+
       setTimeout(() => {
         clearedIndices.forEach(ci => {
           const cellEl = pg.el.querySelector(`[data-v="${ci}"]`);
-          if (cellEl) {
-            cellEl.classList.add("cell-exploding");
-          }
+          if (cellEl) cellEl.classList.add("cell-exploding");
         });
-      }, 50);
+      }, 30);
     } else {
-      // Если ход без взрыва линий, сбрасываем или уменьшаем комбо
       d.combo = 0;
       haptic();
     }
@@ -291,18 +272,16 @@ const GameBlocks = {
     d.score += gained;
     d.pieces[idx] = null;
 
-    // 3. Если все 3 фигуры выставлены, генерируем новые 3
     if (d.pieces.every((p) => !p)) {
       d.pieces = GBlocks.randomPieces(3);
     }
 
-    // 4. Проверка на GameOver (остались ли вообще ходы для доступных фигур)
     if (!GBlocks.anyMoveLeft(d.grid, d.pieces)) {
       d.over = true;
-      GameBlocks.saveState(null); // очищаем сейв при проигрыше
+      GameBlocks.saveState(null);
       GameBlocks.finish(pg);
     } else {
-      GameBlocks.saveState(d); // автосохранение прогресса
+      GameBlocks.saveState(d);
     }
   },
 
@@ -317,7 +296,7 @@ const GameBlocks = {
     let maxR = 0, maxC = 0;
     for (const [dr, dc] of p.shape) { maxR = Math.max(maxR, dr); maxC = Math.max(maxC, dc); }
     const set = new Set(p.shape.map(([dr, dc]) => dr + "," + dc));
-    let html = `<div class="g-orig-pmini" style="--cols:${maxC + 1};--rows:${maxR + 1}">`;
+    let html = `<div class="g-clean-pmini" style="--cols:${maxC + 1};--rows:${maxR + 1}">`;
     for (let r = 0; r <= maxR; r++) {
       for (let c = 0; c <= maxC; c++) {
         html += `<i class="${set.has(r + "," + c) ? "on c" + p.color : ""}"></i>`;
@@ -331,35 +310,42 @@ const GameBlocks = {
     let cells = "";
     for (let i = 0; i < GBlocks.SIZE * GBlocks.SIZE; i++) {
       const v = d.grid[i];
-      cells += `<div class="g-orig-cell${v ? " c" + v + " filled" : ""}" data-v="${i}"></div>`;
+      cells += `<div class="g-clean-cell${v ? " c" + v + " filled" : ""}" data-v="${i}"></div>`;
     }
 
     const tray = d.pieces.map((p, i) => p
-      ? `<div class="g-orig-piece" data-v="${i}">${GameBlocks.pieceHTML(p)}</div>`
-      : `<div class="g-orig-piece empty"></div>`).join("");
+      ? `<div class="g-clean-piece" data-v="${i}">${GameBlocks.pieceHTML(p)}</div>`
+      : `<div class="g-clean-piece empty"></div>`).join("");
 
     pg.set(`
-      <div class="g-orig-header">
-        <button class="g-orig-topbtn" data-a="restart">🟫 ${esc(T("Игра"))}</button>
-        <button class="g-orig-topbtn" data-a="lb">🏆 ${esc(T("Топ"))}</button>
-      </div>
-
-      <div class="g-orig-scorebox">
-        <div class="g-orig-coins">🪙 ${d.coins}</div>
-        <div class="g-orig-mainscore">${d.score.toLocaleString()}</div>
-        <div class="g-orig-topbar-right">
-          <button class="g-orig-iconbtn" data-a="restart">🔄</button>
+      <div class="g-clean-header">
+        <button class="g-clean-btn" data-a="back">‹</button>
+        <div class="g-clean-scorebox">
+          <div class="g-clean-mainscore">${d.score.toLocaleString()}</div>
         </div>
+        <button class="g-clean-btn" data-a="askRestart">🔄</button>
       </div>
 
-      ${d.combo > 1 ? `<div class="g-orig-combo">Комбо ×${d.combo} 🔥</div>` : ""}
+      ${d.combo > 1 ? `<div class="g-clean-combo">Комбо ×${d.combo} 🔥</div>` : ""}
 
-      <div class="g-orig-stage">
-        <div class="g-orig-grid">${cells}</div>
+      <div class="g-clean-stage">
+        <div class="g-clean-grid">${cells}</div>
         ${d.over ? `<div class="g-over"><p>${esc(T("Игра окончена"))}</p><button class="pbtn" data-a="restart">${esc(T("Играть снова"))}</button></div>` : ""}
       </div>
 
-      <div class="g-orig-tray">${tray}</div>
+      <div class="g-clean-tray">${tray}</div>
+
+      ${d.showModal ? `
+        <div class="g-modal-backdrop">
+          <div class="g-modal-dialog">
+            <h3>${esc(T("Начать игру заново?"))}</h3>
+            <p>${esc(T("Текущий прогресс и очки будут сброшены."))}</p>
+            <div class="g-modal-actions">
+              <button class="pbtn alt" data-a="cancelRestart">${esc(T("Нет"))}</button>
+              <button class="pbtn" data-a="confirmRestart">${esc(T("Да"))}</button>
+            </div>
+          </div>
+        </div>` : ""}
     `);
   },
 };

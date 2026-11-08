@@ -1,5 +1,4 @@
-
-// gameblocks.js — Block Blast (Идеальный чистый оригинал: без мусора, точный Drag-and-Drop, модалка рестарта)
+// gameblocks.js — Block Blast (исправленный Drag-and-Drop, анимация линий, без багов «не ставится»)
 
 const GBlocks = {
   SIZE: 8,
@@ -11,22 +10,25 @@ const GBlocks = {
     [[0, 0], [1, 0], [2, 0]],
     [[0, 0], [0, 1], [0, 2], [0, 3]],
     [[0, 0], [1, 0], [2, 0], [3, 0]],
-    [[0, 0], [0, 1], [1, 0], [1, 1]], // Квадрат 2x2
-    [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2]], // 2x3
-    [[0, 0], [1, 0], [1, 1]], // Уголок
+    [[0, 0], [0, 1], [1, 0], [1, 1]],
+    [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2]],
+    [[0, 0], [1, 0], [1, 1]],
     [[0, 0], [0, 1], [1, 1]],
     [[0, 1], [1, 0], [1, 1]],
     [[0, 0], [0, 1], [1, 0]],
-    [[0, 0], [1, 0], [1, 1], [2, 1]], // Z
+    [[0, 0], [1, 0], [1, 1], [2, 1]],
     [[0, 1], [1, 0], [1, 1], [2, 0]],
-    [[0, 0], [0, 1], [0, 2], [1, 1]], // T
+    [[0, 0], [0, 1], [0, 2], [1, 1]],
     [[0, 1], [1, 0], [1, 1], [1, 2]],
   ],
 
   newGrid() { return new Array(GBlocks.SIZE * GBlocks.SIZE).fill(0); },
 
   randomPiece() {
-    return { shape: GBlocks.SHAPES[Math.floor(Math.random() * GBlocks.SHAPES.length)], color: 1 + Math.floor(Math.random() * 6) };
+    return {
+      shape: GBlocks.SHAPES[Math.floor(Math.random() * GBlocks.SHAPES.length)],
+      color: 1 + Math.floor(Math.random() * 6)
+    };
   },
   randomPieces(n = 3) { return Array.from({ length: n }, GBlocks.randomPiece); },
 
@@ -51,48 +53,29 @@ const GBlocks = {
 
     for (let r = 0; r < N; r++) {
       let full = true;
-      for (let c = 0; c < N; c++) {
-        if (!grid[r * N + c]) { full = false; break; }
-      }
+      for (let c = 0; c < N; c++) if (!grid[r * N + c]) { full = false; break; }
       if (full) fullRows.push(r);
     }
-
     for (let c = 0; c < N; c++) {
       let full = true;
-      for (let r = 0; r < N; r++) {
-        if (!grid[r * N + c]) { full = false; break; }
-      }
+      for (let r = 0; r < N; r++) if (!grid[r * N + c]) { full = false; break; }
       if (full) fullCols.push(c);
     }
-
     if (!fullRows.length && !fullCols.length) return { grid, lines: 0, clearedIndices: [] };
 
     const g = grid.slice();
     const clearedIndices = [];
-
-    for (const r of fullRows) {
-      for (let c = 0; c < N; c++) {
-        g[r * N + c] = 0;
-        clearedIndices.push(r * N + c);
-      }
-    }
-    for (const c of fullCols) {
-      for (let r = 0; r < N; r++) {
-        g[r * N + c] = 0;
-        clearedIndices.push(r * N + c);
-      }
-    }
+    for (const r of fullRows) for (let c = 0; c < N; c++) { g[r * N + c] = 0; clearedIndices.push(r * N + c); }
+    for (const c of fullCols) for (let r = 0; r < N; r++) { g[r * N + c] = 0; clearedIndices.push(r * N + c); }
     return { grid: g, lines: fullRows.length + fullCols.length, clearedIndices };
   },
 
   anyMoveLeft(grid, pieces) {
     for (const p of pieces) {
       if (!p) continue;
-      for (let r = 0; r < GBlocks.SIZE; r++) {
-        for (let c = 0; c < GBlocks.SIZE; c++) {
+      for (let r = 0; r < GBlocks.SIZE; r++)
+        for (let c = 0; c < GBlocks.SIZE; c++)
           if (GBlocks.canPlace(grid, p.shape, r, c)) return true;
-        }
-      }
     }
     return false;
   },
@@ -106,14 +89,14 @@ const GameBlocks = {
     const saved = GameBlocks.loadState();
     const pg = Pg.open({
       title: T("Block Blast"), cls: "gameplay gblocks-clean",
-      data: saved || { 
-        grid: GBlocks.newGrid(), 
-        pieces: GBlocks.randomPieces(3), 
-        score: 0, 
-        combo: 0, 
-        over: false, 
+      data: saved || {
+        grid: GBlocks.newGrid(),
+        pieces: GBlocks.randomPieces(3),
+        score: 0,
+        combo: 0,
+        over: false,
         showModal: false,
-        session: null 
+        session: null
       },
       build: (p) => GameBlocks.draw(p),
       onClose: () => { GameBlocks.cur = null; },
@@ -125,7 +108,9 @@ const GameBlocks = {
     pg.on.back = () => Pg.back();
 
     GameBlocks.bindDragAndDrop(pg);
-    GameSession.start("block_blast").then((s) => { if (pg.alive) pg.data.session = s; });
+    if (typeof GameSession !== "undefined" && GameSession.start) {
+      GameSession.start("block_blast").then((s) => { if (pg.alive) pg.data.session = s; });
+    }
   },
 
   saveState(data) {
@@ -134,7 +119,7 @@ const GameBlocks = {
       localStorage.setItem(GameBlocks.SAVE_KEY, JSON.stringify({
         grid: data.grid, pieces: data.pieces, score: data.score, combo: data.combo, over: data.over
       }));
-    } catch(e) {}
+    } catch (e) {}
   },
 
   loadState() {
@@ -143,7 +128,7 @@ const GameBlocks = {
       if (!raw) return null;
       const data = JSON.parse(raw);
       if (data && Array.isArray(data.grid) && Array.isArray(data.pieces)) return data;
-    } catch(e) {}
+    } catch (e) {}
     return null;
   },
 
@@ -156,137 +141,162 @@ const GameBlocks = {
     pg.data.showModal = false;
     GameBlocks.saveState(pg.data);
     GameBlocks.draw(pg);
-    GameSession.start("block_blast").then((s) => { if (pg.alive) pg.data.session = s; });
+    if (typeof GameSession !== "undefined" && GameSession.start) {
+      GameSession.start("block_blast").then((s) => { if (pg.alive) pg.data.session = s; });
+    }
   },
 
-  // Чистый и точный Drag-and-Drop без подложек, с мгновенным магнитным притяжением к сетке
+  // ===== ИСПРАВЛЕННЫЙ Drag-and-Drop =====
   bindDragAndDrop(pg) {
     let ghostEl = null;
     let pieceIdx = null;
     let startX = 0, startY = 0;
+    let lastCell = null;      // последняя валидная ячейка под пальцем
+    let lastR = -1, lastC = -1;
+
+    const clearHover = () => {
+      pg.el.querySelectorAll(".g-clean-cell.hover-target").forEach(c => c.classList.remove("hover-target"));
+      lastCell = null; lastR = -1; lastC = -1;
+    };
+
+    const highlight = (r, c, piece) => {
+      clearHover();
+      if (!piece) return;
+      if (!GBlocks.canPlace(pg.data.grid, piece.shape, r, c)) return;
+      lastR = r; lastC = c;
+      piece.shape.forEach(([dr, dc]) => {
+        const tIdx = (r + dr) * GBlocks.SIZE + (c + dc);
+        const cEl = pg.el.querySelector(`[data-v="${tIdx}"]`);
+        if (cEl) cEl.classList.add("hover-target");
+      });
+    };
 
     pg.el.addEventListener("pointerdown", (e) => {
       const pieceEl = e.target.closest(".g-clean-piece");
       if (!pieceEl || pg.data.over || pg.data.showModal) return;
-
       const idx = +pieceEl.dataset.v;
       if (!pg.data.pieces[idx]) return;
 
+      e.preventDefault();
       pieceIdx = idx;
       const rect = pieceEl.getBoundingClientRect();
       startX = e.clientX;
       startY = e.clientY;
 
-      // Создаем абсолютно чистую фигуру без рамок и квадратов фонов
       ghostEl = pieceEl.cloneNode(true);
       ghostEl.className = "piece-ghost-clean";
       ghostEl.style.width = rect.width + "px";
       ghostEl.style.height = rect.height + "px";
       ghostEl.style.left = rect.left + "px";
       ghostEl.style.top = rect.top + "px";
+      ghostEl.style.transform = "translate(0,0) scale(1.15)";
       document.body.appendChild(ghostEl);
+      pieceEl.style.opacity = "0.25";
 
-      pieceEl.style.opacity = "0.2";
-      document.addEventListener("pointermove", onPointerMove);
+      // фиксируем палец, чтобы не скроллилось
+      document.body.style.touchAction = "none";
+
+      document.addEventListener("pointermove", onPointerMove, { passive: false });
       document.addEventListener("pointerup", onPointerUp);
+      document.addEventListener("pointercancel", onPointerUp);
     });
 
     function onPointerMove(e) {
       if (!ghostEl) return;
+      e.preventDefault();
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
-      // Плавное следование за пальцем со смещением вверх, чтобы палец не закрывал обзор
-      ghostEl.style.transform = `translate(${dx}px, ${dy}px) scale(1.25) translateY(-50px)`;
+      // фигура центрируется под пальцем, но чуть выше, чтобы палец не закрывал
+      ghostEl.style.transform = `translate(${dx}px, ${dy}px) scale(1.15) translateY(-40px)`;
 
-      // Подсветка ячеек сетки под пальцем
-      const cells = pg.el.querySelectorAll(".g-clean-cell");
-      cells.forEach(c => c.classList.remove("hover-target"));
+      // ищем ячейку под пальцем, но с поправкой на смещение ghost (палец ниже центра фигуры)
+      const px = e.clientX;
+      const py = e.clientY - 10;   // чуть выше пальца
+      const el = document.elementFromPoint(px, py);
+      const targetCell = el && el.closest ? el.closest(".g-clean-cell") : null;
 
-      const targetCell = document.elementFromPoint(e.clientX, e.clientY)?.closest(".g-clean-cell");
       if (targetCell) {
         const cellIdx = +targetCell.dataset.v;
         const piece = pg.data.pieces[pieceIdx];
         const r = Math.floor(cellIdx / GBlocks.SIZE), c = cellIdx % GBlocks.SIZE;
-        if (piece && GBlocks.canPlace(pg.data.grid, piece.shape, r, c)) {
-          piece.shape.forEach(([dr, dc]) => {
-            const tIdx = (r + dr) * GBlocks.SIZE + (c + dc);
-            const cEl = pg.el.querySelector(`[data-v="${tIdx}"]`);
-            if (cEl) cEl.classList.add("hover-target");
-          });
-        }
+        highlight(r, c, piece);
+      } else {
+        clearHover();
       }
     }
 
     function onPointerUp(e) {
       document.removeEventListener("pointermove", onPointerMove);
       document.removeEventListener("pointerup", onPointerUp);
+      document.removeEventListener("pointercancel", onPointerUp);
+      document.body.style.touchAction = "";
 
-      if (ghostEl) ghostEl.remove();
-      const origPiece = pg.el.querySelector(`[data-v="${pieceIdx}"]`);
+      if (ghostEl) { ghostEl.remove(); ghostEl = null; }
+      const origPiece = pg.el.querySelector(`.g-clean-piece[data-v="${pieceIdx}"]`);
       if (origPiece) origPiece.style.opacity = "1";
 
-      const targetCell = document.elementFromPoint(e.clientX, e.clientY)?.closest(".g-clean-cell");
-      if (targetCell && pieceIdx !== null) {
-        const cellIdx = +targetCell.dataset.v;
-        const piece = pg.data.pieces[pieceIdx];
-        const r = Math.floor(cellIdx / GBlocks.SIZE), c = cellIdx % GBlocks.SIZE;
-        if (piece && GBlocks.canPlace(pg.data.grid, piece.shape, r, c)) {
-          GameBlocks.commit(pg, pieceIdx, r, c);
-        }
-      }
+      const piece = pieceIdx !== null ? pg.data.pieces[pieceIdx] : null;
+      const r = lastR, c = lastC;
+      clearHover();
 
+      if (piece && r >= 0 && c >= 0 && GBlocks.canPlace(pg.data.grid, piece.shape, r, c)) {
+        GameBlocks.commit(pg, pieceIdx, r, c);
+      } else {
+        GameBlocks.draw(pg);
+      }
       pieceIdx = null;
-      ghostEl = null;
-      GameBlocks.draw(pg);
     }
   },
 
   commit(pg, idx, r, c) {
     const d = pg.data;
     const piece = d.pieces[idx];
-    
-    // Очки за установку фигуры
     let gained = piece.shape.length;
     let grid = GBlocks.place(d.grid, piece.shape, r, c, piece.color);
-    
-    // Проверка заполненных линий
     const { grid: g2, lines, clearedIndices } = GBlocks.clearFull(grid);
 
     if (lines > 0) {
       d.combo++;
       gained += lines * 10 * d.combo;
-      haptic("medium");
-
-      setTimeout(() => {
-        clearedIndices.forEach(ci => {
-          const cellEl = pg.el.querySelector(`[data-v="${ci}"]`);
-          if (cellEl) cellEl.classList.add("cell-exploding");
-        });
-      }, 30);
+      if (typeof haptic === "function") haptic("medium");
     } else {
       d.combo = 0;
-      haptic();
+      if (typeof haptic === "function") haptic();
     }
 
     d.grid = g2;
     d.score += gained;
     d.pieces[idx] = null;
+    if (d.pieces.every((p) => !p)) d.pieces = GBlocks.randomPieces(3);
 
-    if (d.pieces.every((p) => !p)) {
-      d.pieces = GBlocks.randomPieces(3);
-    }
-
-    if (!GBlocks.anyMoveLeft(d.grid, d.pieces)) {
-      d.over = true;
-      GameBlocks.saveState(null);
-      GameBlocks.finish(pg);
+    // сначала рисуем с анимацией взрыва, потом через 320мс — чисто
+    if (lines > 0) {
+      GameBlocks.draw(pg, { explode: clearedIndices });
+      setTimeout(() => {
+        if (!pg.alive) return;
+        if (!GBlocks.anyMoveLeft(d.grid, d.pieces)) {
+          d.over = true;
+          GameBlocks.saveState(null);
+          GameBlocks.finish(pg);
+        } else {
+          GameBlocks.saveState(d);
+        }
+        GameBlocks.draw(pg);
+      }, 320);
     } else {
-      GameBlocks.saveState(d);
+      if (!GBlocks.anyMoveLeft(d.grid, d.pieces)) {
+        d.over = true;
+        GameBlocks.saveState(null);
+        GameBlocks.finish(pg);
+      } else {
+        GameBlocks.saveState(d);
+      }
+      GameBlocks.draw(pg);
     }
   },
 
   finish(pg) {
-    if (pg.data.session) {
+    if (pg.data.session && typeof GameSession !== "undefined" && GameSession.submit) {
       GameSession.submit(pg.data.session, pg.data.score);
       pg.data.session = null;
     }
@@ -297,25 +307,27 @@ const GameBlocks = {
     for (const [dr, dc] of p.shape) { maxR = Math.max(maxR, dr); maxC = Math.max(maxC, dc); }
     const set = new Set(p.shape.map(([dr, dc]) => dr + "," + dc));
     let html = `<div class="g-clean-pmini" style="--cols:${maxC + 1};--rows:${maxR + 1}">`;
-    for (let r = 0; r <= maxR; r++) {
-      for (let c = 0; c <= maxC; c++) {
+    for (let r = 0; r <= maxR; r++)
+      for (let c = 0; c <= maxC; c++)
         html += `<i class="${set.has(r + "," + c) ? "on c" + p.color : ""}"></i>`;
-      }
-    }
     return html + "</div>";
   },
 
-  draw(pg) {
+  draw(pg, opts) {
     const d = pg.data;
+    const explode = opts && opts.explode ? new Set(opts.explode) : null;
+
     let cells = "";
     for (let i = 0; i < GBlocks.SIZE * GBlocks.SIZE; i++) {
       const v = d.grid[i];
-      cells += `<div class="g-clean-cell${v ? " c" + v + " filled" : ""}" data-v="${i}"></div>`;
+      const exp = explode && explode.has(i) ? " cell-exploding" : "";
+      cells += `<div class="g-clean-cell${v ? " c" + v + " filled" : ""}${exp}" data-v="${i}"></div>`;
     }
 
-    const tray = d.pieces.map((p, i) => p
-      ? `<div class="g-clean-piece" data-v="${i}">${GameBlocks.pieceHTML(p)}</div>`
-      : `<div class="g-clean-piece empty"></div>`).join("");
+    const tray = d.pieces.map((p, i) =>
+      p ? `<div class="g-clean-piece" data-v="${i}">${GameBlocks.pieceHTML(p)}</div>`
+        : `<div class="g-clean-piece empty"></div>`
+    ).join("");
 
     pg.set(`
       <div class="g-clean-header">

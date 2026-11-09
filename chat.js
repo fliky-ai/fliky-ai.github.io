@@ -67,12 +67,23 @@ const Chat = {
 
     box.addEventListener("scroll", () => {
       if (box.scrollTop < 140) Chat.more();
-      $("jump").classList.toggle("hidden", box.scrollHeight - box.scrollTop - box.clientHeight < 420);
+      const gap = box.scrollHeight - box.scrollTop - box.clientHeight;
+      Chat.pinned = gap < 90;
+      $("jump").classList.toggle("hidden", gap < 420);
     }, { passive: true });
+    // поле ввода в фокусе — держим низ переписки видимым (клавиатура сжимает экран не сразу)
+    inp.addEventListener("focus", () => { if (Chat.pinned !== false) [60, 260, 520].forEach((t) => setTimeout(() => Chat.onViewport(true), t)); });
 
     Chat.bindTouch(box);
     box.addEventListener("contextmenu", (e) => { e.preventDefault(); const b = e.target.closest(".b"); if (b) MsgMenu.open(b, Chat.byEl(b)); });
     box.addEventListener("click", (e) => Chat.tap(e));
+  },
+
+  // экран сжался/разжался (клавиатура): если были внизу переписки — остаёмся внизу
+  onViewport(force) {
+    const box = $("msgs");
+    if (!box || !(force || Chat.pinned !== false)) return;
+    requestAnimationFrame(() => { box.scrollTop = box.scrollHeight; });
   },
 
   byEl(b) { return b ? Chat.msgs.find((x) => mkey(x) === b.dataset.k) : null; },
@@ -262,6 +273,12 @@ const Chat = {
     });
     if (peer.gk) Groups.refresh(peer);                // свежие права и число участников
     else Chat.syncBlock();
+    // сначала — сохранённая на устройстве переписка (открывается мгновенно, работает и без сети),
+    // затем свежие сообщения с сервера тихо дополняют её
+    const cached = await tmoC(OC.get(OC.msgKey(peer.id, Chat.topic && Chat.topic.id)), 400, null);
+    if (Chat.peer === peer && Array.isArray(cached) && cached.length && !Chat.msgs.length) {
+      Chat.msgs = cached.slice(); Chat.hasMore = cached.length >= PAGE; Chat.render();
+    }
     await Chat.fetch();
     Chats.markRead(peer.id);
   },
@@ -279,11 +296,18 @@ const Chat = {
       const older = Chat.msgs.filter((m) => m.id && m.id < minId && !fresh.some((x) => same(m, x)));
       const extra = Chat.msgs.filter((m) => !older.includes(m) && !fresh.some((x) => same(m, x)) &&
         (m.pending || m.failed || (m.id && m.id > maxId)));
-      Chat.msgs = older.concat(fresh, extra);
-      if (!older.length) Chat.hasMore = !!d.has_more;
+      // в кэше могли остаться сообщения, удалённые, пока нас не было: всё, что внутри свежего окна и
+      // не пришло с сервера, — убираем
+      const older2 = fresh.length >= PAGE ? older : older.filter((m) => !Chat.fromCacheIds || !Chat.fromCacheIds.has(m.id));
+      Chat.msgs = older2.concat(fresh, extra);
+      if (!older2.length) Chat.hasMore = !!d.has_more;
       if (d.pins) { Chat.pins = d.pins; Chat.renderPins(); }
       Chat.render(keep);
-    } catch (e) { toast(e.message); }
+      Chat.netOk = true;
+    } catch (e) {
+      // нет связи, но переписка из кэша уже на экране — не пугаем ошибкой, просто ждём сеть
+      if (!Chat.msgs.length) toast(e.message);
+    }
     finally { if (Chat.peer === p) Chat.loading = false; }
   },
   sync() { if (Chat.peer && !Chat.loading) Chat.fetch(true); },
@@ -400,7 +424,10 @@ const Chat = {
     let h = "";
     if (inGroup && !cont && k !== "sticker") {
       const f = m.from || {}, lab = f.tag || (f.role === "owner" ? T("владелец") : f.role === "admin" ? T("админ") : "");
-      h += `<span class="gname" data-uid="${m.sender}" style="color:${uColor(m.sender)}">${esc(dispName(f))}${f.premium ? PREM_I : ""}${lab ? `<em class="grole">${esc(lab)}</em>` : ""}</span>`;
+      // рядом с именем — его настоящий эмодзи-статус (свой премиум-эмодзи или коллекционный подарок),
+      // а стандартная звезда — только если статус не выбран
+      const badge = f.nft && typeof PB !== "undefined" ? PB.nft(f.nft) : f.estatus && typeof ES !== "undefined" ? ES.node(f.estatus) : f.premium ? PREM_I : "";
+      h += `<span class="gname" data-uid="${m.sender}" style="color:${uColor(m.sender)}"><span class="gn-t">${esc(dispName(f))}</span>${verBadge(f)}${badge ? `<i class="gbadge">${badge}</i>` : ""}${lab ? `<em class="grole">${esc(lab)}</em>` : ""}</span>`;
     }
     if (m.auto) h += `<span class="auto">${esc(T("Автоматическое сообщение"))}</span>`;
     if (m.fw) h += `<div class="fw">${T("Переслано от")} ${m.fw.id ? `<b class="fwl" role="link">${esc(m.fw.name || "")}</b>` : `<b>${esc(m.fw.name || "")}</b>`}</div>`;

@@ -126,6 +126,86 @@ function guard(name, fn) { try { return fn(); } catch (e) { guardLog(name, e); }
 addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); try { App.installEv = e; } catch (_) {} });
 addEventListener("appinstalled", () => { try { App.installEv = null; } catch (_) {} });
 
+// Высота экрана с учётом клавиатуры. В браузере и в Telegram окно само сжимается (visualViewport),
+// а в APK (AppMint WebView, edge-to-edge на новых Android) окно часто НЕ сжимается: клавиатура просто
+// перекрывает низ, и поле ввода с сообщениями прячется под ней до её закрытия. Поэтому в приложении
+// узнаём высоту клавиатуры сами (VirtualKeyboard API, события Capacitor Keyboard) и вычитаем её,
+// только если система не сделала этого сама — иначе высота уменьшилась бы дважды.
+const Kbd = {
+  h: 0, full: 0,
+  isApp: !!(window.WebToApk || window.appmintNative || window.AppMint),
+  init() {
+    Kbd.full = innerHeight;
+    const vv = window.visualViewport;
+    if (vv) { vv.addEventListener("resize", Kbd.apply); vv.addEventListener("scroll", Kbd.apply); }
+    addEventListener("resize", Kbd.apply);
+    if (Kbd.isApp && navigator.virtualKeyboard) {
+      try {
+        navigator.virtualKeyboard.overlaysContent = true;
+        navigator.virtualKeyboard.addEventListener("geometrychange", (e) => Kbd.set(e.target.boundingRect.height));
+      } catch (e) {}
+    }
+    const fromEv = (e) => {
+      Kbd.evSeen = true;
+      const d = (e && e.detail) || {};
+      Kbd.set(Kbd.norm(e && (e.keyboardHeight != null ? e.keyboardHeight : d.keyboardHeight != null ? d.keyboardHeight : d.height)));
+    };
+    ["keyboardWillShow", "keyboardDidShow", "appmint:keyboard"].forEach((n) => addEventListener(n, fromEv));
+    ["keyboardWillHide", "keyboardDidHide"].forEach((n) => addEventListener(n, () => Kbd.set(0)));
+    try {
+      const K = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Keyboard;
+      if (K && K.addListener) {
+        K.addListener("keyboardWillShow", (i) => { Kbd.evSeen = true; Kbd.set(Kbd.norm(i && i.keyboardHeight)); });
+        K.addListener("keyboardWillHide", () => Kbd.set(0));
+      }
+    } catch (e) {}
+    // поле потеряло фокус — клавиатура закрыта, даже если событие скрытия не пришло
+    document.addEventListener("focusout", () => setTimeout(() => { if (!Kbd.typing()) Kbd.set(0); }, 150));
+    // запасной вариант для APK без событий клавиатуры: окно не сжалось и высоту никто не сообщил —
+    // считаем клавиатуру типичной высоты (~40% экрана), чтобы поле ввода точно было видно
+    if (Kbd.isApp && !navigator.virtualKeyboard) {
+      document.addEventListener("focusin", () => setTimeout(() => {
+        const vv = window.visualViewport, cur = vv ? vv.height : innerHeight;
+        if (Kbd.typing() && !Kbd.evSeen && Kbd.h === 0 && Kbd.full - cur < 100) Kbd.set(Math.round(Kbd.full * 0.4));
+      }, 450));
+    }
+    Kbd.apply();
+  },
+  evSeen: false,
+  typing() {
+    const a = document.activeElement;
+    return !!(a && (/INPUT|TEXTAREA/.test(a.tagName) || a.isContentEditable));
+  },
+  // на некоторых сборках высоту отдают в физических пикселях — переводим в CSS-пиксели
+  norm(v) {
+    v = +v || 0;
+    if (v > innerHeight * 0.85 && devicePixelRatio > 1) v /= devicePixelRatio;
+    return Math.max(0, Math.round(v));
+  },
+  set(h) {
+    h = Math.max(0, Math.round(+h || 0));
+    if (h === Kbd.h) return;
+    Kbd.h = h;
+    Kbd.apply();
+  },
+  apply() {
+    const vv = window.visualViewport;
+    const cur = vv ? vv.height : innerHeight;
+    if (!Kbd.typing() || cur > Kbd.full) Kbd.full = Math.max(innerHeight, cur);
+    const shrunk = Math.max(0, Kbd.full - cur);                          // насколько система уже сжала экран
+    const extra = Kbd.h > 0 && shrunk < Kbd.h * 0.5 ? Kbd.h : 0;         // перекрыто, но не сжато — вычитаем сами
+    const h = Math.max(220, Math.round(cur - extra));
+    const st = document.documentElement.style;
+    st.setProperty("--vh", h + "px");
+    const kb = extra || (shrunk > 120 ? shrunk : 0);
+    st.setProperty("--kb", kb + "px");
+    document.body && document.body.classList.toggle("kb-open", kb > 0);
+    if (kb > 150) { try { Chat.kb = kb; } catch (e) {} }
+    if (extra && window.scrollY) window.scrollTo(0, 0);   // WebView иногда сдвигает страницу вверх — возвращаем
+    try { if (typeof Chat !== "undefined" && Chat.onViewport) Chat.onViewport(); } catch (e) {}
+  },
+};
+
 const App = {
   user: null, ws: null, pingT: null, retry: 0, retryT: null,
 
@@ -138,8 +218,7 @@ const App = {
       }
     });
     guard("ui", () => {
-      const setVH = () => document.documentElement.style.setProperty("--vh", (window.visualViewport ? visualViewport.height : innerHeight) + "px");
-      setVH(); if (window.visualViewport) visualViewport.addEventListener("resize", setVH); addEventListener("resize", setVH);
+      Kbd.init();
       document.querySelectorAll(".tab").forEach((b) => (b.onclick = () => { haptic(); App.go(b.dataset.tab); }));
       ["chat-back", "up-back", "ed-back"].forEach((id) => { const b = $(id); if (b) b.onclick = () => Nav.back(); });
       // никаких системных меню
@@ -174,15 +253,31 @@ const App = {
   async boot() {
     if (!Store.token) return App.showAuth();
     let d;
-    try { d = await api("/api/me", { timeout: 15000 }); }
+    // Нет интернета или сервер выключен, но мы уже входили: открываем приложение из сохранённого
+    // на устройстве (как Telegram) и подключаемся в фоне. Без сохранённого — ждём связь, как раньше.
+    const cachedMe = App.user ? null : await tmoC(OC.get("me"), 1200, null);
+    try { d = await api("/api/me", { timeout: cachedMe ? 6000 : 15000 }); }
     catch (e) {
       if (!Store.token) return App.showAuth();   // 401: api() уже сбросил токен и перезагружает страницу
+      if (/заблокирован/i.test((e && e.message) || "")) return App.banned();
+      if (cachedMe && !App.user) {
+        try { App.enter(cachedMe, true); } catch (er) { guardLog("enter", er); }
+        return setTimeout(() => App.boot(), 4000);
+      }
+      if (App.user) return setTimeout(() => App.boot(), 5000);   // уже работаем из кэша — тихо пробуем дальше
       const m = (e && e.message) || "Нет связи с сервером";
       if (window.__boot) window.__boot.net = m;
       toast(m);
       return setTimeout(() => App.boot(), 3000);
     }
     if (window.__boot) window.__boot.net = "";
+    OC.saveMe(d.user);
+    if (App.user) {                                // приложение уже открыто из кэша — просто обновляем данные
+      Object.assign(App.user, d.user);
+      guard("profile", () => Profile.render()); guard("tabav", () => App.tabAvatar());
+      guard("ws", () => App.connect()); Chats.load();
+      return;
+    }
     try { App.enter(d.user); }
     catch (e) {                                   // ошибка внутри приложения — это не «нет связи», повторять запуск бессмысленно
       guardLog("enter", e);
@@ -199,10 +294,11 @@ const App = {
     if (first) { go(); Intro.show(() => {}); } else go();
   },
 
-  enter(user) {
+  enter(user, fromCache) {
     App.user = user;
     const b = $("boot"); if (b) b.classList.add("hidden");
     $("auth").classList.add("hidden"); $("app").classList.remove("hidden");
+    if (fromCache) { App.setOnline(false); guard("cache", () => Chats.fromCache()); }
     guard("profile", () => Profile.render());               // внутри обновляет и вкладку «Настройки»
     guard("tabav", () => App.tabAvatar());
     guard("lists", () => { Chats.load(); Stories.load(true); Profile.loadStories(); });
@@ -272,7 +368,15 @@ const App = {
     if (tab === "settings") { Settings.fetchUnread(); }
   },
 
-  setOnline(v) { $("app").classList.toggle("offline", !v); },
+  setOnline(v) { $("app").classList.toggle("offline", !v); if (!v) guard("net", () => Net2.paint()); },
+  // аккаунт заблокирован администрацией: сеансы уже завершены сервером
+  banned() {
+    try { OC.wipe(); } catch (e) {}
+    Accounts.remove(Store.token); Store.token = "";
+    const b = $("boot"); if (b) b.classList.add("hidden");
+    UI.sheet({ title: T("Аккаунт заблокирован"), text: T("Ваш аккаунт был заблокирован администрацией Dicegram за нарушение правил."),
+      actions: [{ label: T("Помощь (скоро)"), value: "help" }], cancel: T("ОК") }).then(() => location.reload());
+  },
 
   // WebSocket: токен уходит первым сообщением, а не в адресе (адреса попадают в логи прокси).
   connect() {

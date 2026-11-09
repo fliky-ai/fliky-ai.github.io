@@ -98,13 +98,111 @@ const Notif = {
     document.title = n && Notif.get("badge") ? `(${n > 99 ? "99+" : n}) Dicegram` : "Dicegram";
     try { if (navigator.setAppBadge) (n && Notif.get("badge")) ? navigator.setAppBadge(n) : navigator.clearAppBadge(); } catch (e) {}
   },
+  // какие уведомления присылать, когда приложение закрыто, — сервер должен знать (это решает он)
+  syncCloud() {
+    const want = { on: !!Notif.get("msg"), prev: !!Notif.get("prev") };
+    const cur = Prefs.cloud("push", null) || {};
+    if (cur.on === want.on && cur.prev === want.prev) return;
+    Prefs.cloudSet("push", want).catch(() => {});
+  },
+};
+
+// ═════════════ PUSH В APK (AppMint) ═════════════
+// В приложении из AppMint Web Push не работает — уведомления идут через Firebase (FCM): берём токен
+// телефона у встроенного плагина Capacitor PushNotifications и отдаём серверу. Нажатие на уведомление
+// приходит как ссылка (#m=… — открыть чат, #ca=/#cd=… — ответить/отклонить звонок).
+const AppPush = {
+  token: "",
+  B() { return window.WebToApk || null; },
+  P() { try { return (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PushNotifications) || null; } catch (e) { return null; } },
+  isApp() { return !!(AppPush.B() || window.appmintNative || window.AppMint || AppPush.P()); },
+  async init() {
+    if (!AppPush.isApp() || !App.user) return;
+    const B = AppPush.B();
+    try { if (B && B.setPushUser) B.setPushUser(String(App.user.id)); } catch (e) {}
+    const P = AppPush.P();
+    if (!P) return;
+    try {
+      if (!AppPush.bound) {
+        AppPush.bound = true;
+        await P.addListener("registration", (t) => AppPush.send(t && (t.value || t.token)));
+        await P.addListener("registrationError", () => {});
+        // нажали на уведомление, пока приложение было открыто/в фоне
+        await P.addListener("pushNotificationActionPerformed", (a) => {
+          const d = (a && a.notification && a.notification.data) || {};
+          const link = d.amp_link || d.link || "";
+          if (link) DeepLink.go(link);
+        });
+      }
+      let st = P.checkPermissions ? await P.checkPermissions() : { receive: "prompt" };
+      if (st.receive !== "granted" && P.requestPermissions) st = await P.requestPermissions();
+      if (st.receive === "granted") await P.register();
+    } catch (e) {}
+  },
+  async send(tok) {
+    if (!tok || !App.user) return;
+    AppPush.token = tok;
+    let install = "";
+    try { const B = AppPush.B(); install = (B && B.getInstallId && B.getInstallId()) || ""; } catch (e) {}
+    try { await api("/api/push/fcm", { method: "POST", body: { token: tok, install } }); } catch (e) {}
+  },
+  async logout() {
+    try { const B = AppPush.B(); if (B && B.setPushUser) B.setPushUser(""); } catch (e) {}
+    if (AppPush.token) { try { await api("/api/push/fcm/remove", { method: "POST", body: { token: AppPush.token } }); } catch (e) {} }
+  },
+};
+
+// Ссылки из уведомлений (и из AppMint, и из Web Push): открыть чат или ответить на звонок.
+const DeepLink = {
+  b64json(s) {
+    try { s = String(s).replace(/-/g, "+").replace(/_/g, "/"); s += "=".repeat((4 - (s.length % 4)) % 4); return JSON.parse(decodeURIComponent(escape(atob(s)))); }
+    catch (e) { return null; }
+  },
+  // разбор #m=123 / #m=-45 / #ca=… / #cd=… (из hash или полной ссылки)
+  parse(link) {
+    const h = String(link || "").replace(/^[^#]*#\/?/, "");
+    let m = /(?:^|&)m=(-?\d+)/.exec(h);
+    if (m) return { kind: "chat", id: +m[1] };
+    m = /(?:^|&)(ca|cd)=([A-Za-z0-9_-]+)/.exec(h);
+    if (m) { const d = DeepLink.b64json(m[2]); if (d && d.call) return { kind: "call", action: m[1] === "cd" ? "decline" : "answer", data: d }; }
+    return null;
+  },
+  go(link) {
+    const p = DeepLink.parse(link);
+    if (!p) return false;
+    try { if (/[#&](m|ca|cd)=/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+    if (p.kind === "call") {
+      App.pendingCall = { action: p.action, data: p.data };
+      if (Calls.online()) App.resolvePendingCall();
+      return true;
+    }
+    DeepLink.openChat(p.id);
+    return true;
+  },
+  async openChat(id) {
+    if (!App.user) { DeepLink.wait = id; return; }
+    if (Chat.peer && Chat.peer.id === id) return;
+    let c = Chats.byId(id);
+    if (!c) { await Chats.fromCache(); c = Chats.byId(id); }
+    if (!c) { try { await Chats.load(); } catch (e) {} c = Chats.byId(id); }
+    if (c) { App.go("chats"); Chats.openChat(c.peer); }
+  },
+  init() {
+    addEventListener("appmint:deep-link", (e) => DeepLink.go(e && e.detail && e.detail.url));
+    addEventListener("appmint:push", (e) => { const d = e && e.detail; if (d && d.type === "opened" && d.message && d.message.link) DeepLink.go(d.message.link); });
+    addEventListener("hashchange", () => DeepLink.go(location.hash));
+    // уведомление, нажатое в шторке, когда приложение было закрыто: ссылка запуска
+    let launch = "";
+    try { const B = window.WebToApk; launch = (B && B.getLaunchUrl && B.getLaunchUrl()) || ""; } catch (e) {}
+    if (!DeepLink.go(launch)) DeepLink.go(location.hash);
+  },
 };
 
 Object.assign(Settings, {
   notif() {
     const pg = Pg.open({ title: T("Уведомления"), build: (pg) => Settings.drawNotif(pg) });
     const bot = (k) => (on) => { const n = Object.assign({ bot: false, preview: true, silent: false }, Prefs.cloud("notif", {})); n[k] = !!on; Prefs.cloudSet("notif", n).catch(() => Settings.drawNotif(pg)); };
-    const loc = (k) => (on) => { Prefs.set("n_" + k, !!on); if (k === "badge") Notif.badge(Chats.list.reduce((s, c) => s + c.unread, 0)); };
+    const loc = (k) => (on) => { Prefs.set("n_" + k, !!on); if (k === "badge") Notif.badge(Chats.list.reduce((s, c) => s + c.unread, 0)); if (k === "msg" || k === "prev") Notif.syncCloud(); };
     pg.on = {
       msg: loc("msg"), prev: loc("prev"), snd: (on) => { Prefs.set("n_snd", !!on); if (on) Notif.sound(); }, vib: (on) => { Prefs.set("n_vib", !!on); if (on) Notif.vibrate(); },
       badge: loc("badge"), story: loc("story"), react: loc("react"),

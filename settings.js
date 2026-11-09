@@ -48,11 +48,12 @@ const Settings = {
         R.row({ a: "lang", ic: SI.globe, c: "v", t: esc(T("Язык")), r: I18N.lang === "en" ? "English" : "Русский" }))}
       ${grp(
         R.row({ a: "premium", ic: SI.starF, c: "pr", t: esc(T(NAME_PREMIUM)), r: u.premium ? esc(T("активен")) : "" }),
+        R.row({ a: "pbg", ic: SI.image, c: "v", t: esc(T("Фон профиля")), r: esc(u.pbg && PBG.byId(u.pbg) ? T(PBG.byId(u.pbg).n) : T(u.premium ? "Нет" : "Premium")) }),
         R.row({ a: "stars", ic: SI.starF, c: "y", t: esc(T(NAME_STARS)), r: u.stars ? String(u.stars) : "" }),
         R.row({ a: "biz", ic: SI.bag, c: "v2", t: esc(T(NAME_BIZ)) }),
         R.row({ a: "gift", ic: SI.gift, c: "p", t: esc(T("Отправить подарок")) }),
         R.row({ a: "games", ic: SI.games, c: "t", t: esc(T("Игры")), s: esc(T("4 игры и таблицы лидеров дня")) }))}
-      ${isStandalone() ? "" : grp(R.row({ a: "install", ic: SI.laptop, c: "b", t: esc(T("Установить Dicegram")), s: esc(/Android/i.test(navigator.userAgent) ? T("Скачать APK или на экран «Домой»") : T("Как приложение на экран «Домой»")) }))}
+      ${isStandalone() || (typeof AppPush !== "undefined" && AppPush.isApp()) ? "" : grp(R.row({ a: "install", ic: SI.laptop, c: "b", t: esc(T("Установить Dicegram")), s: esc(/Android/i.test(navigator.userAgent) ? T("Скачать APK или на экран «Домой»") : T("Как приложение на экран «Домой»")) }))}
       ${grp(
         R.row({ a: "ask", ic: SI.headset, c: "b", t: esc(T("Задать вопрос")) }),
         R.row({ ic: SI.help, c: "g", t: esc(T("Вопросы")), soon: 1, dis: 1 }),
@@ -78,7 +79,7 @@ const Settings = {
       edit: () => Profile.openEdit(), chats: () => Settings.chats(), privacy: () => Settings.privacy(), notif: () => Settings.notif(),
       data: () => Settings.data(), energy: () => Settings.energy(), folders: () => Settings.folders(), devices: () => Settings.devices(),
       lang: () => Settings.lang(), premium: () => Settings.premium(), stars: () => Settings.stars(), biz: () => Settings.biz(),
-      gift: () => Settings.gift(), games: () => Games.open(), ask: () => Settings.ask(), policy: () => Settings.policy(), out: () => Settings.logout(),
+      gift: () => Settings.gift(), games: () => Games.open(), pbg: () => Settings.pbg(), ask: () => Settings.ask(), policy: () => Settings.policy(), out: () => Settings.logout(),
       addacc: () => Settings.addAccount(), acc: (el) => Settings.switchTo(+el.dataset.v), install: () => Settings.install(),
     };
     box.onclick = (e) => {
@@ -200,10 +201,40 @@ const Settings = {
   },
 
   // выход: сначала завершаем сессию на сервере, иначе токен проживёт ещё 30 дней и останется в «Устройствах»
+  // ── фон профиля (Premium): палитры с мягким светом и узором, превью — настоящая шапка профиля ──
+  pbg() {
+    const pg = Pg.open({ title: T("Фон профиля"), build: (p) => Settings.drawPbg(p) });
+    pg.on.pick = async (el) => {
+      const id = el.dataset.v || "";
+      const u = App.user;
+      if (id && !u.premium && !u.admin) { haptic(); return typeof PremiumPromo !== "undefined" ? PremiumPromo.open(u) : toast(T("Фоны профиля доступны с Premium")); }
+      haptic();
+      try {
+        const d = await api("/api/me/pbg", { method: "POST", body: { id } });
+        Object.assign(App.user, { pbg: d.user.pbg || "" });
+        guard("profile", () => Profile.render());
+        Settings.drawPbg(pg);
+      } catch (e) { toast(e.message); }
+    };
+  },
+  drawPbg(pg) {
+    const u = App.user, cur = u.pbg || "";
+    const ck = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+    const tiles = PBG.list.map((x) => `<button class="pbg-tile pf-hero prem pat-${x.pat}${x.light ? " pbg-light" : ""}${cur === x.id ? " on" : ""}" style="${PBG.style(x.p)}" data-a="pick" data-v="${x.id}">${PBG.orbs()}<b>${esc(T(x.n))}</b><i class="pbg-ck">${ck}</i></button>`).join("");
+    const preview = Object.assign({}, u, { pbg: cur, premium: u.premium || u.admin ? 1 : u.premium });
+    const ph = premHero(preview);
+    pg.set(`
+      <div class="pbg-prev"><div class="pf-hero${ph.cls}"${ph.style}>${ph.pat}<div class="pf-av">${Stories.av(u, "xl")}</div><h2>${profName(u)}</h2><div class="st2 on">${esc(T("в сети"))}</div></div></div>
+      ${R.hint(esc(T(u.premium || u.admin ? "Выберите фон — его увидят все в вашем профиле. Надетый коллекционный подарок задаёт фон сам." : "Фоны профиля доступны с Premium.")))}
+      <div class="pbg-grid"><button class="pbg-none${cur ? "" : " on"}" data-a="pick" data-v="">${esc(T("Без фона"))}</button>${tiles}</div>`);
+  },
+
   async logout() {
     if (!(await ask(T("Выйти из этого аккаунта?"), T("Выйти")))) return;
     const tok = Store.token;
+    try { await AppPush.logout(); } catch (e) {}           // этот телефон больше не получает уведомления аккаунта
     try { await api("/api/auth/logout", { method: "POST", body: {} }); } catch (e) {}
+    try { await tmoC(OC.wipe(), 800); } catch (e) {}     // сохранённые чаты аккаунта стираем с устройства
     Accounts.remove(tok);
     Store.token = "";
     location.reload();

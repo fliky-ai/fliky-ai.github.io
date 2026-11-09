@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no,interactive-widget=resizes-content">
 <meta name="theme-color" content="#0E1218">
 <meta name="application-name" content="Dicegram">
 <meta name="apple-mobile-web-app-title" content="Dicegram">
@@ -23,19 +23,19 @@ if(!document.documentElement.dataset.theme)document.documentElement.dataset.them
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20261104k">
-<link rel="stylesheet" href="chat.css?v=20261104k">
-<link rel="stylesheet" href="profile.css?v=20261104k">
-<link rel="stylesheet" href="theme.css?v=20261104k">
-<link rel="stylesheet" href="settings.css?v=20261104k">
-<link rel="stylesheet" href="premium.css?v=20261104k">
-<link rel="stylesheet" href="gifts.css?v=20261104k">
-<link rel="stylesheet" href="tg.css?v=20261104k">
-<link rel="stylesheet" href="groups.css?v=20261104k">
-<link rel="stylesheet" href="call.css?v=20261104k">
-<link rel="stylesheet" href="intro.css?v=20261104k">
-<link rel="stylesheet" href="modern.css?v=20261104k">
-<link rel="stylesheet" href="games.css?v=20261104k">
+<link rel="stylesheet" href="style.css?v=20261109a">
+<link rel="stylesheet" href="chat.css?v=20261109a">
+<link rel="stylesheet" href="profile.css?v=20261109a">
+<link rel="stylesheet" href="theme.css?v=20261109a">
+<link rel="stylesheet" href="settings.css?v=20261109a">
+<link rel="stylesheet" href="premium.css?v=20261109a">
+<link rel="stylesheet" href="gifts.css?v=20261109a">
+<link rel="stylesheet" href="tg.css?v=20261109a">
+<link rel="stylesheet" href="groups.css?v=20261109a">
+<link rel="stylesheet" href="call.css?v=20261109a">
+<link rel="stylesheet" href="intro.css?v=20261109a">
+<link rel="stylesheet" href="modern.css?v=20261109a">
+<link rel="stylesheet" href="games.css?v=20261109a">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
@@ -252,7 +252,7 @@ window.__boot = { errs: [], miss: [], net: "" };
 
     <div class="ed-lbl between"><span>«О себе»</span><span id="ed-bio-cnt" class="cnt">70</span></div>
     <div class="card2 fields"><textarea id="ed-bio" rows="2" maxlength="70" placeholder="О себе" aria-label="О себе"></textarea></div>
-    <div class="ed-hint">Напишите немного о себе.</div>
+    <div class="ed-hint">Напишите немного о себе. С Premium можно добавить свои эмодзи — кнопка справа.</div>
 
     <div class="ed-lbl">Информация о Вас</div>
     <div class="card2 irows">
@@ -273,49 +273,56 @@ window.__boot = { errs: [], miss: [], net: "" };
 <div id="toast" class="toast"></div>
 
 <script src="config.js"></script>
-<script src="i18n.js?v=20261104k"></script>
-<script src="lang_en.js?v=20261104k"></script>
-<script src="api.js?v=20261104k"></script>
-<script src="prefs.js?v=20261104k"></script>
-<script src="rich.js?v=20261104k"></script>
-<script src="ui.js?v=20261104k"></script>
-<script src="register.js?v=20261104k"></script>
-<script src="intro.js?v=20261104k"></script>
-<script src="chats.js?v=20261104k"></script>
-<script src="search.js?v=20261104k"></script>
-<script src="editor.js?v=20261104k"></script>
-<script src="voice.js?v=20261104k"></script>
-<script src="attach.js?v=20261104k"></script>
-<script src="fx.js?v=20261104k"></script>
-<script src="stickers.js?v=20261104k"></script>
-<script src="gifmaker.js?v=20261104k"></script>
-<script src="menu.js?v=20261104k"></script>
-<script src="chat.js?v=20261104k"></script>
-<script src="contacts.js?v=20261104k"></script>
-<script src="groups.js?v=20261104k"></script>
-<script src="grp_edit.js?v=20261104k"></script>
-<script src="voicefx.js?v=20261104k"></script>
-<script src="call.js?v=20261104k"></script>
-<script src="stories.js?v=20261104k"></script>
-<script src="userprofile.js?v=20261104k"></script>
-<script src="cropper.js?v=20261104k"></script>
-<script src="profile.js?v=20261104k"></script>
-<script src="pg.js?v=20261104k"></script>
-<script src="settings.js?v=20261104k"></script>
-<script src="set_look.js?v=20261104k"></script>
-<script src="set_safe.js?v=20261104k"></script>
-<script src="set_misc.js?v=20261104k"></script>
-<script src="set_prem.js?v=20261104k"></script>
-<script src="premium.js?v=20261104k"></script>
-<script src="gifts.js?v=20261104k"></script>
-<script src="cemoji.js?v=20261104k"></script>
-<script src="links.js?v=20261104k"></script>
-<script src="fileview.js?v=20261104k"></script>
-<script src="qr.js?v=20261104k"></script>
-<script src="games.js?v=20261104k"></script>
-<script src="game2048.js?v=20261104k"></script>
-<script src="gameblocks.js?v=20261104k"></script>
-<script src="gamesand.js?v=20261104k"></script>
-<script src="app.js?v=20261104k"></script>
+<script src="i18n.js?v=20261109a"></script>
+<script src="lang_en.js?v=20261109a"></script>
+<script src="api.js?v=20261109a"></script>
+<script src="offline.js?v=20261109a"></script>
+<script src="prefs.js?v=20261109a"></script>
+<script src="rich.js?v=20261109a"></script>
+<script src="ui.js?v=20261109a"></script>
+<script src="register.js?v=20261109a"></script>
+<script src="intro.js?v=20261109a"></script>
+<script src="chats.js?v=20261109a"></script>
+<script src="search.js?v=20261109a"></script>
+<script src="editor.js?v=20261109a"></script>
+<script src="voice.js?v=20261109a"></script>
+<script src="attach.js?v=20261109a"></script>
+<script src="fx.js?v=20261109a"></script>
+<script src="stickers.js?v=20261109a"></script>
+<script src="emojipick.js?v=20261109a"></script>
+<script src="gifmaker.js?v=20261109a"></script>
+<script src="menu.js?v=20261109a"></script>
+<script src="chat.js?v=20261109a"></script>
+<script src="contacts.js?v=20261109a"></script>
+<script src="groups.js?v=20261109a"></script>
+<script src="grp_edit.js?v=20261109a"></script>
+<script src="voicefx.js?v=20261109a"></script>
+<script src="call.js?v=20261109a"></script>
+<script src="stories.js?v=20261109a"></script>
+<script src="userprofile.js?v=20261109a"></script>
+<script src="cropper.js?v=20261109a"></script>
+<script src="profile.js?v=20261109a"></script>
+<script src="pg.js?v=20261109a"></script>
+<script src="settings.js?v=20261109a"></script>
+<script src="set_look.js?v=20261109a"></script>
+<script src="set_safe.js?v=20261109a"></script>
+<script src="set_misc.js?v=20261109a"></script>
+<script src="set_prem.js?v=20261109a"></script>
+<script src="premium.js?v=20261109a"></script>
+<script src="gifts.js?v=20261109a"></script>
+<script src="cemoji.js?v=20261109a"></script>
+<script src="links.js?v=20261109a"></script>
+<script src="fileview.js?v=20261109a"></script>
+<script src="music.js?v=20261109a"></script>
+<script src="downloads.js?v=20261109a"></script>
+<script src="gallery.js?v=20261109a"></script>
+<script src="qr.js?v=20261109a"></script>
+<script src="admin.js?v=20261109a"></script>
+<script src="sharein.js?v=20261109a"></script>
+<script src="games.js?v=20261109a"></script>
+<script src="game2048.js?v=20261109a"></script>
+<script src="gameblocks.js?v=20261109a"></script>
+<script src="gamesand.js?v=20261109a"></script>
+<script src="app.js?v=20261109a"></script>
 </body>
 </html>

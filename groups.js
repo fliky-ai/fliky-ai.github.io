@@ -16,7 +16,7 @@ const Svc = {
   kindOf(m) { const c = Chats.byId(m.receiver); return (c && c.peer.gk) || (Chat.peer && Chat.peer.id === m.receiver && Chat.peer.gk) || "group"; },
   list(s) {
     const me = App.user.id, to = s.to || [];
-    const names = to.map((x) => (x.id === me ? T("вас") : x.name));
+    const names = to.map((x) => (x.id === me ? T("вас") : cleanName(x.name) || T("Пользователь")));
     let t = names.slice(0, 3).join(", ");
     const rest = to.length - Math.min(3, to.length) + (s.more || 0);
     if (rest > 0) t += " " + T("и ещё {0}", rest);
@@ -24,7 +24,7 @@ const Svc = {
   },
   text(m) {
     const s = m.svc || {}, by = s.by || {}, me = App.user.id, mine = by.id === me, ch = Svc.kindOf(m) === "channel";
-    const who = mine ? T("Вы") : by.name || T("Пользователь"), L = Svc.list(s);
+    const who = mine ? T("Вы") : cleanName(by.name) || T("Пользователь"), L = Svc.list(s);
     switch (s.t) {
       case "create": return mine ? T(ch ? "Вы создали канал" : "Вы создали группу") : T(ch ? "Канал создан" : "{0} создал(а) группу", who);
       case "add": return (s.to || []).length === 1 && s.to[0].id === by.id ? (mine ? T("Вы вернулись в группу") : T("{0} вернулся в группу", who))
@@ -149,7 +149,7 @@ const Groups = {
   syncBars() {
     const p = Chat.peer, call = $("chat-call"), more = $("chat-more"), add = $("addbar"), vc = $("vcbar");
     if (!p) return;
-    const show = !(p.is_system) && !(p.gk === "channel" && !p.vc && !(p.rights && p.rights.calls));
+    const show = !(p.is_system) && !p.deleted && !(p.gk === "channel" && !p.vc && !(p.rights && p.rights.calls));
     call.classList.toggle("hidden", !show);
     more.classList.toggle("hidden", !!p.is_system);
     call.innerHTML = p.gk ? CALLI.vchat : CALLI.phone;
@@ -170,6 +170,7 @@ const Groups = {
     catch (e) { return toast(e.message || T("Ссылка недействительна или устарела")); }
     if (p.joined || p.role) { const c = Chats.byId(p.id); return Chats.openChat(c ? c.peer : p); }
     const ch = p.gk === "channel";
+    if (p.banned) return UI.sheet({ icon: avatar(p), title: T(ch ? "Вы заблокированы в канале" : "Вы заблокированы в группе"), text: p.name, actions: [], cancel: T("Понятно") });
     const ok = await UI.sheet({
       icon: avatar(p), title: p.name, text: statusText(p) + (p.bio ? "\n\n" + p.bio : ""),
       actions: [{ label: T(ch ? "Подписаться" : "Вступить в группу"), value: true, accent: true }], cancel: T("Отмена"),

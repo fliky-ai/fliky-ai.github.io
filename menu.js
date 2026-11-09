@@ -12,6 +12,8 @@ const MIC = {
   del: svg('<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/>'),
   stk: svg('<path d="M20.5 12.5V8a4.5 4.5 0 0 0-4.5-4.5H8A4.5 4.5 0 0 0 3.5 8v8A4.5 4.5 0 0 0 8 20.5h4.5z"/><path d="M20.5 12.5a8 8 0 0 0-8 8"/>'),
   dl: svg('<path d="M12 4v11"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/>'),
+  save: svg('<rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M12 7v7"/><path d="m9 11.5 3 3 3-3"/><path d="M10.5 18.5h3"/>'),
+  link: svg('<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>'),
   more: svg('<path d="m6 9 6 6 6-6"/>'),
 };
 
@@ -29,11 +31,12 @@ const MsgMenu = {
     if (m.id && canWrite) L.push(["reply", "Ответить"]);
     if (m.text) L.push(["copy", "Копировать"]);
     if (m.id) L.push(["forward", "Переслать"]);
+    if (m.id && gk) L.push(["link", "Копировать ссылку"]);
     if (m.id && canPin) L.push([m.pin ? "unpin" : "pin", m.pin ? "Открепить" : "Закрепить"]);
     if (m.id && (mine || editOther) && (k === "text" || k === "photo" || k === "gif" || k === "file")) L.push(["edit", "Изменить"]);
     if (k === "sticker" && a.fid) L.push(["stk", "Добавить в мои стикеры"]);
     if (k === "gif" && a.fid) L.push(["gif", "Сохранить GIF"]);
-    if ((k === "photo" || k === "file" || k === "voice" || k === "gif") && a.url && !m.pending) L.push(["dl", "Скачать"]);
+    if ((k === "photo" || k === "file" || k === "voice" || k === "gif") && a.url && !m.pending) { L.push(["dl", "Скачать"]); L.push(["save", "Сохранить на телефон"]); }
     if (!gk || mine || delOther) L.push(["del", "Удалить"]);
     return L;
   },

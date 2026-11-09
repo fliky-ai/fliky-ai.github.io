@@ -211,6 +211,7 @@ Object.assign(Settings, {
         if (inTG()) return toast(T("В мини-приложении системные уведомления недоступны. Установите Dicegram как приложение или включите уведомления через бота ниже."));
         if (Notif.perm() === "unsupported") return toast(T("Этот браузер не поддерживает уведомления"));
         if (Notif.perm() === "denied") return UI.sheet({ title: T("Уведомления заблокированы"), text: T("Разрешите уведомления для этого сайта в настройках браузера или телефона, затем вернитесь сюда."), actions: [], cancel: T("Понятно") });
+        if (AppPush.isApp()) { await AppPush.init(); return Settings.drawNotif(pg); }
         try { await Notification.requestPermission(); } catch (e) {}
         await Notif.register(); guard("push", () => Notif.subscribePush()); Settings.drawNotif(pg);
       },
@@ -242,7 +243,7 @@ Object.assign(Settings, {
         R.row({ a: "react", ic: SI.heart, c: "r", t: esc(T("Реакции на сообщения")), sw: 1, on: g("react") }))}
       ${R.lbl(esc(T(inTG() ? "В приложении" : "В браузере")))}
       ${R.card(R.row({ a: "allow", ic: SI.bell, c: "t", t: esc(T("Системные уведомления")), r: esc(st), chev: p !== "granted" }), R.row({ a: "test", ic: SI.zap, c: "y2", t: esc(T("Проверить уведомление")), chev: false }))}
-      ${R.hint(esc(T("Работают, пока приложение открыто или свёрнуто. В мини-приложении системные уведомления могут быть недоступны — для этого есть уведомления через бота.")))}
+      ${R.hint(esc(T(AppPush.isApp() ? "В приложении Dicegram сообщения и звонки приходят, даже когда оно свёрнуто или закрыто." : "Приходят, даже когда вкладка свёрнута или закрыта (если браузер разрешает). В мини-приложении системные уведомления могут быть недоступны — для этого есть уведомления через бота.")))}
       ${R.lbl(esc(T("Через бота в Telegram")))}
       ${R.card(
         R.row({ a: "botOn", ic: SI.bot, c: "b", t: esc(T("Присылать в Telegram")), s: esc(T("Если вы не в сети, бот напишет вам о новом сообщении")), sw: 1, on: !!n.bot }),

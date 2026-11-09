@@ -240,6 +240,9 @@ const App = {
     guard("lock", () => Lock.init());
     guard("notif", () => Notif.register());
     guard("pushcall", () => App.bindPushCall());
+    guard("sharein", () => ShareIn.init());
+    guard("downloads", () => DL.init());                                 // кнопка «Загрузки» вверху списка чатов
+    guard("music", () => Music.init());
     guard("media", () => Media.trim());
     guard("anim", () => Settings.applyAnim());
     guard("energy", () => Energy.update());
@@ -302,13 +305,20 @@ const App = {
     guard("profile", () => Profile.render());               // внутри обновляет и вкладку «Настройки»
     guard("tabav", () => App.tabAvatar());
     guard("lists", () => { Chats.load(); Stories.load(true); Profile.loadStories(); });
+    guard("outbox", () => Outbox.restore());
     guard("ws", () => App.connect());
     guard("go", () => App.go("chats"));
     guard("hash", () => { App.openHash(); Chat.loadQuick(); });
     // разрешение на уведомления могли дать раньше — подписку на Web Push (звонки в фоне) проверяем/обновляем каждый запуск
     guard("push", () => { if (Notif.perm() === "granted") Notif.subscribePush(); });
+    guard("apppush", () => { AppPush.init(); Notif.syncCloud(); });     // APK: уведомления через Firebase (AppMint Push)
+    guard("sharein", () => ShareIn.ready());                            // прислали что-то из другого приложения — «Отправить в…»
+    guard("deeplink", () => { if (!App.dlBound) { App.dlBound = true; DeepLink.init(); } else if (DeepLink.wait) DeepLink.openChat(DeepLink.wait); });
     setInterval(() => { try { Chat.updateHeader(); } catch (e) {} }, 30000);
-    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { guard("resume", () => { App.connect(); Chats.load(); Chat.sync(); }); } });
+    document.addEventListener("visibilitychange", () => {
+      App.sendVis();
+      if (document.visibilityState === "visible") { guard("resume", () => { App.connect(); Chats.load(); Chat.sync(); }); }
+    });
     addEventListener("online", () => App.connect());
   },
 
@@ -317,10 +327,10 @@ const App = {
   async openHash() {
     let code = "";
     try { code = (TGW && TGW.initDataUnsafe && TGW.initDataUnsafe.start_param) || ""; } catch (e) {}
-    const h = /[#&]([cjpeu])=([A-Za-z0-9_-]{2,40})/.exec(location.hash || "");
+    const h = /[#&]([cjpeuk])=([A-Za-z0-9_-]{1,60})/.exec(location.hash || "");
     let kind = "", val = "";
     if (h) { kind = h[1]; val = h[2]; }
-    else { const m = /^([cjpeu])_([A-Za-z0-9_-]{2,40})$/.exec(code); if (m) { kind = m[1]; val = m[2]; } }
+    else { const m = /^([cjpeuk])_([A-Za-z0-9_-]{1,60})$/.exec(code); if (m) { kind = m[1]; val = m[2]; } }
     if (!kind) return;
     try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
     return Links.go(kind, val);
@@ -331,7 +341,9 @@ const App = {
   bindPushCall() {
     try {
       if (navigator.serviceWorker) navigator.serviceWorker.addEventListener("message", (e) => {
-        const m = e.data; if (!m || m.type !== "push-call" || !m.data || !m.data.call) return;
+        const m = e.data;
+        if (m && m.type === "open-link" && m.link) return guard("deeplink", () => DeepLink.go(m.link));
+        if (!m || m.type !== "push-call" || !m.data || !m.data.call) return;
         App.pendingCall = { action: m.action, data: m.data };
         if (Calls.online()) App.resolvePendingCall();
       });
@@ -368,14 +380,30 @@ const App = {
     if (tab === "settings") { Settings.fetchUnread(); }
   },
 
+  // серверу важно знать, смотрит ли человек в приложение: свёрнутое приложение держит соединение,
+  // но уведомление о сообщении/звонке ему всё равно нужно
+  sendVis() { try { if (App.ws && App.ws.readyState === 1) App.ws.send(JSON.stringify({ type: "vis", on: document.visibilityState === "visible" })); } catch (e) {} },
   setOnline(v) { $("app").classList.toggle("offline", !v); if (!v) guard("net", () => Net2.paint()); },
   // аккаунт заблокирован администрацией: сеансы уже завершены сервером
-  banned() {
+  banned(deleted) {
+    if (App.bannedShown) return;
+    App.bannedShown = true;
     try { OC.wipe(); } catch (e) {}
+    try { AppPush.logout(); } catch (e) {}
+    try { if (App.ws) App.ws.onclose = null; } catch (e) {}
     Accounts.remove(Store.token); Store.token = "";
     const b = $("boot"); if (b) b.classList.add("hidden");
-    UI.sheet({ title: T("Аккаунт заблокирован"), text: T("Ваш аккаунт был заблокирован администрацией Dicegram за нарушение правил."),
-      actions: [{ label: T("Помощь (скоро)"), value: "help" }], cancel: T("ОК") }).then(() => location.reload());
+    App.banSheet(deleted).then(() => location.reload());
+  },
+  // «Ваш аккаунт был заблокирован»: ОК и «Помощь (скоро)»
+  async banSheet(deleted) {
+    for (;;) {
+      const v = await UI.sheet({ title: T(deleted ? "Аккаунт удалён" : "Аккаунт заблокирован"),
+        text: T(deleted ? "Ваш аккаунт Dicegram был удалён администрацией." : "Ваш аккаунт был заблокирован администрацией Dicegram за нарушение правил."),
+        actions: [{ label: T("Помощь (скоро)"), value: "help" }], cancel: T("ОК") });
+      if (v !== "help") return;
+      toast(T("Раздел помощи скоро появится"));
+    }
   },
 
   // WebSocket: токен уходит первым сообщением, а не в адресе (адреса попадают в логи прокси).
@@ -391,7 +419,8 @@ const App = {
       let d; try { d = JSON.parse(ev.data); } catch (e) { return; }
       guard("rx", () => Net.add("rx", "msg", (ev.data || "").length));
       if (d.type === "ready") {   // сервер принял токен
-        App.retry = 0; App.setOnline(true); Chats.load(); Chat.sync();
+        App.retry = 0; App.setOnline(true); Chats.load(); Chat.sync(); App.sendVis();
+        guard("outbox", () => Outbox.flush());       // сообщения, написанные без сети, уходят сами
         clearInterval(App.pingT); App.pingT = setInterval(() => ws.readyState === 1 && ws.send("ping"), 25000);
         if (App.pendingCall) guard("pushcall", () => App.resolvePendingCall());
       }
@@ -403,11 +432,13 @@ const App = {
       else if (d.type === "pin") Chat.onPin(d);
       else if (d.type === "cc") Chat.onCC(d);
       else if (d.type === "presence") App.presence(d);
+      else if (d.type === "typing") guard("typing", () => Typing.on(d));
       else if (d.type === "chat") guard("groups", () => Groups.onChat(d));
       else if (d.type === "chat_gone") guard("groups", () => Groups.onGone(d.id));
       else if (d.type === "vc") guard("calls", () => Calls.onVC(d));
       else if (d.type === "rtc") guard("calls", () => Calls.onRTC(d));
       else if (d.type === "profile") App.profile(d.user);
+      else if (d.type === "banned") return App.banned(d.deleted);
       else if (d.type === "block") guard("block", () => App.onBlock(d));
       else if (d.type === "story") { guard("notify", () => Notif.onStory(d.user)); Stories.load(true); if (d.user === App.user.id) Profile.loadStories(); if (UserProfile.cur && UserProfile.cur.id === d.user) UserProfile.loadStories(d.user); }
     };
@@ -435,7 +466,7 @@ const App = {
     try { UserProfile.onBlock(d); } catch (e) {}
   },
   profile(u) {
-    App.patchUser(u.id, { name: u.name, surname: u.surname, username: u.username, bio: u.bio, avatar: u.avatar, premium: u.premium ? 1 : 0, estatus: u.estatus || null, nft: u.nft || null, verified: u.verified ? 1 : 0 });
+    App.patchUser(u.id, { name: u.name, surname: u.surname, username: u.username, bio: u.bio, bio_ents: u.bio_ents || null, avatar: u.avatar, premium: u.premium ? 1 : 0, estatus: u.estatus || null, nft: u.nft || null, verified: u.verified ? 1 : 0, vtier: u.vtier || "", pbg: u.pbg || "", deleted: u.deleted ? 1 : 0 });
     Chats.render(); if (u.id === App.user.id) { Profile.render(); guard("tabav", () => App.tabAvatar()); }
     // открыт профиль этого человека — обновляем и его (значок, статус)
     guard("uprofile", () => { if (UserProfile.cur && UserProfile.cur.id === u.id) { UserProfile.cur = Object.assign({}, UserProfile.cur, u); UserProfile.render(UserProfile.cur); } });
@@ -445,7 +476,8 @@ const App = {
   health() {
     const has = (f) => { try { return !!f(); } catch (e) { return false; } };
     const chk = {
-      "set_misc.js": () => Notif && Folders && Media && typeof Settings.notif === "function" && typeof Settings.data === "function" && typeof Settings.folders === "function",
+      "set_misc.js": () => Notif && Folders && Media && AppPush && DeepLink && typeof Settings.notif === "function" && typeof Settings.data === "function" && typeof Settings.folders === "function",
+      "offline.js": () => OC && Net2 && typeof OC.get === "function" && typeof tmoC === "function",
       "set_prem.js": () => typeof Settings.premium === "function" && typeof Settings.stars === "function",
       "set_safe.js": () => typeof Settings.privacy === "function" && Lock,
       "set_look.js": () => typeof Settings.chats === "function" && typeof Settings.energy === "function",
@@ -455,9 +487,15 @@ const App = {
       "intro.js": () => Intro && typeof Intro.show === "function",
       "gifts.js": () => Gifts && GiftArt && typeof Gifts.shop === "function",
       "cemoji.js": () => CE && React && EmojiPack,
+      "emojipick.js": () => EmojiSearch && RClip && EmojiPick && BioEd && typeof Rich.splice === "function",
       "links.js": () => Links && typeof Links.go === "function",
       "fileview.js": () => FV && typeof FV.open === "function",
+      "music.js": () => Music && typeof Music.play === "function" && typeof Music.mountView === "function",
+      "downloads.js": () => DL && typeof DL.get === "function" && typeof DL.openPage === "function",
+      "gallery.js": () => Gallery && typeof Gallery.open === "function" && typeof Gallery.send === "function",
       "qr.js": () => QR && QRCard && typeof QR.matrix === "function" && typeof QRCard.open === "function",
+      "admin.js": () => HCReport && typeof HCReport.open === "function",
+      "sharein.js": () => ShareIn && typeof ShareIn.init === "function",
       "games.js": () => Games && GameSession && GameClicker && typeof Games.open === "function" && typeof GameClicker.open === "function",
       "game2048.js": () => G2048 && Game2048 && typeof Game2048.open === "function",
       "gameblocks.js": () => GBlocks && GameBlocks && typeof GameBlocks.open === "function",
@@ -472,7 +510,7 @@ const App = {
       "voicefx.js": () => VoiceFX && typeof VoiceFX.process === "function",
       "call.js": () => Calls && typeof Calls.start === "function",
       "settings.js": () => Settings && Accounts,
-      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261104k/.test([...document.scripts].map((x) => x.src).join(" ")),
+      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261109a/.test([...document.scripts].map((x) => x.src).join(" ")),
     };
     const bad = Object.keys(chk).filter((k) => !has(chk[k]));
     const miss = (window.__boot && window.__boot.miss || []).filter((x, i, a) => a.indexOf(x) === i && /\.(js|css)$/.test(x));

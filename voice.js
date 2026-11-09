@@ -229,6 +229,7 @@ const Voice = {
       const ms = performance.now() - Rec.t0;
       $("rec-time").textContent = fmtDur(ms).replace(/^(\d+:\d+)$/, "$1") + "," + Math.floor((ms % 1000) / 100);
       $("btn-main").style.setProperty("--lvl", Rec.level().toFixed(2));
+      try { Typing.send("voice"); } catch (e) {}           // собеседник видит «записывает голосовое…»
       if (ms >= MAX_MS) return Voice.finish(true);
       Voice.raf = requestAnimationFrame(tick);
     };

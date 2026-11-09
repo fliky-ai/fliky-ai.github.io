@@ -10,8 +10,13 @@
 .gav{position:absolute;left:-40px;bottom:0;width:32px;height:32px;cursor:pointer}
 .gav .av{width:32px;height:32px}
 .gav .av-l{font-size:14px}
-.gname{display:flex;align-items:baseline;gap:6px;font-weight:700;font-size:13.5px;line-height:1.25;margin-bottom:2px;cursor:pointer;max-width:100%;overflow:hidden;white-space:nowrap}
-.gname .pi,.gname svg{width:13px;height:13px;flex:none;align-self:center}
+.gname{display:flex;align-items:center;gap:4px;font-weight:700;font-size:13.5px;line-height:1.25;margin-bottom:2px;cursor:pointer;max-width:100%;overflow:hidden;white-space:nowrap}
+.gname .gn-t{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.gname .pi,.gname>svg{width:14px;height:14px;flex:none;align-self:center}
+.gname .ver{width:15px;height:15px;flex:none}
+.gname .gbadge{width:18px;height:18px;flex:none;display:inline-grid;place-items:center;font-style:normal}
+.gname .gbadge svg,.gname .gbadge img,.gname .gbadge video{width:18px;height:18px;margin:0}
+.gname .gbadge .nft-e{font-size:15px;line-height:1}
 .grole{font-style:normal;font-weight:600;font-size:11.5px;color:var(--dim);margin-left:auto;padding-left:10px;white-space:nowrap}
 .b.in.g .tx{display:block}
 

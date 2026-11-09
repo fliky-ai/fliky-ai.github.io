@@ -195,41 +195,71 @@ const FV = {
   async textView(a) {
     const ctx = FV.shell(a, [["wrap", "wrap", T("Перенос строк")], ["fs", "aa", T("Размер текста")], ["copy", "copy", T("Копировать")]]);
     FV.loading(ctx);
-    const LIMIT = 1048576;
+    const LIMIT = 8 * 1048576;                                   // до 8 МБ текста: показ «окнами», поэтому не тормозит и не вылетает
     let r;
-    try { r = await FV.bytes(a, LIMIT); } catch (e) { return FV.fail(ctx, a, e.message); }
+    try { r = await FV.bytes(a, LIMIT, (p) => { if (!ctx.dead) { const s = ctx.body.querySelector(".fv-load span"); if (s) s.textContent = T("Загрузка {0}%", Math.round(p * 100)); } }); }
+    catch (e) { return FV.fail(ctx, a, e.message); }
     if (ctx.dead) return;
     const text = FV.decode(r.buf);
+    r = null;
     if (text === null) return FV.fail(ctx, a, T("Это не текстовый файл"));
     let src = text, e = FV.extOf(a);
-    if (/^(json)$/.test(e) && !r.cut && src.length < 500000 && !/\n/.test(src.trim())) { try { src = JSON.stringify(JSON.parse(src), null, 2); } catch (er) {} }   // «сжатый» JSON — красиво по строкам
-    const lines = FV.lines(src, FV.styleOf(e));
-    const nl = lines.length;
-    ctx.sub.textContent = nl + " " + plural(nl, T("строка"), T("строки"), T("строк")) + (a.size ? " · " + fmtSize(a.size) : "") + (r.cut ? " · " + T("показаны первые {0}", fmtSize(LIMIT)) : "");
+    if (/^(json)$/.test(e) && src.length < 500000 && !/\n/.test(src.trim())) { try { src = JSON.stringify(JSON.parse(src), null, 2); } catch (er) {} }   // «сжатый» JSON — красиво по строкам
+    const style = FV.styleOf(e), hl = !!style && src.length <= 300000;
+    // строки: при подсветке — готовый HTML, иначе — сырой текст (экранируем при показе);
+    // очень длинная строка (минифицированный файл) режется на куски по 4000 символов, номер — только у первого куска
+    const L = [], N = [];
+    const src0 = hl ? FV.lines(src, style) : src.split("\n");
+    if (!hl && src0.length > 1 && src0[src0.length - 1] === "") src0.pop();
+    for (let i = 0; i < src0.length; i++) {
+      const ln = src0[i];
+      if (!hl && ln.length > 4000) { for (let k = 0; k < ln.length; k += 4000) { L.push(ln.slice(k, k + 4000)); N.push(k ? 0 : i + 1); } }
+      else { L.push(ln); N.push(i + 1); }
+    }
+    const nl = src0.length;
+    ctx.sub.textContent = nl + " " + plural(nl, T("строка"), T("строки"), T("строк")) + (a.size ? " · " + fmtSize(a.size) : "") + (a.size > LIMIT ? " · " + T("показаны первые {0}", fmtSize(LIMIT)) : "");
     let fs = 13, wrap = true;
     try { fs = +localStorage.getItem("fv_fs") || 13; wrap = localStorage.getItem("fv_wrap") !== "0"; } catch (er) {}
     ctx.body.innerHTML = `<div class="fv-code"><div class="fv-in"></div></div>`;
     const box = ctx.body.querySelector(".fv-code"), inn = box.querySelector(".fv-in");
-    const apply = () => {
+    const B = 150, nb = Math.ceil(L.length / B);                    // блоки по 150 строк; на экране живут только ближние
+    const H = new Array(nb).fill(0);                                 // измеренная высота блока (0 — ещё не мерили)
+    let lh = 20;
+    const line = (i) => `<div class="fv-l${N[i] ? "" : " ct"}"${N[i] ? ` data-n="${N[i]}"` : ""}>${hl ? L[i] : esc(L[i])}</div>`;
+    const est = (b) => { const n = Math.min(L.length, (b + 1) * B) - b * B; return Math.max(n * lh, 1); };
+    const fill = (el) => {
+      const b = +el.dataset.b, from = b * B, to = Math.min(L.length, from + B);
+      let h = ""; for (let i = from; i < to; i++) h += line(i);
+      el.innerHTML = h; el.style.height = ""; el._on = true;
+      H[b] = el.offsetHeight || H[b];
+    };
+    const empty = (el) => { if (!el._on) return; const b = +el.dataset.b; H[b] = el.offsetHeight || H[b]; el.style.height = (H[b] || est(b)) + "px"; el.innerHTML = ""; el._on = false; };
+    let io = null;
+    const build = () => {
+      if (io) io.disconnect();
+      const probe = document.createElement("div"); probe.className = "fv-l"; probe.textContent = "0"; inn.innerHTML = ""; inn.appendChild(probe);
+      lh = probe.offsetHeight || Math.round(fs * 1.55); probe.remove();
+      H.fill(0);
+      let h = ""; for (let b = 0; b < nb; b++) h += `<div class="fv-blk" data-b="${b}" style="height:${est(b)}px"></div>`;
+      inn.innerHTML = h;
+      const blks = [...inn.children];
+      io = new IntersectionObserver((es) => es.forEach((en) => { if (ctx.dead) return; if (en.isIntersecting) fill(en.target); else empty(en.target); }), { root: box, rootMargin: "200% 0px" });
+      blks.forEach((x) => io.observe(x));
+    };
+    const apply = (rebuild) => {
       box.classList.toggle("nowrap", !wrap);
       box.style.setProperty("--fs", fs + "px");
       box.style.setProperty("--g", String(nl).length * 0.62 + 1.9 + "em");
       try { localStorage.setItem("fv_fs", fs); localStorage.setItem("fv_wrap", wrap ? "1" : "0"); } catch (er) {}
+      if (rebuild) { const k = box.scrollHeight ? box.scrollTop / box.scrollHeight : 0; build(); requestAnimationFrame(() => { box.scrollTop = k * box.scrollHeight; }); }
     };
-    apply();
-    // строки добавляются порциями, чтобы большой файл открывался сразу
-    let i = 0;
-    const step = () => {
-      if (ctx.dead) return;
-      const end = Math.min(nl, i + 1500);
-      inn.insertAdjacentHTML("beforeend", lines.slice(i, end).map((l) => `<div class="fv-l">${l}</div>`).join(""));
-      i = end;
-      if (i < nl) requestAnimationFrame(step);
-    };
-    step();
-    ctx.on.wrap = () => { wrap = !wrap; apply(); toast(wrap ? T("Перенос строк включён") : T("Перенос строк выключен")); };
-    ctx.on.fs = () => { fs = fs >= 19 ? 11 : fs + 2; apply(); };
+    apply(false);
+    build();
+    ctx.dispose.push(() => { if (io) io.disconnect(); L.length = 0; });
+    ctx.on.wrap = () => { wrap = !wrap; apply(true); toast(wrap ? T("Перенос строк включён") : T("Перенос строк выключен")); };
+    ctx.on.fs = () => { fs = fs >= 19 ? 11 : fs + 2; apply(true); };
     ctx.on.copy = () => { copyText(src); toast(T("Скопировано")); };
+    ctx.text = { lines: L.length, blocks: nb };
   },
 
   // ───────────── PDF ─────────────
@@ -311,42 +341,10 @@ const FV = {
     ctx.pdf = { doc, pages, zoom };
   },
 
-  // ───────────── аудио ─────────────
+  // ───────────── аудио: большой плеер общего музыкального плеера (music.js) ─────────────
   audioView(a) {
     const ctx = FV.shell(a);
-    const src = fileUrl(a.url), e = FV.extOf(a);
-    const fmt = (s) => { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
-    ctx.body.innerHTML = `<div class="fv-au"><div class="fv-cover"><span class="fv-eq"><i></i><i></i><i></i><i></i></span>${FV.svg("note", 54)}</div>
-      <h3>${esc((a.name || "").replace(/\.[^.]+$/, "") || T("Аудио"))}</h3><p>${esc([e.toUpperCase(), a.size ? fmtSize(a.size) : ""].filter(Boolean).join(" · "))}</p>
-      <div class="fv-seek"><input type="range" min="0" max="1000" value="0" aria-label="${esc(T("Перемотка"))}"><div class="fv-tm"><span class="t0">0:00</span><span class="t1">0:00</span></div></div>
-      <div class="fv-ctl"><button data-a="b" aria-label="${esc(T("Назад на 10 секунд"))}">${FV.svg("back", 28)}<small>10</small></button>
-      <button class="fv-play" data-a="p" aria-label="${esc(T("Воспроизвести"))}">${FV.svg("play", 34)}</button>
-      <button data-a="f" aria-label="${esc(T("Вперёд на 10 секунд"))}">${FV.svg("fwd", 28)}<small>10</small></button></div>
-      <button class="fv-spd" data-a="s">1×</button></div>`;
-    const au = new Audio();
-    au.preload = "metadata"; au.src = src;
-    ctx.dispose.push(() => { try { au.pause(); au.removeAttribute("src"); au.load(); } catch (er) {} });
-    const root = ctx.body.querySelector(".fv-au"), rg = root.querySelector("input"), t0 = root.querySelector(".t0"), t1 = root.querySelector(".t1"), pl = root.querySelector(".fv-play");
-    let drag = false;
-    const paintPlay = () => { pl.innerHTML = FV.svg(au.paused ? "play" : "pause", 34); root.classList.toggle("on", !au.paused); pl.setAttribute("aria-label", au.paused ? T("Воспроизвести") : T("Пауза")); };
-    au.addEventListener("loadedmetadata", () => { t1.textContent = fmt(au.duration); });
-    au.addEventListener("timeupdate", () => { if (!drag && au.duration) rg.value = (au.currentTime / au.duration) * 1000; t0.textContent = fmt(au.currentTime); if (au.duration) t1.textContent = fmt(au.duration); });
-    au.addEventListener("play", paintPlay); au.addEventListener("pause", paintPlay);
-    au.addEventListener("ended", () => { rg.value = 0; au.currentTime = 0; paintPlay(); });
-    au.addEventListener("error", () => { if (!ctx.dead) FV.fail(ctx, a, T("Не удалось воспроизвести этот файл")); });
-    rg.addEventListener("input", () => { drag = true; if (au.duration) t0.textContent = fmt((rg.value / 1000) * au.duration); });
-    rg.addEventListener("change", () => { if (au.duration) au.currentTime = (rg.value / 1000) * au.duration; drag = false; });
-    const SP = [1, 1.25, 1.5, 2, 0.75];
-    root.addEventListener("click", (ev) => {
-      const b = ev.target.closest("button[data-a]"); if (!b) return;
-      haptic();
-      const k = b.dataset.a;
-      if (k === "p") { if (au.paused) au.play().catch(() => {}); else au.pause(); }
-      else if (k === "b") au.currentTime = Math.max(0, au.currentTime - 10);
-      else if (k === "f") au.currentTime = Math.min(au.duration || 1e9, au.currentTime + 10);
-      else if (k === "s") { const n = SP[(SP.indexOf(au.playbackRate) + 1) % SP.length]; au.playbackRate = n; b.textContent = n + "×"; }
-    });
-    au.play().catch(() => {});
-    ctx.audio = au;
+    if (typeof Music !== "undefined") return Music.mountView(ctx, a);
+    FV.otherView(ctx, a);
   },
 };

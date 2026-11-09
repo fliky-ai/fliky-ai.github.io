@@ -471,7 +471,7 @@ const EmojiSets = {
     });
   },
 
-  // картинку приводим к 256 px (PNG), анимацию (GIF/WebP/видео) загружаем как есть
+  // картинку приводим к квадрату 256×256 (PNG), анимацию (GIF/WebP/видео) загружаем как есть
   async upload(sid, file) {
     const t = (file.type || "").toLowerCase(), video = t.startsWith("video/");
     if (!/^(image\/(png|jpeg|webp|gif|avif)|video\/(mp4|webm))$/.test(t)) throw new Error(T("Подходят картинки, GIF, WebP и видео (MP4, WebM)"));
@@ -489,8 +489,11 @@ const EmojiSets = {
       const url = URL.createObjectURL(file), img = new Image();
       img.onload = () => {
         try {
-          const s = Math.min(1, 256 / Math.max(img.naturalWidth, img.naturalHeight)), w = Math.max(1, Math.round(img.naturalWidth * s)), h = Math.max(1, Math.round(img.naturalHeight * s));
-          const c = document.createElement("canvas"); c.width = w; c.height = h; c.getContext("2d").drawImage(img, 0, 0, w, h);
+          // эмодзи всегда квадратный: картинку вписываем в квадрат 256×256 (прозрачные поля), без растяжения
+          const S = Math.max(64, Math.min(256, Math.max(img.naturalWidth, img.naturalHeight)));
+          const s = S / Math.max(img.naturalWidth, img.naturalHeight), w = Math.max(1, Math.round(img.naturalWidth * s)), h = Math.max(1, Math.round(img.naturalHeight * s));
+          const c = document.createElement("canvas"); c.width = S; c.height = S;
+          const g = c.getContext("2d"); g.imageSmoothingQuality = "high"; g.drawImage(img, Math.round((S - w) / 2), Math.round((S - h) / 2), w, h);
           c.toBlob((b) => (b ? res(b) : rej(new Error("png"))), "image/png");
         } catch (e) { rej(e); } finally { URL.revokeObjectURL(url); }
       };

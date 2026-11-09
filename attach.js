@@ -130,7 +130,11 @@ const Attach = {
       if (!b) return;
       const a = b.dataset.a;
       close();
-      if (a === "media") Attach.preview(await Attach.pick("image/*,video/*"));
+      if (a === "media") {
+        // своя «Галерея» (как в Telegram); системное окно — только если галерея недоступна
+        if (typeof Gallery !== "undefined") Gallery.open({ onSend: (list, cap) => Chat.sendGallery(list, cap) });
+        else Attach.preview(await Attach.pick("image/*,video/*"));
+      }
       else if (a === "file") Attach.preview(await Attach.pick(""));
       else if (a === "cam") Camera.open();
     });
@@ -169,7 +173,17 @@ const Attach = {
   },
   max: 50 * 1048576,
 
+  // «Скачать»: как в Telegram — внутрь приложения (видно в «Загрузках», потом открывается без интернета);
+  // то, что приложение не умеет показать (архивы, APK и т.п.), сохраняется сразу на телефон
   download(att) {
+    if (!att || !att.url) return;
+    const local = /^(blob|data):/.test(att.url);
+    if (!local && typeof DL !== "undefined" && typeof FV !== "undefined" && FV.kind(att) !== "other") return DL.get(att);
+    Attach.saveDevice(att);
+    if (!local && typeof DL !== "undefined") { DL.record(att, { ext: 1 }); DL.paint(); }
+  },
+  // сохранить файл в память телефона (папка «Загрузки»)
+  saveDevice(att) {
     const base = fileUrl(att.url), local = /^(blob|data):/.test(base);
     const url = local ? base : base + (base.includes("?") ? "&" : "?") + "dl=1";
     try {

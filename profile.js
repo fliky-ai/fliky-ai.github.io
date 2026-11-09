@@ -21,7 +21,7 @@ const Profile = {
     const u = App.user; if (!u) return;
     const row = (v, l, extra = "") => `<button class="pi" ${extra}><span class="pi-v">${v}</span><span class="pi-l">${l}</span></button>`;
     const rows = [];
-    if (u.bio) rows.push(row(esc(u.bio), "О себе", 'data-copy="' + esc(u.bio) + '"'));
+    if (u.bio) rows.push(row(Rich.render(u.bio, u.bio_ents || []), "О себе", 'data-copy="' + esc(u.bio) + '"'));
     rows.push(row(esc(fmtPhone(u.number)), "Телефон", 'data-copy="' + esc(u.number) + '"'));
     rows.push(u.username ? row("@" + esc(u.username) + (typeof QRCard !== "undefined" ? QRCard.btn() : ""), "Имя пользователя", 'data-copy="@' + esc(u.username) + '"')
                          : row('<span class="dim">Не задано</span>', "Имя пользователя", 'data-edit="1"'));
@@ -36,7 +36,7 @@ const Profile = {
     $("profile-box").innerHTML = `
       <div class="pf-hero${ph.cls}"${ph.style}>${ph.pat}
         <button class="pf-av" id="pf-av" aria-label="Фото профиля">${Stories.av(u, "xl")}</button>
-        <h2>${profName(u)}</h2><div class="st2 on">в сети</div>
+        <h2>${profName(u)}</h2><div class="st2 on">в сети</div>${verLine(u) ? `${u.username ? `<div class="pf-uname">@${esc(u.username)}</div>` : ""}${verLine(u)}` : ""}
         ${u.premium && typeof StatusPicker !== "undefined" ? `<button class="pf-edit-st" id="pf-est">${SI.smile}<span>${esc(T("Эмодзи-статус"))}</span></button>` : ""}
       </div>
       <div class="pf-actions">
@@ -55,7 +55,8 @@ const Profile = {
     $("pf-set").onclick = () => App.go("settings");
     $("profile-box").querySelectorAll(".pi").forEach((b) => (b.onclick = (e) => {
       if (e && e.target.closest("[data-qr]")) { e.stopPropagation(); haptic(); return QRCard.open(App.user); }
-      if (b.dataset.copy) { copyText(b.dataset.copy); toast("Скопировано"); haptic(); }
+      if (e && e.target.closest("a, .mention")) return;          // ссылку из «О себе» откроет общий обработчик
+      if (b.dataset.copy) { const u = App.user; if (u.bio && b.dataset.copy === u.bio && u.bio_ents) RClip.set(u.bio, u.bio_ents); else copyText(b.dataset.copy); toast("Скопировано"); haptic(); }
       else if (b.dataset.edit) Profile.openEdit();
       else if (b.dataset.chan) Profile.channelInfo();
     }));
@@ -186,7 +187,7 @@ const Profile = {
   openEdit() {
     const u = App.user;
     $("ed-name").value = u.name || ""; $("ed-surname").value = u.surname || "";
-    $("ed-user").value = u.username || ""; $("ed-bio").maxLength = u.premium ? 140 : 70; $("ed-bio").value = u.bio || "";
+    $("ed-user").value = u.username || ""; BioEd.set(u.bio || "", u.bio_ents || []);
     $("ed-phone-v").textContent = fmtPhone(u.number);
     Profile.draft = { birthday: u.birthday || "", vis: u.birthday_vis || "contacts" };
     Profile.drawBday();
@@ -203,8 +204,8 @@ const Profile = {
   hint(t, cls = "") { const h = $("ed-user-hint"); h.textContent = t; h.className = cls; },
 
   check() {
-    const u = App.user, un = $("ed-user").value.trim().replace(/^@/, ""), bio = $("ed-bio").value;
-    $("ed-bio-cnt").textContent = String((u.premium ? 140 : 70) - bio.length);
+    const u = App.user, un = $("ed-user").value.trim().replace(/^@/, ""), bioLen = BioEd.el ? BioEd.len() : 0;
+    $("ed-bio-cnt").textContent = String((u.premium ? 140 : 70) - bioLen);
     clearTimeout(Profile.unTimer);
     const rules = "От 5 до 32 символов: латиница, цифры и _. Начинается с буквы.";
     if (!un || un === u.username) { Profile.unOK = true; Profile.hint("Имя пользователя"); }
@@ -225,8 +226,13 @@ const Profile = {
   btn() {
     const u = App.user, name = $("ed-name").value.trim(), un = $("ed-user").value.trim().replace(/^@/, "");
     const changed = name !== (u.name || "") || $("ed-surname").value.trim() !== (u.surname || "") || un !== (u.username || "") ||
-      $("ed-bio").value.trim() !== (u.bio || "") || Profile.draft.birthday !== (u.birthday || "") || Profile.draft.vis !== (u.birthday_vis || "contacts");
+      Profile.bioChanged() || Profile.draft.birthday !== (u.birthday || "") || Profile.draft.vis !== (u.birthday_vis || "contacts");
     $("ed-save").disabled = !(changed && name && Profile.unOK);
+  },
+
+  bioChanged() {
+    const u = App.user, b = BioEd.get(), key = (l) => JSON.stringify((l || []).filter((e) => e.t === "ce").map((e) => [e.o, e.l, e.id]));
+    return b.text !== (u.bio || "") || key(b.ents) !== key(u.bio_ents);
   },
 
   async save() {
@@ -234,7 +240,7 @@ const Profile = {
     try {
       const d = await api("/api/me/update", { method: "POST", body: {
         name: $("ed-name").value.trim(), surname: $("ed-surname").value.trim(), username: $("ed-user").value.trim().replace(/^@/, ""),
-        bio: $("ed-bio").value.trim(), birthday: Profile.draft.birthday, birthday_vis: Profile.draft.vis } });
+        bio: BioEd.get().text, bio_ents: BioEd.get().ents, birthday: Profile.draft.birthday, birthday_vis: Profile.draft.vis } });
       App.user = d.user; Profile.render(); Nav.back(); toast("Профиль сохранён");
     } catch (e) { toast(e.message); Profile.btn(); }
   },
@@ -253,7 +259,8 @@ const Profile = {
   },
 
   bindEdit() {
-    ["ed-name", "ed-surname", "ed-user", "ed-bio"].forEach((id) => $(id).addEventListener("input", () => Profile.check()));
+    BioEd.init();
+    ["ed-name", "ed-surname", "ed-user"].forEach((id) => $(id).addEventListener("input", () => Profile.check()));
     $("ed-save").onclick = () => Profile.save();
     $("ed-phone").onclick = () => UI.sheet({ title: "Номер телефона", icon: PI.phone,
       text: "Номер выдаётся при регистрации через бота и привязан к аккаунту, поэтому изменить его нельзя. Если нужен другой номер, зарегистрируйте новый аккаунт.",

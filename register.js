@@ -225,6 +225,7 @@ const Auth = (() => {
       step(2);
       countdown(60);
     } catch (e) {
+      if (/был заблокирован/.test((e && e.message) || "")) { busy = false; syncArrow(); return App.banSheet(false); }
       err((e && e.message) || "Не удалось отправить код");
       shake($("phone-field"));
     }
@@ -259,6 +260,7 @@ const Auth = (() => {
         step(3);
       } else await finish(d);
     } catch (e) {
+      if (/был заблокирован/.test((e && e.message) || "")) { clearCells(); syncHiddenCode(); step(1); busy = false; return App.banSheet(false); }
       if (e && e.message === T("Этот аккаунт уже добавлен")) { clearCells(); syncHiddenCode(); step(1); err(e.message); busy = false; return; }
       err((e && e.message) || "Неверный код");
       clearCells();

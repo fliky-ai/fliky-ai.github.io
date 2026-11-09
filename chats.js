@@ -142,7 +142,17 @@ const Chats = {
   },
 
   async load() {
-    try { Chats.list = (await api("/api/chats")).chats; Chats.render(); Stories.load(); } catch (e) {}
+    // список ещё пуст (только что открыли приложение) — сразу рисуем сохранённый, не дожидаясь сервера
+    if (!Chats.list.length && !Chats.loadedOnce) await Chats.fromCache();
+    try {
+      Chats.list = (await api("/api/chats")).chats; Chats.loadedOnce = true; Chats.render(); Stories.load();
+      OC.saveChats(Chats.list);
+    } catch (e) {}
+  },
+  async fromCache() {
+    if (Chats.list.length) return;
+    const c = await tmoC(OC.get("chats"), 1200, null);
+    if (Array.isArray(c) && c.length && !Chats.list.length) { Chats.list = c; Chats.render(); }
   },
 
   upsert(peer, m, incoming) {
@@ -159,6 +169,7 @@ const Chats = {
 
   onMessage(m) {
     const mine = m.sender === App.user.id, pid = Chats.peerOf(m);
+    try { OC.appendMsg(pid, m); } catch (e) {}       // кэш переписки обновляется, даже если чат сейчас не открыт
     const c = Chats.byId(pid);
     if (!c) return Chats.load();
     if (c.last && c.last.id === m.id) return;
@@ -240,6 +251,7 @@ const Chats = {
   },
 
   render() {
+    if (Chats.loadedOnce) OC.saveChats(Chats.list);      // сохраняем только то, что пришло с сервера (не пустой список до загрузки)
     // число на значке — сообщения из чатов со включённым звуком
     const total = Chats.list.reduce((s, c) => s + (Chats.isMuted(c.peer.id) ? 0 : c.unread), 0)
       + Chats.list.reduce((s, c) => s + (c.unread === 0 && Chats.markedUnread(c.peer.id) && !Chats.isMuted(c.peer.id) ? 1 : 0), 0);
@@ -255,6 +267,7 @@ const Chats = {
     const rows = Chats.sorted().filter((c) => !fl || FO().has(fl, c));
     box.innerHTML = rows.length ? rows.map((c) => Chats.rowHTML(c)).join("")
       : `<div class="cempty">${ILL.none}<h3>${esc(T("В папке нет чатов"))}</h3><p>${esc(T("Добавьте чаты в папку: Настройки → Папки с чатами."))}</p></div>`;
+    try { Object.keys(Typing.map).forEach((k) => Typing.paint(+k)); } catch (e) {}     // «печатает…» не пропадает при перерисовке
   },
 };
 

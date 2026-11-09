@@ -77,7 +77,7 @@ const UserProfile = {
       rows.push(row(esc(u.number || "+42777"), T("Телефон"), u.number || "+42777"));
     } else {
       if (u.number) rows.push(row(esc(fmtPhone(u.number)), T("Телефон"), u.number));
-      if (u.bio) rows.push(row(esc(u.bio), T("О себе"), u.bio));
+      if (u.bio) rows.push(row(Rich.render(u.bio, u.bio_ents || []), T("О себе"), u.bio));
       if (u.username) rows.push(row("@" + esc(u.username) + (u.uname_nft ? `<i class="uname-nft">NFT · ${(+u.uname_ton || 0).toLocaleString(I18N.lang === "en" ? "en-US" : "ru-RU")} TON</i>` : "") + (typeof QRCard !== "undefined" ? QRCard.btn() : ""), T("Имя пользователя"), "@" + u.username));
       if (u.birthday) rows.push(row(esc(bdayText(u.birthday)) + (bdayToday(u.birthday) ? " 🎂" : ""), T("День рождения")));
       const b = u.biz;
@@ -91,7 +91,7 @@ const UserProfile = {
     const ph = typeof premHero === "function" ? premHero(u) : { cls: "", style: "", pat: "" };
     const nft = !!(u.nft && ph.cls);
     const muted = !sys && Chats.isMuted(u.id);
-    const acts = sys ? "" : `<div class="uacts" id="up-acts">
+    const acts = sys || u.deleted ? (u.deleted ? `<div class="ubl"><span>${esc(T("Этот аккаунт удалён"))}</span></div>` : "") : `<div class="uacts" id="up-acts">
       <button class="ua" data-a="chat">${I.chat}<span>${esc(T("Чат"))}</span></button>
       <button class="ua" data-a="mute">${muted ? I.bellOff : I.bell}<span>${esc(muted ? T("Включить") : T("Звук"))}</span></button>
       <button class="ua" data-a="call">${I.call}<span>${esc(T("Звонок"))}</span></button>
@@ -115,9 +115,11 @@ const UserProfile = {
     $("uprofile").classList.toggle("nftp", nft);
     $("uprofile").classList.toggle("owner-theme", !!u.owner_theme);
     $("up-more").hidden = sys || me;
-    const official = !sys && u.vtier === "official" ? `<div class="pf-official">${verBadge(u)}<b>${esc(T("Официальный аккаунт"))}</b><small>${esc(T("Подтверждено Dicegram"))}</small></div>` : "";
-    $("up-body").innerHTML = `${official}<div class="pf-hero uhero${ph.cls}${nft ? " nft" : ""}"${ph.style}>${ph.pat}<div class="pf-av">${Stories.av(u, "xl")}</div><h2>${profName(u)}</h2>
-        <div class="st2 ${u.online && !sys ? "on" : ""}">${esc(sys ? T("служебные уведомления") : statusText(u))}</div>${rt}</div>
+    // Official / Major: @username и пояснение отдельной строкой под именем (значок — сразу после имени)
+    const vl = !sys ? verLine(u) : "";
+    const vblock = vl ? `${u.username ? `<div class="pf-uname">@${esc(u.username)}</div>` : ""}${vl}` : "";
+    $("up-body").innerHTML = `<div class="pf-hero uhero${ph.cls}${nft ? " nft" : ""}"${ph.style}>${ph.pat}<div class="pf-av">${Stories.av(u, "xl")}</div><h2>${profName(u)}</h2>
+        <div class="st2 ${u.online && !sys ? "on" : ""}">${esc(sys ? T("служебные уведомления") : statusText(u))}</div>${vblock}${rt}</div>
       ${acts}${blocked}${pc}
       ${rows.length ? `<div class="card2 pf-info">${rows.join("")}</div>` : ""}
       ${addBtn}${tb}`;
@@ -263,21 +265,22 @@ const UserProfile = {
 
   async report() {
     const u = UserProfile.cur; if (!u) return;
-    const R = [["spam", "Спам"], ["violence", "Насилие"], ["porn", "Неприемлемый контент"], ["child", "Нарушение прав детей"], ["illegal", "Незаконные товары"], ["fake", "Выдаёт себя за другого"], ["other", "Другое"]];
-    const v = await UI.sheet({ icon: UserProfile.UI_I.flag, title: T("Пожаловаться"), text: T("Выберите причину. Жалоба анонимна."), actions: R.map(([k, l]) => ({ label: T(l), value: k })), cancel: T("Отмена") });
+    if (u.deleted) return toast(T("Этот аккаунт уже удалён"));
+    const R = [["spam", "Спам"], ["scam", "Мошенничество"], ["abuse", "Оскорбления"], ["violence", "Насилие"], ["porn", "Неприемлемый контент"], ["child", "Нарушение прав детей"], ["illegal", "Незаконные товары"], ["fake", "Выдаёт себя за другого"], ["other", "Другое"]];
+    const v = await UI.sheet({ icon: UserProfile.UI_I.flag, title: T("Пожаловаться"), text: T("Выберите причину. Человек не узнает, кто пожаловался. Чтобы проверить жалобу, модераторы Dicegram увидят вашу переписку с ним."), actions: R.map(([k, l]) => ({ label: T(l), value: k })), cancel: T("Отмена") });
     if (!v) return;
     try { await api("/api/report", { method: "POST", body: { kind: "user", id: u.id, reason: v } }); UI.sheet({ icon: SI.check, title: T("Жалоба отправлена"), text: T("Спасибо! Мы проверим этот аккаунт."), actions: [], cancel: T("Готово") }); }
     catch (e) { toast(e.message); }
   },
 
   async menu() {
-    const u = UserProfile.cur; if (!u || u.is_system) return;
+    const u = UserProfile.cur; if (!u || u.is_system || u.deleted) return;
     const A = [];
     if (u.username) A.push({ label: T("Скопировать ссылку"), value: "link" });
     A.push({ label: T("Пожаловаться"), value: "report" });
     A.push(u.blocked ? { label: T("Разблокировать"), value: "unblock", accent: true } : { label: T("Заблокировать"), value: "block", danger: true });
     const v = await UI.sheet({ title: dispName(u), actions: A, cancel: T("Отмена") });
-    if (v === "link") { copyText(u.plink || "@" + u.username); toast(T("Ссылка скопирована")); }
+    if (v === "link") { if (!(await Links.copy({ kind: "user", id: u.id }))) { copyText("@" + u.username); } }
     else if (v === "report") UserProfile.report();
     else if (v === "block") UserProfile.block(true);
     else if (v === "unblock") UserProfile.block(false);
@@ -311,7 +314,8 @@ const UserProfile = {
       if (tab) { UserProfile.tab = tab.dataset.t; UserProfile.picked = true; haptic(); body.querySelectorAll("#up-tabs button").forEach((b) => b.classList.toggle("on", b === tab)); return UserProfile.drawTab(); }
       const h = t.closest("[data-hours]"); if (h) { h.classList.toggle("open"); return; }
       if (t.closest("[data-qr]")) { haptic(); return QRCard.open(UserProfile.cur); }
-      const cp = t.closest(".pi[data-copy]"); if (cp) { copyText(cp.dataset.copy); toast(T("Скопировано")); return haptic(); }
+      if (t.closest("a, .mention")) return;                 // ссылку в «О себе» открывает общий обработчик
+      const cp = t.closest(".pi[data-copy]"); if (cp) { const cu = UserProfile.cur || {}; if (cu.bio && cp.dataset.copy === cu.bio && cu.bio_ents) RClip.set(cu.bio, cu.bio_ents); else copyText(cp.dataset.copy); toast(T("Скопировано")); return haptic(); }
       const box = $("up-tab"); if (!box) return;
       const g = t.closest(".gt[data-g]");
       if (g) { const x = UserProfile.D.gifts.gifts.find((k) => k.id === +g.dataset.g); if (x) Gifts.detail(x); return; }

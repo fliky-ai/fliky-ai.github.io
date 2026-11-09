@@ -31,8 +31,17 @@ const Fx = (() => {
     kindOf, RE,
     tokens(t) { return String(t || "").match(RE) || []; },
     // большие эмодзи в сообщении: каждый — своя анимированная кнопка
-    html(t) {
-      return Fx.tokens(t).map((e, i) => `<span class="bem fx-${kindOf(e)}" data-e="${esc(e)}" style="--i:${i}">${esc(e)}</span>`).join("");
+    // ents — сущности сообщения: свои (Premium) эмодзи показываются своей картинкой, ровным квадратом
+    html(t, ents) {
+      t = String(t || "");
+      const ce = (ents || []).filter((x) => x && x.t === "ce" && x.id);
+      let pos = 0;
+      return Fx.tokens(t).map((e, i) => {
+        const o = t.indexOf(e, pos); pos = o + e.length;
+        const c = ce.length ? ce.find((x) => x.o === o && x.l === e.length) : null;
+        const inner = c && typeof CE !== "undefined" ? CE.html(c.id, e) : esc(e);
+        return `<span class="bem fx-${kindOf(e)}${c ? " bce" : ""}" data-e="${esc(e)}" style="--i:${i}">${inner}</span>`;
+      }).join("");
     },
     play(el, opts = {}) {
       if (!el) return;

@@ -198,10 +198,12 @@ const Panel = {
       if (rec.length) secs.push({ ic: PIC.recent, n: T("Недавние"), g: `<div class="em-g">${rec.map((e) => `<button data-e="${e}">${e}</button>`).join("")}</div>` });
       sets.forEach((st) => secs.push({ ic: `<span class="cs-ic">${CE.media(st.items[0])}</span>`, n: st.title, ce: 1, g: `<div class="em-g ce-g">${st.items.map((i) => `<button data-ce="${i.id}" data-em="${esc(i.emoji || "🙂")}" aria-label="${esc(i.emoji || "")}">${CE.media(i)}</button>`).join("")}</div>` }));
       EMOJI.forEach((c, k) => secs.push({ ic: PIC[CAT_IC[k] || "smile"], n: T(c.name), g: `<div class="em-g">${c.list.map((e) => `<button data-e="${e}">${e}</button>`).join("")}</div>` }));
-      head = `<div class="pn-cats">${secs.map((c, i) => `<button data-cat="${i}" class="${i ? "" : "on"}" aria-label="${esc(c.n)}">${c.ic}</button>`).join("")}</div>`;
+      const q = Panel.emQ || "";
+      head = `<div class="pn-search em-s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="em-q" placeholder="${esc(T("Поиск эмодзи"))}" value="${esc(q)}" autocomplete="off" enterkeyhint="search">${q ? `<button class="em-qx" data-act="emqx" aria-label="${esc(T("Очистить"))}">✕</button>` : ""}</div>` +
+        `<div class="pn-cats"${q ? " hidden" : ""}>${secs.map((c, i) => `<button data-cat="${i}" class="${i ? "" : "on"}" aria-label="${esc(c.n)}">${c.ic}</button>`).join("")}</div>`;
       const lock = prem ? "" : `<button class="ce-lock" data-act="prem"><span class="mg-li">${PREM_I}</span><span><b>${esc(T("Анимированные эмодзи"))}</b><small>${esc(T("Свои эмодзи в тексте сообщений — с Premium"))}</small></span><i>›</i></button>`;
       const none = prem && !sets.length && React.sets ? `<div class="ce-none">${esc(T("Свои эмодзи появятся здесь. Создайте набор: Настройки → Premium → Свои эмодзи"))}</div>` : "";
-      body = lock + none + secs.map((c, i) => `<div class="em-h" id="emc-${i}">${esc(c.n)}${c.ce ? `<i class="ce-tag">${PREM_I}</i>` : ""}</div>${c.g}`).join("");
+      body = q ? Panel.emFound(q, sets) : lock + none + secs.map((c, i) => `<div class="em-h" id="emc-${i}">${esc(c.n)}${c.ce ? `<i class="ce-tag">${PREM_I}</i>` : ""}</div>${c.g}`).join("");
     } else if (tab === "stk") {
       const packs = [{ id: "recent", ic: PIC.recent }, { id: "mine", ic: PIC.star }].concat(Stk.PACKS.map((k) => ({ id: k.id, ic: `<span class="pk-art">${Stk.svg(k.items[0].id).replace('viewBox="0 0 512 512"', `viewBox="${k.crop || "0 0 512 512"}"`)}</span>` })));
       head = `<div class="pn-packs">${packs.map((k) => `<button data-pack="${k.id}" class="${Panel.pack === k.id ? "on" : ""}">${k.ic}</button>`).join("")}</div>`;
@@ -216,9 +218,27 @@ const Panel = {
     p.dataset.t = tab + Panel.pack;
     const bd = p.querySelector(".pn-body");
     bd.scrollTop = top;
-    if (tab === "emoji") Panel.spy(bd);
+    if (tab === "emoji" && !Panel.emQ) Panel.spy(bd);
+    const eq = $("em-q");
+    if (eq) eq.oninput = () => {
+      Panel.emQ = eq.value;
+      const prem = !!(App.user && App.user.premium), b2 = p.querySelector(".pn-body"), cats = p.querySelector(".pn-cats");
+      if (!Panel.emQ.trim()) { Panel.render(); const n = $("em-q"); if (n) n.focus(); return; }
+      if (cats) cats.hidden = true;
+      b2.innerHTML = Panel.emFound(Panel.emQ, prem ? React.sets || [] : []);
+      b2.scrollTop = 0;
+    };
     const q = $("gif-q");
     if (q) q.oninput = () => { Panel.gifQ = q.value.trim(); clearTimeout(Panel.gifT); Panel.gifT = setTimeout(() => Panel.gifSearch(), 350); };
+  },
+
+  // результаты поиска эмодзи: сначала свои (Premium), потом обычные
+  emFound(q, sets) {
+    const c = typeof EmojiSearch !== "undefined" ? EmojiSearch.ce(q, sets) : [], e = typeof EmojiSearch !== "undefined" ? EmojiSearch.find(q) : [];
+    let h = "";
+    if (c.length) h += `<div class="em-h">${esc(T("Мои эмодзи"))}<i class="ce-tag">${PREM_I}</i></div><div class="em-g ce-g">${c.map((i) => `<button data-ce="${i.id}" data-em="${esc(i.emoji || "🙂")}" aria-label="${esc(i.emoji || "")}">${CE.media(i)}</button>`).join("")}</div>`;
+    if (e.length) h += `<div class="em-h">${esc(T("Эмодзи"))}</div><div class="em-g">${e.map((x) => `<button data-e="${x}">${x}</button>`).join("")}</div>`;
+    return h || `<div class="pn-hint">${esc(T("Ничего не найдено"))}</div>`;
   },
 
   // подсветка категории по прокрутке + прыжок к категории по нажатию
@@ -314,6 +334,7 @@ const Panel = {
       return;
     }
     if (t.dataset.act === "bs") return Editor.backspace();
+    if (t.dataset.act === "emqx") { Panel.emQ = ""; return Panel.render(); }
     if (t.dataset.act === "mk") return StickerMaker.start();
     if (t.dataset.act === "addgif") return Panel.addGif();
     if (t.dataset.act === "mkgif") return GifMaker.start();

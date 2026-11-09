@@ -1,6 +1,6 @@
 // Общие функции: запросы, сессия (отдельная для каждого Telegram-аккаунта), аватарки, время.
 const $ = (id) => document.getElementById(id);
-const APP_VER = "2026.11.04k";
+const APP_VER = "2026.11.04l";
 const TGW = window.Telegram && Telegram.WebApp;
 const INIT = (TGW && TGW.initData) || "";
 const TG_ID = (TGW && TGW.initDataUnsafe && TGW.initDataUnsafe.user && TGW.initDataUnsafe.user.id) || "web";
@@ -65,8 +65,10 @@ async function api(path, { method = "GET", body, timeout = 0 } = {}) {
   try { d = await r.json(); } catch (e) {}
   if (r.status === 401 && Store.token) {
     // сессия недействительна: убираем её и из списка аккаунтов, чтобы не переключаться на мёртвый токен
+    try { OC.wipe(); } catch (e) {}
     Accounts.remove(Store.token); Store.token = ""; location.reload();
   }
+  if (r.status >= 502 && r.status <= 504 && !d.error) throw new Error("Нет связи с сервером");
   if (!r.ok || d.ok === false) throw new Error(d.error || T("Ошибка") + " " + r.status);
   return d;
 }
@@ -97,13 +99,23 @@ async function devInfo() {
 const PLANE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 3.5 10.5 14"/><path d="M21.5 3.5 14.5 21l-4-7-7-4z"/></svg>';
 const PERSON = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="9" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>';
 const VERIFIED = '<svg class="ver" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="m7.5 12.3 3 3 6-6.3" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-// значок с галочкой: у Major/Official — свой цвет и подсказка «Подтверждено Dicegram» (не настоящий текст Telegram)
-function verBadge(u) {
+// значок верификации сразу после имени: Official — чёрный круг с белой галочкой (с тонкой светлой обводкой,
+// чтобы был виден и в тёмной теме), Major — синий #3390EC с белой галочкой; обычная отметка — цвет акцента.
+const VER_CK = '<path d="m7.4 12.4 3.1 3.1 6.1-6.4" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>';
+function verBadge(u, cls = "") {
   if (!isVer(u)) return "";
   const tier = (u && u.vtier) || "";
-  const cls = tier === "official" ? " ver-official" : tier === "major" ? " ver-major" : "";
-  const tip = tier ? ` title="${esc(T("Подтверждено Dicegram"))}"` : "";
-  return `<svg class="ver${cls}" viewBox="0 0 24 24"${tip}><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="m7.5 12.3 3 3 6-6.3" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const tip = tier === "official" ? T("Этот аккаунт официально подтверждён администрацией DICEGRAM") : tier === "major" ? T("Аккаунт верифицирован организацией Major") : "";
+  const circle = tier === "official" ? '<circle cx="12" cy="12" r="10.3" fill="#0b0b0d" stroke="#fff" stroke-opacity=".3" stroke-width="1"/>'
+    : tier === "major" ? '<circle cx="12" cy="12" r="10.5" fill="#3390EC"/>' : '<circle cx="12" cy="12" r="10" fill="currentColor"/>';
+  return `<svg class="ver${tier ? " ver-" + tier : ""}${cls ? " " + cls : ""}" viewBox="0 0 24 24"${tip ? ` title="${esc(tip)}" aria-label="${esc(tip)}"` : ""}>${circle}${VER_CK}</svg>`;
+}
+// строка под @username в профиле: значок слева и пояснение
+function verLine(u) {
+  const tier = u && u.vtier;
+  if (tier !== "official" && tier !== "major") return "";
+  const t = tier === "official" ? T("Этот аккаунт официально подтверждён администрацией DICEGRAM") : T("Аккаунт верифицирован организацией Major");
+  return `<div class="pf-vline">${verBadge(u, "sm")}<span>${esc(t)}</span></div>`;
 }
 const svg = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 const ICON = {
@@ -138,11 +150,49 @@ const BADGE_IN_LISTS = false;
 const isVer = (u) => !!(u && (u.is_system || u.verified));
 const profName = (u) => esc(dispName(u)) + verBadge(u) + (typeof PB !== "undefined" ? PB.html(u) : "");
 // шапка профиля: обычный эмодзи-статус фон НЕ меняет. Фон и узор меняет только надетый коллекционный подарок (NFT)
+// ── премиальные фоны профиля: у каждого цвета своя палитра (глубокий тон, средний, свет, акцент),
+// мягкий градиентный свет, едва заметный узор и «пятна» света — а не сплошная заливка ──
+const PBG = {
+  list: [
+    { id: "dark", n: "Тёмный", p: ["#07080c", "#171b24", "#3a4354", "#1d2a40"], pat: "lines" },
+    { id: "red", n: "Красный", p: ["#24050a", "#64101c", "#c0424f", "#8a1838"], pat: "waves" },
+    { id: "blue", n: "Синий", p: ["#05173a", "#0f3a78", "#4f9df2", "#1b66cf"], pat: "hex" },
+    { id: "purple", n: "Фиолетовый", p: ["#170a33", "#3b1c78", "#9d7df2", "#6838d6"], pat: "sparkle" },
+    { id: "green", n: "Зелёный", p: ["#04211a", "#0d553c", "#4cc38f", "#11784f"], pat: "rings" },
+    { id: "pink", n: "Розовый", p: ["#360a29", "#8a2663", "#f292c6", "#c2448e"], pat: "petals" },
+    { id: "orange", n: "Оранжевый", p: ["#341204", "#94400c", "#ffb062", "#d8641b"], pat: "rays" },
+    { id: "graphite", n: "Графит", p: ["#101215", "#2a2f37", "#6d7683", "#3b434e"], pat: "diamonds" },
+    { id: "light", n: "Светлый", p: ["#dfe5ee", "#f5f7fb", "#ffffff", "#cfd9e8"], pat: "bokeh", light: true },
+    { id: "cosmic", n: "Космический", p: ["#04020f", "#180d42", "#6b4fe0", "#1c64b6"], pat: "stars" },
+  ],
+  byId(id) { return PBG.list.find((x) => x.id === id) || null; },
+  // фон коллекционного подарка: его собственные цвета, но та же «дорогая» подача и узор по смыслу цвета
+  NFT: { "Небесный": "blue", "Малина": "pink", "Мята": "green", "Янтарь": "orange", "Лаванда": "purple", "Графит": "graphite",
+         "Рубин": "red", "Изумруд": "green", "Закат": "orange", "Северное сияние": "cosmic", "Чёрный бриллиант": "dark" },
+  style(p) { return `--p1:${p[0]};--p2:${p[1]};--p3:${p[2]};--p4:${p[3]}`; },
+  orbs() { return '<i class="pbg-orb o1"></i><i class="pbg-orb o2"></i><i class="pbg-orb o3"></i>'; },
+  // какой фон у человека: надетый NFT → выбранный фон (Premium) → «Тёмный» у владельца сервиса
+  of(u) {
+    if (!u || u.is_system || u.deleted) return null;
+    if (u.premium && u.nft && u.nft.backdrop) {
+      const b = u.nft.backdrop, key = PBG.NFT[b.n] || "blue";
+      return { key, light: false, style: `--p1:color-mix(in srgb,${b.c2} 55%,#000);--p2:${b.c2};--p3:${b.c1};--p4:color-mix(in srgb,${b.c1} 50%,${b.c2})`, nft: true };
+    }
+    const pal = (u.premium && PBG.byId(u.pbg)) || (u.owner_theme ? PBG.byId(u.pbg) || PBG.byId("dark") : null);
+    return pal ? { key: pal.id, light: !!pal.light, style: PBG.style(pal.p), pat: pal.pat } : null;
+  },
+};
 const premHero = (u) => {
-  if (!u || !u.premium || u.is_system || !u.nft || !u.nft.backdrop) return { cls: "", style: "", pat: "" };
-  const n = u.nft, b = n.backdrop, e = esc((n.pattern && n.pattern.e) || "✨");
-  const P = [[7, 12, 20, 0], [86, 10, 16, 0.8], [20, 44, 14, 1.6], [76, 40, 18, 2.2], [92, 62, 14, 0.4], [8, 70, 18, 1.2], [50, 5, 12, 2.8], [64, 78, 16, 0.6], [32, 84, 14, 2], [88, 84, 17, 1.4], [3, 44, 12, 3], [56, 52, 11, 3.4], [40, 22, 11, 1], [68, 20, 12, 2.4]];
-  return { cls: " prem", style: ` style="--c1:${esc(b.c1)};--c2:${esc(b.c2)}"`, pat: `<div class="pf-pat">${P.map(([x, y, z, d]) => `<i class="e" style="--x:${x}%;--y:${y}%;--s:${z}px;--d:${d}s">${e}</i>`).join("")}</div>` };
+  const bg = PBG.of(u);
+  if (!bg) return { cls: "", style: "", pat: "" };
+  const pal = PBG.byId(bg.key) || {};
+  let pat = PBG.orbs();
+  if (bg.nft) {
+    const e = esc((u.nft.pattern && u.nft.pattern.e) || "✨");
+    const P = [[7, 12, 20, 0], [86, 10, 16, 0.8], [20, 44, 14, 1.6], [76, 40, 18, 2.2], [92, 62, 14, 0.4], [8, 70, 18, 1.2], [50, 5, 12, 2.8], [64, 78, 16, 0.6], [32, 84, 14, 2], [88, 84, 17, 1.4], [3, 44, 12, 3], [56, 52, 11, 3.4], [40, 22, 11, 1], [68, 20, 12, 2.4]];
+    pat += `<div class="pf-pat">${P.map(([x, y, z, d]) => `<i class="e" style="--x:${x}%;--y:${y}%;--s:${z}px;--d:${d}s">${e}</i>`).join("")}</div>`;
+  }
+  return { cls: ` prem pbg pat-${esc(pal.pat || "lines")}${bg.light ? " pbg-light" : ""}`, style: ` style="${esc(bg.style)}"`, pat };
 };
 const nameHTML = (u) => esc(dispName(u)) + verBadge(u) + (BADGE_IN_LISTS && u.premium && !u.is_system ? PREM_I : "");
 

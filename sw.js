@@ -16,6 +16,7 @@ self.addEventListener("activate", (e) => e.waitUntil((async () => {
 
 self.addEventListener("fetch", (e) => {
   const req = e.request;
+  if (req.method === "POST" && /\/share-target\/?$/.test(new URL(req.url).pathname)) return e.respondWith(shareTarget(req));
   if (req.method !== "GET") return;
   let url;
   try { url = new URL(req.url); } catch (_) { return; }
@@ -27,6 +28,20 @@ self.addEventListener("fetch", (e) => {
   if (same) return e.respondWith(shell(req, url));
   if (url.hostname === "telegram.org") return e.respondWith(shell(req, url));      // telegram-web-app.js — чтобы без сети не ждать его
 });
+
+// ── «Поделиться» из других приложений (Web Share Target): складываем присланное и открываем приложение ──
+async function shareTarget(req) {
+  try {
+    const fd = await req.formData();
+    const c = await caches.open("share-inbox");
+    for (const k of await c.keys()) await c.delete(k);
+    const files = fd.getAll("files").filter((f) => f && typeof f === "object" && f.size);
+    const meta = { title: fd.get("title") || "", text: fd.get("text") || "", url: fd.get("url") || "", files: files.map((f) => ({ name: f.name, type: f.type })) };
+    await Promise.all(files.map((f, i) => c.put("share/file/" + i, new Response(f, { headers: { "content-type": f.type || "application/octet-stream" } }))));
+    await c.put("share/meta", new Response(JSON.stringify(meta), { headers: { "content-type": "application/json" } }));
+  } catch (e) {}
+  return Response.redirect("./index.html?share=1", 303);
+}
 
 // ── сайт: файлы с ?v= не меняются (новая версия = новый адрес) — сразу из кэша; остальное — сначала сеть ──
 async function shell(req, url) {
@@ -64,6 +79,7 @@ async function media(req, url) {
       // видео/музыка играют кусками — пробуем сеть; без сети отдать нечего
       return await fetch(req);
     }
+    if (url.searchParams.has("dlm")) return await fetch(req);      // «Загрузки» (downloads.js) сами пишут файл в хранилище по кусочкам
     const res = await fetch(url.href, { mode: "cors", credentials: "omit" });
     if (res.status === 200 && res.type !== "opaque") {
       const len = +res.headers.get("content-length") || 0;

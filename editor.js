@@ -7,9 +7,18 @@ const Editor = {
     const el = (Editor.el = $("msg-input"));
     el.addEventListener("input", () => Editor.changed());
     el.addEventListener("paste", (e) => {
+      const cd = e.clipboardData || window.clipboardData;
+      // картинки/файлы из буфера — пусть обработает вложение (если умеет), текст — сами
+      if (cd && cd.files && cd.files.length && !(cd.getData("text/plain") || "")) {
+        e.preventDefault();
+        if (typeof Attach !== "undefined" && Attach.preview) { try { Attach.preview([...cd.files]); } catch (er) {} }
+        return;
+      }
       e.preventDefault();
-      const t = ((e.clipboardData || window.clipboardData).getData("text/plain") || "").replace(/\r/g, "");
-      if (t) Editor.insert(t);
+      const r = typeof RClip !== "undefined" ? RClip.read(e) : { text: ((cd && cd.getData("text/plain")) || "").replace(/\r/g, ""), ents: [] };
+      if (!r.text) return;
+      if (r.ents && r.ents.length) Editor.insertRich(r.text, r.ents);       // свои эмодзи и форматирование сохраняются
+      else Editor.insert(r.text);
     });
     el.addEventListener("drop", (e) => e.preventDefault());
     el.addEventListener("contextmenu", (e) => e.preventDefault());
@@ -63,6 +72,31 @@ const Editor = {
       if (s.rangeCount) { const r = s.getRangeAt(0); r.deleteContents(); r.insertNode(document.createTextNode(str)); r.collapse(false); }
     }
     Editor.changed();
+  },
+  // вставить текст вместе с сущностями (свои эмодзи, жирный, ссылки…) в позицию курсора
+  insertRich(text, ents) {
+    const el = Editor.el;
+    if (document.activeElement !== el) { el.focus({ preventScroll: true }); Editor.restore(); }
+    const raw = Rich.readRaw(el);
+    const o = Editor.offsets() || [raw.text.length, raw.text.length];
+    const r = Rich.splice(raw.text, raw.ents, o[0], o[1], text, ents);
+    Rich.write(el, r.text, r.ents);
+    const p = o[0] + text.length;
+    try { Editor.select(p, p); } catch (e) { Editor.caretEnd(); }
+    Editor.changed();
+  },
+  selectedRich() {
+    const o = Editor.offsets();
+    if (!o || o[1] <= o[0]) return null;
+    const raw = Rich.readRaw(Editor.el);
+    const ents = [];
+    raw.ents.forEach((x) => {
+      const a = Math.max(x.o, o[0]), b = Math.min(x.o + x.l, o[1]);
+      if (b <= a) return;
+      if (x.t === "ce" && (a !== x.o || b !== x.o + x.l)) return;      // эмодзи разрезан — не берём
+      ents.push(Object.assign({}, x, { o: a - o[0], l: b - a }));
+    });
+    return { text: raw.text.slice(o[0], o[1]), ents };
   },
   // вставить свой (Premium) эмодзи: в поле он виден картинкой, при отправке уходит как значок + сущность ce
   insertCE(it) {
@@ -173,17 +207,21 @@ const Editor = {
     try { t = await navigator.clipboard.readText(); } catch (e) {}
     if (!t) t = Editor.clip;
     if (!t) return toast("Буфер обмена пуст");
-    Editor.insert(t.replace(/\r/g, ""));
+    t = t.replace(/\r/g, "");
+    const ents = typeof RClip !== "undefined" ? RClip.ents(t) : null;
+    if (ents && ents.length) return Editor.insertRich(t, ents);
+    Editor.insert(t);
   },
   async act(a) {
     haptic("light");
     if (a === "more") return Editor.tbMore(true);
     if (a === "back") return Editor.tbMore(false);
     if (a === "copy" || a === "cut") {
-      const t = Editor.selectedText();
+      const r = Editor.selectedRich();
+      const t = r ? r.text : "";
       if (!t) return;
       Editor.clip = t;
-      copyText(t);
+      if (typeof RClip !== "undefined") RClip.set(t, r.ents); else copyText(t);
       if (a === "cut") { document.execCommand("delete"); Editor.changed(); }
       else toast("Скопировано");
       return Editor.hideTb();

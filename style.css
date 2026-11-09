@@ -138,8 +138,8 @@ img{-webkit-user-drag:none;pointer-events:none}
 .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .name{font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}
 .ver{width:15px;height:15px;flex:none;color:var(--accent)}
-.ver-major{color:#f0a500}
-.ver-official{color:var(--text)}
+.ver-major{color:#3390EC}
+.ver-official{color:#0b0b0d}
 .time{font-size:12px;color:var(--dim);flex:none}
 .bottom{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:1px}
 .prev{color:var(--dim);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

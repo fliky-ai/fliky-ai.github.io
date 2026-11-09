@@ -90,6 +90,7 @@ const GroupEdit = {
       add: () => Groups.addMembers(pg.data.peer),
       all: () => GroupEdit.members(pg.data.peer),
       link: () => GroupEdit.copy(pg.data.link),
+      plink: () => Links.copy({ kind: "chat", id: pg.data.peer.id }),
       tag: () => GroupEdit.myTag(pg.data.peer, pg),
       member: (el) => { const m = (pg.data.members || []).find((x) => x.user.id === +el.dataset.v); if (m) GroupEdit.memberMenu(pg.data.peer, m, pg); },
     };
@@ -126,6 +127,7 @@ const GroupEdit = {
     let rows = [];
     if (p.bio) rows.push(`<div class="gp-info"><small>${esc(T("Описание"))}</small><div>${Rich.render(p.bio, [])}</div></div>`);
     if (p.username && p.plink) { const url = (pg.data.link = Groups.pubLink(p)); rows.push(R.row({ a: "link", ic: SI.link, c: "b", t: esc(url.replace(/^https?:\/\//, "")), s: esc(T("Публичная ссылка. Нажмите, чтобы скопировать")), noch: 1 })); }
+    else if (p.role) rows.push(R.row({ a: "plink", ic: SI.link, c: "b", t: esc(T("Копировать ссылку")), s: esc(T(ch ? "Ссылка на канал откроется только подписчикам" : "Ссылка на группу откроется только участникам")), noch: 1 }));
     if (p.gk === "group" && p.perms && p.perms.tag && p.role !== "owner") rows.push(R.row({ a: "tag", ic: SI.edit, c: "v", t: esc(T("Мой тег")), r: esc(p.tag || T("Не задан")) }));
     if (rows.length) h += `<div class="card2 irows">${rows.join("")}</div>`;
     if (p.can_invite) h += `<div class="card2 irows">${R.row({ a: "add", ic: SI.userPlus, c: "b", t: esc(T(ch ? "Добавить подписчиков" : "Добавить участников")), noch: 1 })}</div>`;

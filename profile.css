@@ -18,17 +18,15 @@
 .pf-hero .st2.on{color:var(--accent)}
 .pf-av{display:block;border-radius:50%;padding:6px}
 
-/* чёрная тема профиля — только у владельца сервиса (отдельно от выдаваемых отметок Major/Official) */
-#uprofile.owner-theme .pf-hero{background:linear-gradient(165deg,#1b1e24,#06070a 85%);border-radius:0 0 22px 22px;margin-bottom:2px}
-#uprofile.owner-theme .pf-hero h2{color:#fff}
-#uprofile.owner-theme .pf-hero .st2{color:rgba(255,255,255,.55)}
-#uprofile.owner-theme .pf-hero .st2.on{color:#5ec8ff}
+/* фон профиля владельца — премиальный «Тёмный» (PBG в api.js), а не сплошная чёрная заливка */
 
-/* отметка «Официальный аккаунт» — выдаётся владельцем через Grant/Верификация, не настоящая Telegram-плашка */
-.pf-official{display:flex;align-items:center;gap:8px;margin:0 12px 8px;padding:10px 14px;border-radius:16px;background:#0c0e12;color:#fff}
-.pf-official .ver{width:20px;height:20px;flex:none}
-.pf-official b{font-size:14px;font-weight:800}
-.pf-official small{font-size:11.5px;opacity:.6;margin-left:auto;text-align:right}
+/* верификация Official / Major (выдаётся в admin-panel): @username и строка-пояснение под ним */
+.pf-uname{font-size:14.5px;color:var(--accent);font-weight:600;margin-top:2px}
+.pf-hero.prem .pf-uname{color:var(--tx2)}
+.pf-vline{display:flex;align-items:flex-start;justify-content:center;gap:6px;margin:6px 8px 2px;max-width:320px;
+  font-family:Roboto,"Roboto",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14.5px;line-height:1.35;color:#858585;text-align:left}
+.pf-vline .ver{width:17px;height:17px;flex:none;margin-top:1px}
+.pf-hero.prem:not(.pbg-light) .pf-vline{color:color-mix(in srgb,#858585 55%,#fff)}
 
 /* NFT-юзернейм, выданный владельцем через Grant */
 .uname-nft{display:inline-flex;align-items:center;margin-left:6px;padding:2px 7px;border-radius:8px;font-size:10.5px;font-weight:800;letter-spacing:.2px;background:linear-gradient(135deg,#8e5bff,#2f7bff);color:#fff;vertical-align:middle;white-space:nowrap}

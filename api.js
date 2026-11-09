@@ -110,12 +110,13 @@ function verBadge(u, cls = "") {
     : tier === "major" ? '<circle cx="12" cy="12" r="10.5" fill="#3390EC"/>' : '<circle cx="12" cy="12" r="10" fill="currentColor"/>';
   return `<svg class="ver${tier ? " ver-" + tier : ""}${cls ? " " + cls : ""}" viewBox="0 0 24 24"${tip ? ` title="${esc(tip)}" aria-label="${esc(tip)}"` : ""}>${circle}${VER_CK}</svg>`;
 }
-// строка под @username в профиле: значок слева и пояснение
-function verLine(u) {
+// подпись под карточкой данных в профиле (как в Telegram): значок слева, серый текст, название организации жирным
+function verNote(u) {
   const tier = u && u.vtier;
   if (tier !== "official" && tier !== "major") return "";
-  const t = tier === "official" ? T("Этот аккаунт официально подтверждён администрацией DICEGRAM") : T("Аккаунт верифицирован организацией Major");
-  return `<div class="pf-vline">${verBadge(u, "sm")}<span>${esc(t)}</span></div>`;
+  const tpl = tier === "official" ? T("Этот аккаунт официально подтверждён администрацией {0}.") : T("Аккаунт верифицирован организацией {0}.");
+  const who = tier === "official" ? "DICEGRAM" : "«Major»";
+  return `<div class="pf-vnote" data-tier="${tier}">${verBadge(u, "md")}<span>${esc(tpl).replace("{0}", `<b>${esc(who)}</b>`)}</span></div>`;
 }
 const svg = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 const ICON = {

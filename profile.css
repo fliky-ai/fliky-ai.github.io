@@ -20,16 +20,56 @@
 
 /* фон профиля владельца — премиальный «Тёмный» (PBG в api.js), а не сплошная чёрная заливка */
 
-/* верификация Official / Major (выдаётся в admin-panel): @username и строка-пояснение под ним */
-.pf-uname{font-size:14.5px;color:var(--accent);font-weight:600;margin-top:2px}
-.pf-hero.prem .pf-uname{color:var(--tx2)}
-.pf-vline{display:flex;align-items:flex-start;justify-content:center;gap:6px;margin:6px 8px 2px;max-width:320px;
-  font-family:Roboto,"Roboto",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14.5px;line-height:1.35;color:#858585;text-align:left}
-.pf-vline .ver{width:17px;height:17px;flex:none;margin-top:1px}
-.pf-hero.prem:not(.pbg-light) .pf-vline{color:color-mix(in srgb,#858585 55%,#fff)}
+/* верификация Official / Major (выдаётся в admin-panel): значок после имени, а пояснение — серой подписью под карточкой данных */
+.pf-vnote{display:flex;align-items:flex-start;gap:11px;margin:11px 20px 10px;font-family:Roboto,"Roboto",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:14.5px;line-height:1.42;letter-spacing:.1px;color:var(--dim);text-align:left}
+.pf-vnote .ver{width:24px;height:24px;flex:none;margin-top:-1px}
+.pf-vnote b{font-weight:700;color:var(--text)}
 
-/* NFT-юзернейм, выданный владельцем через Grant */
-.uname-nft{display:inline-flex;align-items:center;margin-left:6px;padding:2px 7px;border-radius:8px;font-size:10.5px;font-weight:800;letter-spacing:.2px;background:linear-gradient(135deg,#8e5bff,#2f7bff);color:#fff;vertical-align:middle;white-space:nowrap}
+/* строка статуса: значок уровня рейтинга (щит) слева, как в Telegram */
+.st2row{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:3px}
+.st2row .st2{margin:0}
+.urt.lvb{margin:0;padding:0;border-radius:0;background:none;position:relative;width:24px;height:26px;display:grid;place-items:center;gap:0;color:#fff;
+  filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.35));-webkit-tap-highlight-color:transparent}
+.uhero.prem .urt.lvb{background:none}
+.urt.lvb:active{transform:scale(.92)}
+.lvb-s{position:absolute;inset:0;background:var(--cr,linear-gradient(135deg,#cd7f32,#a85f1c));clip-path:path("M12 0 24 4.2V13c0 6-5 10.4-12 13C5 23.4 0 19 0 13V4.2Z")}
+.lvb b{position:relative;margin-top:-2px;font-size:11.5px;font-weight:900;line-height:1;letter-spacing:-.3px;text-shadow:0 1px 1px rgba(0,0,0,.3)}
+
+/* строка «@username / а также @имя1, @имя2» в карточке данных */
+.pi-un .pi-v{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.un-c{color:var(--accent);font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.un-c:active{opacity:.55}
+
+/* окно коллекционного имени (как в Telegram): «@имя — коллекционное имя пользователя, принадлежащее …» */
+.un-ov{position:fixed;inset:0;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0);transition:background .25s}
+.un-ov.show{background:rgba(0,0,0,.5)}
+.un-card{position:relative;width:100%;max-width:520px;background:var(--bg);border-radius:26px 26px 0 0;padding:34px 20px calc(18px + env(safe-area-inset-bottom));
+  text-align:center;transform:translateY(100%);transition:transform .32s cubic-bezier(.2,.85,.25,1);box-shadow:0 -10px 40px rgba(0,0,0,.35)}
+.show>.un-card{transform:none}
+.un-ic{width:96px;height:96px;border-radius:50%;margin:0 auto 18px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,#3db2ff,#1c86e6);box-shadow:0 10px 28px rgba(42,167,255,.38)}
+.un-ic svg{width:54px;height:54px}
+.un-t{font-size:19px;line-height:1.32;font-weight:800;margin:0 4px 12px}
+.un-n{color:var(--accent);font-weight:800}
+.un-own{display:inline-flex;align-items:center;gap:8px;max-width:100%;padding:4px 16px 4px 4px;border-radius:22px;background:var(--surface);font-weight:600;margin-bottom:14px}
+.un-own .av.sm{width:30px;height:30px;font-size:12px;flex:none}
+.un-own span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.un-d{font-size:15.5px;line-height:1.5;margin:0 4px 18px}
+.un-d b{font-weight:800}
+.un-ton{display:inline-flex;align-items:center;gap:3px;font-weight:800;color:#1e90ff;vertical-align:-3px;font-variant-numeric:tabular-nums}
+.un-gem{width:1.05em;height:1.05em;flex:none}
+.un-det{text-align:left;margin:0 0 16px;border-radius:16px;background:var(--surface);overflow:hidden}
+.un-det div{display:flex;justify-content:space-between;gap:14px;padding:10px 14px;font-size:14px}
+.un-det div+div{border-top:1px solid var(--line)}
+.un-det span{color:var(--dim);flex:none}
+.un-det b{font-weight:600;text-align:right;overflow-wrap:anywhere;min-width:0}
+.un-det .un-lk{color:var(--accent);font-weight:500}
+.un-b{display:grid;gap:10px}
+.un-b button{padding:15px;border-radius:16px;font-size:16px;font-weight:700;transition:transform .12s}
+.un-b button:active{transform:scale(.98)}
+.un-more{background:var(--accent);color:#fff}
+.un-copy{background:var(--surface);color:var(--text)}
+
 .pf-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 14px 0}
 .pa{display:flex;flex-direction:column;align-items:center;gap:6px;padding:13px 4px 11px;border-radius:15px;background:var(--surface);font-size:12.5px;font-weight:700;transition:background .15s,transform .1s}
 .pa svg{width:25px;height:25px;color:var(--accent)}

@@ -78,7 +78,7 @@ const UserProfile = {
     } else {
       if (u.number) rows.push(row(esc(fmtPhone(u.number)), T("Телефон"), u.number));
       if (u.bio) rows.push(row(Rich.render(u.bio, u.bio_ents || []), T("О себе"), u.bio));
-      if (u.username) rows.push(row("@" + esc(u.username) + (u.uname_nft ? `<i class="uname-nft">NFT · ${(+u.uname_ton || 0).toLocaleString(I18N.lang === "en" ? "en-US" : "ru-RU")} TON</i>` : "") + (typeof QRCard !== "undefined" ? QRCard.btn() : ""), T("Имя пользователя"), "@" + u.username));
+      const unr = UserProfile.unRow(u); if (unr) rows.push(unr);
       if (u.birthday) rows.push(row(esc(bdayText(u.birthday)) + (bdayToday(u.birthday) ? " 🎂" : ""), T("День рождения")));
       const b = u.biz;
       if (b && b.hours) {
@@ -101,7 +101,7 @@ const UserProfile = {
 
     const pc = u.pchan ? `<button class="upc" data-a="pchan"><span class="upc-h">${esc(T("Канал"))}</span><span class="upc-b">${avatar(u.pchan, "sm")}<span class="upc-t"><b>${esc(u.pchan.name)}</b><small>${esc(u.pchan.last ? u.pchan.last.text : (u.pchan.members || 0) + " " + plural(u.pchan.members || 0, T("подписчик"), T("подписчика"), T("подписчиков")))}</small></span><i>${I.chev}</i></span></button>` : "";
 
-    const rt = !sys && u.rating ? `<button class="urt" data-a="rating"><span class="urt-i" data-lv="${UserProfile.tier(u.rating.level)}">${I.crown}</span>${esc(T("Уровень {0}", u.rating.level))}<i>${I.chev}</i></button>` : "";
+    const rt = !sys && u.rating ? UserProfile.lvBadge(u.rating) : "";
 
     const addBtn = !sys && !me ? `<button class="uadd${u.saved ? " on" : ""}" data-a="contact">${u.saved ? I.minus : I.add}<span>${esc(u.saved ? T("Удалить из контактов") : T("Добавить в контакты"))}</span></button>` : "";
 
@@ -115,13 +115,11 @@ const UserProfile = {
     $("uprofile").classList.toggle("nftp", nft);
     $("uprofile").classList.toggle("owner-theme", !!u.owner_theme);
     $("up-more").hidden = sys || me;
-    // Official / Major: @username и пояснение отдельной строкой под именем (значок — сразу после имени)
-    const vl = !sys ? verLine(u) : "";
-    const vblock = vl ? `${u.username ? `<div class="pf-uname">@${esc(u.username)}</div>` : ""}${vl}` : "";
+    // Official / Major: значок стоит сразу после имени, а пояснение — серой подписью под карточкой данных (verNote)
     $("up-body").innerHTML = `<div class="pf-hero uhero${ph.cls}${nft ? " nft" : ""}"${ph.style}>${ph.pat}<div class="pf-av">${Stories.av(u, "xl")}</div><h2>${profName(u)}</h2>
-        <div class="st2 ${u.online && !sys ? "on" : ""}">${esc(sys ? T("служебные уведомления") : statusText(u))}</div>${vblock}${rt}</div>
+        <div class="st2row">${rt}<div class="st2 ${u.online && !sys ? "on" : ""}">${esc(sys ? T("служебные уведомления") : statusText(u))}</div></div></div>
       ${acts}${blocked}${pc}
-      ${rows.length ? `<div class="card2 pf-info">${rows.join("")}</div>` : ""}
+      ${rows.length ? `<div class="card2 pf-info">${rows.join("")}</div>` : ""}${sys ? "" : verNote(u)}
       ${addBtn}${tb}`;
     $("up-body").scrollTop = scroll;
     UserProfile.drawTab();
@@ -286,6 +284,59 @@ const UserProfile = {
     else if (v === "unblock") UserProfile.block(false);
   },
 
+  // ── имена пользователя: основной @username и коллекционные («а также @…»), как в Telegram ──
+  unList(u) {
+    const col = ((u && u.unames) || []).map((x) => x.n);
+    const main = (u && u.username) || col[0] || "";
+    return { main, extras: col.filter((n) => n.toLowerCase() !== main.toLowerCase()) };
+  },
+  // строка карточки «Информация»: @username (с QR), а ниже — «а также @имя1, @имя2» синими ссылками
+  unRow(u, copy = true) {
+    const { main, extras } = UserProfile.unList(u);
+    if (!main) return "";
+    const also = extras.length ? `${esc(T("а также"))} ` + extras.map((n) => `<span class="un-c" role="link" tabindex="0" data-un="${esc(n)}">@${esc(n)}</span>`).join(", ") : esc(T("Имя пользователя"));
+    return `<button class="pi pi-un"${copy ? ` data-copy="${esc("@" + main)}"` : ""}><span class="pi-v">@${esc(main)}${typeof QRCard !== "undefined" ? QRCard.btn() : ""}</span><span class="pi-l">${also}</span></button>`;
+  },
+  lvBadge(r) {
+    return `<button class="urt lvb" data-a="rating" data-lv="${UserProfile.tier(r.level)}" aria-label="${esc(T("Уровень {0}", r.level))}"><span class="lvb-s"></span><b>${r.level}</b></button>`;
+  },
+  fmtTon(x) { return (+x || 0).toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 2 }); },
+  fmtUsd(x) { return (+x || 0).toLocaleString(I18N.lang === "en" ? "en-US" : "ru-RU", { style: "currency", currency: "USD" }); },
+  fmtWhen(ts) {
+    const d = new Date((+ts || 0) * 1000), p2 = (n) => String(n).padStart(2, "0");
+    if (I18N.lang === "en") return d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+    const M = ["янв.", "февр.", "мар.", "апр.", "мая", "июн.", "июл.", "авг.", "сент.", "окт.", "нояб.", "дек."];
+    return `${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}, ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+  },
+  // окно «@имя — коллекционное имя пользователя, принадлежащее …» (как в Telegram), с кнопками «Подробнее» и «Копировать ссылку»
+  unameSheet(u, name) {
+    const it = ((u && u.unames) || []).find((x) => x.n.toLowerCase() === String(name).toLowerCase());
+    if (!it) return;
+    const who = esc(dispName(u)), plat = esc(it.plat || "Dicegram"), when = esc(UserProfile.fmtWhen(it.ts));
+    const ton = `<span class="un-ton">${UserProfile.TON}${UserProfile.fmtTon(it.ton)}</span>`, usd = esc(UserProfile.fmtUsd(it.usd));
+    const L = Gifts.layer("un-ov", `<div class="un-card" role="dialog">
+      <button class="gb-x" data-x aria-label="${esc(T("Закрыть"))}">${GIC.x}</button>
+      <div class="un-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></svg></div>
+      <p class="un-t"><b class="un-n">@${esc(it.n)}</b> — ${esc(T("коллекционное имя пользователя, принадлежащее"))}</p>
+      <div class="un-own">${avatar(u, "sm")}<span>${who}</span></div>
+      <p class="un-d">${esc(T("Это имя приобретено на платформе")).replace(/\s*$/, "")} <b>${plat}</b> ${when} ${esc(T("за"))} ${ton} (${usd})</p>
+      <div class="un-det" hidden>
+        <div><span>${esc(T("Имя пользователя"))}</span><b>@${esc(it.n)}</b></div>
+        <div><span>${esc(T("Владелец"))}</span><b>${who}</b></div>
+        <div><span>${esc(T("Платформа"))}</span><b>${plat}</b></div>
+        <div><span>${esc(T("Дата"))}</span><b>${when}</b></div>
+        <div><span>${esc(T("Цена"))}</span><b>${ton} · ${usd}</b></div>
+        <div><span>${esc(T("Ссылка"))}</span><b class="un-lk">${esc(it.link || "")}</b></div></div>
+      <div class="un-b"><button class="un-more" data-more>${esc(T("Подробнее"))}</button><button class="un-copy" data-copy>${esc(T("Копировать ссылку"))}</button></div></div>`, 130);
+    const el = L.el;
+    el.querySelector("[data-more]").onclick = (e) => {
+      const d = el.querySelector(".un-det"), open = d.hidden; d.hidden = !open; el.classList.toggle("det", open);
+      e.currentTarget.textContent = open ? T("Скрыть") : T("Подробнее"); haptic();
+    };
+    el.querySelector("[data-copy]").onclick = () => { copyText(it.link || ""); toast(T("Ссылка скопирована")); haptic(); L.close(); };
+  },
+  TON: '<svg class="un-gem" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22.2 1.8 9.3 5.3 2.8h13.4l3.5 6.5z" fill="#2aa7ff"/><path d="M12 22.2 1.8 9.3h20.4z" fill="#0b86e8"/><path d="m5.3 2.8 6.7 6.5 6.7-6.5" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1"/></svg>',
+
   // ── рейтинг ──
   rating(u) {
     const r = u.rating || { level: 0, pts: 0, cur: 0, next: 150 };
@@ -314,6 +365,7 @@ const UserProfile = {
       if (tab) { UserProfile.tab = tab.dataset.t; UserProfile.picked = true; haptic(); body.querySelectorAll("#up-tabs button").forEach((b) => b.classList.toggle("on", b === tab)); return UserProfile.drawTab(); }
       const h = t.closest("[data-hours]"); if (h) { h.classList.toggle("open"); return; }
       if (t.closest("[data-qr]")) { haptic(); return QRCard.open(UserProfile.cur); }
+      const un = t.closest("[data-un]"); if (un) { haptic(); return UserProfile.unameSheet(UserProfile.cur, un.dataset.un); }
       if (t.closest("a, .mention")) return;                 // ссылку в «О себе» открывает общий обработчик
       const cp = t.closest(".pi[data-copy]"); if (cp) { const cu = UserProfile.cur || {}; if (cu.bio && cp.dataset.copy === cu.bio && cu.bio_ents) RClip.set(cu.bio, cu.bio_ents); else copyText(cp.dataset.copy); toast(T("Скопировано")); return haptic(); }
       const box = $("up-tab"); if (!box) return;

@@ -466,7 +466,7 @@ const App = {
     try { UserProfile.onBlock(d); } catch (e) {}
   },
   profile(u) {
-    App.patchUser(u.id, { name: u.name, surname: u.surname, username: u.username, bio: u.bio, bio_ents: u.bio_ents || null, avatar: u.avatar, premium: u.premium ? 1 : 0, estatus: u.estatus || null, nft: u.nft || null, verified: u.verified ? 1 : 0, vtier: u.vtier || "", pbg: u.pbg || "", deleted: u.deleted ? 1 : 0 });
+    App.patchUser(u.id, { name: u.name, surname: u.surname, username: u.username, bio: u.bio, bio_ents: u.bio_ents || null, avatar: u.avatar, premium: u.premium ? 1 : 0, estatus: u.estatus || null, nft: u.nft || null, verified: u.verified ? 1 : 0, vtier: u.vtier || "", pbg: u.pbg || "", deleted: u.deleted ? 1 : 0, ...(u.unames ? { unames: u.unames } : {}) });
     Chats.render(); if (u.id === App.user.id) { Profile.render(); guard("tabav", () => App.tabAvatar()); }
     // открыт профиль этого человека — обновляем и его (значок, статус)
     guard("uprofile", () => { if (UserProfile.cur && UserProfile.cur.id === u.id) { UserProfile.cur = Object.assign({}, UserProfile.cur, u); UserProfile.render(UserProfile.cur); } });
@@ -510,7 +510,7 @@ const App = {
       "voicefx.js": () => VoiceFX && typeof VoiceFX.process === "function",
       "call.js": () => Calls && typeof Calls.start === "function",
       "settings.js": () => Settings && Accounts,
-      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261109a/.test([...document.scripts].map((x) => x.src).join(" ")),
+      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261109c/.test([...document.scripts].map((x) => x.src).join(" ")),
     };
     const bad = Object.keys(chk).filter((k) => !has(chk[k]));
     const miss = (window.__boot && window.__boot.miss || []).filter((x, i, a) => a.indexOf(x) === i && /\.(js|css)$/.test(x));

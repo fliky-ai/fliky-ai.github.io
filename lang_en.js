@@ -1951,6 +1951,14 @@ if (I18N.lang === "en") {
   "Жалобы и модерация": "Reports and moderation",
   "Когда вы жалуетесь на человека, модераторы Dicegram видят вашу переписку с ним на момент жалобы — только чтобы проверить нарушение. За спам, мошенничество и оскорбления аккаунт могут заблокировать.": "When you report someone, Dicegram moderators can see your chat with them as of the report — only to check for a violation. Accounts may be blocked for spam, scams and abuse.",
   "Настройки, обои, кэш фото и файлов, а также последние чаты (чтобы они открывались мгновенно и без интернета) хранятся на вашем устройстве. Очистить их можно в разделе «Данные и память»; при выходе из аккаунта сохранённые чаты стираются.": "Settings, wallpapers, the cache of photos and files, and your recent chats (so they open instantly and without internet) are stored on your device. You can clear them in “Data and Storage”; saved chats are erased when you log out.",
+  "Этот аккаунт официально подтверждён администрацией {0}.": "This account is officially verified by the {0} administration.",
+  "Аккаунт верифицирован организацией {0}.": "This account is verified by the organization {0}.",
+  "а также": "and also",
+  "коллекционное имя пользователя, принадлежащее": "is a collectible username owned by",
+  "Это имя приобретено на платформе": "This username was acquired on",
+  "Платформа": "Platform",
+  "Цена": "Price",
+  "Подробнее": "Details",
   });
 
   // ── динамические строки (числа, имена внутри текста) ──

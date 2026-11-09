@@ -9,9 +9,37 @@ const Profile = {
   draft: { birthday: "", vis: "contacts" },
 
   // ───────────── вкладка «Профиль» ─────────────
+  // рейтинг для своего профиля (приходит с /api/user/<id>): значок уровня рядом со статусом, нажатие открывает окно рейтинга
+  rt: null, rtT: 0, rtU: 0,
+  rtOf() { return App.user && Profile.rtU === App.user.id ? Profile.rt : null; },          // рейтинг именно текущего аккаунта
+  async loadRt() {
+    if (!App.user) return;
+    const id = App.user.id;
+    if (Profile.rtU !== id) { Profile.rt = null; Profile.rtT = 0; Profile.rtU = id; }
+    if (Date.now() - Profile.rtT < 45000) return;
+    Profile.rtT = Date.now();
+    try {
+      const d = await api("/api/user/" + id), r = d.user && d.user.rating;
+      if (App.user && App.user.id === id && r && (!Profile.rt || r.level !== Profile.rt.level || r.pts !== Profile.rt.pts)) { Profile.rt = r; Profile.paintRt(); }
+    } catch (e) {}
+  },
+  // щит рейтинга вставляется точечно — без перерисовки всего профиля, чтобы не сбить нажатие или прокрутку
+  paintRt() {
+    const row = document.querySelector("#profile-box .pf-hero .st2row"), r = Profile.rtOf();
+    if (!row || !r) return;
+    const old = row.querySelector(".lvb"); if (old) old.remove();
+    row.insertAdjacentHTML("afterbegin", UserProfile.lvBadge(r));
+    Profile.bindLv();
+  },
+  bindLv() {
+    const lv = document.querySelector("#profile-box .lvb");
+    if (lv) lv.onclick = () => { haptic(); UserProfile.rating(Object.assign({}, App.user, { rating: Profile.rtOf() })); };
+  },
+
   render() {
     Profile.gf = null;                // список подарков перечитывается заново
     Profile.draw();
+    Profile.loadRt();
     // имя и фото показаны и во вкладке «Настройки» (шапка и список аккаунтов) — обновляем их тоже
     Settings.render();
     try { App.tabAvatar(); } catch (e) {}
@@ -23,8 +51,8 @@ const Profile = {
     const rows = [];
     if (u.bio) rows.push(row(Rich.render(u.bio, u.bio_ents || []), "О себе", 'data-copy="' + esc(u.bio) + '"'));
     rows.push(row(esc(fmtPhone(u.number)), "Телефон", 'data-copy="' + esc(u.number) + '"'));
-    rows.push(u.username ? row("@" + esc(u.username) + (typeof QRCard !== "undefined" ? QRCard.btn() : ""), "Имя пользователя", 'data-copy="@' + esc(u.username) + '"')
-                         : row('<span class="dim">Не задано</span>', "Имя пользователя", 'data-edit="1"'));
+    const unr = UserProfile.unRow(u);                                 // @username и «а также @…» (коллекционные имена)
+    rows.push(unr || row('<span class="dim">Не задано</span>', "Имя пользователя", 'data-edit="1"'));
     if (u.birthday) rows.push(row(esc(bdayText(u.birthday)) + (bdayToday(u.birthday) ? " 🎂" : ""), "День рождения", 'data-edit="1"'));
     const pc = Profile.curPc();
     Profile._pcDrawn = pc ? pc.gid : 0;
@@ -36,7 +64,7 @@ const Profile = {
     $("profile-box").innerHTML = `
       <div class="pf-hero${ph.cls}"${ph.style}>${ph.pat}
         <button class="pf-av" id="pf-av" aria-label="Фото профиля">${Stories.av(u, "xl")}</button>
-        <h2>${profName(u)}</h2><div class="st2 on">в сети</div>${verLine(u) ? `${u.username ? `<div class="pf-uname">@${esc(u.username)}</div>` : ""}${verLine(u)}` : ""}
+        <h2>${profName(u)}</h2><div class="st2row">${Profile.rtOf() ? UserProfile.lvBadge(Profile.rtOf()) : ""}<div class="st2 on">в сети</div></div>
         ${u.premium && typeof StatusPicker !== "undefined" ? `<button class="pf-edit-st" id="pf-est">${SI.smile}<span>${esc(T("Эмодзи-статус"))}</span></button>` : ""}
       </div>
       <div class="pf-actions">
@@ -44,7 +72,7 @@ const Profile = {
         <button class="pa" id="pf-edit">${ICON.edit}<span>Изменить</span></button>
         <button class="pa" id="pf-set">${PI.gear}<span>Настройки</span></button>
       </div>
-      <div class="card2 pf-info">${rows.join("")}</div>
+      <div class="card2 pf-info">${rows.join("")}</div>${verNote(u)}
       <div class="pf-tabs">${pill("posts", "Публикации")}${pill("archive", "Архив публикаций")}${pill("gifts", "Подарки")}</div>
       <div id="pf-tab"></div>`;
 
@@ -53,8 +81,10 @@ const Profile = {
     $("pf-edit").onclick = () => Profile.openEdit();
     if ($("pf-est")) $("pf-est").onclick = () => StatusPicker.open();
     $("pf-set").onclick = () => App.go("settings");
+    Profile.bindLv();
     $("profile-box").querySelectorAll(".pi").forEach((b) => (b.onclick = (e) => {
       if (e && e.target.closest("[data-qr]")) { e.stopPropagation(); haptic(); return QRCard.open(App.user); }
+      const un = e && e.target.closest("[data-un]"); if (un) { e.stopPropagation(); haptic(); return UserProfile.unameSheet(App.user, un.dataset.un); }
       if (e && e.target.closest("a, .mention")) return;          // ссылку из «О себе» откроет общий обработчик
       if (b.dataset.copy) { const u = App.user; if (u.bio && b.dataset.copy === u.bio && u.bio_ents) RClip.set(u.bio, u.bio_ents); else copyText(b.dataset.copy); toast("Скопировано"); haptic(); }
       else if (b.dataset.edit) Profile.openEdit();

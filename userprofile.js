@@ -187,9 +187,7 @@ const UserProfile = {
     }
     const d = D[t];
     if (t === "gifts") {
-      box.innerHTML = d.gifts.length
-        ? `<div class="gg pf">${d.gifts.map((g) => `<button class="gt${g.shown ? "" : " hid"}" data-g="${g.id}">${g.pin ? `<span class="gt-p">${GIC.pin}</span>` : ""}${g.nft ? `<span class="gt-n">№${g.nft.num}</span>` : ""}${GiftArt.html(g)}<b>${esc(g.name || Gifts.title(g))}</b>${Gifts.stars(g.price)}</button>`).join("")}</div>`
-        : empty(UserProfile.UI_I.gift, T("Нет подарков"), T("Здесь будут подарки, которые получил этот человек."));
+      box.innerHTML = d.gifts.length ? Gifts.grid(d.gifts, u, u.id === App.user.id) : Gifts.emptyGrid(u.id === App.user.id);
     } else if (t === "media") {
       const ms = d.messages.filter((x) => x.message.att);
       box.innerHTML = ms.length ? `<div class="umg">${ms.map((x, i) => { const a = x.message.att, vid = /^video\//.test(a.mime || ""); return `<button class="mt" data-i="${i}"><img src="${esc(fileUrl(a.turl || a.url))}" alt="" loading="lazy" decoding="async">${vid ? `<span class="mt-v">▶</span>` : ""}</button>`; }).join("")}</div>`
@@ -348,8 +346,9 @@ const UserProfile = {
       <p class="rt-n">${esc(T("Уровень {0}", r.level))} · ${esc(dispName(u))}</p>
       <div class="rt-bar"><i style="width:${pc.toFixed(1)}%"></i></div>
       <div class="rt-ends"><span>${r.cur}</span><span>${esc(T("до уровня {0}", r.level + 1))}: ${r.next}</span></div>
-      <p class="rt-d">${esc(T("Рейтинг растёт, когда человеку дарят подарки, когда он сам дарит их другим и пока у него активен Premium. Чем выше уровень, тем ярче корона."))}</p>
-      <div class="rt-pts">${Gifts.stars(r.pts)} <span>${esc(T("очков"))}</span></div></div>`, 128);
+      <p class="rt-d">${esc(T("Рейтинг растёт, когда человеку дарят подарки, когда он сам дарит их другим и пока у него активен Premium. Чем выше уровень, тем ярче блеск значка."))}</p>
+      <div class="rt-pts"><b>${(+r.pts || 0).toLocaleString(I18N.lang === "en" ? "en-US" : "ru-RU")}</b> <span>${esc(T("очков"))}</span></div>
+      <button class="rt-ok" data-x>${esc(T("Понятно"))}</button></div>`, 128);
     void L;
   },
 
@@ -369,6 +368,7 @@ const UserProfile = {
       if (t.closest("a, .mention")) return;                 // ссылку в «О себе» открывает общий обработчик
       const cp = t.closest(".pi[data-copy]"); if (cp) { const cu = UserProfile.cur || {}; if (cu.bio && cp.dataset.copy === cu.bio && cu.bio_ents) RClip.set(cu.bio, cu.bio_ents); else copyText(cp.dataset.copy); toast(T("Скопировано")); return haptic(); }
       const box = $("up-tab"); if (!box) return;
+      if (t.closest("[data-gsend]")) return UserProfile.act("gift");
       const g = t.closest(".gt[data-g]");
       if (g) { const x = UserProfile.D.gifts.gifts.find((k) => k.id === +g.dataset.g); if (x) Gifts.detail(x); return; }
       const m = t.closest(".mt[data-i]"); if (m) { const x = box._ms[+m.dataset.i]; if (x) Viewer.open(x.message.att); return; }

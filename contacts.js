@@ -153,7 +153,7 @@ const CreateChat = {
   n: 0,
   open(kind) {
     const ch = kind === "channel", id = "cc" + ++CreateChat.n;
-    const st = { kind, title: "", about: "", photo: "", auto: 0, busy: false };
+    const st = { kind, title: "", about: "", photo: "", auto: 0, busy: false, pub: false, slug: "" };
     const el = document.createElement("section");
     el.id = id; el.className = "page tgp"; el.setAttribute("aria-hidden", "true");
     el.innerHTML = `<header class="tg-head">
@@ -169,13 +169,31 @@ const CreateChat = {
         <div class="cc-hint">${esc(T(ch ? "Вы можете указать название и добавить фото для вашего канала." : "Вы можете указать название и добавить фото для вашей группы."))}</div>
         <button class="nm-act cc-row" data-auto>${svg('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/>')}<span>${esc(T("Автоудаление сообщений"))}</span><em id="${id}-ad">${esc(autoDelText(0))}</em></button>
         <div class="cc-hint">${esc(T("Сообщения будут удаляться через выбранное время после отправки. Можно изменить позже."))}</div>
+        <div class="cc-seg" role="tablist"><button class="on" data-pub="0" role="tab">${esc(T("Частная"))}</button><button data-pub="1" role="tab">${esc(T("Публичная"))}</button></div>
+        <div class="cc-pubbox" hidden>
+          <label class="cc-lnk"><span>${esc(Links.BASE.replace(/^https?:\/\//, ""))}/</span><input id="${id}-s" maxlength="32" placeholder="username" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="${esc(T("Адрес"))}"></label>
+          <div class="cc-hint cc-sh"></div>
+        </div>
+        <div class="cc-hint cc-th">${esc(T(ch ? "Частный канал доступен только по ссылке-приглашению." : "Частная группа доступна только по ссылке-приглашению."))}</div>
       </div>
       <button class="fab2 off" data-ok aria-label="${esc(T("Создать"))}">${SI.check}</button>`;
     document.body.appendChild(el);
     void el.offsetWidth;
     Nav.open(id, () => setTimeout(() => el.remove(), 320));
     const fab = el.querySelector("[data-ok]"), inp = el.querySelector("#" + id + "-t");
-    const upd = () => fab.classList.toggle("off", !st.title.trim() || st.busy);
+    const SLUG = /^[A-Za-z][A-Za-z0-9_]{4,31}$/;
+    const upd = () => fab.classList.toggle("off", !st.title.trim() || st.busy || (st.pub && !SLUG.test(st.slug)));
+    const sh = el.querySelector(".cc-sh");
+    const hint = () => {
+      const ok = SLUG.test(st.slug);
+      sh.className = "cc-hint cc-sh" + (st.slug && !ok ? " bad" : ok ? " good" : "");
+      sh.textContent = ok ? Links.BASE.replace(/^https?:\/\//, "") + "/" + st.slug
+        : st.slug ? T("Адрес: от 5 до 32 символов — латиница, цифры, _. Должен начинаться с буквы")
+        : T("Обязательно: от 5 до 32 символов — латиница, цифры, _. Публичную группу или канал можно найти и открыть по этой ссылке.");
+    };
+    hint();
+    const si = el.querySelector("#" + id + "-s");
+    si.addEventListener("input", () => { si.value = si.value.replace(/^@/, "").replace(/[^A-Za-z0-9_]/g, "").slice(0, 32); st.slug = si.value; hint(); upd(); });
     inp.addEventListener("input", () => { st.title = inp.value; upd(); });
     const ab = el.querySelector("#" + id + "-a"); if (ab) ab.addEventListener("input", () => { st.about = ab.value; });
     setTimeout(() => { try { inp.focus(); } catch (e) {} }, 300);
@@ -185,6 +203,14 @@ const CreateChat = {
       if (e.target.closest("[data-emo]")) {
         const em = await CreateChat.emoji(); if (!em) return;
         inp.value = (inp.value + em).slice(0, 64); st.title = inp.value; upd(); return;
+      }
+      const sg = e.target.closest("[data-pub]");
+      if (sg) {
+        st.pub = sg.dataset.pub === "1"; haptic();
+        el.querySelectorAll("[data-pub]").forEach((b) => b.classList.toggle("on", b === sg));
+        el.querySelector(".cc-pubbox").hidden = !st.pub; el.querySelector(".cc-th").hidden = st.pub;
+        if (st.pub) setTimeout(() => { try { si.focus(); } catch (er) {} }, 60);
+        hint(); upd(); return;
       }
       if (e.target.closest("[data-auto]")) {
         const v = await UI.sheet({ title: T("Автоудаление сообщений"), actions: AUTO_DEL.map(([s, n]) => ({ label: (st.auto === s ? "✓ " : "") + T(n), value: s + 1 })) });
@@ -200,10 +226,12 @@ const CreateChat = {
       }
       if (e.target.closest("[data-ok]")) {
         if (st.busy || !st.title.trim()) return;
+        if (st.pub && !SLUG.test(st.slug)) { hint(); return toast(T("Укажите адрес публичной ссылки: от 5 до 32 символов")); }
         st.busy = true; upd(); haptic("medium");
         try {
-          const d = await api("/api/chat/create", { method: "POST", body: { kind, title: st.title.trim(), about: st.about.trim(), auto_del: st.auto, photo: st.photo || undefined } });
+          const d = await api("/api/chat/create", { method: "POST", body: { kind, title: st.title.trim(), about: st.about.trim(), auto_del: st.auto, photo: st.photo || undefined, public: st.pub, slug: st.pub ? st.slug : undefined } });
           await Chats.load();
+          if ((d.skipped || []).length) setTimeout(() => toast(T("Не добавлены (закрыли приглашения): {0}", d.skipped.map((x) => x.name).join(", "))), 600);
           const c = Chats.byId(d.chat.id);
           await Nav.unwindWhile((t) => t.id === "newmsg" || /^cc\d+$/.test(t.id || ""));
           Chat.open(c ? c.peer : d.chat);

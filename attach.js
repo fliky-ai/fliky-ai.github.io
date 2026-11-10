@@ -145,7 +145,7 @@ const Attach = {
     files = (files || []).filter((f) => f && f.size > 0);
     if (!files.length) return;
     const big = files.find((f) => f.size > Attach.max);
-    if (big) return toast(T("«{0}» больше {1} МБ", big.name, Math.round(Attach.max / 1048576)));
+    if (big) return Attach.tooBig(big);
     const urls = [];
     const el = document.createElement("div");
     el.className = "sheet2 pv";
@@ -171,7 +171,20 @@ const Attach = {
       if (b) b.dataset.a === "ok" ? send() : close();
     });
   },
-  max: 50 * 1048576,
+  // сколько можно загрузить одним файлом: 50 МБ, а у Premium — до 100 МБ (цифры присылает сервер)
+  get max() { return (App.user && App.user.up_max) || 50 * 1048576; },
+  get maxPremium() { return (App.user && App.user.up_max_premium) || 100 * 1048576; },
+  // файл слишком большой: обычному пользователю подсказываем про Premium (если с ним файл бы прошёл)
+  async tooBig(f) {
+    const mb = (n) => Math.round(n / 1048576);
+    if (!(App.user && App.user.premium) && f.size <= Attach.maxPremium) {
+      const v = await UI.sheet({ title: T("Файл больше {0} МБ", mb(Attach.max)), icon: SI.starF, text: T("«{0}» — {1}. С Premium можно загружать файлы до {2} МБ.", f.name, fmtSize(f.size), mb(Attach.maxPremium)),
+        actions: [{ label: T("Подробнее о Premium"), value: "p", accent: true }], cancel: T("Закрыть") });
+      if (v === "p") PremiumPromo.open(App.user);
+      return;
+    }
+    toast(T("«{0}» больше {1} МБ", f.name, mb(Attach.max)));
+  },
 
   // «Скачать»: как в Telegram — внутрь приложения (видно в «Загрузках», потом открывается без интернета);
   // то, что приложение не умеет показать (архивы, APK и т.п.), сохраняется сразу на телефон

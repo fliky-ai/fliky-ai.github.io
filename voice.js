@@ -135,6 +135,7 @@ const Voice = {
       if (Chat.mainMode() !== "mic" || Voice.st !== "idle" || (e.pointerType === "mouse" && e.button !== 0)) return;
       if (Chat.slowLeft() > 0) { e.preventDefault(); return Chat.slowShake(); }
       e.preventDefault();
+      if (Chat.peer && Chat.peer.no_voice) { haptic("light"); return toast(T("Этот пользователь не принимает голосовые сообщения")); }
       Voice.down(e);
     });
     b.addEventListener("pointermove", (e) => Voice.move(e));
@@ -356,6 +357,59 @@ const Player = {
       <svg class="i-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>
       <svg class="i-pause" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4.2" height="14" rx="1.2"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.2"/></svg></button>
       <div class="vm-body"><div class="vm-wave"><div class="vm-bars">${bars}</div></div>
-      <div class="vm-meta"><span class="vm-time">${fmtDur(a.dur || 0)}</span><button class="vm-spd" type="button">1×</button></div></div></div>`;
+      <div class="vm-meta"><span class="vm-time">${fmtDur(a.dur || 0)}</span><button class="vm-spd" type="button">1×</button></div></div>${Stt.btn(m)}</div>${Stt.tx(m)}`;
   },
+};
+
+// ───────────── «Голос в текст» (Premium) ─────────────
+// Кнопка рядом с голосовым. Расшифровку видит только тот, кто нажал: она хранится у него (на сервере — под его номером, на устройстве — в его кэше),
+// собеседнику не отправляется и в сообщение не попадает. Сам распознаватель работает на сервере (Whisper-совместимый сервис).
+const Stt = {
+  mem: new Map(), st: new Map(), hid: new Set(), uid: -1,
+  key() { return "stt_" + ((App.user && App.user.id) || 0); },
+  init() {                                  // кэш текстов — свой у каждого аккаунта
+    const id = (App.user && App.user.id) || 0;
+    if (Stt.uid === id) return;
+    Stt.uid = id; Stt.st.clear(); Stt.hid.clear();
+    const o = ls.get(Stt.key(), {});
+    Stt.mem = new Map(Object.keys(o || {}).map((k) => [+k, String(o[k])]));
+  },
+  save() { const o = {}; [...Stt.mem].slice(-200).forEach(([k, v]) => { o[k] = v; }); ls.set(Stt.key(), o); },
+  prem() { return !!(App.user && App.user.premium); },
+  btn(m) {
+    if (!m || !m.id || m.pending) return "";
+    Stt.init();
+    const s = Stt.st.get(m.id), open = (Stt.mem.has(m.id) && !Stt.hid.has(m.id)) || (s && s.load);
+    return `<button class="vm-stt${open ? " on" : ""}${Stt.prem() ? "" : " stt-up"}" type="button" aria-label="${esc(T("Расшифровать в текст"))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 7.5h14"/><path d="M5 12h14"/><path d="M5 16.5h8"/></svg></button>`;
+  },
+  tx(m) {
+    if (!m || !m.id || m.pending) return "";
+    Stt.init();
+    const s = Stt.st.get(m.id);
+    if (s && s.load) return `<div class="vm-tx load" role="status"><i></i><i></i><i></i><span>${esc(T("Расшифровываю…"))}</span></div>`;
+    if (s && s.err) return `<div class="vm-tx err">${esc(s.err)}</div>`;
+    if (Stt.mem.has(m.id) && !Stt.hid.has(m.id)) return `<div class="vm-tx">${esc(Stt.mem.get(m.id))}</div>`;
+    return "";
+  },
+  async press(m) {
+    if (!m || !m.id || m.pending) return;
+    Stt.init(); haptic();
+    if (!Stt.prem()) return PremiumPromo.open(App.user);       // обычному пользователю — рассказ о Premium
+    const id = m.id, s = Stt.st.get(id);
+    if (s && s.load) return;
+    if (Stt.mem.has(id)) { Stt.hid.has(id) ? Stt.hid.delete(id) : Stt.hid.add(id); Stt.st.delete(id); return Stt.redraw(m); }      // повторное нажатие — свернуть / показать
+    Stt.st.set(id, { load: 1 }); Stt.redraw(m);
+    try {
+      const d = await api("/api/voice/transcribe", { method: "POST", body: { mid: id }, timeout: 120000 });
+      Stt.st.delete(id);
+      if (d.text) { Stt.mem.set(id, d.text); Stt.hid.delete(id); Stt.save(); }
+      else Stt.st.set(id, { err: T("Речь не распознана") });
+    } catch (e) {
+      const dd = e.data || {};
+      if (dd.premium) { try { App.user.premium = 0; } catch (er) {} Stt.st.delete(id); Stt.redraw(m); return PremiumPromo.open(App.user); }
+      Stt.st.set(id, { err: dd.unconfigured ? T("Распознавание речи на сервере пока не подключено") : e.message });
+    }
+    Stt.redraw(m);
+  },
+  redraw(m) { try { Chat.patch(m); } catch (e) {} },
 };

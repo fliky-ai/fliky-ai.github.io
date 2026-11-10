@@ -63,21 +63,39 @@ const DL = {
     DL.paint();
     if (!opts.quiet) toast(T("Загрузка началась — следите за ней в «Загрузках»"));
     try {
-      const base = fileUrl(att.url);
-      const res = await fetch(base + (base.includes("?") ? "&" : "?") + "dlm=1", { signal: ctl.signal, mode: "cors", credentials: "omit" });
-      if (!res.ok || !res.body) throw new Error("http " + res.status);
-      job.total = +res.headers.get("content-length") || job.total;
-      const counter = new TransformStream({
-        transform(chunk, c) { job.loaded += chunk.byteLength; DL.tick(); c.enqueue(chunk); },
-      });
-      const h = new Headers();
-      h.set("content-type", res.headers.get("content-type") || att.mime || "application/octet-stream");
-      if (job.total) h.set("content-length", String(job.total));
-      h.set("accept-ranges", "bytes");
-      h.set("x-cached-at", String(Date.now()));
-      h.set("x-dl", "1");
+      const base = fileUrl(att.url), dlUrl = base + (base.includes("?") ? "&" : "?") + "dlm=1";
       const c = await caches.open(DL.CACHE);
-      await c.put(k, new Response(res.body.pipeThrough(counter), { status: 200, headers: h }));     // пишется кусками, без целого файла в памяти
+      const hd = (type, total) => {
+        const h = new Headers();
+        h.set("content-type", type || att.mime || "application/octet-stream");
+        if (total) h.set("content-length", String(total));
+        h.set("accept-ranges", "bytes");
+        h.set("x-cached-at", String(Date.now()));
+        h.set("x-dl", "1");
+        return h;
+      };
+      let fast = false;
+      // Premium: самая быстрая загрузка — несколько соединений сразу; не получилось — обычная ниже
+      if (DL.canFast(att)) {
+        try {
+          job.loaded = 0; job.fast = DL.STREAMS;
+          await c.put(k, new Response(DL.parallel(dlUrl, job), { status: 200, headers: hd(att.mime, att.size) }));
+          fast = true;
+        } catch (e) {
+          if (job.ctl.signal.aborted) throw e;     // пользователь отменил
+          job.fast = 0; job.loaded = 0;
+          try { await c.delete(k); } catch (er) {}
+        }
+      }
+      if (!fast) {
+        const res = await fetch(dlUrl, { signal: ctl.signal, mode: "cors", credentials: "omit" });
+        if (!res.ok || !res.body) throw new Error("http " + res.status);
+        job.total = +res.headers.get("content-length") || job.total;
+        const counter = new TransformStream({
+          transform(chunk, cc) { job.loaded += chunk.byteLength; DL.tick(); cc.enqueue(chunk); },
+        });
+        await c.put(k, new Response(res.body.pipeThrough(counter), { status: 200, headers: hd(res.headers.get("content-type"), job.total) }));     // пишется кусками, без целого файла в памяти
+      }
       DL.active.delete(k);
       DL.record(att, { size: job.loaded || att.size || 0, peer: job.peer });
       if (!job.quiet) toast(T("Загружено: {0}", att.name || T("файл")));
@@ -88,6 +106,56 @@ const DL = {
       if (!job.quiet && !(e && e.name === "AbortError")) toast(T("Не удалось скачать файл"));
     }
     DL.paint();
+  },
+  // ───────── быстрая загрузка (Premium) ─────────
+  // Файл режется на куски по 2 МБ; STREAMS кусков качаются одновременно (запросы Range), потом собираются по порядку в один поток,
+  // который пишется в хранилище. В памяти — не больше нескольких кусков (читаем по мере записи), так что большие файлы безопасны.
+  STREAMS: 4, BLOCK: 2 * 1048576, MIN_FAST: 3 * 1048576,
+  canFast(att) { return !!(App.user && App.user.premium) && (att.size || 0) >= DL.MIN_FAST && typeof ReadableStream === "function"; },
+  parallel(url, job) {
+    const total = job.total, BLK = DL.BLOCK, K = DL.STREAMS, n = Math.ceil(total / BLK);
+    const run = new Map(), ctl = new AbortController();     // свой «стоп» для кусков: при ошибке гасим только их, а общую загрузку (job.ctl) не трогаем — ниже она продолжится обычным способом
+    const stop = () => { try { ctl.abort(); } catch (e) {} };
+    if (job.ctl.signal.aborted) stop(); else job.ctl.signal.addEventListener("abort", stop, { once: true });
+    let emit = 0;
+    const block = async (i) => {
+      const a = i * BLK, b = Math.min(total, a + BLK) - 1, len = b - a + 1;
+      for (let t = 0; ; t++) {
+        let got = 0;
+        try {
+          const r = await fetch(url, { headers: { Range: "bytes=" + a + "-" + b }, signal: ctl.signal, mode: "cors", credentials: "omit" });
+          if (r.status !== 206 || !r.body) { const e = new Error("no range " + r.status); e.stop = 1; throw e; }     // сервер/прокси не умеет Range — обычная загрузка
+          const cr = /\/(\d+)\s*$/.exec(r.headers.get("content-range") || "");
+          if (cr && +cr[1] !== total) { const e = new Error("size changed"); e.stop = 1; throw e; }
+          const buf = new Uint8Array(len), rd = r.body.getReader();
+          for (;;) {
+            const { done, value } = await rd.read();
+            if (done) break;
+            if (got + value.length > len) throw new Error("too long");
+            buf.set(value, got); got += value.length; job.loaded += value.length; DL.tick();
+          }
+          if (got !== len) throw new Error("short block");
+          return buf;
+        } catch (e) {
+          job.loaded -= got;
+          if ((e && (e.name === "AbortError" || e.stop)) || t >= 2) throw e;
+          await new Promise((ok) => setTimeout(ok, 350 * (t + 1)));
+        }
+      }
+    };
+    const go = (i) => { if (i < n && !run.has(i)) { const p = block(i); p.catch(() => {}); run.set(i, p); } };
+    return new ReadableStream({
+      async pull(c) {
+        if (emit >= n) return c.close();
+        for (let i = emit; i < emit + K; i++) go(i);
+        let data;
+        try { data = await run.get(emit); } catch (e) { stop(); throw e; }
+        run.delete(emit); emit++;
+        for (let i = emit; i < emit + K; i++) go(i);
+        c.enqueue(data);
+      },
+      cancel() { stop(); },
+    }, { highWaterMark: 0 });
   },
   cancel(k) { const j = DL.active.get(k); if (j) { try { j.ctl.abort(); } catch (e) {} DL.active.delete(k); DL.paint(); } },
   async remove(k) {
@@ -207,7 +275,7 @@ const DL = {
       if (!j) return;
       const p = j.total ? Math.min(1, j.loaded / j.total) : 0;
       r.querySelector(".dl-bar i").style.width = (p * 100).toFixed(1) + "%";
-      r.querySelector(".dl-st").textContent = j.total ? T("{0} из {1}", fmtSize(j.loaded), fmtSize(j.total)) : fmtSize(j.loaded);
+      r.querySelector(".dl-st").textContent = (j.total ? T("{0} из {1}", fmtSize(j.loaded), fmtSize(j.total)) : fmtSize(j.loaded)) + (j.fast ? " · ⚡ " + T("Быстрая загрузка") : "");
     });
   },
   open(k) {

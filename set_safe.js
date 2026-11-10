@@ -12,9 +12,15 @@ const PRIV_ROWS = [
   { k: "calls", ic: SI.call, c: "t", t: "Звонки", h: "Кто может мне звонить",
     n: "Звонки в приложении пока не поддерживаются — выбранная настройка сохранится и заработает, когда они появятся." },
   { k: "bio", ic: SI.info, c: "p", t: "О себе", h: "Кто видит раздел «О себе»", n: "Остальным этот раздел в вашем профиле не показывается." },
+  { k: "voice", ic: SI.mic, c: "r", t: "Голосовые сообщения", h: "Кто может отправлять мне голосовые сообщения", grp: "who",
+    n: "Тем, кому голосовые запрещены, приложение подскажет написать текстом." },
+  { k: "invite", ic: SI.userPlus, c: "t", t: "Приглашения", h: "Кто может приглашать меня в группы и каналы", grp: "who",
+    n: "Если вас не могут добавить, человек получит сообщение об этом — а вы всё равно сможете вступить по ссылке-приглашению." },
   { k: "birthday", ic: SI.gift, c: "r", t: "День рождения", h: "Кто видит мой день рождения", n: "Если дата скрыта, в вашем профиле она не отображается." },
 ];
-const PRIV_DEF = { phone: "contacts", seen: "all", photo: "all", fwd: "all", calls: "all", bio: "all", birthday: "contacts" };
+const PRIV_DEF = { phone: "contacts", seen: "all", photo: "all", fwd: "all", calls: "all", bio: "all", birthday: "contacts", voice: "all", msg: "all", gifts: "all", invite: "all" };
+const GIFT_TYPE_ROWS = [["regular", "Обычные", "Подарки из магазина"], ["rare", "Редкие", "Ограниченные выпуски"], ["unique", "Уникальные", "NFT-подарки с номером"],
+  ["channels", "От каналов", "Подарки, отправленные от имени канала"], ["premium", "Dicegram Premium", "Подписка в подарок"]];
 const VIS_T = { all: "Все", contacts: "Мои контакты", none: "Никто" };
 const privVal = (u, k) => (k === "birthday" ? u.birthday_vis || "contacts" : (u.priv || {})[k] || PRIV_DEF[k]);
 
@@ -49,6 +55,7 @@ Object.assign(Settings, {
       pk: (el) => Settings.privKey(el.dataset.v, pg),
       cloud: () => Settings.cloud(pg), pass: () => Settings.passcode(pg), keys: () => Settings.passkeys(),
       email: () => Settings.email(pg), del: () => Settings.autodel(pg),
+      msg: () => Settings.privMsg(pg), gifts: () => Settings.privGifts(pg), blocks: () => Settings.blocklist(pg),
     };
     pg.hook = () => Settings.drawPrivacy(pg);
     return pg;
@@ -57,8 +64,16 @@ Object.assign(Settings, {
     const u = App.user, d = u.auto_del || 0;
     pg.set(`
       ${R.lbl(esc(T("Кто может видеть")))}
-      ${R.card(...PRIV_ROWS.map((r) => R.row({ a: "pk", v: r.k, ic: r.ic, c: r.c, t: esc(T(r.t)), r: esc(T(VIS_T[privVal(u, r.k)])) })))}
+      ${R.card(...PRIV_ROWS.filter((r) => !r.grp).map((r) => R.row({ a: "pk", v: r.k, ic: r.ic, c: r.c, t: esc(T(r.t)), r: esc(T(VIS_T[privVal(u, r.k)])) })))}
       ${R.hint(esc(T("«Мои контакты» — люди, с которыми у вас есть переписка.")))}
+      ${R.lbl(esc(T("Кто может мне писать")))}
+      ${R.card(
+        ...PRIV_ROWS.filter((r) => r.k === "voice").map((r) => R.row({ a: "pk", v: r.k, ic: r.ic, c: r.c, t: esc(T(r.t)), r: esc(T(VIS_T[privVal(u, r.k)])) })),
+        R.row({ a: "msg", ic: SI.chat, c: "b", t: esc(T("Сообщения")), r: esc(Settings.msgText(u)) }),
+        R.row({ a: "gifts", ic: SI.gift, c: "p", t: esc(T("Подарки")), r: esc(T(VIS_T[privVal(u, "gifts")])) }),
+        ...PRIV_ROWS.filter((r) => r.k === "invite").map((r) => R.row({ a: "pk", v: r.k, ic: r.ic, c: r.c, t: esc(T(r.t)), r: esc(T(VIS_T[privVal(u, r.k)])) })))}
+      ${R.hint(esc(T("Контакты — те, кто сохранён у вас в контактах или кому вы писали сами. Подписчики Premium могут писать вам, если выбрано «Контакты и Premium».")))}
+      ${R.card(R.row({ a: "blocks", ic: SI.shield, c: "r", t: esc(T("Чёрный список")), r: esc(Settings.blockCount ? String(Settings.blockCount) : "") }))}
       ${R.lbl(esc(T("Безопасность")))}
       ${R.card(
         R.row({ a: "cloud", ic: SI.key, c: "o", t: esc(T("Облачный пароль")), r: esc(u.has_cloud ? T("Вкл.") : T("Выкл.")) }),
@@ -100,6 +115,133 @@ Object.assign(Settings, {
         } catch (e) { toast(e.message); }
       },
     };
+  },
+
+  // ─────────── «Сообщения»: все / контакты и Premium / за звёзды ───────────
+  msgText(u) {
+    const p = (u || App.user).priv || {};
+    if (p.msg === "paid") return `⭐ ${(p.msg_price || 0).toLocaleString(I18N.lang === "en" ? "en-US" : "ru-RU")}`;
+    return T(p.msg === "cp" ? "Контакты и Premium" : "Все");
+  },
+  privMsg(parent) {
+    const pg = Pg.open({ title: T("Сообщения"), data: { paid: (App.user.priv || {}).msg === "paid" }, build: (pg) => {
+      const p = App.user.priv || {}, cur = pg.data.paid ? "paid" : p.msg || "all";
+      const price = p.msg_price || "";
+      pg.set(`${R.lbl(esc(T("Кто может писать мне")))}
+        ${R.opts([
+          { v: "all", t: esc(T("Все")), s: esc(T("Писать вам может любой человек")) },
+          { v: "cp", t: esc(T("Контакты и Premium-подписчики")), s: esc(T("Незнакомые смогут написать, только если у них есть Dicegram Premium")) },
+          { v: "paid", t: esc(T("Сообщение за звёзды")), s: esc(T("Незнакомые платят вам за каждое сообщение")) }], cur, "set")}
+        ${cur === "paid" ? `${R.lbl(esc(T("Цена одного сообщения")))}
+          <div class="card2 fields pm-price"><input id="pm-price" type="number" inputmode="numeric" min="1" max="35000" step="1" value="${esc(price)}" placeholder="1 – 35 000" aria-label="${esc(T("Цена одного сообщения"))}"><span class="pm-st">${GIC.star}</span></div>
+          <div class="pm-chips">${[1, 5, 10, 50, 100, 500, 1000].map((n) => `<button type="button" data-a="chip" data-v="${n}">${n}</button>`).join("")}</div>
+          <div class="err" id="pm-err"></div>
+          <div class="pg-btnw">${R.btn(esc(T("Сохранить")), "save")}</div>` : ""}
+        ${R.hint(esc(T(cur === "paid" ? "От 1 до 35 000 звёзд за сообщение. Бесплатно вам пишут контакты и подписчики Premium. Звёзды сразу зачисляются на ваш баланс."
+          : "Контакты — те, кто сохранён у вас в контактах или кому вы писали сами.")))}`);
+    } });
+    const save = async (body) => {
+      try { const d = await api("/api/me/privacy", { method: "POST", body: Object.assign({ key: "msg" }, body) }); App.user = d.user; pg.data.paid = d.user.priv.msg === "paid"; pg.refresh(); if (parent && parent.alive) parent.refresh(); Profile.render(); }
+      catch (e) { const er = pg.$("#pm-err"); if (er) er.textContent = e.message; else toast(e.message); }
+    };
+    pg.on = {
+      set: (el) => {
+        const v = el.dataset.v;
+        if (v === "paid") { pg.data.paid = true; return pg.refresh(); }
+        pg.data.paid = false; if (((App.user.priv || {}).msg || "all") === v) return pg.refresh(); save({ value: v });
+      },
+      chip: (el) => { const i = pg.$("#pm-price"), er = pg.$("#pm-err"); if (er) er.textContent = ""; if (i) { i.value = el.dataset.v; i.focus(); } },
+      save: () => {
+        const n = Math.round(+((pg.$("#pm-price") || {}).value || 0)), er = pg.$("#pm-err");
+        if (!(n >= 1 && n <= 35000)) { if (er) { er.textContent = T("Цена — от 1 до 35 000 звёзд"); er.classList.add("shake"); setTimeout(() => er.classList.remove("shake"), 400); } return; }
+        save({ value: "paid", price: n });
+      },
+    };
+    return pg;
+  },
+
+  // ─────────── «Подарки»: кто может дарить и какие подарки принимать ───────────
+  privGifts(parent) {
+    const pg = Pg.open({ title: T("Подарки"), build: (pg) => {
+      const u = App.user, p = u.priv || {}, types = p.gtypes || GIFT_TYPE_ROWS.map((x) => x[0]);
+      pg.set(`${R.lbl(esc(T("Кто может дарить мне подарки")))}
+        ${R.opts(["all", "contacts", "none"].map((v) => ({ v, t: esc(T(VIS_T[v])) })), privVal(u, "gifts"), "who")}
+        ${R.lbl(esc(T("Какие подарки принимать")))}
+        ${R.card(...GIFT_TYPE_ROWS.map(([k, t, s]) => R.row({ a: "gt", v: k, ic: SI.gift, c: { regular: "b", rare: "p", unique: "v", channels: "t", premium: "o" }[k], t: esc(T(t)), s: esc(T(s)), sw: 1, on: types.includes(k) })))}
+        ${R.hint(esc(T("Подарки, которые вы не принимаете, отправить вам нельзя — человек увидит об этом сообщение.")))}`);
+    } });
+    const save = async (body) => {
+      try { const d = await api("/api/me/privacy", { method: "POST", body }); App.user = d.user; pg.refresh(); if (parent && parent.alive) parent.refresh(); }
+      catch (e) { toast(e.message); }
+    };
+    pg.on = {
+      who: (el) => { if (el.dataset.v !== privVal(App.user, "gifts")) save({ key: "gifts", value: el.dataset.v }); },
+      gt: (on, el) => {
+        const cur = new Set((App.user.priv || {}).gtypes || GIFT_TYPE_ROWS.map((x) => x[0]));
+        if (on) cur.add(el.dataset.v); else cur.delete(el.dataset.v);
+        save({ key: "gtypes", value: [...cur] });
+      },
+    };
+    return pg;
+  },
+
+  // ─────────── Чёрный список ───────────
+  blockCount: 0,
+  blocklist(parent) {
+    const pg = Pg.open({ title: T("Чёрный список"), data: { list: null }, build: (pg) => {
+      const l = pg.data.list;
+      if (l === null) { pg.set(`<div class="bl-load"><div class="spin"></div></div>`); return; }
+      pg.set(`<div class="pg-btnw">${R.btn(esc(T("Заблокировать")), "add", "danger")}</div>
+        ${R.hint(esc(T("Заблокированные не смогут писать вам, звонить и дарить подарки. Они не узнают, что вы их заблокировали.")))}
+        ${l.length ? `${R.lbl(esc(T("Заблокированные пользователи")))}<div class="card2 irows bl-list">${l.map((x) => `<div class="irow bl-row" data-id="${x.id}">${avatar(x, "sm")}<span class="tx"><b>${esc(dispName(x))}${verBadge(x)}</b><small>${x.username ? "@" + esc(x.username) : esc(T("Нет имени пользователя"))}</small></span><button type="button" class="bl-dots" data-a="menu" data-v="${x.id}" aria-label="${esc(T("Ещё"))}">${SI.dots}</button></div>`).join("")}</div>`
+          : R.hero(SI.shield, esc(T("Никто не заблокирован")), esc(T("Здесь появятся люди, которых вы заблокировали.")))}`);
+    } });
+    const load = async () => {
+      try { const d = await api("/api/blocks"); pg.data.list = d.users || []; Settings.blockCount = pg.data.list.length; }
+      catch (e) { pg.data.list = []; toast(e.message); }
+      if (pg.alive) pg.refresh();
+      if (parent && parent.alive) parent.refresh();
+    };
+    pg.on = {
+      add: async () => {
+        await Contacts.load();
+        const have = new Set((pg.data.list || []).map((x) => x.id));
+        const cand = Contacts.people().filter((u) => !have.has(u.id) && !u.is_system);
+        Picker.open({
+          title: T("Заблокировать"), people: cand, multi: false,
+          extra: [{ t: T("Найти по @username"), ic: SI.search, fn: async () => {
+            const v = await UI.prompt({ title: T("Имя пользователя"), placeholder: "@username", ok: T("Найти"), type: "text" });
+            const name = String(v || "").trim().replace(/^@/, ""); if (!name) return;
+            try {
+              const r = await api("/api/resolve/" + encodeURIComponent(name));
+              if (r.type !== "user") return toast(T("Это не человек, а группа или канал"));
+              await Nav.unwindWhile((t) => /^pick\d+$/.test(t.id || ""));
+              pg.on.block(r.user);
+            } catch (e) { toast(T("Пользователь @{0} не найден", name)); }
+          } }],
+          onDone: async ([id]) => { const u = Contacts.people().find((x) => x.id === id); if (u) pg.on.block(u); },
+        });
+      },
+      block: async (u) => {
+        if (u.id === App.user.id) return toast(T("Нельзя заблокировать себя"));
+        const ok = await UI.sheet({ title: T("Заблокировать {0}?", dispName(u)), text: T("Он не сможет писать вам, звонить и дарить подарки."), actions: [{ label: T("Заблокировать"), value: true, danger: true }] });
+        if (!ok) return;
+        try { await api("/api/block", { method: "POST", body: { id: u.id, on: true } }); toast(T("Пользователь заблокирован")); haptic(); await load(); } catch (e) { toast(e.message); }
+      },
+      menu: async (el) => {
+        const id = +el.dataset.v, u = (pg.data.list || []).find((x) => x.id === id); if (!u) return;
+        const v = await UI.sheet({ title: dispName(u), actions: [{ label: T("Разблокировать"), value: "un", accent: true }] });
+        if (v !== "un") return;
+        try {
+          await api("/api/block", { method: "POST", body: { id, on: false } });
+          pg.data.list = pg.data.list.filter((x) => x.id !== id); Settings.blockCount = pg.data.list.length;
+          toast(T("Пользователь разблокирован")); haptic(); pg.refresh(); if (parent && parent.alive) parent.refresh();
+          try { const c = Chats.byId(id); if (c) { c.peer.blocked = false; } } catch (e) {}
+        } catch (e) { toast(e.message); }
+      },
+    };
+    load();
+    return pg;
   },
 
   // ─────────── Облачный пароль ───────────

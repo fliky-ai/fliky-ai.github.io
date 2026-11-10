@@ -94,6 +94,7 @@
 
 /* голосовое */
 .vm{display:flex;align-items:center;gap:10px;min-width:216px;white-space:normal}
+.vm:has(.vm-stt){min-width:248px}
 .vm-play{width:42px;height:42px;flex:none;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center}
 .b.out .vm-play{background:#fff;color:var(--accent)}
 .vm-play svg{grid-area:1/1;width:20px;height:20px}
@@ -112,6 +113,26 @@
 .b.k-voice .rx{margin-top:8px}
 .vm-spd{display:none;font-size:11px;font-weight:800;padding:1px 7px;border-radius:9px;background:rgba(127,127,127,.25)}
 .vm.active .vm-spd{display:inline-block}
+.vm-stt{position:relative;flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:rgba(127,127,127,.2);color:inherit;opacity:.9;transition:background .15s,color .15s,transform .12s}
+.vm-stt:active{transform:scale(.9)}
+.vm-stt svg{width:17px;height:17px}
+.b.in .vm-stt{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
+.vm-stt.on{background:var(--accent);color:#fff;opacity:1}
+.b.out .vm-stt.on{background:#fff;color:var(--accent)}
+.vm-stt.stt-up::after{content:"";position:absolute;right:-1px;top:-1px;width:9px;height:9px;border-radius:50%;background:#f5b400;border:1.5px solid var(--bubble-in,#fff)}
+.b.out .vm-stt.stt-up::after{border-color:var(--accent)}
+.b.out .vm-stt{background:rgba(255,255,255,.22)}
+.b.out .vm-tx{border-top-color:rgba(255,255,255,.3)}
+.vm-tx{margin-top:8px;padding:7px 2px 14px;border-top:1px solid rgba(127,127,127,.22);font-size:15px;line-height:1.38;word-break:break-word;white-space:pre-wrap;user-select:text;-webkit-user-select:text;animation:vmtx .22s ease both}
+.vm-tx.err{font-size:13.5px;opacity:.78;font-style:italic;white-space:normal}
+.vm-tx.load{display:flex;align-items:center;gap:4px;font-size:13.5px;opacity:.8;white-space:normal}
+.vm-tx.load i{width:6px;height:6px;border-radius:50%;background:currentColor;animation:vmdot 1s infinite ease-in-out both}
+.vm-tx.load i:nth-child(2){animation-delay:.15s}
+.vm-tx.load i:nth-child(3){animation-delay:.3s}
+.vm-tx.load span{margin-left:6px}
+@keyframes vmdot{0%,80%,100%{transform:scale(.55);opacity:.4}40%{transform:scale(1);opacity:1}}
+@keyframes vmtx{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.vm-tx,.vm-tx.load i{animation:none}}
 
 /* реакции */
 .rx{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;clear:both}

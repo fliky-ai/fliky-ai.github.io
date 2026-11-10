@@ -21,20 +21,26 @@
 /* фон профиля владельца — премиальный «Тёмный» (PBG в api.js), а не сплошная чёрная заливка */
 
 /* верификация Official / Major (выдаётся в admin-panel): значок после имени, а пояснение — серой подписью под карточкой данных */
-.pf-vnote{display:flex;align-items:flex-start;gap:11px;margin:11px 20px 10px;font-family:Roboto,"Roboto",system-ui,-apple-system,"Segoe UI",sans-serif;
-  font-size:14.5px;line-height:1.42;letter-spacing:.1px;color:var(--dim);text-align:left}
-.pf-vnote .ver{width:24px;height:24px;flex:none;margin-top:-1px}
+.pf-vnote{display:flex;align-items:flex-start;gap:12px;margin:12px 20px 10px;font-family:Manrope,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;line-height:1.45;letter-spacing:.05px;color:var(--dim);text-align:left}
+.pf-vnote .ver{width:30px;height:30px;flex:none;margin-top:1px;filter:drop-shadow(0 2px 5px color-mix(in srgb,currentColor 38%,transparent))}
+.pf-vnote .ver-major{filter:drop-shadow(0 2px 6px rgba(51,144,236,.42))}
+.pf-vnote .ver-official{filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))}
+.vn-tx{display:flex;flex-direction:column;gap:1px;min-width:0}
+.pf-vnote .vn-name{font-weight:800;font-size:16px;letter-spacing:.2px;line-height:1.2;color:var(--text)}
+.vn-name.vn-major{color:#3390EC}
 .pf-vnote b{font-weight:700;color:var(--text)}
+.pf-vnote .vn-name.vn-major{color:#3390EC}
 
 /* строка статуса: значок уровня рейтинга (щит) слева, как в Telegram */
 .st2row{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:3px}
 .st2row .st2{margin:0}
-.urt.lvb{margin:0;padding:0;border-radius:0;background:none;position:relative;width:24px;height:26px;display:grid;place-items:center;gap:0;color:#fff;
-  filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.35));-webkit-tap-highlight-color:transparent}
+.urt.lvb{margin:0;padding:0;border-radius:0;background:none;position:relative;width:24px;height:26px;display:grid;place-items:center;gap:0;color:var(--bg);
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.26));-webkit-tap-highlight-color:transparent}
 .uhero.prem .urt.lvb{background:none}
 .urt.lvb:active{transform:scale(.92)}
-.lvb-s{position:absolute;inset:0;background:var(--cr,linear-gradient(135deg,#cd7f32,#a85f1c));clip-path:path("M12 0 24 4.2V13c0 6-5 10.4-12 13C5 23.4 0 19 0 13V4.2Z")}
-.lvb b{position:relative;margin-top:-2px;font-size:11.5px;font-weight:900;line-height:1;letter-spacing:-.3px;text-shadow:0 1px 1px rgba(0,0,0,.3)}
+.lvb-s{position:absolute;inset:0;background:var(--text);clip-path:path("M12 0 24 4.2V13c0 6-5 10.4-12 13C5 23.4 0 19 0 13V4.2Z")}
+.lvb b{position:relative;margin-top:-2px;font-size:11.5px;font-weight:900;line-height:1;letter-spacing:-.3px;}
 
 /* строка «@username / а также @имя1, @имя2» в карточке данных */
 .pi-un .pi-v{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -269,11 +275,18 @@ html.eco-anim .pf-pat i.e{animation:none;opacity:.32}
 .uhero.prem .urt{background:rgba(255,255,255,.2);color:#fff}
 .urt i{width:14px;height:14px;opacity:.6;display:grid}
 .urt i svg{width:100%;height:100%}
-.urt-i{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;color:#fff;background:var(--cr,linear-gradient(135deg,#cd7f32,#a85f1c))}
+.urt-i{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;color:var(--bg);background:var(--text)}
 .urt-i svg{width:12px;height:12px}
-[data-lv="2"]{--cr:linear-gradient(135deg,#d7dde6,#8f9bad)}
-[data-lv="3"]{--cr:linear-gradient(135deg,#ffd34a,#f08c00)}
-[data-lv="4"]{--cr:linear-gradient(135deg,#7fe3ff,#6a5cff)}
+/* рейтинг — как в Telegram: только белый и чёрный (по теме); уровень отличается плотностью и блеском */
+.lvb[data-lv="1"] .lvb-s,.rt-crown[data-lv="1"]{--rt-o:.6}
+.lvb[data-lv="2"] .lvb-s,.rt-crown[data-lv="2"]{--rt-o:.78}
+.lvb[data-lv="3"] .lvb-s,.rt-crown[data-lv="3"]{--rt-o:.9}
+.lvb[data-lv="4"] .lvb-s,.rt-crown[data-lv="4"]{--rt-o:1}
+.lvb .lvb-s{opacity:var(--rt-o,.6)}
+.lvb[data-lv="3"] .lvb-s::after,.lvb[data-lv="4"] .lvb-s::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 30%,color-mix(in srgb,var(--bg) 55%,transparent) 50%,transparent 70%);background-size:260% 100%;animation:rt-sh 3.4s ease-in-out infinite}
+@keyframes rt-sh{0%{background-position:130% 0}60%,100%{background-position:-60% 0}}
+.uhero.prem .lvb .lvb-s{background:#fff;opacity:1}
+.uhero.prem .lvb b{color:#111}
 .uacts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 14px 0}
 .ua{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 2px 10px;border-radius:16px;background:var(--surface);font-size:12px;font-weight:700;color:var(--accent);transition:transform .15s,background .15s}
 .ua svg{width:24px;height:24px}
@@ -329,15 +342,18 @@ html.eco-anim .pf-pat i.e{animation:none;opacity:.32}
 .rt-ov.show{background:rgba(0,0,0,.5)}
 .rt-card{position:relative;width:100%;max-width:520px;padding:30px 20px calc(22px + env(safe-area-inset-bottom));border-radius:26px 26px 0 0;background:var(--bg);text-align:center;transform:translateY(100%);transition:transform .32s cubic-bezier(.2,.85,.25,1)}
 .show>.rt-card{transform:none}
-.rt-crown{position:relative;width:96px;height:96px;margin:0 auto 10px;border-radius:50%;display:grid;place-items:center;color:#fff;background:var(--cr,linear-gradient(135deg,#cd7f32,#a85f1c));box-shadow:0 12px 30px rgba(0,0,0,.25);animation:ga-fl 3.6s ease-in-out infinite}
-.rt-crown svg{width:50px;height:50px;filter:drop-shadow(0 3px 4px rgba(0,0,0,.25))}
-.rt-crown b{position:absolute;right:-4px;bottom:-2px;min-width:32px;height:32px;padding:0 8px;border-radius:16px;background:var(--bg);color:var(--text);display:grid;place-items:center;font-size:16px;font-weight:900;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.rt-crown{position:relative;width:96px;height:96px;margin:0 auto 12px;border-radius:50%;display:grid;place-items:center;color:var(--bg);background:var(--text);box-shadow:0 0 0 6px color-mix(in srgb,var(--text) 9%,transparent),0 14px 30px rgba(0,0,0,.22);animation:ga-fl 3.6s ease-in-out infinite}
+.rt-crown svg{width:50px;height:50px}
+.rt-crown b{position:absolute;right:-4px;bottom:-2px;min-width:32px;height:32px;padding:0 8px;border-radius:16px;background:var(--bg);color:var(--text);border:2.5px solid var(--text);display:grid;place-items:center;font-size:15px;font-weight:900}
 .rt-card h3{font-size:22px;font-weight:900;margin:8px 0 2px}
 .rt-n{font-size:14px;color:var(--dim);margin:0 0 16px}
-.rt-bar{height:10px;border-radius:5px;background:var(--surface);overflow:hidden}
-.rt-bar i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,#8e5bff,#ff5fa2,#ffb347);transition:width .8s cubic-bezier(.2,.8,.2,1)}
+.rt-bar{height:8px;border-radius:4px;background:color-mix(in srgb,var(--text) 12%,transparent);overflow:hidden}
+.rt-bar i{display:block;height:100%;border-radius:4px;background:var(--text);transition:width .8s cubic-bezier(.2,.8,.2,1)}
 .rt-ends{display:flex;justify-content:space-between;margin-top:6px;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
 .rt-d{font-size:13.5px;line-height:1.45;color:var(--dim);margin:16px 6px 14px}
 .rt-pts{font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:6px}
+.rt-pts .gs-s{color:var(--text)}.rt-pts .gs-s svg{color:var(--text)}
+.rt-ok{display:block;width:100%;margin-top:16px;padding:14px;border-radius:14px;background:var(--text);color:var(--bg);font-size:16px;font-weight:700}
+.rt-ok:active{transform:scale(.98)}
 .rt-pts span{color:var(--dim);font-weight:600}
 html.eco-anim .rt-crown{animation:none}

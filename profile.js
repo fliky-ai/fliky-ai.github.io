@@ -162,10 +162,11 @@ const Profile = {
         return;
       }
       const list = Profile.gf.gifts || [];
-      box.innerHTML = list.length
-        ? `<div class="gg pf">${list.map((g) => `<button class="gt${g.shown ? "" : " hid"}" data-g="${g.id}">${g.pin ? `<span class="gt-p">${GIC.pin}</span>` : ""}${g.nft ? `<span class="gt-n">№${g.nft.num}</span>` : ""}${GiftArt.html(g)}<b>${esc(g.name || Gifts.title(g))}</b>${Gifts.stars(g.price)}</button>`).join("")}</div>`
-        : `<div class="pf-empty"><div class="pf-eic gift">${PI.gift}</div><h3>Нет подарков</h3><p>Подарки, которые вам отправят, появятся здесь. Подарить подарок другу можно из его профиля.</p></div>`;
-      box.onclick = (e) => { const b = e.target.closest(".gt[data-g]"); if (!b) return; const x = list.find((k) => k.id === +b.dataset.g); if (x) Gifts.detail(x); };
+      box.innerHTML = list.length ? Gifts.grid(list, App.user, true) : Gifts.emptyGrid(true);
+      box.onclick = (e) => {
+        if (e.target.closest("[data-gsend]")) { haptic(); return Gifts.shop(App.user); }
+        const b = e.target.closest(".gt[data-g]"); if (!b) return; const x = list.find((k) => k.id === +b.dataset.g); if (x) Gifts.detail(x);
+      };
       return;
     }
     if (!Profile.st.loaded) { box.innerHTML = '<div class="pf-load"><div class="spin"></div></div>'; return; }

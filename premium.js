@@ -195,7 +195,7 @@ const ES = {
 const PB = {
   users: {},
   // значок надетого коллекционного подарка (его эмодзи в цвете модели)
-  nft(n) { return `<span class="nft-e" style="--hue:${+(n.model && n.model.hue) || 0}deg">${esc(n.e || "🎁")}</span>`; },
+  nft(n) { return typeof GiftArt !== "undefined" ? GiftArt.mini(n, 24) : ""; },
   // кнопка со значком рядом с именем; нажатие открывает окно «Premium» (или подарок, если значок — NFT).
   // Пока ни статус, ни подарок не выбраны, значка нет.
   html(u, cls = "") {
@@ -226,6 +226,9 @@ const PremiumPromo = {
       [SI.userPlus, "b", "До 4 аккаунтов", "Подключайте больше аккаунтов и переключайтесь между ними"],
       [SI.edit, "g", "Длиннее «О себе»", "До 140 символов вместо 70"],
       [SI.pin, "t", "Вводный экран", "Приветствие, которое собеседник видит в новом чате"],
+      [SI.mic, "v", "Голос в текст", "Кнопка у голосовых сообщений — расшифровку видите только вы"],
+      [SI.up, "p", "Файлы до 100 МБ и быстрая загрузка", "Большие файлы и скачивание в несколько потоков"],
+      [SI.palette, "o", "Иконка приложения", "Эксклюзивные значки для приложения на телефоне"],
     ];
     const [c1, c2] = ES.colors(u.estatus);
     const el = document.createElement("div");
@@ -235,7 +238,7 @@ const PremiumPromo = {
       <button class="pp-x" aria-label="${esc(T("Закрыть"))}">${SI.x}</button>
       <div class="pp-hero"><div class="pp-rays"></div><div class="pp-orbit"><i></i><i></i><i></i><i></i><i></i></div><div class="pp-big">${ES.node(u.estatus)}</div></div>
       <h2>${esc(T(NAME_PREMIUM))}</h2>
-      <p class="pp-sub">${mine ? esc(T("У вас активен Premium. Выберите значок, который увидят все, кто откроет ваш профиль.")) : esc(T("{0} использует Premium. Подпишитесь, чтобы получить все эти возможности.", dispName(u)))}</p>
+      <p class="pp-sub">${mine ? esc(have ? T("У вас активен Premium. Выберите значок, который увидят все, кто откроет ваш профиль.") : T("Подпишитесь на Premium, чтобы получить все эти возможности.")) : esc(T("{0} использует Premium. Подпишитесь, чтобы получить все эти возможности.", dispName(u)))}</p>
       <div class="pp-feats">${feats.map(([ic, c, t, s]) => `<div class="pp-f">${R.ic(c, ic)}<span><b>${esc(T(t))}</b><small>${esc(T(s))}</small></span></div>`).join("")}</div>
       <button class="pp-cta">${esc(have ? T("Выбрать эмодзи-статус") : T("Подписаться на Premium"))}</button>
     </div>`;

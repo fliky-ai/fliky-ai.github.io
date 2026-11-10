@@ -24,6 +24,7 @@ Object.assign(Settings, {
       anim: (on) => { Prefs.set("anim", !!on); Settings.applyAnim(); },
       stick: () => Settings.stick(),
       media: () => Settings.media(),
+      appicon: () => AppIcon.open(),
       reset: () => { ["fs", "br", "acc", "wp", "wppat", "wpdim"].forEach((k) => Prefs.del(k)); try { localStorage.removeItem("pf_wpimg"); } catch (e) {} Theme.apply(true); Settings.drawChats(pg); toast(T("Оформление сброшено")); },
     };
     return pg;
@@ -52,7 +53,8 @@ Object.assign(Settings, {
         R.row({ a: "browser", ic: SI.compass, c: "b", t: esc(T("Встроенный браузер")), s: esc(T("Открывать ссылки внутри приложения")), sw: 1, on: Prefs.get("browser", false) }),
         R.row({ a: "anim", ic: SI.zap, c: "o", t: esc(T("Анимации интерфейса")), sw: 1, on: Prefs.get("anim", true) }),
         R.row({ a: "stick", ic: SI.smile, c: "y2", t: esc(T("Стикеры и эмодзи")) }),
-        R.row({ a: "media", ic: SI.mic, c: "g", t: esc(T("Медиа и звук")) }))}
+        R.row({ a: "media", ic: SI.mic, c: "g", t: esc(T("Медиа и звук")) }),
+        typeof AppIcon !== "undefined" && AppIcon.inApp() ? R.row({ a: "appicon", ic: SI.palette, c: "pr", t: esc(T("Иконка приложения")), s: esc(T("Значки для Premium")), r: esc(T(AppIcon.info(AppIcon.cur()).n)) }) : "")}
       <div class="gap-s"></div>
       ${R.card(R.row({ a: "reset", ic: SI.shuffle, c: "gr", t: esc(T("Сбросить оформление")), chev: false }))}`);
   },

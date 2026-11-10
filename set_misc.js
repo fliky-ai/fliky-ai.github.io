@@ -169,7 +169,11 @@ const DeepLink = {
   },
   go(link) {
     const p = DeepLink.parse(link);
-    if (!p) return false;
+    if (!p) {                                            // адрес на нашем домене (dicegram.dpdns.org/имя/123, /+код …)
+      const lp = /^https?:/i.test(String(link || "")) && typeof Links !== "undefined" ? Links.parse(link) : null;
+      if (lp) { Links.go(lp.k, lp.v); return true; }
+      return false;
+    }
     try { if (/[#&](m|ca|cd)=/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
     if (p.kind === "call") {
       App.pendingCall = { action: p.action, data: p.data };

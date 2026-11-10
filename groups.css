@@ -176,3 +176,22 @@
 
 /* подпись автора под постом канала */
 .b .t .sig{font-style:normal;margin-right:7px;opacity:.85;font-weight:600;max-width:150px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+
+/* создание: частная / публичная */
+.cc-seg{display:flex;gap:4px;margin:6px 16px 4px;padding:4px;border-radius:14px;background:var(--list-bg)}
+.cc-seg button{flex:1;padding:10px 0;border-radius:11px;font-weight:600;font-size:15px;color:var(--dim);transition:background .2s,color .2s,box-shadow .2s}
+.cc-seg button.on{background:var(--acc,#2f7bff);color:#fff;box-shadow:0 4px 14px rgba(47,123,255,.32)}
+.cc-pubbox[hidden],.cc-th[hidden]{display:none}
+.cc-lnk{display:flex;align-items:center;gap:2px;margin:6px 0 0;padding:0 18px;background:var(--list-bg);height:52px;font-size:16px}
+.cc-lnk span{color:var(--dim);white-space:nowrap}
+.cc-lnk input{flex:1;min-width:0;height:100%;border:0;background:transparent;color:var(--text);font-size:16px;outline:0}
+.cc-hint.bad{color:#e5484d}.cc-hint.good{color:#2fa36b;word-break:break-all}
+
+.irow.rq{cursor:default}
+.rq-b{display:flex;gap:8px;margin-left:auto;flex:none}
+.irow .rq-b{flex-direction:row;flex-wrap:nowrap;align-items:center;width:auto}
+.irow .rq-b button{width:36px;height:36px;flex:none;padding:0;border-radius:50%;border:0;display:grid;place-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.rq-b button svg{width:18px;height:18px}
+.rq-ok{background:color-mix(in srgb,#34c759 18%,transparent);color:#34c759}
+.rq-no{background:color-mix(in srgb,#ff3b30 14%,transparent);color:#ff3b30}
+.rq-b button:active{transform:scale(.92)}

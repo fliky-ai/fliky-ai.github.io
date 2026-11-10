@@ -43,6 +43,7 @@ const SI = {
   link: svg('<path d="M10 14a4.500 4.500 0 0 0 6.400 0l3-3a4.500 4.500 0 0 0-6.400-6.400l-1 1"/><path d="M14 10a4.500 4.500 0 0 0-6.400 0l-3 3a4.500 4.500 0 0 0 6.400 6.400l1-1"/>'),
   edit: ICON.edit,
   search: svg('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.500-3.500"/>'),
+  reload: svg('<path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/>'),
   dots: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.800"/><circle cx="12" cy="12" r="1.800"/><circle cx="12" cy="19" r="1.800"/></svg>',
   bot: svg('<rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 8V4M9 13.500h.01M15 13.500h.01M9.500 17h5"/>'),
   pin: svg('<path d="M12 21s7-6.100 7-11.500A7 7 0 0 0 5 9.500C5 14.900 12 21 12 21z"/><circle cx="12" cy="9.500" r="2.500"/>'),

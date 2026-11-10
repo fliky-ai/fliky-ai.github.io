@@ -45,29 +45,132 @@ const Browser = {
   external(url) { try { TGW.openLink(url); } catch (_) { window.open(url, "_blank", "noopener"); } },
   open(url) {
     if (!/^https?:/i.test(url) || !Prefs.get("browser", false)) return Browser.external(url);
+    if (Browser._popping) { Browser._q = url; return; }         // прошлое окно ещё закрывается в истории — откроем эту ссылку сразу после, иначе «назад» закроет новое окно
     if (Browser.cur) { if (Browser.cur.url === url) return Browser.restore(); return Browser._replace(url); }
     Browser._create(url);
   },
   _create(url) {
-    let host = url; try { host = new URL(url).hostname; } catch (e) {}
+    let host = url; try { host = new URL(url).hostname.replace(/^www\./, ""); } catch (e) {}
     const el = document.createElement("div");
-    el.className = "ibr";
-    el.innerHTML = `<div class="ibr-top"><button class="ibr-min" aria-label="${esc(T("Свернуть"))}">${CUI.down}</button>
-      <div class="ibr-t"><b>${esc(host)}</b><small>${esc(T("Если страница не открылась, нажмите справа"))}</small></div>
-      <button class="ibr-o" aria-label="${esc(T("Открыть в браузере"))}">${SI.compass}</button>
-      <button class="ibr-x" aria-label="${esc(T("Закрыть"))}">${SI.x}</button></div>
-      <iframe class="ibr-f" src="${esc(url)}" referrerpolicy="no-referrer" sandbox="allow-scripts allow-forms allow-same-origin allow-popups"></iframe>`;
+    el.className = "ibr loading";
+    el.innerHTML = `<div class="ibr-top">
+        <button class="ibr-x" aria-label="${esc(T("Закрыть"))}">${SI.x}</button>
+        <div class="ibr-t"><span class="ibr-fav" aria-hidden="true"></span><span class="ibr-tt"><b>${esc(host)}</b><small><i class="ibr-lk">${SI.lock}</i><span class="ibr-sub">${esc(T("Загрузка…"))}</span></small></span></div>
+        <button class="ibr-m" aria-label="${esc(T("Ещё"))}" aria-haspopup="menu">${SI.dots}</button></div>
+      <div class="ibr-pr"><i></i></div>
+      <div class="ibr-body">
+        <iframe class="ibr-f" title="${esc(host)}" referrerpolicy="no-referrer" loading="eager" allow="fullscreen" sandbox="allow-scripts allow-forms allow-same-origin"></iframe>
+        <div class="ibr-sk" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="ibr-slow hidden"><span>${esc(T("Страница долго загружается"))}</span><button data-ext>${esc(T("Открыть в браузере"))}</button></div>
+        <div class="ibr-card hidden"></div>
+      </div>`;
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add("show"));
+    const b = { el, url, host, min: false, loaded: false, fr: el.querySelector(".ibr-f"), timers: [] };
     // закрытие истории (жест «назад» или наш же pop() из minimize/_dismiss) асинхронно для верхнего слоя —
     // onClose привязан к ЭТОЙ конкретной карточке (b), а не к Browser.cur, чтобы не снести следующую,
     // если к моменту срабатывания пользователь уже открыл другую ссылку
-    const b = { el, url, host, min: false };
-    b.pop = Nav.layer(() => { if (!b.min) Browser._wipe(b); });
+    b.pop = Browser._layer(b);
     Browser.cur = b;
     el.querySelector(".ibr-x").onclick = () => Browser._dismiss();
-    el.querySelector(".ibr-o").onclick = () => Browser.external(url);
-    el.querySelector(".ibr-min").onclick = () => Browser.minimize();
+    el.querySelector(".ibr-m").onclick = (e) => { e.stopPropagation(); Browser.menu(b); };
+    el.querySelector("[data-ext]").onclick = () => Browser.external(b.url);
+    Browser._go(b);
+  },
+  // загрузка страницы: параллельно узнаём у сервера, разрешает ли сайт показ внутри приложения (иначе — карточка с кнопкой «Открыть в браузере»)
+  _go(b) {
+    b.loaded = false; b.noframe = false;
+    const el = b.el;
+    el.classList.add("loading"); el.classList.remove("blocked", "slow");
+    el.querySelector(".ibr-card").classList.add("hidden");
+    el.querySelector(".ibr-slow").classList.add("hidden");
+    el.querySelector(".ibr-sub").textContent = T("Загрузка…");
+    const pr = el.querySelector(".ibr-pr > i"); pr.style.transition = "none"; pr.style.width = "0"; void pr.offsetWidth;
+    pr.style.transition = "width 6s cubic-bezier(.1,.7,.2,1)"; pr.style.width = "82%";
+    b.timers.forEach(clearTimeout); b.timers = [];
+    Browser._frame(b, b.url);
+    b.timers.push(setTimeout(() => { if (!b.loaded && Browser.cur === b) { el.classList.add("slow"); el.querySelector(".ibr-slow").classList.remove("hidden"); } }, 9000));
+    api("/api/linkinfo?url=" + encodeURIComponent(b.url), { timeout: 5500 }).then((d) => {
+      if (Browser.cur !== b || !b.el.isConnected) return;
+      const i = d.info || {};
+      b.info = i;
+      if (i.title) { b.title = i.title; el.querySelector(".ibr-tt b").textContent = i.title; }
+      if (i.frame === false) Browser._blocked(b, i);
+    }).catch(() => {});
+  },
+  // Каждая загрузка — НОВЫЙ iframe. Смена src у живого iframe добавляет запись в общую историю окна, и тогда «назад» (жест или
+  // кнопка) сначала листает историю внутри страницы, а не закрывает окно. У только что вставленного iframe первая загрузка
+  // записи не добавляет; заодно старая страница выгружается сразу и не держит память.
+  // слой истории окна: «назад» сворачивает/закрывает именно ЭТО окно (b), даже если к этому моменту уже открыто другое
+  _layer(b) { return Nav.layer(() => { if (!b.min) Browser._wipe(b); if (b.done) b.done(); }); },
+  _frame(b, url) {
+    const f = document.createElement("iframe");
+    f.className = "ibr-f"; f.title = b.host;
+    f.setAttribute("referrerpolicy", "no-referrer"); f.setAttribute("loading", "eager"); f.setAttribute("allow", "fullscreen");
+    f.setAttribute("sandbox", "allow-scripts allow-forms allow-same-origin");
+    f.addEventListener("load", () => { if (b.fr === f && f.hasAttribute("src")) Browser._loaded(b); });
+    const old = b.fr;
+    if (old && old.parentNode) old.parentNode.replaceChild(f, old); else b.el.querySelector(".ibr-body").prepend(f);
+    b.fr = f;
+    if (url) f.src = url;
+    return f;
+  },
+  _loaded(b) {
+    if (b.noframe || b.loaded) return;
+    b.loaded = true;
+    b.timers.forEach(clearTimeout);
+    const pr = b.el.querySelector(".ibr-pr > i"); pr.style.transition = "width .2s ease"; pr.style.width = "100%";
+    setTimeout(() => { b.el.classList.remove("loading", "slow"); b.el.querySelector(".ibr-slow").classList.add("hidden"); }, 220);
+    b.el.querySelector(".ibr-sub").textContent = b.host;
+  },
+  // сайт запрещает показ внутри чужих приложений: вместо пустой страницы — аккуратная карточка
+  _blocked(b, i) {
+    b.noframe = true; b.timers.forEach(clearTimeout);
+    Browser._frame(b, "");
+    const el = b.el, card = el.querySelector(".ibr-card");
+    el.classList.remove("loading", "slow"); el.classList.add("blocked");
+    el.querySelector(".ibr-slow").classList.add("hidden");
+    el.querySelector(".ibr-sub").textContent = b.host;
+    el.querySelector(".ibr-pr > i").style.width = "0";
+    const letter = esc((b.host[0] || "?").toUpperCase());
+    card.innerHTML = `${i.image ? `<img class="ibc-img" alt="" referrerpolicy="no-referrer" src="${esc(i.image)}" onerror="this.remove()">` : `<div class="ibc-ic">${letter}</div>`}
+      <h3>${esc(i.title || b.host)}</h3>
+      ${i.desc ? `<p class="ibc-d">${esc(i.desc)}</p>` : ""}
+      <p class="ibc-s">${esc(i.site || b.host)}</p>
+      <button class="ibc-go" data-ext>${SI.compass}<span>${esc(T("Открыть в браузере"))}</span></button>
+      <button class="ibc-cp" data-cp>${esc(T("Копировать ссылку"))}</button>
+      <p class="ibc-n">${esc(T("Этот сайт не разрешает показ внутри приложений — страница откроется в вашем браузере."))}</p>`;
+    card.classList.remove("hidden");
+    card.querySelector("[data-ext]").onclick = () => Browser.external(b.url);
+    card.querySelector("[data-cp]").onclick = () => { copyText(b.url); toast(T("Ссылка скопирована")); haptic(); };
+  },
+  // меню «⋮»: открыть во внешнем браузере, скопировать ссылку, обновить, свернуть
+  menu(b) {
+    const el = b.el;
+    const old = el.querySelector(".ibr-menu"); if (old) { old.remove(); return; }
+    const m = document.createElement("div");
+    m.className = "ibr-menu"; m.setAttribute("role", "menu");
+    m.innerHTML = `<button data-k="ext" role="menuitem">${SI.compass}<span>${esc(T("Открыть в браузере"))}</span></button>
+      <button data-k="copy" role="menuitem">${SI.link}<span>${esc(T("Копировать ссылку"))}</span></button>
+      <button data-k="reload" role="menuitem">${SI.reload || SI.compass}<span>${esc(T("Обновить"))}</span></button>
+      <button data-k="min" role="menuitem">${SI.down}<span>${esc(T("Свернуть"))}</span></button>`;
+    // прозрачная плёнка поверх страницы: касание внутри iframe не доходит до нашего документа, поэтому без неё меню не закрывалось бы тапом по сайту
+    const sc = document.createElement("div"); sc.className = "ibr-scrim";
+    el.querySelector(".ibr-body").appendChild(sc);
+    el.appendChild(m);
+    requestAnimationFrame(() => m.classList.add("show"));
+    const close = () => { m.classList.remove("show"); sc.remove(); setTimeout(() => m.remove(), 150); document.removeEventListener("pointerdown", off, true); };
+    sc.addEventListener("pointerdown", (e) => { e.preventDefault(); close(); });
+    const off = (e) => { if (!m.contains(e.target)) { close(); if (e.target.closest(".ibr-m")) e.stopPropagation(); } };
+    setTimeout(() => document.addEventListener("pointerdown", off, true), 0);
+    m.addEventListener("click", (e) => {
+      const k = e.target.closest("button[data-k]"); if (!k) return;
+      close(); haptic();
+      if (k.dataset.k === "ext") Browser.external(b.url);
+      else if (k.dataset.k === "copy") { copyText(b.url); toast(T("Ссылка скопирована")); }
+      else if (k.dataset.k === "reload") Browser._go(b);
+      else if (k.dataset.k === "min") Browser.minimize();
+    });
   },
   // открыли другую ссылку, пока текущая (не свёрнутая) ещё видна: закрываем старую и создаём новую одним
   // прыжком истории — не back()+pushState() по отдельности (между ними возможна гонка, см. _wipe)
@@ -80,13 +183,31 @@ const Browser = {
   },
   _wipe(b) {
     if (Browser.cur === b) { Browser.cur = null; Browser.hidePill(); }
+    (b.timers || []).forEach(clearTimeout);
     b.el.classList.remove("show");
     setTimeout(() => b.el.remove(), 220);
   },
-  _dismiss() { const b = Browser.cur; if (!b) return; if (b.min) Browser._wipe(b); else b.pop(); },
+  _dismiss() {
+    const b = Browser.cur; if (!b) return;
+    if (b.min) return Browser._wipe(b);
+    // окно исчезает сразу, а слой истории закрывается асинхронно; пока он не закрыт, новые ссылки ждут (см. open)
+    Browser._popping = true; clearTimeout(Browser._pt);
+    const tok = (Browser._tok = (Browser._tok || 0) + 1);      // у каждого закрытия свой номер: запоздавший таймер прежнего закрытия ничего не сделает
+    b.done = () => {
+      if (Browser._tok !== tok || !Browser._popping) return;
+      Browser._popping = false; clearTimeout(Browser._pt);
+      const q = Browser._q; Browser._q = null;
+      if (q) Browser.open(q);
+    };
+    Browser._pt = setTimeout(b.done, 700);
+    Browser._wipe(b);
+    b.pop();
+  },
   minimize() {
     const b = Browser.cur; if (!b) return;
     b.min = true;
+    const mn = b.el.querySelector(".ibr-menu"); if (mn) mn.remove();
+    const sk = b.el.querySelector(".ibr-scrim"); if (sk) sk.remove();
     b.el.classList.remove("show");
     Browser.showPill();
     b.pop();                               // снимаем экран из истории; карточка остаётся плавающим пиллом
@@ -94,7 +215,7 @@ const Browser = {
   restore() {
     const b = Browser.cur; if (!b) return;
     b.min = false;
-    b.pop = Nav.layer(() => { if (!b.min) Browser._wipe(b); });
+    b.pop = Browser._layer(b);
     requestAnimationFrame(() => b.el.classList.add("show"));
     Browser.hidePill();
   },
@@ -311,6 +432,7 @@ const App = {
     guard("hash", () => { App.openHash(); Chat.loadQuick(); });
     // разрешение на уведомления могли дать раньше — подписку на Web Push (звонки в фоне) проверяем/обновляем каждый запуск
     guard("push", () => { if (Notif.perm() === "granted") Notif.subscribePush(); });
+    guard("appicon", () => AppIcon.guard());                             // Premium закончился — возвращаем стандартный значок
     guard("apppush", () => { AppPush.init(); Notif.syncCloud(); });     // APK: уведомления через Firebase (AppMint Push)
     guard("sharein", () => ShareIn.ready());                            // прислали что-то из другого приложения — «Отправить в…»
     guard("deeplink", () => { if (!App.dlBound) { App.dlBound = true; DeepLink.init(); } else if (DeepLink.wait) DeepLink.openChat(DeepLink.wait); });
@@ -327,6 +449,12 @@ const App = {
   async openHash() {
     let code = "";
     try { code = (TGW && TGW.initDataUnsafe && TGW.initDataUnsafe.start_param) || ""; } catch (e) {}
+    const bang = /^#!(\/[^#]*)$/.exec(location.hash || "");            // dicegram.dpdns.org/имя/123 → перенесено в #!/имя/123
+    if (bang) {
+      const q = bang[1].split("?"), r = Links.fromPath(q[0], q[1] ? "?" + q[1] : "");
+      try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+      return r ? Links.go(r.k, r.v) : undefined;
+    }
     const h = /[#&]([cjpeuk])=([A-Za-z0-9_-]{1,60})/.exec(location.hash || "");
     let kind = "", val = "";
     if (h) { kind = h[1]; val = h[2]; }
@@ -435,6 +563,8 @@ const App = {
       else if (d.type === "typing") guard("typing", () => Typing.on(d));
       else if (d.type === "chat") guard("groups", () => Groups.onChat(d));
       else if (d.type === "chat_gone") guard("groups", () => Groups.onGone(d.id));
+      else if (d.type === "joinreq") guard("groups", () => Groups.onReq(d));
+      else if (d.type === "joinok") guard("groups", () => Groups.onJoinOk(d));
       else if (d.type === "vc") guard("calls", () => Calls.onVC(d));
       else if (d.type === "rtc") guard("calls", () => Calls.onRTC(d));
       else if (d.type === "profile") App.profile(d.user);
@@ -466,7 +596,7 @@ const App = {
     try { UserProfile.onBlock(d); } catch (e) {}
   },
   profile(u) {
-    App.patchUser(u.id, { name: u.name, surname: u.surname, username: u.username, bio: u.bio, bio_ents: u.bio_ents || null, avatar: u.avatar, premium: u.premium ? 1 : 0, estatus: u.estatus || null, nft: u.nft || null, verified: u.verified ? 1 : 0, vtier: u.vtier || "", pbg: u.pbg || "", deleted: u.deleted ? 1 : 0, ...(u.unames ? { unames: u.unames } : {}) });
+    App.patchUser(u.id, { name: u.name, surname: u.surname, username: u.username, bio: u.bio, bio_ents: u.bio_ents || null, avatar: u.avatar, premium: u.premium ? 1 : 0, estatus: u.estatus || null, nft: u.nft || null, verified: u.verified ? 1 : 0, vtier: u.vtier || "", pbg: u.pbg || "", deleted: u.deleted ? 1 : 0, no_voice: u.no_voice, no_msg: u.no_msg, pay: u.pay, gift_ok: u.gift_ok, ...(u.unames ? { unames: u.unames } : {}) });
     Chats.render(); if (u.id === App.user.id) { Profile.render(); guard("tabav", () => App.tabAvatar()); }
     // открыт профиль этого человека — обновляем и его (значок, статус)
     guard("uprofile", () => { if (UserProfile.cur && UserProfile.cur.id === u.id) { UserProfile.cur = Object.assign({}, UserProfile.cur, u); UserProfile.render(UserProfile.cur); } });
@@ -485,13 +615,16 @@ const App = {
       "pg.js": () => Pg && SI && R,
       "fx.js": () => Fx && typeof Fx.play === "function",
       "intro.js": () => Intro && typeof Intro.show === "function",
-      "gifts.js": () => Gifts && GiftArt && typeof Gifts.shop === "function",
+      "gift3d.js": () => Gift3D && typeof Gift3D.live === "function" && typeof Gift3D.thumb === "function" && Gift3D.hasDesign("nft", "dragon") && Gift3D.hasDesign("reg", "heart"),
+      "gifts.js": () => Gifts && GiftArt && typeof Gifts.shop === "function" && typeof Gifts.reveal === "function" && typeof Gifts.grid === "function",
       "cemoji.js": () => CE && React && EmojiPack,
       "emojipick.js": () => EmojiSearch && RClip && EmojiPick && BioEd && typeof Rich.splice === "function",
       "links.js": () => Links && typeof Links.go === "function",
       "fileview.js": () => FV && typeof FV.open === "function",
       "music.js": () => Music && typeof Music.play === "function" && typeof Music.mountView === "function",
-      "downloads.js": () => DL && typeof DL.get === "function" && typeof DL.openPage === "function",
+      "downloads.js": () => DL && typeof DL.get === "function" && typeof DL.openPage === "function" && typeof DL.parallel === "function",
+      "appicon.js": () => AppIcon && AppIcon.LIST.length === 5 && typeof AppIcon.open === "function",
+      "voice.js": () => Stt && typeof Stt.press === "function" && Player && Rec,
       "gallery.js": () => Gallery && typeof Gallery.open === "function" && typeof Gallery.send === "function",
       "qr.js": () => QR && QRCard && typeof QR.matrix === "function" && typeof QRCard.open === "function",
       "admin.js": () => HCReport && typeof HCReport.open === "function",
@@ -510,7 +643,7 @@ const App = {
       "voicefx.js": () => VoiceFX && typeof VoiceFX.process === "function",
       "call.js": () => Calls && typeof Calls.start === "function",
       "settings.js": () => Settings && Accounts,
-      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261109c/.test([...document.scripts].map((x) => x.src).join(" ")),
+      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261110a/.test([...document.scripts].map((x) => x.src).join(" ")),
     };
     const bad = Object.keys(chk).filter((k) => !has(chk[k]));
     const miss = (window.__boot && window.__boot.miss || []).filter((x, i, a) => a.indexOf(x) === i && /\.(js|css)$/.test(x));

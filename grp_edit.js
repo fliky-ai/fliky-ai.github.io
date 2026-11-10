@@ -481,7 +481,7 @@ const GroupEdit = {
         const d = pg.data.d;
         if (!d) return pg.set('<div class="sr-load"><div class="spin"></div></div>');
         const lk = (l) => {
-          const sub = [l.uses ? l.uses + " " + plural(l.uses, T("вход"), T("входа"), T("входов")) : T("Пока никто не вошёл"), l.lim ? T("лимит {0}", l.lim) : "", l.expires ? (l.expires * 1000 < Date.now() ? T("истекла") : T("до {0}", new Date(l.expires * 1000).toLocaleDateString(I18N.tloc))) : ""].filter(Boolean).join(" · ");
+          const sub = [l.req ? T("С одобрением") : "", l.uses ? l.uses + " " + plural(l.uses, T("вход"), T("входа"), T("входов")) : T("Пока никто не вошёл"), l.lim ? T("лимит {0}", l.lim) : "", l.expires ? (l.expires * 1000 < Date.now() ? T("истекла") : T("до {0}", new Date(l.expires * 1000).toLocaleDateString(I18N.tloc))) : ""].filter(Boolean).join(" · ");
           return `<button class="irow lk" data-a="item" data-v="${esc(l.slug)}"><i class="ic b">${SI.link}</i><span class="tx"><b>${esc(l.title || l.url.replace(/^https?:\/\//, ""))}</b><small>${esc(sub)}</small></span></button>`;
         };
         pg.set(`<div class="gl-hero"><svg viewBox="0 0 120 120" class="gl-ill"><circle cx="60" cy="62" r="50" fill="color-mix(in srgb,var(--accent) 14%,transparent)"/><path d="M48 70a14 14 0 0 0 20 0l16-16a14 14 0 0 0-20-20l-5 5" fill="none" stroke="var(--accent)" stroke-width="7" stroke-linecap="round"/><path d="M72 50a14 14 0 0 0-20 0L36 66a14 14 0 0 0 20 20l5-5" fill="none" stroke="var(--accent)" stroke-width="7" stroke-linecap="round" opacity=".55"/></svg>
@@ -492,16 +492,18 @@ const GroupEdit = {
           ${d.public ? `${R.lbl(esc(T("Публичная ссылка")))}<div class="card2 ge-linkc"><div class="ge-link2">${esc(d.public)}</div><div class="ge-btns"><button data-a="copy" data-v="${esc(d.public)}">${esc(T("Скопировать"))}</button><button data-a="share" data-v="${esc(d.public)}">${esc(T("Поделиться"))}</button></div></div>` : ""}
           ${R.hint(esc(T("Эта ссылка постоянная. Если её отозвать, сразу появится новая, а старая перестанет работать.")))}
           ${adm ? `<div class="gap-s"></div>${R.card(R.row({ a: "new", ic: SI.plus, c: "g", t: esc(T("Создать новую ссылку")), noch: 1 }), R.row({ a: "revokep", ic: SI.x, c: "r", t: esc(T("Отозвать основную ссылку")), danger: 1, noch: 1 }))}` : ""}
+          ${d.reqs ? `<div class="gap-s"></div>${R.card(R.row({ a: "reqs", ic: SI.userPlus, c: "o", t: esc(T("Заявки на вступление")), r: String(d.reqs) }))}` : ""}
           ${d.links.length ? `${R.lbl(esc(T("Другие ссылки")))}<div class="card2 irows">${d.links.map(lk).join("")}</div>` : ""}
           ${d.revoked.length ? `${R.lbl(esc(T("Отозванные ссылки")))}<div class="card2 irows">${d.revoked.map((l) => `<div class="irow lk off"><i class="ic gr">${SI.link}</i><span class="tx"><b>${esc(l.title || l.url.replace(/^https?:\/\//, ""))}</b><small>${esc(T("Отозвана"))}</small></span></div>`).join("")}</div>` : ""}`);
       },
     });
-    const load = async () => { try { pg.data.d = await api("/api/chat/" + peer.gid + "/links"); pg.refresh(); } catch (e) { toast(e.message); pg.close(); } };
+    const load = async () => { try { pg.data.d = await api("/api/chat/" + peer.gid + "/links"); try { pg.data.d.reqs = (await api("/api/chat/" + peer.gid + "/requests")).n; } catch (e) {} pg.refresh(); } catch (e) { toast(e.message); pg.close(); } };
     pg.data.reload = load;
     pg.on = {
       copy: (el) => GroupEdit.copy(el.dataset.v),
       share: (el) => GroupEdit.share(el.dataset.v, peer.name),
       new: () => GroupEdit.newLink(peer, pg),
+      reqs: () => GroupEdit.requests(peer, pg),
       revokep: async () => {
         if (!(await UI.sheet({ title: T("Отозвать основную ссылку?"), text: T("Старая ссылка перестанет работать, появится новая."), actions: [{ label: T("Отозвать"), value: true, danger: true }] }))) return;
         try { await api("/api/chat/" + peer.gid + "/link/revoke", { method: "POST", body: { slug: pg.data.d.primary.slug } }); load(); toast(T("Ссылка отозвана")); } catch (e) { toast(e.message); }
@@ -522,29 +524,67 @@ const GroupEdit = {
   newLink(peer, parent, link) {
     const pg = GroupEdit.page(peer, {
       title: T(link ? "Изменить ссылку" : "Новая ссылка"), right: `<button class="hbtn" data-a="save">${esc(link ? T("Сохранить") : T("Создать"))}</button>`,
-      data: { title: link ? link.title : "", exp: link ? (link.expires ? -1 : 0) : 0, lim: link ? link.lim : 0 },
+      data: { title: link ? link.title : "", exp: link ? (link.expires ? -1 : 0) : 0, lim: link ? link.lim : 0, req: link ? !!link.req : false },
       build: (pg) => {
         const d = pg.data;
         const act = document.activeElement, keep = act && pg.el.contains(act) && act.dataset ? { i: act.dataset.i, s: act.selectionStart } : null;
         pg.set(`${R.lbl(esc(T("Название (необязательно)")))}<div class="card2 fields"><input data-i="title" maxlength="32" value="${esc(d.title)}" placeholder="${esc(T("Например: для друзей"))}" autocomplete="off"></div>
           ${R.lbl(esc(T("Срок действия")))}
           ${R.opts([].concat(link && link.expires ? [{ v: "-1", t: esc(T("Оставить как есть")) }] : [], [{ v: "0", t: esc(T("Без срока")) }, { v: "3600", t: esc(T("1 час")) }, { v: "86400", t: esc(T("1 день")) }, { v: "604800", t: esc(T("1 неделя")) }, { v: "2592000", t: esc(T("1 месяц")) }]), String(d.exp), "exp")}
-          ${R.lbl(esc(T("Лимит входов")))}
+          ${R.card(R.row({ a: "req", ic: SI.shield, c: "o", t: esc(T("Одобрять новых участников")), s: esc(T("Человек отправит запрос, а вы решите, принять его или нет")), sw: 1, on: !!d.req }))}
+                    ${R.lbl(esc(T("Лимит входов")))}
           ${R.opts([{ v: "0", t: esc(T("Без лимита")) }, { v: "1", t: esc(T("1 человек")) }, { v: "10", t: esc(T("10 человек")) }, { v: "100", t: esc(T("100 человек")) }], String(d.lim), "lim")}`);
         if (keep && keep.i) { const e = pg.$(`[data-i="${keep.i}"]`); if (e) { e.focus(); try { e.setSelectionRange(keep.s, keep.s); } catch (er) {} } }
       },
     });
     pg.on = {
-      title: (v) => { pg.data.title = v; }, exp: (el) => { pg.data.exp = +el.dataset.v; pg.refresh(); }, lim: (el) => { pg.data.lim = +el.dataset.v; pg.refresh(); },
+      title: (v) => { pg.data.title = v; }, req: (on) => { pg.data.req = !!on; pg.refresh(); }, exp: (el) => { pg.data.exp = +el.dataset.v; pg.refresh(); }, lim: (el) => { pg.data.lim = +el.dataset.v; pg.refresh(); },
       save: async () => {
         const d = pg.data;
         try {
-          if (link) await api("/api/chat/" + peer.gid + "/link/edit", { method: "POST", body: { slug: link.slug, title: d.title, lim: d.lim, expires_in: d.exp === -1 ? Math.max(60, link.expires - Math.floor(Date.now() / 1000)) : d.exp } });
-          else await api("/api/chat/" + peer.gid + "/link", { method: "POST", body: { title: d.title, lim: d.lim, expires_in: d.exp } });
+          if (link) await api("/api/chat/" + peer.gid + "/link/edit", { method: "POST", body: { slug: link.slug, title: d.title, lim: d.lim, req: d.req ? 1 : 0, expires_in: d.exp === -1 ? Math.max(60, link.expires - Math.floor(Date.now() / 1000)) : d.exp } });
+          else await api("/api/chat/" + peer.gid + "/link", { method: "POST", body: { title: d.title, lim: d.lim, req: d.req ? 1 : 0, expires_in: d.exp } });
           pg.close(); if (parent.alive) parent.data.reload();
         } catch (e) { toast(e.message); }
       },
     };
+  },
+
+  // ═════════════ ЗАЯВКИ НА ВСТУПЛЕНИЕ ═════════════
+  requests(peer, parent) {
+    const ch = peer.gk === "channel";
+    const pg = GroupEdit.page(peer, {
+      title: T("Заявки на вступление"), data: { list: null },
+      build: (pg) => {
+        const L = pg.data.list;
+        if (!L) return pg.set('<div class="sr-load"><div class="spin"></div></div>');
+        if (!L.length) return pg.set(`<div class="gl-hero"><p>${esc(T("Новых заявок нет"))}</p></div>`);
+        pg.set(`${R.card(R.row({ a: "all_ok", ic: SI.check, c: "g", t: esc(T("Принять всех")), noch: 1 }), R.row({ a: "all_no", ic: SI.x, c: "r", t: esc(T("Отклонить всех")), danger: 1, noch: 1 }))}
+          ${R.lbl(esc(T("Хотят вступить")))}
+          <div class="card2 irows">${L.map((r) => `<div class="irow gp-m rq" data-u="${r.user.id}">${Stories.av(r.user, "sm")}<span class="tx"><b>${nameHTML(r.user)}</b><small>${esc(r.user.username ? "@" + r.user.username : statusText(r.user))}</small></span>
+            <span class="rq-b"><button type="button" class="rq-ok" data-a="ok" data-v="${r.user.id}" aria-label="${esc(T("Принять"))}">${SI.check}</button><button type="button" class="rq-no" data-a="no" data-v="${r.user.id}" aria-label="${esc(T("Отклонить"))}">${SI.x}</button></span></div>`).join("")}</div>
+          ${R.hint(esc(T(ch ? "Принятые люди сразу станут подписчиками канала." : "Принятые люди сразу станут участниками группы.")))}`);
+      },
+    });
+    const load = async () => { try { pg.data.list = (await api("/api/chat/" + peer.gid + "/requests")).requests; pg.refresh(); } catch (e) { toast(e.message); } };
+    const decide = async (body) => {
+      try {
+        const d = await api("/api/chat/" + peer.gid + "/request/decide", { method: "POST", body });
+        if (d.failed && d.failed.length) toast(d.failed[0].error);
+        peer.reqs = d.n; await load();
+        if (parent && parent.alive) parent.data.reload();
+      } catch (e) { toast(e.message); }
+    };
+    pg.data.reload = load;
+    pg.on = {
+      ok: (el) => decide({ uid: +el.dataset.v, ok: 1 }),
+      no: (el) => decide({ uid: +el.dataset.v, ok: 0 }),
+      all_ok: async () => { if (await UI.sheet({ title: T("Принять всех?"), text: T("Все заявки будут одобрены."), actions: [{ label: T("Принять всех"), value: true, accent: true }] })) decide({ all: 1, ok: 1 }); },
+      all_no: async () => { if (await UI.sheet({ title: T("Отклонить все заявки?"), text: "", actions: [{ label: T("Отклонить всех"), value: true, danger: true }] })) decide({ all: 1, ok: 0 }); },
+    };
+    GroupEdit.reqPg = pg;
+    load();
+    return pg;
   },
 
   // ═════════════ АДМИНИСТРАТОРЫ ═════════════

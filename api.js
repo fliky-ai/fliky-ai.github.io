@@ -69,7 +69,7 @@ async function api(path, { method = "GET", body, timeout = 0 } = {}) {
     Accounts.remove(Store.token); Store.token = ""; location.reload();
   }
   if (r.status >= 502 && r.status <= 504 && !d.error) throw new Error("Нет связи с сервером");
-  if (!r.ok || d.ok === false) throw new Error(d.error || T("Ошибка") + " " + r.status);
+  if (!r.ok || d.ok === false) throw Object.assign(new Error(d.error || T("Ошибка") + " " + r.status), { data: d, status: r.status });
   return d;
 }
 
@@ -99,16 +99,22 @@ async function devInfo() {
 const PLANE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 3.5 10.5 14"/><path d="M21.5 3.5 14.5 21l-4-7-7-4z"/></svg>';
 const PERSON = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="9" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>';
 const VERIFIED = '<svg class="ver" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="m7.5 12.3 3 3 6-6.3" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-// значок верификации сразу после имени: Official — чёрный круг с белой галочкой (с тонкой светлой обводкой,
-// чтобы был виден и в тёмной теме), Major — синий #3390EC с белой галочкой; обычная отметка — цвет акцента.
-const VER_CK = '<path d="m7.4 12.4 3.1 3.1 6.1-6.4" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>';
+// значок верификации после имени — фигурная печать (как в Telegram), но своя: Major — синий #3390EC, Official — чёрный #0b0b0d,
+// без своей категории — цвет акцента. Слои: заливка, мягкий блик сверху, тонкая внутренняя кромка, чёткая галочка с тенью.
+// Градиентов с id нет — значок безопасно повторять в списках сотни раз.
+const VER_SEAL = "M12.00 2.60A3.5 3.5 0 0 1 17.53 4.40A3.5 3.5 0 0 1 20.94 9.10A3.5 3.5 0 0 1 20.94 14.90A3.5 3.5 0 0 1 17.53 19.60A3.5 3.5 0 0 1 12.00 21.40A3.5 3.5 0 0 1 6.47 19.60A3.5 3.5 0 0 1 3.06 14.90A3.5 3.5 0 0 1 3.06 9.10A3.5 3.5 0 0 1 6.47 4.40A3.5 3.5 0 0 1 12.00 2.60Z";
+const VER_LAYERS = (base, rim) => `<path d="${VER_SEAL}" fill="${base}"/>` + (rim ? `<path d="${VER_SEAL}" fill="none" stroke="#fff" stroke-opacity=".42" stroke-width=".8"/>` : "") +
+  `<ellipse cx="9.6" cy="7.4" rx="5.6" ry="3.1" transform="rotate(-24 9.6 7.4)" fill="#fff" fill-opacity=".17"/>` +
+  `<circle cx="12" cy="12" r="7.6" fill="none" stroke="#fff" stroke-opacity=".2" stroke-width=".6"/>` +
+  `<path d="m7.6 12.7 3 3 5.9-6.2" fill="none" stroke="#000" stroke-opacity=".22" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 .55)"/>` +
+  `<path d="m7.6 12.7 3 3 5.9-6.2" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`;
+const VER_NAME = { major: "Major", official: "Official" };
 function verBadge(u, cls = "") {
   if (!isVer(u)) return "";
   const tier = (u && u.vtier) || "";
   const tip = tier === "official" ? T("Этот аккаунт официально подтверждён администрацией DICEGRAM") : tier === "major" ? T("Аккаунт верифицирован организацией Major") : "";
-  const circle = tier === "official" ? '<circle cx="12" cy="12" r="10.3" fill="#0b0b0d" stroke="#fff" stroke-opacity=".3" stroke-width="1"/>'
-    : tier === "major" ? '<circle cx="12" cy="12" r="10.5" fill="#3390EC"/>' : '<circle cx="12" cy="12" r="10" fill="currentColor"/>';
-  return `<svg class="ver${tier ? " ver-" + tier : ""}${cls ? " " + cls : ""}" viewBox="0 0 24 24"${tip ? ` title="${esc(tip)}" aria-label="${esc(tip)}"` : ""}>${circle}${VER_CK}</svg>`;
+  const body = tier === "official" ? VER_LAYERS("#0b0b0d", true) : tier === "major" ? VER_LAYERS("#3390EC", false) : VER_LAYERS("currentColor", false);
+  return `<svg class="ver${tier ? " ver-" + tier : ""}${cls ? " " + cls : ""}" viewBox="0 0 24 24"${tip ? ` title="${esc(tip)}" aria-label="${esc(tip)}"` : ""}>${body}</svg>`;
 }
 // подпись под карточкой данных в профиле (как в Telegram): значок слева, серый текст, название организации жирным
 function verNote(u) {
@@ -116,7 +122,7 @@ function verNote(u) {
   if (tier !== "official" && tier !== "major") return "";
   const tpl = tier === "official" ? T("Этот аккаунт официально подтверждён администрацией {0}.") : T("Аккаунт верифицирован организацией {0}.");
   const who = tier === "official" ? "DICEGRAM" : "«Major»";
-  return `<div class="pf-vnote" data-tier="${tier}">${verBadge(u, "md")}<span>${esc(tpl).replace("{0}", `<b>${esc(who)}</b>`)}</span></div>`;
+  return `<div class="pf-vnote" data-tier="${tier}">${verBadge(u, "md")}<div class="vn-tx"><b class="vn-name vn-${tier}">${VER_NAME[tier]}</b><span>${esc(tpl).replace("{0}", `<b>${esc(who)}</b>`)}</span></div></div>`;
 }
 const svg = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 const ICON = {
@@ -189,7 +195,7 @@ const premHero = (u) => {
   const pal = PBG.byId(bg.key) || {};
   let pat = PBG.orbs();
   if (bg.nft) {
-    const e = esc((u.nft.pattern && u.nft.pattern.e) || "✨");
+    const e = typeof GiftArt !== "undefined" ? GiftArt.glyph((u.nft.pattern && (u.nft.pattern.k || u.nft.pattern.e)) || "spark") : "";
     const P = [[7, 12, 20, 0], [86, 10, 16, 0.8], [20, 44, 14, 1.6], [76, 40, 18, 2.2], [92, 62, 14, 0.4], [8, 70, 18, 1.2], [50, 5, 12, 2.8], [64, 78, 16, 0.6], [32, 84, 14, 2], [88, 84, 17, 1.4], [3, 44, 12, 3], [56, 52, 11, 3.4], [40, 22, 11, 1], [68, 20, 12, 2.4]];
     pat += `<div class="pf-pat">${P.map(([x, y, z, d]) => `<i class="e" style="--x:${x}%;--y:${y}%;--s:${z}px;--d:${d}s">${e}</i>`).join("")}</div>`;
   }

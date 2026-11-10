@@ -226,7 +226,7 @@ const Chat = {
   tap(e) {
     if (Chat.noTap && Date.now() - Chat.noTap < 400) return;
     const gc = e.target.closest(".gcard");
-    if (gc) { const gm = Chat.byEl(gc); if (gm && gm.gift) { haptic(); Gifts.detail(gm.gift); } return; }
+    if (gc) { const gm = Chat.byEl(gc); if (gm && gm.gift) { haptic(); Gifts.tap(gm.gift, gm); } return; }
     const cm = e.target.closest(".cmbar");
     if (cm) { const m = Chat.msgs.find((x) => x.id === +cm.dataset.id); if (m) Chat.openComments(m); return; }
     const b = e.target.closest(".b");
@@ -246,6 +246,7 @@ const Chat = {
     if (b.classList.contains("failed")) return Chat.resend(m);
     if (t.closest(".rq")) { if (m.reply && !m.reply.gone) Chat.jumpTo(m.reply.id); return; }
     const a = m.att || {};
+    if (t.closest(".vm-stt")) return Stt.press(m);
     if (t.closest(".vm-play")) return Player.toggle(mkey(m), fileUrl(a.url));
     if (t.closest(".vm-spd")) return Player.speed();
     const wv = t.closest(".vm-wave");
@@ -332,7 +333,9 @@ const Chat = {
     try {
       const d = await api("/api/user/" + p.id);
       if (Chat.peer !== p) return;
-      p.blocked = !!d.user.blocked; p.blocked_me = !!d.user.blocked_me; Chat.applyAccess();
+      p.blocked = !!d.user.blocked; p.blocked_me = !!d.user.blocked_me;
+      p.no_voice = d.user.no_voice; p.no_msg = d.user.no_msg; p.pay = d.user.pay; p.gift_ok = d.user.gift_ok;
+      Chat.applyAccess();
     } catch (e) {}
   },
   async unblock() {
@@ -342,14 +345,14 @@ const Chat = {
   applyAccess() {
     const p = Chat.peer, box = $("composer"); if (!p || !box) return;
     let bar = $("cbar");
-    if (!bar) { bar = document.createElement("div"); bar.id = "cbar"; bar.className = "cbar hidden"; box.insertBefore(bar, box.firstChild); bar.addEventListener("click", (e) => { if (e.target.closest("[data-mute]") && Chat.peer) { const id = Chat.peer.id; haptic(); (Chats.isMuted(id) ? Chats.setMute(id, false) : ChatPeek.act("mute", { peer: Chat.peer, unread: 0 })); setTimeout(() => Chat.applyAccess(), 400); } if (e.target.closest("[data-unblock]") && Chat.peer) Chat.unblock(); }); }
+    if (!bar) { bar = document.createElement("div"); bar.id = "cbar"; bar.className = "cbar hidden"; box.insertBefore(bar, box.firstChild); bar.addEventListener("click", (e) => { if (e.target.closest("[data-mute]") && Chat.peer) { const id = Chat.peer.id; haptic(); (Chats.isMuted(id) ? Chats.setMute(id, false) : ChatPeek.act("mute", { peer: Chat.peer, unread: 0 })); setTimeout(() => Chat.applyAccess(), 400); } if (e.target.closest("[data-unblock]") && Chat.peer) Chat.unblock(); if (e.target.closest("[data-prem]")) Settings.premium(); }); }
     let mode = "";
     if (p.gk) {
       if (!p.post) mode = p.gk === "channel" ? "mute" : "deny";
       else if (Chat.topic && Chat.topic.closed && p.role === "member") mode = "closed";
     } else if (!p.is_system) {
       if (p.deleted) mode = "deleted";
-      else if (p.blocked) mode = "blocked"; else if (p.blocked_me) mode = "blockedme";
+      else if (p.blocked) mode = "blocked"; else if (p.blocked_me) mode = "blockedme"; else if (p.no_msg) mode = "nomsg";
     }
     box.classList.toggle("nowrite", !!mode);
     bar.classList.toggle("hidden", !mode);
@@ -358,6 +361,7 @@ const Chat = {
     else if (mode === "closed") bar.innerHTML = `<span class="cb-note">${esc(T("Тема закрыта"))}</span>`;
     else if (mode === "blocked") bar.innerHTML = `<button data-unblock type="button" class="cb-unb">${esc(T("Разблокировать"))}</button>`;
     else if (mode === "blockedme") bar.innerHTML = `<span class="cb-note">${esc(T("Этот человек ограничил вам возможность писать"))}</span>`;
+    else if (mode === "nomsg") bar.innerHTML = `<span class="cb-note">${esc(T("Этот пользователь принимает сообщения только от контактов и подписчиков Premium"))}</span>${App.user && App.user.premium ? "" : `<button type="button" class="cb-unb" data-prem>${esc(T("Получить Premium"))}</button>`}`;
     else if (mode === "deleted") bar.innerHTML = `<span class="cb-note">${esc(T("Аккаунт удалён — написать нельзя"))}</span>`;
     else bar.innerHTML = "";
   },
@@ -525,7 +529,7 @@ const Chat = {
     const ov = ((k === "photo" || k === "gif") && !hasCap) || k === "sticker";
     const big = k === "text" && !m.fw && !m.reply_to && !m.reply && Prefs.get("bigemoji", true) && Chat.isBigEmoji(m.text);
     const sig = gk === "channel" && m.from && m.from.sig ? `<i class="sig">${esc(cleanName(m.from.name) || dispName(m.from))}</i>` : "";
-    const time = `<span class="t${ov ? " ov" : ""}">${sig}${m.exp ? TIMER_I : ""}${m.edited ? T("изм.") + " " : ""}${fmtTime(m.ts)}${out ? `<span class="st">${stIcon(m)}</span>` : ""}</span>`;
+    const time = `<span class="t${ov ? " ov" : ""}">${sig}${m.exp ? TIMER_I : ""}${m.paid ? `<span class="mpd">⭐${m.paid}</span> ` : ""}${m.edited ? T("изм.") + " " : ""}${fmtTime(m.ts)}${out ? `<span class="st">${stIcon(m)}</span>` : ""}</span>`;
     let h = "";
     if (inGroup && !cont && k !== "sticker") {
       const f = m.from || {}, lab = f.tag || (f.role === "owner" ? T("владелец") : f.role === "admin" ? T("админ") : "");
@@ -754,7 +758,17 @@ const Chat = {
     const peer = m._peer || (Chats.byId(m.receiver) && Chats.byId(m.receiver).peer) || { id: m.receiver };
     let ok = false;
     try {
-      const d = await api("/api/send", { method: "POST", body: { to: peer.id, text: m.text, cid: m.cid, kind: m.kind, ents: m.ents, att: sendAtt(m.att), reply_to: m.reply_to, topic: m.topic } });
+      const body = { to: peer.id, text: m.text, cid: m.cid, kind: m.kind, ents: m.ents, att: sendAtt(m.att), reply_to: m.reply_to, topic: m.topic };
+      if (peer.pay && !peer.gk) {                       // человек принимает сообщения за звёзды: один раз спрашиваем подтверждение
+        if (!peer._payOk) {
+          const go = await UI.sheet({ title: T("Платное сообщение"), text: T("{0} принимает сообщения от незнакомых за звёзды. Каждое сообщение стоит {1} ⭐.", dispName(peer), peer.pay),
+            actions: [{ label: T("Отправить за {0} ⭐", peer.pay), value: true, accent: true }], cancel: T("Отмена") });
+          if (!go) { m.pending = false; m.failed = true; Outbox.done(m); if (Chat.peer && Chat.peer.id === peer.id) Chat.patch(m); return false; }
+          peer._payOk = true;
+        }
+        body.paid = peer.pay;
+      }
+      const d = await api("/api/send", { method: "POST", body });
       const old = m.att ? { url: m.att.url, turl: m.att.turl } : null;
       Object.assign(m, d.message, { pending: false, failed: false, up: null, file: null });
       Chat.keepLocal(m, old);
@@ -768,6 +782,8 @@ const Chat = {
         m.pending = true; m.failed = false; Outbox.add(m);
       } else {
         m.pending = false; m.failed = true; Outbox.done(m);
+        const need = e.data && e.data.need_pay;
+        if (need) { peer.pay = need; peer._payOk = false; }
         const w = /Медленный режим: подождите (\d+)\s*(с|мин)/.exec(e.message || "");
         if (w) Chat.slowMark(peer, +w[1] * (w[2] === "мин" ? 60 : 1)); else toast(e.message);
       }

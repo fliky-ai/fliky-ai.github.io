@@ -2,6 +2,9 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
+<script>/* адрес вида dicegram.dpdns.org/имя/123 или /+код: переносим путь в #!/путь и открываем главную страницу, ссылку обработает приложение */
+(function(){try{var l=location,p=l.pathname;if(p!=="/"&&!/\/index\.html$/.test(p)&&!/\/$/.test(p)&&!/\.github\.io$/.test(l.hostname)){l.replace("/#!"+p+l.search);}}catch(e){}})();
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no,interactive-widget=resizes-content">
 <meta name="theme-color" content="#0E1218">
 <meta name="application-name" content="Dicegram">
@@ -20,25 +23,66 @@ if(nm==="sched"){var f=String(g("night_from","21:00")).split(":"),t=String(g("ni
 else if(nm==="auto")r=light?"light":"dark";else r=th==="auto"?(light?"light":"dark"):th;
 h.dataset.theme=r;h.dataset.acc=g("acc","blue");h.style.setProperty("--fsk",g("fs",16)/16);h.style.setProperty("--br",g("br",18)+"px")}catch(e){}
 if(!document.documentElement.dataset.theme)document.documentElement.dataset.theme="dark"})()</script>
+<style id="splash-css">
+/* ЗАСТАВКА ЗАПУСКА: логотип DICEGRAM (zapusk.png) на фирменном синем градиенте, плавное появление, 2–3 секунды */
+#splash{position:fixed;inset:0;z-index:400;display:grid;place-items:center;overflow:hidden;background:linear-gradient(162deg,#46a6ff 0%,#2b73f2 46%,#1a3fd2 100%);
+  transition:opacity .6s ease,transform .6s cubic-bezier(.4,0,.2,1)}
+#splash.out{opacity:0;transform:scale(1.035);pointer-events:none}
+#splash::before{content:"";position:absolute;left:50%;top:46%;width:150vmax;height:150vmax;margin:-75vmax 0 0 -75vmax;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(255,255,255,.34),rgba(255,255,255,.1) 38%,transparent 70%);opacity:0;animation:sp-glow 2.6s ease-out .1s forwards}
+#splash::after{content:"";position:absolute;inset:0;background:radial-gradient(120% 80% at 50% 110%,rgba(8,20,90,.45),transparent 60%)}
+.sp-logo{position:relative;z-index:1;display:grid;place-items:center;opacity:0;animation:sp-in 1.05s cubic-bezier(.2,.8,.2,1) .2s forwards;
+  filter:drop-shadow(0 14px 34px rgba(5,18,92,.35))}
+.sp-logo img{display:block;width:min(64vw,380px);max-height:42vh;height:auto;object-fit:contain}
+.sp-word{display:none;font:800 clamp(30px,9.5vw,52px)/1 Manrope,system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.2em;padding-left:.2em;color:#fff}
+.sp-logo.nofile .sp-word{display:block}
+@keyframes sp-in{from{opacity:0;transform:scale(.88) translateY(10px);filter:blur(7px) drop-shadow(0 14px 34px rgba(5,18,92,.35))}to{opacity:1;transform:none;filter:drop-shadow(0 14px 34px rgba(5,18,92,.35))}}
+@keyframes sp-glow{0%{opacity:0;transform:scale(.55)}45%{opacity:1}100%{opacity:.78;transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.sp-logo{animation:sp-fade .5s ease .1s forwards}#splash::before{animation:none;opacity:.7}@keyframes sp-fade{to{opacity:1}}}
+</style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20261109c">
-<link rel="stylesheet" href="chat.css?v=20261109c">
-<link rel="stylesheet" href="profile.css?v=20261109c">
-<link rel="stylesheet" href="theme.css?v=20261109c">
-<link rel="stylesheet" href="settings.css?v=20261109c">
-<link rel="stylesheet" href="premium.css?v=20261109c">
-<link rel="stylesheet" href="gifts.css?v=20261109c">
-<link rel="stylesheet" href="tg.css?v=20261109c">
-<link rel="stylesheet" href="groups.css?v=20261109c">
-<link rel="stylesheet" href="call.css?v=20261109c">
-<link rel="stylesheet" href="intro.css?v=20261109c">
-<link rel="stylesheet" href="modern.css?v=20261109c">
-<link rel="stylesheet" href="games.css?v=20261109c">
+<link rel="stylesheet" href="style.css?v=20261110a">
+<link rel="stylesheet" href="chat.css?v=20261110a">
+<link rel="stylesheet" href="profile.css?v=20261110a">
+<link rel="stylesheet" href="theme.css?v=20261110a">
+<link rel="stylesheet" href="settings.css?v=20261110a">
+<link rel="stylesheet" href="premium.css?v=20261110a">
+<link rel="stylesheet" href="gifts.css?v=20261110a">
+<link rel="stylesheet" href="tg.css?v=20261110a">
+<link rel="stylesheet" href="groups.css?v=20261110a">
+<link rel="stylesheet" href="call.css?v=20261110a">
+<link rel="stylesheet" href="intro.css?v=20261110a">
+<link rel="stylesheet" href="modern.css?v=20261110a">
+<link rel="stylesheet" href="games.css?v=20261110a">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
+
+<!-- ЗАСТАВКА ЗАПУСКА (логотип — файл zapusk.png рядом с index.html; пока его нет, показывается надпись DICEGRAM) -->
+<div id="splash" aria-hidden="true"><div class="sp-logo"><img src="zapusk.png" alt="" decoding="async" onerror="this.parentNode.classList.add('nofile');this.remove()"><span class="sp-word">DICEGRAM</span></div></div>
+<script>
+(function () {
+  var s = document.getElementById("splash"); if (!s) return;
+  /* в автотестах (webdriver) заставка не нужна, если не попросить ?splash=1 */
+  try { if (navigator.webdriver && !/[?&]splash=1/.test(location.search)) { s.remove(); return; } } catch (_) {}
+  var tc = document.querySelector('meta[name="theme-color"]'), oc = tc && tc.getAttribute("content"), t0 = Date.now(), done = false;
+  if (tc) tc.setAttribute("content", "#2b73f2");
+  function end() {
+    if (done) return; done = true;
+    s.classList.add("out"); if (tc && oc) tc.setAttribute("content", oc);
+    setTimeout(function () { if (s.parentNode) s.parentNode.removeChild(s); }, 800);
+  }
+  /* показываем не меньше ~2,5 с и пока приложение не готово (но не дольше 8,5 с — дальше работает страховка запуска) */
+  function chk() {
+    var b = document.getElementById("boot"), ready = !b || b.classList.contains("hidden"), el = Date.now() - t0;
+    if ((ready && el >= 2500) || el >= 8500) end(); else setTimeout(chk, 80);
+  }
+  setTimeout(chk, 2400);
+  window.__splashEnd = end;
+})();
+</script>
 
 <!-- СТРАХОВКА ЗАПУСКА: если приложение не открылось за пару секунд, вместо вечного колеса показываем причину и кнопки -->
 <script>
@@ -273,56 +317,59 @@ window.__boot = { errs: [], miss: [], net: "" };
 <div id="toast" class="toast"></div>
 
 <script src="config.js"></script>
-<script src="i18n.js?v=20261109c"></script>
-<script src="lang_en.js?v=20261109c"></script>
-<script src="api.js?v=20261109c"></script>
-<script src="offline.js?v=20261109c"></script>
-<script src="prefs.js?v=20261109c"></script>
-<script src="rich.js?v=20261109c"></script>
-<script src="ui.js?v=20261109c"></script>
-<script src="register.js?v=20261109c"></script>
-<script src="intro.js?v=20261109c"></script>
-<script src="chats.js?v=20261109c"></script>
-<script src="search.js?v=20261109c"></script>
-<script src="editor.js?v=20261109c"></script>
-<script src="voice.js?v=20261109c"></script>
-<script src="attach.js?v=20261109c"></script>
-<script src="fx.js?v=20261109c"></script>
-<script src="stickers.js?v=20261109c"></script>
-<script src="emojipick.js?v=20261109c"></script>
-<script src="gifmaker.js?v=20261109c"></script>
-<script src="menu.js?v=20261109c"></script>
-<script src="chat.js?v=20261109c"></script>
-<script src="contacts.js?v=20261109c"></script>
-<script src="groups.js?v=20261109c"></script>
-<script src="grp_edit.js?v=20261109c"></script>
-<script src="voicefx.js?v=20261109c"></script>
-<script src="call.js?v=20261109c"></script>
-<script src="stories.js?v=20261109c"></script>
-<script src="userprofile.js?v=20261109c"></script>
-<script src="cropper.js?v=20261109c"></script>
-<script src="profile.js?v=20261109c"></script>
-<script src="pg.js?v=20261109c"></script>
-<script src="settings.js?v=20261109c"></script>
-<script src="set_look.js?v=20261109c"></script>
-<script src="set_safe.js?v=20261109c"></script>
-<script src="set_misc.js?v=20261109c"></script>
-<script src="set_prem.js?v=20261109c"></script>
-<script src="premium.js?v=20261109c"></script>
-<script src="gifts.js?v=20261109c"></script>
-<script src="cemoji.js?v=20261109c"></script>
-<script src="links.js?v=20261109c"></script>
-<script src="fileview.js?v=20261109c"></script>
-<script src="music.js?v=20261109c"></script>
-<script src="downloads.js?v=20261109c"></script>
-<script src="gallery.js?v=20261109c"></script>
-<script src="qr.js?v=20261109c"></script>
-<script src="admin.js?v=20261109c"></script>
-<script src="sharein.js?v=20261109c"></script>
-<script src="games.js?v=20261109c"></script>
-<script src="game2048.js?v=20261109c"></script>
-<script src="gameblocks.js?v=20261109c"></script>
-<script src="gamesand.js?v=20261109c"></script>
-<script src="app.js?v=20261109c"></script>
+<script src="i18n.js?v=20261110a"></script>
+<script src="lang_en.js?v=20261110a"></script>
+<script src="api.js?v=20261110a"></script>
+<script src="offline.js?v=20261110a"></script>
+<script src="prefs.js?v=20261110a"></script>
+<script src="rich.js?v=20261110a"></script>
+<script src="ui.js?v=20261110a"></script>
+<script src="register.js?v=20261110a"></script>
+<script src="intro.js?v=20261110a"></script>
+<script src="chats.js?v=20261110a"></script>
+<script src="search.js?v=20261110a"></script>
+<script src="editor.js?v=20261110a"></script>
+<script src="voice.js?v=20261110a"></script>
+<script src="attach.js?v=20261110a"></script>
+<script src="fx.js?v=20261110a"></script>
+<script src="stickers.js?v=20261110a"></script>
+<script src="emojipick.js?v=20261110a"></script>
+<script src="gifmaker.js?v=20261110a"></script>
+<script src="menu.js?v=20261110a"></script>
+<script src="chat.js?v=20261110a"></script>
+<script src="contacts.js?v=20261110a"></script>
+<script src="groups.js?v=20261110a"></script>
+<script src="grp_edit.js?v=20261110a"></script>
+<script src="voicefx.js?v=20261110a"></script>
+<script src="call.js?v=20261110a"></script>
+<script src="stories.js?v=20261110a"></script>
+<script src="userprofile.js?v=20261110a"></script>
+<script src="cropper.js?v=20261110a"></script>
+<script src="profile.js?v=20261110a"></script>
+<script src="pg.js?v=20261110a"></script>
+<script src="settings.js?v=20261110a"></script>
+<script src="set_look.js?v=20261110a"></script>
+<script src="set_safe.js?v=20261110a"></script>
+<script src="set_misc.js?v=20261110a"></script>
+<script src="set_prem.js?v=20261110a"></script>
+<script src="appicon.js?v=20261110a"></script>
+<script src="premium.js?v=20261110a"></script>
+<script src="gift3d.js?v=20261110a"></script>
+<script src="gift3d_designs.js?v=20261110a"></script>
+<script src="gifts.js?v=20261110a"></script>
+<script src="cemoji.js?v=20261110a"></script>
+<script src="links.js?v=20261110a"></script>
+<script src="fileview.js?v=20261110a"></script>
+<script src="music.js?v=20261110a"></script>
+<script src="downloads.js?v=20261110a"></script>
+<script src="gallery.js?v=20261110a"></script>
+<script src="qr.js?v=20261110a"></script>
+<script src="admin.js?v=20261110a"></script>
+<script src="sharein.js?v=20261110a"></script>
+<script src="games.js?v=20261110a"></script>
+<script src="game2048.js?v=20261110a"></script>
+<script src="gameblocks.js?v=20261110a"></script>
+<script src="gamesand.js?v=20261110a"></script>
+<script src="app.js?v=20261110a"></script>
 </body>
 </html>

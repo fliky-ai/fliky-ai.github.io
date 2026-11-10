@@ -86,6 +86,17 @@ const Groups = {
     try { GroupEdit.onChat(p); } catch (e) {}
     try { Topics.onChat(p); } catch (e) {}
   },
+  // новая заявка на вступление (приходит админам)
+  onReq(d) {
+    toast(T("{0} хочет вступить: {1}", (d.user && d.user.name) || "", d.title || ""));
+    const c = Chats.byId(d.chat); if (c && c.peer) c.peer.reqs = d.n;
+    try { if (GroupEdit.reqPg && GroupEdit.reqPg.alive) GroupEdit.reqPg.data.reload(); } catch (e) {}
+  },
+  // заявку одобрили — теперь мы в чате
+  onJoinOk(d) {
+    Chats.load();
+    if (d.chat) toast(T("Вас приняли: {0}", d.chat.name || ""));
+  },
   async onGone(id) {
     Chats.gone(id);
     const mine = Groups.leaving === id; Groups.leaving = 0;
@@ -171,13 +182,16 @@ const Groups = {
     if (p.joined || p.role) { const c = Chats.byId(p.id); return Chats.openChat(c ? c.peer : p); }
     const ch = p.gk === "channel";
     if (p.banned) return UI.sheet({ icon: avatar(p), title: T(ch ? "Вы заблокированы в канале" : "Вы заблокированы в группе"), text: p.name, actions: [], cancel: T("Понятно") });
+    const info = statusText(p) + (p.bio ? "\n\n" + p.bio : "");
+    if (p.req && p.requested) return UI.sheet({ icon: avatar(p), title: p.name, text: info + "\n\n" + T("Запрос отправлен. Когда администратор его примет, вы получите уведомление."), actions: [], cancel: T("Понятно") });
     const ok = await UI.sheet({
-      icon: avatar(p), title: p.name, text: statusText(p) + (p.bio ? "\n\n" + p.bio : ""),
-      actions: [{ label: T(ch ? "Подписаться" : "Вступить в группу"), value: true, accent: true }], cancel: T("Отмена"),
+      icon: avatar(p), title: p.name, text: p.req ? info + "\n\n" + T(ch ? "Подписаться на канал можно только после одобрения администратора." : "Вступить в группу можно только после одобрения администратора.") : info,
+      actions: [{ label: p.req ? T("Отправить запрос на вступление") : T(ch ? "Подписаться" : "Вступить в группу"), value: true, accent: true }], cancel: T("Отмена"),
     });
     if (!ok) return;
     try {
       const d = await api("/api/join", { method: "POST", body: { slug } });
+      if (d.requested) return toast(T("Запрос отправлен"));
       await Chats.load();
       const c = Chats.byId(d.chat.id);
       Chats.openChat(c ? c.peer : d.chat);
@@ -220,7 +234,8 @@ const Groups = {
       onDone: async (ids) => {
         const d = await api("/api/chat/" + peer.gid + "/add", { method: "POST", body: { users: ids } });
         Object.assign(peer, d.chat);
-        toast(T("Добавлено: {0}", (d.added || []).length));
+        const sk = d.skipped || [];
+        toast(sk.length ? T("Добавлено: {0}. Не добавлены (закрыли приглашения): {1}", (d.added || []).length, sk.map((x) => x.name).join(", ")) : T("Добавлено: {0}", (d.added || []).length));
         Chat.updateHeader(); Chats.render();
         try { GroupEdit.onChat(peer); } catch (e) {}
       },

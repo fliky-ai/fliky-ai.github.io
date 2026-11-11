@@ -76,9 +76,16 @@ const UserProfile = {
     if (sys) {
       rows.push(row(esc(u.number || "+42777"), T("Телефон"), u.number || "+42777"));
     } else {
-      if (u.number) rows.push(row(esc(fmtPhone(u.number)), T("Телефон"), u.number));
-      if (u.bio) rows.push(row(Rich.render(u.bio, u.bio_ents || []), T("О себе"), u.bio));
+      const bi = u.binfo || {}, isBot = !!u.bot;
+      // как в Telegram: сначала «О себе» (у бота — «О боте»), затем телефон и имя пользователя
+      if (u.bio) rows.push(row(Rich.render(u.bio, u.bio_ents || []), isBot ? T("О боте") : T("О себе"), u.bio));
+      if (isBot && bi.descr && bi.descr !== u.bio) rows.push(row(esc(bi.descr).replace(/\n/g, "<br>"), T("Описание")));
+      if (u.number && !isBot) rows.push(row(esc(fmtPhone(u.number)), T("Телефон"), u.number));
       const unr = UserProfile.unRow(u); if (unr) rows.push(unr);
+      if (isBot && Array.isArray(bi.cmds) && bi.cmds.length) {
+        const shown = bi.cmds.slice(0, 8).map((c) => `<span class="bcmd"><b>/${esc(c.command)}</b> <i>${esc(c.description || "")}</i></span>`).join("");
+        rows.push(`<div class="pi"><span class="pi-v bcmds">${shown}${bi.cmds.length > 8 ? `<span class="bcmd dim">${esc(T("и ещё {0}", bi.cmds.length - 8))}</span>` : ""}</span><span class="pi-l">${esc(T("Команды"))}</span></div>`);
+      }
       if (u.birthday) rows.push(row(esc(bdayText(u.birthday)) + (bdayToday(u.birthday) ? " 🎂" : ""), T("День рождения")));
       const b = u.biz;
       if (b && b.hours) {
@@ -91,11 +98,11 @@ const UserProfile = {
     const ph = typeof premHero === "function" ? premHero(u) : { cls: "", style: "", pat: "" };
     const nft = !!(u.nft && ph.cls);
     const muted = !sys && Chats.isMuted(u.id);
-    const acts = sys || u.deleted ? (u.deleted ? `<div class="ubl"><span>${esc(T("Этот аккаунт удалён"))}</span></div>` : "") : `<div class="uacts" id="up-acts">
+    const acts = sys || u.deleted ? (u.deleted ? `<div class="ubl"><span>${esc(T("Этот аккаунт удалён"))}</span></div>` : "") : `<div class="uacts${u.bot ? " bot" : ""}" id="up-acts">
       <button class="ua" data-a="chat">${I.chat}<span>${esc(T("Чат"))}</span></button>
       <button class="ua" data-a="mute">${muted ? I.bellOff : I.bell}<span>${esc(muted ? T("Включить") : T("Звук"))}</span></button>
-      <button class="ua" data-a="call">${I.call}<span>${esc(T("Звонок"))}</span></button>
-      <button class="ua gift" data-a="gift">${I.gift}<span>${esc(T("Подарок"))}</span></button></div>`;
+      ${u.bot ? "" : `<button class="ua" data-a="call">${I.call}<span>${esc(T("Звонок"))}</span></button>
+      <button class="ua gift" data-a="gift">${I.gift}<span>${esc(T("Подарок"))}</span></button>`}</div>`;
     const blocked = !sys && u.blocked
       ? `<div class="ubl"><span>${esc(T("Вы заблокировали этого пользователя"))}</span><button data-a="unblock">${esc(T("Разблокировать"))}</button></div>` : "";
 
@@ -103,7 +110,9 @@ const UserProfile = {
 
     const rt = !sys && u.rating ? UserProfile.lvBadge(u.rating) : "";
 
-    const addBtn = !sys && !me ? `<button class="uadd${u.saved ? " on" : ""}" data-a="contact">${u.saved ? I.minus : I.add}<span>${esc(u.saved ? T("Удалить из контактов") : T("Добавить в контакты"))}</span></button>` : "";
+    const dbBtn = u.bot && String(u.username || "").toLowerCase() === "dicebot" ? `<button class="uadd on" data-a="dicebot">${SI.bot}<span>${esc(T("Открыть панель ботов"))}</span></button>` : "";
+    const addBtn = !sys && !me && !u.bot ? `<button class="uadd${u.saved ? " on" : ""}" data-a="contact">${u.saved ? I.minus : I.add}<span>${esc(u.saved ? T("Удалить из контактов") : T("Добавить в контакты"))}</span></button>` : "";
+    const addBtn2 = dbBtn || addBtn;
 
     const tabs = sys ? [] : UserProfile.tabs(u);
     // пока человек сам не выбрал вкладку, показываем первую: публикации и подарки приходят позже остальных данных
@@ -120,7 +129,7 @@ const UserProfile = {
         <div class="st2row">${rt}<div class="st2 ${u.online && !sys ? "on" : ""}">${esc(sys ? T("служебные уведомления") : statusText(u))}</div></div></div>
       ${acts}${blocked}${pc}
       ${rows.length ? `<div class="card2 pf-info">${rows.join("")}</div>` : ""}${sys ? "" : verNote(u)}
-      ${addBtn}${tb}`;
+      ${addBtn2}${tb}`;
     $("up-body").scrollTop = scroll;
     UserProfile.drawTab();
   },
@@ -246,6 +255,7 @@ const UserProfile = {
       } catch (e) { toast(e.message); }
       return;
     }
+    if (a === "dicebot") return Dicebot.open();
     if (a === "unblock") return UserProfile.block(false);
   },
 

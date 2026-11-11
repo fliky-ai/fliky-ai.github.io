@@ -147,6 +147,7 @@ const Chats = {
     try {
       Chats.list = (await api("/api/chats")).chats; Chats.loadedOnce = true; Chats.render(); Stories.load();
       OC.saveChats(Chats.list);
+      if (!Chats._pf) { Chats._pf = 1; setTimeout(() => { try { OC.prefetch(Chats.list.slice(0, 8), (window.LITE && LITE.on) ? 3 : 6); } catch (e) {} }, 2500); }
     } catch (e) {}
   },
   async fromCache() {

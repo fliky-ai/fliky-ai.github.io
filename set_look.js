@@ -59,7 +59,7 @@ Object.assign(Settings, {
       ${R.card(R.row({ a: "reset", ic: SI.shuffle, c: "gr", t: esc(T("Сбросить оформление")), chev: false }))}`);
   },
 
-  applyAnim() { document.documentElement.classList.toggle("eco-anim", !Prefs.get("anim", true) || Energy.is("anim")); },
+  applyAnim() { document.documentElement.classList.toggle("eco-anim", !Prefs.get("anim", true) || Energy.is("anim") || !!(window.LITE && LITE.on)); },
 
   // ─────────── обои ───────────
   wallpaper() {
@@ -69,7 +69,7 @@ Object.assign(Settings, {
       pat: (on) => { Prefs.set("wppat", !!on); Wall.apply(); },
       dim: (v) => { Prefs.set("wpdim", v); Wall.apply(); const n = pg.$("#dim-n"); if (n) n.textContent = v + "%"; },
       gal: async () => {
-        const f = (await Attach.pick("image/*", false))[0]; if (!f) return;
+        const f = await Attach.pickPhoto("Обои чата"); if (!f) return;
         if (!/^image\//.test(f.type)) return toast(T("Выберите фото"));
         try { await Wall.setPhoto(f); Settings.drawWall(pg); toast(T("Обои установлены")); } catch (e) { toast(e.message); }
       },

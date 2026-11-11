@@ -112,6 +112,21 @@ const Attach = {
     });
   },
 
+  // выбор ОДНОГО фото (аватар, обложка…) в нашей галерее: превью, камера, «С телефона». → File | null
+  pickPhoto(title) {
+    return new Promise((res) => {
+      if (typeof Gallery === "undefined") { Attach.pick("image/*", false).then((f) => res(f[0] || null)); return; }
+      let done = false;
+      Gallery.open({ single: true, title: title ? T(title) : T("Выберите фото"), onSend: async (list) => {
+        done = true;
+        const x = list && list[0]; let f = x && x.file;
+        if (!f && x && x.att) { try { const b = await (await fetch(fileUrl(x.att.url))).blob(); f = new File([b], "photo.jpg", { type: b.type || "image/jpeg" }); } catch (e) {} }
+        res(f || null);
+      } });
+      const iv = setInterval(() => { if (!Gallery.el) { clearInterval(iv); setTimeout(() => { if (!done) res(null); }, 500); } }, 300);
+    });
+  },
+
   menu() {
     const el = document.createElement("div");
     el.className = "sheet2";

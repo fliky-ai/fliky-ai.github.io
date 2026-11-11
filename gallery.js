@@ -24,13 +24,14 @@ const Gallery = {
   open(opts = {}) {
     if (Gallery.el) Gallery.close();
     Gallery.opts = opts;
-    Object.assign(Gallery, { items: [], byId: {}, sel: [], album: "all", type: "all", next: 0, more: false, loading: false, peers: {} });
+    Object.assign(Gallery, { items: [], byId: {}, sel: [], album: "all", type: opts.single ? "image" : "all", next: 0, more: false, loading: false, peers: {} });
+    Gallery.MAX = opts.single ? 1 : 20;                       // single — выбор одного фото (аватар и т.п.): без подписи, только фото
     // то, что уже выбирали с телефона в этот раз, — остаётся наверху
     (Gallery.devCache || []).forEach((it) => Gallery.add(it));
     const el = (Gallery.el = document.createElement("div"));
-    el.className = "gal";
+    el.className = "gal" + (opts.single ? " single" : "");
     el.innerHTML = `<div class="gal-top"><button class="gal-b" data-g="x" aria-label="${esc(T("Назад"))}">${GAL_I.back}</button>
-        <button class="gal-ttl" data-g="alb"><b>${esc(T("Галерея"))}</b>${GAL_I.down}</button><button class="gal-b" data-g="menu" aria-label="${esc(T("Ещё"))}">${GAL_I.dots}</button></div>
+        <button class="gal-ttl" data-g="alb"><b>${esc(opts.title || T("Галерея"))}</b>${GAL_I.down}</button><button class="gal-b" data-g="menu" aria-label="${esc(T("Ещё"))}">${GAL_I.dots}</button></div>
       <div class="gal-albs" hidden></div>
       <div class="gal-body"><div class="gal-grid"></div><div class="gal-more"></div></div>
       <div class="gal-bar"><input class="gal-cap" placeholder="${esc(T("Добавить подпись…"))}" maxlength="1024" autocomplete="off"><button class="gal-send" data-g="send" aria-label="${esc(T("Отправить"))}">${GAL_I.send}<i class="gal-n">0</i></button></div>`;
@@ -112,7 +113,8 @@ const Gallery = {
       const it = Gallery.fileItem(f, "dev");
       Gallery.devCache.unshift(it);
       Gallery.add(it);
-      if (Gallery.sel.length < Gallery.MAX && !Gallery.sel.includes(it.id)) Gallery.sel.push(it.id);
+      if (Gallery.MAX === 1) Gallery.sel = [it.id];
+      else if (Gallery.sel.length < Gallery.MAX && !Gallery.sel.includes(it.id)) Gallery.sel.push(it.id);
     }
     Gallery.devCache = Gallery.devCache.slice(0, 60);
     Gallery.draw();
@@ -133,7 +135,7 @@ const Gallery = {
       const it = Gallery.fileItem(f, "cam");
       Gallery.devCache = [it].concat(Gallery.devCache || []).slice(0, 60);
       Gallery.add(it);
-      if (Gallery.sel.length < Gallery.MAX) Gallery.sel.push(it.id);
+      if (Gallery.MAX === 1) Gallery.sel = [it.id]; else if (Gallery.sel.length < Gallery.MAX) Gallery.sel.push(it.id);
       Gallery.album = "all"; Gallery.draw();
       haptic("medium");
     });
@@ -236,6 +238,7 @@ const Gallery = {
   toggle(id) {
     const i = Gallery.sel.indexOf(id);
     if (i >= 0) Gallery.sel.splice(i, 1);
+    else if (Gallery.MAX === 1) { Gallery.sel = [id]; Gallery.draw(); }          // одиночный выбор: новый заменяет прежний
     else {
       if (Gallery.sel.length >= Gallery.MAX) return toast(T("Можно выбрать не больше {0}", Gallery.MAX));
       Gallery.sel.push(id);
@@ -330,7 +333,7 @@ const Gallery = {
   // ───────── отправка ─────────
   async send() {
     if (!Gallery.sel.length) return;
-    const cap = Gallery.el.querySelector(".gal-cap").value.trim();
+    const cap = Gallery.opts && Gallery.opts.single ? "" : Gallery.el.querySelector(".gal-cap").value.trim();
     const pick = Gallery.sel.map((id) => Gallery.byId[id]).filter(Boolean);
     const out = [];
     const btn = Gallery.el.querySelector(".gal-send"); btn.disabled = true;

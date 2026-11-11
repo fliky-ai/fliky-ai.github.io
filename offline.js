@@ -81,7 +81,32 @@ const OC = {
   },
   saveMe(u) { if (u && u.id) OC.set("me", u); },
   saveChats(list) { if (Array.isArray(list)) OC.later("chats", () => list); },
-  saveMsgs(peerId, topicId, list) { OC.later(OC.msgKey(peerId, topicId), () => OC.clean(list)); },
+  // в памяти — сразу (повторный вход в чат видит свежую копию в тот же кадр), на диск — с задержкой
+  saveMsgs(peerId, topicId, list) {
+    const k = OC.msgKey(peerId, topicId), c = OC.clean(list);
+    if (c.length) { OC.mem.set(OC.key(k), c); if (OC.mem.size > 300) OC.mem.delete(OC.mem.keys().next().value); }
+    OC.later(k, () => OC.clean(list));
+  },
+  // уже лежит в памяти? (без обращения к IndexedDB)
+  peek(k) { const v = OC.mem.get(OC.key(k)); return v === undefined ? null : v; },
+  // фоновая подгрузка последних сообщений верхних чатов — чтобы они открывались сразу даже при слабом интернете
+  async prefetch(list, n = 6) {
+    try {
+      const c = navigator.connection;
+      if (c && (c.saveData || /(^|-)2g$/.test(c.effectiveType || ""))) return;
+      let done = 0;
+      for (const ch of list) {
+        if (done >= n) break;
+        const p = ch.peer; if (!p || p.is_system) continue;
+        const k = OC.msgKey(p.id, 0);
+        if (OC.peek(k)) continue;
+        if (await tmoC(OC.get(k), 800, null)) continue;
+        done++;
+        try { const d = await api("/api/messages/" + p.id + "?limit=40&peek=1"); if (d && Array.isArray(d.messages) && d.messages.length) OC.saveMsgs(p.id, 0, d.messages); } catch (e) { return; }
+        await new Promise((r) => setTimeout(r, 350));
+      }
+    } catch (e) {}
+  },
   async appendMsg(peerId, m) {
     if (!m || !m.id) return;
     const k = OC.msgKey(peerId, m.topic || 0);

@@ -48,7 +48,7 @@ const Theme = {
     if (animate && !Energy.is("anim")) { h.classList.add("theming"); setTimeout(() => h.classList.remove("theming"), 320); }
     h.dataset.theme = Theme.resolve();
     h.dataset.acc = Prefs.get("acc", "blue");
-    h.style.setProperty("--fsk", String(Theme.fs() / 16));
+    h.style.setProperty("--fsk", String(Theme.fs() / 16 * ((window.LITE && LITE.txt) || 1)));
     h.style.setProperty("--br", Theme.br() + "px");
     Wall.apply();
     Theme.tg();
@@ -159,8 +159,9 @@ const Energy = {
     else if (t > 0 && Energy.bat) on = !Energy.bat.charging && Energy.bat.level * 100 <= t;
     const was = Energy.active; Energy.active = on;
     const h = document.documentElement;
-    h.classList.toggle("eco-anim", Energy.is("anim"));
-    h.classList.toggle("no-blur", Energy.is("blur"));
+    const lite = !!(window.LITE && LITE.on);
+    h.classList.toggle("eco-anim", Energy.is("anim") || lite);
+    h.classList.toggle("no-blur", Energy.is("blur") || lite);
     if (was !== on) { try { Chat.refreshMedia(); } catch (e) {} try { Energy.onChange && Energy.onChange(on); } catch (e) {} }
   },
   // применяется ли ограничение «k» прямо сейчас

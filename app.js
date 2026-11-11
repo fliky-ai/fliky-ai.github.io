@@ -321,6 +321,7 @@ const Kbd = {
     const kb = extra || (shrunk > 120 ? shrunk : 0);
     st.setProperty("--kb", kb + "px");
     document.body && document.body.classList.toggle("kb-open", kb > 0);
+    try { if (typeof Panel !== "undefined" && Panel.pend) Panel.kbEvent(kb); } catch (e) {}
     if (kb > 150) { try { Chat.kb = kb; } catch (e) {} }
     if (extra && window.scrollY) window.scrollTo(0, 0);   // WebView иногда сдвигает страницу вверх — возвращаем
     try { if (typeof Chat !== "undefined" && Chat.onViewport) Chat.onViewport(); } catch (e) {}
@@ -561,6 +562,7 @@ const App = {
       else if (d.type === "cc") Chat.onCC(d);
       else if (d.type === "presence") App.presence(d);
       else if (d.type === "typing") guard("typing", () => Typing.on(d));
+      else if (d.type === "cbans") guard("botcb", () => BotUI.onCbAns(d));
       else if (d.type === "chat") guard("groups", () => Groups.onChat(d));
       else if (d.type === "chat_gone") guard("groups", () => Groups.onGone(d.id));
       else if (d.type === "joinreq") guard("groups", () => Groups.onReq(d));
@@ -625,6 +627,9 @@ const App = {
       "downloads.js": () => DL && typeof DL.get === "function" && typeof DL.openPage === "function" && typeof DL.parallel === "function",
       "appicon.js": () => AppIcon && AppIcon.LIST.length === 5 && typeof AppIcon.open === "function",
       "voice.js": () => Stt && typeof Stt.press === "function" && Player && Rec,
+      "dicebot.js": () => Dicebot && typeof Dicebot.open === "function" && typeof Dicebot.panel === "function",
+      "botui.js": () => BotUI && typeof BotUI.kbHTML === "function" && typeof BotUI.sync === "function",
+      "lite.js": () => window.LITE && typeof LITE.measure === "function",
       "gallery.js": () => Gallery && typeof Gallery.open === "function" && typeof Gallery.send === "function",
       "qr.js": () => QR && QRCard && typeof QR.matrix === "function" && typeof QRCard.open === "function",
       "admin.js": () => HCReport && typeof HCReport.open === "function",
@@ -643,7 +648,7 @@ const App = {
       "voicefx.js": () => VoiceFX && typeof VoiceFX.process === "function",
       "call.js": () => Calls && typeof Calls.start === "function",
       "settings.js": () => Settings && Accounts,
-      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261110a/.test([...document.scripts].map((x) => x.src).join(" ")),
+      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261111a/.test([...document.scripts].map((x) => x.src).join(" ")),
     };
     const bad = Object.keys(chk).filter((k) => !has(chk[k]));
     const miss = (window.__boot && window.__boot.miss || []).filter((x, i, a) => a.indexOf(x) === i && /\.(js|css)$/.test(x));

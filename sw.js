@@ -5,7 +5,7 @@
 //    без сети — видео и музыка тоже (отдаём из кэша нужные куски, как сервер);
 //  • системные уведомления: звонки и сообщения, когда вкладка/приложение свёрнуты или закрыты.
 const CACHE = "media-v1";
-const SHELL = "shell-v2";
+const SHELL = "shell-v3";
 const MAX_ITEM = 60 * 1024 * 1024;       // файлы больше 60 МБ в кэш не кладём
 
 self.addEventListener("install", () => self.skipWaiting());

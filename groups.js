@@ -136,6 +136,15 @@ const Groups = {
       A.push({ label: T(p.role === "owner" ? "Удалить и выйти" : p.gk === "channel" ? "Покинуть канал" : "Покинуть группу"), value: "leave", danger: true });
     } else if (p.is_system) {
       A.push({ label: T("Профиль"), value: "info" });
+    } else if (p.saved) {
+      A.push({ label: T("Купить подарок себе"), value: "gift" });
+      A.push({ label: T("Поиск по сообщениям"), value: "find" });
+      A.push({ label: T("Очистить «Избранное»"), value: "del", danger: true });
+    } else if (p.bot) {
+      A.push({ label: T("Профиль бота"), value: "info" });
+      if (String(p.username || "").toLowerCase() !== "dicebot") A.push({ label: T("Выключить звук"), value: "mute" });
+      A.push({ label: T("Поиск по сообщениям"), value: "find" });
+      A.push({ label: T("Удалить чат"), value: "del", danger: true });
     } else {
       A.push({ label: T("Профиль"), value: "info" });
       A.push({ label: T("Позвонить"), value: "call" });
@@ -147,6 +156,7 @@ const Groups = {
     const v = await UI.sheet({ actions: A });
     if (!v) return;
     if (v === "info") return Chat.openProfile();
+    if (v === "gift") return Gifts.shop(App.user);
     if (v === "vc") return Calls.joinVC(p);
     if (v === "call") return Calls.start(p, false);
     if (v === "vcall") return Calls.start(p, true);
@@ -160,7 +170,7 @@ const Groups = {
   syncBars() {
     const p = Chat.peer, call = $("chat-call"), more = $("chat-more"), add = $("addbar"), vc = $("vcbar");
     if (!p) return;
-    const show = !(p.is_system) && !p.deleted && !(p.gk === "channel" && !p.vc && !(p.rights && p.rights.calls));
+    const show = !(p.is_system) && !p.saved && !p.bot && !p.deleted && !(p.gk === "channel" && !p.vc && !(p.rights && p.rights.calls));
     call.classList.toggle("hidden", !show);
     more.classList.toggle("hidden", !!p.is_system);
     call.innerHTML = p.gk ? CALLI.vchat : CALLI.phone;

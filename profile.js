@@ -194,7 +194,7 @@ const Profile = {
     const tiles = [{ k: "gal", label: "Галерея", icon: PI.gallery, cls: "t-blue" }, { k: "cam", label: "Камера", icon: ICON.camera, cls: "t-pink" }];
     if (u.avatar) tiles.push({ k: "rm", label: "Удалить", icon: ICON.trash, cls: "t-red" });
     const k = await UI.tiles({ title: "Фото профиля", tiles });
-    if (k === "gal") { const f = (await Attach.pick("image/*", false))[0]; if (f) Profile.crop(f); }
+    if (k === "gal") { const f = await Attach.pickPhoto("Фото профиля"); if (f) Profile.crop(f); }
     else if (k === "cam") Camera.open((f) => Profile.crop(f), "user");
     else if (k === "rm") {
       if (await UI.sheet({ title: "Удалить фото профиля?", actions: [{ label: "Удалить", value: true, danger: true }] })) Profile.removePhoto();
@@ -219,10 +219,73 @@ const Profile = {
     const u = App.user;
     $("ed-name").value = u.name || ""; $("ed-surname").value = u.surname || "";
     $("ed-user").value = u.username || ""; BioEd.set(u.bio || "", u.bio_ents || []);
+    Profile.drawUser();
     $("ed-phone-v").textContent = fmtPhone(u.number);
     Profile.draft = { birthday: u.birthday || "", vis: u.birthday_vis || "contacts" };
     Profile.drawBday();
     Profile.unOK = true; Profile.check(); Nav.open("editprof");
+  },
+
+  drawUser() {
+    const v = $("ed-user-v"), un = $("ed-user").value.trim();
+    if (v) { v.textContent = un ? "@" + un : T("Не задано"); v.classList.toggle("dim", !un); }
+  },
+
+  // ───────────── экран «Имя пользователя» (как в Telegram): поле, проверка занятости, пояснения, ссылка на профиль ─────────────
+  openUsername() {
+    const u = App.user, cur = u.username || "";
+    const link = (n) => Links.BASE.replace(/^https?:\/\//, "") + "/" + n;
+    const pg = Pg.open({ title: T("Имя пользователя"), cls: "unp", right: `<button class="ed-ok" id="un-ok" disabled aria-label="${esc(T("Сохранить"))}">${SI.check}</button>`, build: (pg) => {
+      pg.set(`<div class="card2 fields unp-f"><input id="un-in" maxlength="32" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${esc(T("Имя пользователя"))}" aria-label="${esc(T("Имя пользователя"))}" value="${esc(cur)}"></div>
+        <div class="unp-st" id="un-st"></div>
+        <div class="ed-hint">${esc(T("Вы можете выбрать публичное имя пользователя в Dicegram. С ним другие люди смогут найти вас и написать вам, не зная вашего номера телефона."))}</div>
+        <div class="ed-hint">${esc(T("Можно использовать a–z, 0–9 и подчёркивания. Минимальная длина — 5 символов."))}</div>
+        <div id="un-ln" class="unp-ln"></div>`);
+    } });
+    let tm = 0, seq = 0, ok = false;
+    const inp = () => pg.$("#un-in"), st = (t, cls) => { const e = pg.$("#un-st"); e.textContent = t; e.className = "unp-st " + (cls || ""); };
+    const btn = () => { const b = pg.$("#un-ok"); if (b) b.disabled = !ok || inp().value.trim().replace(/^@/, "") === cur; };
+    const drawLink = (un) => {
+      const box = pg.$("#un-ln"); if (!box) return;
+      box.innerHTML = un ? `<div class="ed-hint">${esc(T("Ссылка на ваш профиль:"))}</div><button class="unp-link" type="button" data-copy="https://${esc(link(un))}"><span>${esc(link(un))}</span>${SI.link}</button><div class="ed-hint">${esc(T("Нажмите на ссылку, чтобы скопировать её."))}</div>` : "";
+    };
+    const check = () => {
+      const un = inp().value.trim().replace(/^@/, ""), my = ++seq; clearTimeout(tm); ok = false; btn(); drawLink(cur && !un ? "" : (un === cur ? cur : ""));
+      if (!un) { st(cur ? T("Имя пользователя будет удалено. По ссылке профиль больше не откроется.") : "", ""); ok = true; btn(); return; }
+      if (un === cur) { st(T("Это ваше текущее имя пользователя."), ""); drawLink(cur); return; }
+      if (!/^[A-Za-z]/.test(un)) return st(/^\d/.test(un) ? T("Имя пользователя не может начинаться с цифры.") : T("Имя пользователя должно начинаться с буквы."), "bad");
+      if (!/^[A-Za-z0-9_]+$/.test(un)) return st(T("Допустимы только a–z, 0–9 и подчёркивания."), "bad");
+      if (un.includes("__")) return st(T("Нельзя использовать подряд два символа _"), "bad");
+      if (un.length < 5) return st(T("Имя пользователя слишком короткое. Минимум — 5 символов."), "bad");
+      if (/_$/.test(un)) return st(T("Имя пользователя не может заканчиваться на «_»."), "bad");
+      st(T("Проверяем…"), "");
+      tm = setTimeout(async () => {
+        try {
+          const d = await api("/api/username/check?u=" + encodeURIComponent(un));
+          if (my !== seq) return;
+          ok = !!d.available;
+          st(d.available ? T("{0} свободно.", "@" + un) : (/занято/i.test(d.reason) ? T("Это имя пользователя уже занято.") : d.reason), d.available ? "ok" : "bad");
+          drawLink(d.available ? un : ""); btn();
+        } catch (e) { if (my === seq) st(e.message, "bad"); }
+      }, 380);
+    };
+    drawLink(cur); btn();
+    pg.$("#un-in").addEventListener("input", check);
+    pg.$("#un-in").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); pg.on.save(); } });
+    setTimeout(() => { try { const i = inp(); i.focus(); i.setSelectionRange(i.value.length, i.value.length); } catch (e) {} }, 380);
+    pg.el.addEventListener("click", (e) => { const c = e.target.closest("[data-copy]"); if (c) { copyText(c.dataset.copy); haptic(); toast(T("Ссылка скопирована")); } });
+    pg.on = {
+      save: async () => {
+        const b = pg.$("#un-ok"); if (!b || b.disabled) return;
+        const un = inp().value.trim().replace(/^@/, ""); b.disabled = true;
+        try {
+          const d = await api("/api/me/update", { method: "POST", body: { username: un } });
+          App.user = d.user; $("ed-user").value = d.user.username || ""; Profile.drawUser(); Profile.render(); Profile.check();
+          haptic("medium"); toast(un ? T("Имя пользователя сохранено") : T("Имя пользователя удалено")); pg.close();
+        } catch (e) { toast(e.message); btn(); }
+      },
+    };
+    pg.el.querySelector("#un-ok").addEventListener("click", () => pg.on.save());
   },
 
   drawBday() {
@@ -293,6 +356,7 @@ const Profile = {
     BioEd.init();
     ["ed-name", "ed-surname", "ed-user"].forEach((id) => $(id).addEventListener("input", () => Profile.check()));
     $("ed-save").onclick = () => Profile.save();
+    $("ed-userrow").onclick = () => Profile.openUsername();
     $("ed-phone").onclick = () => UI.sheet({ title: "Номер телефона", icon: PI.phone,
       text: "Номер выдаётся при регистрации через бота и привязан к аккаунту, поэтому изменить его нельзя. Если нужен другой номер, зарегистрируйте новый аккаунт.",
       actions: [], cancel: "Понятно" });

@@ -296,3 +296,10 @@ html.eco-anim .gv-rays,html.eco-anim .gv-pat{animation:none}
 .ac-f{margin:0 0 12px}
 .ac-f .irow{padding:12px 14px}
 .ac-card .qr-b{margin-top:6px}
+
+/* ── облегчённый режим (32-бит и слабые телефоны): без бесконечных анимаций и размытия — подарки открываются без лагов ── */
+html.lite .gv-rays,html.lite .gv::after,html.lite .ga-sh{display:none}
+html.lite .gv-pat,html.lite .gv-gl,html.lite .ga-p,html.lite .ga-g,html.lite .gu-fx{animation:none!important}
+html.lite .gv-sd,html.lite .ga-sd{filter:none}
+html.lite .gt .gt-p,html.lite .gt-rb,html.lite .gd-x,html.lite .gd-hint,html.lite .gp-card .gb-x{-webkit-backdrop-filter:none;backdrop-filter:none}
+html.lite .ga-i{image-rendering:auto;will-change:auto}

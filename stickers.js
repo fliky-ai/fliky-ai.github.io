@@ -161,6 +161,7 @@ const Panel = {
   },
 
   show(tab) {
+    clearTimeout(Panel.pendT); Panel.pend = null;
     Panel.tab = tab || Panel.tab;
     Panel.open = true;
     const kb = Chat.kb || 0;
@@ -173,15 +174,51 @@ const Panel = {
     Panel.render();
   },
   hide() {
+    clearTimeout(Panel.pendT); Panel.pend = null;
     Panel.open = false;
     $("composer").classList.remove("panel-open");
     $("btn-emoji").classList.remove("on");
   },
   // кнопка смайлика: панель вместо клавиатуры и обратно
+  //
+  // Чтобы экран не «подпрыгивал» при смене клавиатуры и панели, одно сменяется другим только когда система уже поменяла высоту:
+  //   клавиатура → панель: клавиатура уезжает вниз, а панель появляется в тот же кадр, когда экран подрос (Panel.kbEvent);
+  //   панель → клавиатура: панель держится на месте, пока клавиатура выезжает, и пропадает в кадр, когда экран сжался.
+  // Если за полсекунды ничего не изменилось (например, подключена физическая клавиатура) — меняем сразу.
+  pend: null, pendT: 0,
   toggle() {
-    if (Panel.open) { Panel.hide(); Editor.focus(false); return; }
-    Panel.show();              // сначала «панель открыта» — иначе обработчик фокуса вернёт обычную клавиатуру
-    Editor.focus(true);        // inputmode=none: клавиатура прячется, курсор остаётся
+    if (Panel.pend) return;                                   // предыдущая смена ещё идёт
+    const kbUp = document.body.classList.contains("kb-open");
+    if (Panel.open) {
+      if (!kbUp) { Panel.hide(); Editor.focus(false); return; }
+      Panel.pend = "hide"; Editor.focus(false);
+      Panel.pendT = setTimeout(() => Panel.commit(), 650);
+      return;
+    }
+    if (!kbUp) {
+      Panel.show();            // сначала «панель открыта» — иначе обработчик фокуса вернёт обычную клавиатуру
+      Editor.focus(true);      // inputmode=none: клавиатура прячется, курсор остаётся
+      return;
+    }
+    Panel.pend = "show"; $("btn-emoji").classList.add("on");
+    Editor.focus(true);
+    Panel.pendT = setTimeout(() => Panel.commit(), 450);
+  },
+  // тап по полю ввода при открытой панели: вернуть обычную клавиатуру без прыжка
+  toKeyboard() {
+    const inp = Editor.el;
+    if (!document.body.classList.contains("kb-open")) { Panel.hide(); inp.blur(); Editor.focus(false); return; }
+    Panel.pend = "hide"; inp.blur(); Editor.focus(false);
+    Panel.pendT = setTimeout(() => Panel.commit(), 650);
+  },
+  commit() {
+    const m = Panel.pend; clearTimeout(Panel.pendT); Panel.pend = null;
+    if (m === "show") Panel.show(); else if (m === "hide") Panel.hide();
+  },
+  // вызывается из Kbd.apply, когда высота клавиатуры изменилась
+  kbEvent(kb) {
+    if (Panel.pend === "show" && kb === 0) Panel.commit();
+    else if (Panel.pend === "hide" && kb > 150) Panel.commit();
   },
 
   render() {
@@ -393,7 +430,7 @@ const StickerMaker = {
   el: null, img: null, S: { s: 1, x: 0, y: 0 }, shape: "round", outline: true, text: "", emoji: "😀",
 
   async start() {
-    const f = (await Attach.pick("image/*", false))[0];
+    const f = await Attach.pickPhoto("Фото для стикера");
     if (!f) return;
     let bmp;
     try {

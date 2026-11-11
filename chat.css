@@ -757,3 +757,7 @@ html.eco-anim .dl-btn.busy .dl-ar{animation:none}
 .gal-pa.r svg{transform:rotate(180deg)}
 @media (hover:none){.gal-pa{display:none}}
 @media (min-width:700px){.gal{max-width:520px;left:50%;right:auto;width:100%;margin-left:-260px}.gal-grid{grid-template-columns:repeat(4,1fr)}}
+/* галерея в режиме выбора одного фото (аватар) */
+.gal.single .gal-cap{display:none}
+.gal.single .gal-bar{justify-content:flex-end}
+.gal.single .gal-ttl svg{display:none}

@@ -3,7 +3,8 @@
 // с вращением пальцем. Если WebGL недоступен — тот же набор треугольников рисуется на обычном canvas (запасной вариант).
 const Gift3D = (() => {
   const TAU = Math.PI * 2, PI = Math.PI;
-  const G = { designs: { reg: {}, nft: {} }, PAL: {}, forceSoft: false, lodSoft: 0.5 };
+  const LT = !!(window.LITE && window.LITE.on);          // слабый / 32-битный телефон: без WebGL, меньше треугольников, меньше картинки
+  const G = { designs: { reg: {}, nft: {} }, PAL: {}, forceSoft: LT, lodSoft: LT ? 0.4 : 0.5, lite: LT };
 
   // ───────────── цвет и материал ─────────────
   const lin = (c) => Math.pow(c, 2.2);
@@ -377,16 +378,16 @@ col=col/(1.+col*.28);col=pow(col,vec3(1./2.2));gl_FragColor=vec4(col,1.);}`;
     trCanvas.width = trCanvas.height = size;
     if (!tr || tr.soft !== useSoft()) {
       if (useSoft()) { tr = new SoftR(trCanvas); tr.soft = true; }
-      else { try { tr = new GLR(trCanvas, { keep: true }); tr.soft = false; } catch (e) { G._glFail = true; tr = new SoftR(trCanvas); tr.soft = true; } }
+      else { try { tr = new GLR(trCanvas, { keep: true }); tr.soft = false; } catch (e) { G._glFail = true; trCanvas = document.createElement("canvas"); trCanvas.width = trCanvas.height = size; tr = new SoftR(trCanvas); tr.soft = true; } }
     }
     return tr;
   };
   G.reset = () => { tr = null; trCanvas = null; thumbs.forEach((u) => { try { URL.revokeObjectURL(u); } catch (e) {} }); thumbs.clear(); waiting.clear(); queue.length = 0; };
   const tkey = (kind, id, model, size, ang) => [kind, id, model || "classic", size, ang || 0].join("|");
-  G.thumbNow = (kind, id, model, size = 320, ang = 0) => thumbs.get(tkey(kind, id, model, size, ang)) || "";
+  G.thumbNow = (kind, id, model, size = 320, ang = 0) => thumbs.get(tkey(kind, id, model, LT ? Math.min(size, 200) : size, ang)) || "";
   // cb(url) вызывается сразу (если уже есть) либо когда миниатюра нарисуется
   G.thumb = (kind, id, model, size, cb, ang = 0) => {
-    size = size || 320; const k = tkey(kind, id, model, size, ang);
+    size = size || 320; if (LT) size = Math.min(size, 200); const k = tkey(kind, id, model, size, ang);
     if (thumbs.has(k)) return cb(thumbs.get(k));
     if (waiting.has(k)) return waiting.get(k).push(cb);
     waiting.set(k, [cb]); queue.push({ kind, id, model, size, ang, k }); pump();
@@ -399,7 +400,12 @@ col=col/(1.+col*.28);col=pow(col,vec3(1./2.2));gl_FragColor=vec4(col,1.);}`;
       let url = "";
       try {
         const r = mkRenderer(it.size), soft = r.soft, m = G.mesh(it.kind, it.id, it.model, soft ? G.lodSoft : 1);
-        if (m) { r.draw(m, { yaw: -0.5 + it.ang, pitch: 0.18, zoom: 1.38, holo: m.holo, glow: m.aura.concat(0.25), time: 0 }); url = trCanvas.toDataURL("image/png"); }
+        if (m) {
+          r.draw(m, { yaw: -0.5 + it.ang, pitch: 0.18, zoom: 1.38, holo: m.holo, glow: m.aura.concat(0.25), time: 0 });
+          // WebGL-контекст слабого телефона мог «потеряться» посреди рисования — картинка выйдет белой/обрезанной: рисуем заново на обычном canvas
+          if (!soft && r.gl && r.gl.isContextLost && r.gl.isContextLost()) { G._glFail = true; tr = null; trCanvas = null; queue.unshift(it); busy = false; requestAnimationFrame(() => pump()); return; }
+          url = trCanvas.toDataURL("image/png");
+        }
       } catch (e) { console.warn("gift3d thumb", e); }
       thumbs.set(it.k, url);
       (waiting.get(it.k) || []).forEach((cb) => { try { cb(url); } catch (e) {} }); waiting.delete(it.k);
@@ -414,9 +420,9 @@ col=col/(1.+col*.28);col=pow(col,vec3(1./2.2));gl_FragColor=vec4(col,1.);}`;
   // host — элемент; spec {kind,id,model}; opts {auto:1, size, pitch}. Возвращает {set(spec), destroy(), kick(), parts, onFrame}
   G.live = (host, spec, opts = {}) => {
     const cv = document.createElement("canvas"); cv.className = "g3-live"; host.appendChild(cv);
-    const dpr = Math.min(window.devicePixelRatio || 1, opts.dpr || 2);
+    const dpr = LT ? 1 : Math.min(window.devicePixelRatio || 1, opts.dpr || 2);
     let W = 0, H = 0;
-    const fit = () => { const r = host.getBoundingClientRect(), s = Math.max(120, Math.round(Math.min(r.width || opts.size || 280, r.height || opts.size || 280) * dpr)); if (s !== W) { W = H = s; cv.width = cv.height = s; } };
+    const fit = () => { const r = host.getBoundingClientRect(), s = Math.max(120, Math.min(LT ? 300 : 900, Math.round(Math.min(r.width || opts.size || 280, r.height || opts.size || 280) * dpr))); if (s !== W) { W = H = s; cv.width = cv.height = s; } };
     fit();
     let rend, soft = useSoft();
     try { rend = soft ? new SoftR(cv) : new GLR(cv); } catch (e) { G._glFail = true; soft = true; rend = new SoftR(cv); }
@@ -441,6 +447,7 @@ col=col/(1.+col*.28);col=pow(col,vec3(1./2.2));gl_FragColor=vec4(col,1.);}`;
       st.raf = requestAnimationFrame(loop);
       if (!host.isConnected) return ctl.destroy();
       if (document.hidden) { prev = now; return; }
+      if (LT && !st.drag && now - prev < 33) return;              // слабый телефон: не чаще ~30 кадров в секунду
       const dt = Math.min(0.05, (now - prev) / 1000); prev = now;
       if (!st.drag) {
         st.yaw += st.vy; st.vy *= Math.pow(0.04, dt);

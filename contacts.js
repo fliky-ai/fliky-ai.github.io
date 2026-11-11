@@ -12,6 +12,17 @@ const Contacts = {
     Contacts.render();
   },
 
+  // «Избранное» — своя переписка: заметки, файлы и подарки себе
+  savedRow() {
+    if (!App.user) return "";
+    return `<button class="nm-row solo nm-saved" data-saved="1"><span class="av sv">${SAVED_I}</span><span class="tx"><b>${esc(T("Избранное"))}</b><small>${esc(T("Заметки и файлы для себя"))}</small></span></button>`;
+  },
+  openSaved() {
+    if (!App.user) return;
+    const c = Chats.byId(App.user.id);
+    Chat.open(c ? c.peer : Object.assign({}, App.user, { saved: 1 }));
+  },
+
   people() { return Contacts.cache.length ? Contacts.cache : Chats.list.filter((c) => !c.peer.gk && !c.peer.is_system).map((c) => c.peer); },
 
   bind() {
@@ -20,6 +31,7 @@ const Contacts = {
     if ($("contact-sbar")) $("contact-sbar").onclick = () => { haptic(); Search.open(); };
     if (f) f.onclick = () => { haptic(); AddContact.open(); };
     $("contact-list").addEventListener("click", (e) => {
+      if (e.target.closest("[data-saved]")) { haptic(); return Contacts.openSaved(); }
       const a = e.target.closest("[data-act]");
       if (a) { haptic(); return a.dataset.act === "group" ? CreateChat.open("group") : CreateChat.open("channel"); }
       const r = e.target.closest(".nm-row"); if (!r) return;
@@ -33,7 +45,7 @@ const Contacts = {
   render() {
     const box = $("contact-list"); if (!box) return;
     const people = Contacts.people();
-    const acts = "";                  // «Создать группу / канал» живут в кнопке «+» на главном экране, а не во вкладке контактов
+    const acts = Contacts.savedRow();  // «Создать группу / канал» живут в кнопке «+» на главном экране, а не во вкладке контактов
     if (!people.length) {
       box.innerHTML = acts + `<div class="cempty">${ILL.chat}<h3>${esc(T("Контактов пока нет"))}</h3><p>${esc(T("Здесь будут люди, с которыми вы переписываетесь. Найти человека можно через поиск."))}</p></div>`;
       return;
@@ -244,7 +256,7 @@ const CreateChat = {
   async pickPhoto(title) {
     const k = await UI.tiles({ title, tiles: [{ k: "gal", label: T("Галерея"), icon: PI.gallery, cls: "t-blue" }, { k: "cam", label: T("Камера"), icon: ICON.camera, cls: "t-pink" }] });
     let f = null;
-    if (k === "gal") f = (await Attach.pick("image/*", false))[0];
+    if (k === "gal") f = await Attach.pickPhoto("Фото");
     else if (k === "cam") f = await new Promise((res) => Camera.open((x) => res(x), "user"));
     if (!f) return null;
     if (!/^image\//.test(f.type)) { toast(T("Выберите фото")); return null; }

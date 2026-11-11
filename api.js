@@ -1,6 +1,6 @@
 // Общие функции: запросы, сессия (отдельная для каждого Telegram-аккаунта), аватарки, время.
 const $ = (id) => document.getElementById(id);
-const APP_VER = "2026.11.04l";
+const APP_VER = "2026.11.11a";
 const TGW = window.Telegram && Telegram.WebApp;
 const INIT = (TGW && TGW.initData) || "";
 const TG_ID = (TGW && TGW.initDataUnsafe && TGW.initDataUnsafe.user && TGW.initDataUnsafe.user.id) || "web";
@@ -113,7 +113,7 @@ function verBadge(u, cls = "") {
   if (!isVer(u)) return "";
   const tier = (u && u.vtier) || "";
   const tip = tier === "official" ? T("Этот аккаунт официально подтверждён администрацией DICEGRAM") : tier === "major" ? T("Аккаунт верифицирован организацией Major") : "";
-  const body = tier === "official" ? VER_LAYERS("#0b0b0d", true) : tier === "major" ? VER_LAYERS("#3390EC", false) : VER_LAYERS("currentColor", false);
+  const body = tier === "official" ? VER_LAYERS("#0b0b0d", true) : (tier === "major" || tier === "blue") ? VER_LAYERS("#3390EC", false) : VER_LAYERS("currentColor", false);
   return `<svg class="ver${tier ? " ver-" + tier : ""}${cls ? " " + cls : ""}" viewBox="0 0 24 24"${tip ? ` title="${esc(tip)}" aria-label="${esc(tip)}"` : ""}>${body}</svg>`;
 }
 // подпись под карточкой данных в профиле (как в Telegram): значок слева, серый текст, название организации жирным
@@ -138,7 +138,12 @@ const ICON = {
 function avatarUrl(u) { return CONFIG.API + "/avatar/" + encodeURIComponent(u.avatar); }
 // цвета «заглушек» аватара, как в Telegram: у каждого человека/группы свой, по номеру
 const AV_COLORS = [["#FF885E", "#FF516A"], ["#FFCD6A", "#FFA85C"], ["#82B1FF", "#665FFF"], ["#A0DE7E", "#54CB68"], ["#53EDD6", "#28C9B7"], ["#72D5FD", "#2A9EF1"], ["#E0A2F3", "#D669ED"]];
+const SAVED_I = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 3h10a2 2 0 0 1 2 2v16l-7-4.2L5 21V5a2 2 0 0 1 2-2z"/></svg>';
+const DICE_I = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><circle cx="8.6" cy="8.6" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.4" cy="8.6" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="8.6" cy="15.4" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.4" cy="15.4" r="1.3" fill="currentColor" stroke="none"/></svg>';
+const BOT_I = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="4"/><path d="M12 8V4.5"/><circle cx="12" cy="3.6" r="1.1" fill="currentColor"/><circle cx="9" cy="14" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="14" r="1.2" fill="currentColor" stroke="none"/><path d="M2.5 13v3M21.5 13v3"/></svg>';
 function avatar(u, cls = "") {
+  if (u.saved) return `<div class="av sv ${cls}">${SAVED_I}</div>`;
+  if (u.bot && !u.avatar && String(u.username || "").toLowerCase() === "dicebot") return `<div class="av dbot ${cls}">${DICE_I}</div>`;
   if (u.is_system) return `<div class="av sys ${cls}">${PLANE}<img class="sysimg" src="official.png" alt="" draggable="false" onerror="this.remove()"></div>`;
   if (u.avatar) return `<div class="av ${cls}"><img src="${avatarUrl(u)}" alt="" decoding="async"></div>`;
   const nm = cleanName(u.name) || cleanName(u.surname) || String(u.username || "").trim(), ch = nm ? Array.from(nm)[0].toUpperCase() : "";
@@ -149,7 +154,7 @@ function avatar(u, cls = "") {
 // имена из невидимых символов (пустой «Hangul filler», нулевой пробел и т.п.) показываем как @username или номер
 const INVIS_RE = /[\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180B-\u180E\u200B-\u200F\u202A-\u202E\u2060-\u206F\u2800\u3164\uFEFF\uFFA0]/g;
 const cleanName = (s) => String(s == null ? "" : s).replace(INVIS_RE, "").replace(/\s+/g, " ").trim();
-const dispName = (u) => [cleanName(u.name), cleanName(u.surname)].filter(Boolean).join(" ") || (u.username ? "@" + u.username : "") || u.number || T("Пользователь");
+const dispName = (u) => u && u.saved ? T("Избранное") : [cleanName(u.name), cleanName(u.surname)].filter(Boolean).join(" ") || (u.username ? "@" + u.username : "") || u.number || T("Пользователь");
 const PREM_I = '<svg class="prem-i" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z"/></svg>';
 // Значок Premium показывается только на экранах профиля (см. PB в premium.js). Чтобы вернуть звезду в списки чатов — поставьте true.
 const BADGE_IN_LISTS = false;
@@ -201,7 +206,16 @@ const premHero = (u) => {
   }
   return { cls: ` prem pbg pat-${esc(pal.pat || "lines")}${bg.light ? " pbg-light" : ""}`, style: ` style="${esc(bg.style)}"`, pat };
 };
-const nameHTML = (u) => esc(dispName(u)) + verBadge(u) + (BADGE_IN_LISTS && u.premium && !u.is_system ? PREM_I : "");
+// эмодзи-статус / надетый коллекционный подарок рядом с именем — и в личных чатах, и в списках, как в Telegram
+function nbadge(u) {
+  try {
+    if (!u || !u.premium || u.is_system || u.gk || u.deleted) return "";
+    if (u.nft && typeof PB !== "undefined") return `<i class="nbadge">${PB.nft(u.nft)}</i>`;
+    if (u.estatus && typeof ES !== "undefined") return `<i class="nbadge">${ES.node(u.estatus)}</i>`;
+  } catch (e) {}
+  return "";
+}
+const nameHTML = (u) => esc(dispName(u)) + verBadge(u) + nbadge(u) + (BADGE_IN_LISTS && u.premium && !u.is_system ? PREM_I : "");
 
 // ── номер телефона и день рождения ──
 const fmtPhone = (n) => { const m = /^\+888(\d{4})(\d{4})$/.exec(n || ""); return m ? `+888 ${m[1]} ${m[2]}` : (n || ""); };
@@ -251,6 +265,8 @@ function statusText(u) {
     return u.gk === "channel" ? n + " " + plural(n, T("подписчик"), T("подписчика"), T("подписчиков")) : n + " " + plural(n, T("участник"), T("участника"), T("участников"));
   }
   if (u.is_system) return T("служебные уведомления");
+  if (u.saved) return T("Заметки и файлы для себя");
+  if (u.bot) return T("бот");
   if (u.online) return T("в сети");
   if (!u.last_seen) return T("был(а) недавно");
   const diff = Date.now() / 1000 - u.last_seen;

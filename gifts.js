@@ -207,6 +207,7 @@ function giftFx(host) {
     cv,
     burst(x, y, n, cols, o = {}) {
       if (!alive || reducedFx()) return;
+      if (window.LITE && LITE.on) n = Math.max(6, Math.round(n * 0.35));          // слабый телефон: меньше частиц
       fit();
       const sp = (o.speed || 1) * 420 * dpr;
       for (let i = 0; i < n; i++) {

@@ -257,83 +257,120 @@ const PremiumPromo = {
 };
 
 // ═════════════ ВЫБОР ЭМОДЗИ-СТАТУСА ═════════════
+// Как в Telegram: поиск, полоска наборов для быстрого перехода и одна общая лента с наборами подряд:
+// недавние → мои наборы → добавленные по ссылке → стандартные значки. Никаких отдельных вкладок «официальных» эмодзи.
 const StatusPicker = {
-  q: "", cat: "all", sets: null, el: null,
+  q: "", sets: null, el: null, secs: [], spy: 0,
 
   async open() {
     if (!App.user || !App.user.premium) return PremiumPromo.open(App.user || {});
     const el = document.createElement("div");
     el.className = "sp-ov";
-    el.innerHTML = `<div class="sp-card" role="dialog">
+    el.innerHTML = `<div class="sp-card" role="dialog" aria-label="${esc(T("Эмодзи-статус"))}"><i class="sp-grab"></i>
       <div class="sp-top"><b>${esc(T("Эмодзи-статус"))}</b><button class="sp-off" hidden>${esc(T("Убрать"))}</button><button class="sp-x" aria-label="${esc(T("Закрыть"))}">${SI.x}</button></div>
       <div class="sp-search">${SI.search}<input type="search" placeholder="${esc(T("Поиск эмодзи"))}" autocomplete="off" enterkeyhint="search"></div>
-      <div class="sp-cats">${ES.cats.map((c) => `<button data-c="${c.id}" class="${c.id === "all" ? "on" : ""}" aria-label="${esc(T(c.t))}">${c.ic}</button>`).join("")}<button data-c="mine" aria-label="${esc(T("Мои эмодзи"))}">${SI.film}</button></div>
+      <div class="sp-cats"></div>
       <div class="sp-body"></div></div>`;
     document.body.appendChild(el);
-    StatusPicker.el = el; StatusPicker.q = ""; StatusPicker.cat = "all"; StatusPicker.sets = null;
+    StatusPicker.el = el; StatusPicker.q = ""; StatusPicker.sets = null; StatusPicker.secs = [];
     requestAnimationFrame(() => el.classList.add("show"));
     const close = Nav.layer(() => { StatusPicker.el = null; el.classList.remove("show"); setTimeout(() => el.remove(), 260); });
     StatusPicker.close = close;
+    const body = el.querySelector(".sp-body");
     el.querySelector(".sp-x").onclick = close;
     el.addEventListener("click", (e) => { if (e.target === el) close(); });
-    el.querySelector(".sp-search input").oninput = (e) => { StatusPicker.q = e.target.value.trim().toLowerCase(); StatusPicker.draw(); };
+    el.querySelector(".sp-search input").oninput = (e) => { StatusPicker.q = e.target.value.trim().toLowerCase(); StatusPicker.draw(); body.scrollTop = 0; };
     el.querySelector(".sp-cats").onclick = (e) => {
-      const b = e.target.closest("button[data-c]"); if (!b) return;
-      StatusPicker.cat = b.dataset.c; el.querySelectorAll(".sp-cats button").forEach((x) => x.classList.toggle("on", x === b));
-      StatusPicker.draw(); el.querySelector(".sp-body").scrollTop = 0;
+      const b = e.target.closest("button[data-s]"); if (!b) return;
+      if (b.dataset.s === "add") { EmojiSets.add(() => StatusPicker.load()); return; }
+      const sec = body.querySelector(`[data-sec="${b.dataset.s}"]`);
+      if (sec) body.scrollTo({ top: sec.offsetTop - 2, behavior: Energy.thr() >= 100 ? "auto" : "smooth" });
     };
     el.querySelector(".sp-off").onclick = () => StatusPicker.pick("");
-    el.querySelector(".sp-body").onclick = (e) => StatusPicker.click(e);
+    body.onclick = (e) => StatusPicker.click(e);
+    body.addEventListener("scroll", () => { cancelAnimationFrame(StatusPicker.spy); StatusPicker.spy = requestAnimationFrame(() => StatusPicker.mark()); }, { passive: true });
     StatusPicker.draw();
     StatusPicker.load();
   },
 
   async load() {
-    try { const d = await api("/api/emoji"); StatusPicker.sets = d.sets; } catch (e) { StatusPicker.sets = []; }
+    try { const d = await api("/api/emoji"); StatusPicker.sets = d.sets.map((s) => Object.assign({ own: 1 }, s)).concat((d.saved || []).map((s) => Object.assign({ own: 0 }, s))); }
+    catch (e) { StatusPicker.sets = []; }
     if (StatusPicker.el) StatusPicker.draw();
   },
 
-  recent() { const a = Prefs.get("es_recent", []); return Array.isArray(a) ? a.filter((x) => typeof x === "string" && x.startsWith("b:") && ES.items.some((i) => "b:" + i.id === x)).slice(0, 8) : []; },
-
+  items() { const m = {}; (StatusPicker.sets || []).forEach((s) => (s.items || []).forEach((it) => { m[it.id] = it; })); return m; },
+  recent() {
+    const a = Prefs.get("es_recent", []), it = StatusPicker.items();
+    return Array.isArray(a) ? a.filter((x) => typeof x === "string" && (x.startsWith("b:") ? ES.items.some((i) => "b:" + i.id === x) : /^c:\d+$/.test(x) && (!StatusPicker.sets || it[x.slice(2)]))).slice(0, 16) : [];
+  },
   cur() { const s = App.user && App.user.estatus; return s ? (s.k === "c" ? "c:" + s.id : "b:" + s.id) : ""; },
 
+  // плитка своего эмодзи; на слабых телефонах видео заменяем обычным значком — сетка из десятков видео тормозит
+  cnode(it) {
+    if (window.LITE && LITE.on && CE.isVid(it)) return `<span class="sp-ch">${esc(it.emoji || "🙂")}</span>`;
+    return ES.node({ k: "c", url: it.url, mime: it.mime });
+  },
   tile(key, html, on) { return `<button class="sp-t${on ? " on" : ""}" data-k="${esc(key)}">${html}</button>`; },
+
+  // список разделов: {id, ic (значок в полоске), t (заголовок), g (плитки), edit}
+  build(q) {
+    const cur = StatusPicker.cur(), norm = (s) => String(s || "").toLowerCase(), secs = [], items = StatusPicker.items();
+    const T1 = (it) => StatusPicker.tile("c:" + it.id, StatusPicker.cnode(it), cur === "c:" + it.id);
+    const B1 = (x) => StatusPicker.tile("b:" + x.id, ES.svg(x.id), cur === "b:" + x.id);
+    if (q) {
+      const g = [];
+      (StatusPicker.sets || []).forEach((s) => { const byName = norm(s.title).includes(q); (s.items || []).forEach((it) => { if (byName || norm(it.emoji).includes(q)) g.push(T1(it)); }); });
+      ES.items.forEach((x) => { if (norm(x.t).includes(q) || norm(x.k).includes(q)) g.push(B1(x)); });
+      return g.length ? [{ id: "found", t: T("Найдено"), g: g.join("") }] : [];
+    }
+    const rc = StatusPicker.recent();
+    if (rc.length) secs.push({ id: "recent", t: T("Недавние"), ic: PIC_CLOCK, g: rc.map((k) => k.startsWith("c:") ? (items[k.slice(2)] ? T1(items[k.slice(2)]) : "") : B1(ES.byId(k.slice(2)))).join("") });
+    (StatusPicker.sets || []).forEach((s) => {
+      if (!s.items || !s.items.length) return;
+      secs.push({ id: "s" + s.id, t: s.title, own: s.own, sid: s.id, ic: `<span class="cs-ic">${StatusPicker.cnode(s.items[0])}</span>`, g: s.items.map(T1).join("") });
+    });
+    ES.cats.filter((c) => c.id !== "all").forEach((c) => {
+      const list = ES.items.filter((x) => x.cat === c.id);
+      if (list.length) secs.push({ id: "b" + c.id, t: T(c.t), ic: `<span class="sp-ci">${c.ic}</span>`, g: list.map(B1).join("") });
+    });
+    return secs;
+  },
 
   draw() {
     const el = StatusPicker.el; if (!el) return;
-    const body = el.querySelector(".sp-body"), cur = StatusPicker.cur(), q = StatusPicker.q, cat = StatusPicker.cat;
+    const body = el.querySelector(".sp-body"), cats = el.querySelector(".sp-cats"), cur = StatusPicker.cur(), q = StatusPicker.q;
     el.querySelector(".sp-off").hidden = !cur;
-    const sec = (title, inner, extra = "") => `<div class="sp-sec"><div class="sp-h"><span>${esc(title)}</span>${extra}</div><div class="sp-grid">${inner}</div></div>`;
-    const mine = [], norm = (s) => String(s || "").toLowerCase();
-    const sets = StatusPicker.sets;
-    let out = "";
-    const addTile = `<button class="sp-t add" data-act="add" aria-label="${esc(T("Добавить эмодзи"))}">${SI.plus}</button>`;
-    // мои эмодзи
-    if (sets && (cat === "all" || cat === "mine")) {
-      const shown = sets.filter((s) => !q || norm(s.title).includes(q));
-      shown.forEach((s) => { if (s.items.length) mine.push(sec(s.title, s.items.map((it) => StatusPicker.tile("c:" + it.id, ES.node({ k: "c", url: it.url, mime: it.mime }), cur === "c:" + it.id)).join(""), `<button class="sp-edit" data-act="set" data-s="${s.id}">${esc(T("Изменить"))}</button>`)); });
-    }
-    if (cat === "mine") {
-      out = (sets && sets.length ? mine.join("") : "") + sec(sets && sets.length ? T("Новый набор или добавление") : T("Мои эмодзи"), addTile) +
-        `<div class="sp-note">${esc(T("Создавайте свои эмодзи из картинок, GIF и коротких видео: нажмите «+», выберите набор или создайте новый."))}</div>`;
-    } else {
-      const list = ES.items.filter((x) => (cat === "all" || x.cat === cat) && (!q || norm(x.t).includes(q) || norm(x.k).includes(q)));
-      if (cat === "all" && !q) {
-        const rc = StatusPicker.recent();
-        out += sec(T("Недавние"), addTile + rc.map((k) => StatusPicker.tile(k, ES.svg(k.slice(2)), cur === k)).join(""));
-        out += mine.join("");
-      } else if (q) out += mine.join("");
-      const groups = cat === "all" && !q ? ES.cats.filter((c) => c.id !== "all").map((c) => [c, list.filter((x) => x.cat === c.id)]) : [[null, list]];
-      groups.forEach(([c, items]) => { if (items.length) out += sec(c ? T(c.t) : T("Найдено"), items.map((x) => StatusPicker.tile("b:" + x.id, ES.svg(x.id), cur === "b:" + x.id)).join("")); });
-      if (!out || (q && !list.length && !mine.length)) out = `<div class="sp-empty">${esc(T("Ничего не найдено"))}</div>`;
-    }
-    const y = body.scrollTop; body.innerHTML = out; body.scrollTop = y;
+    const secs = StatusPicker.secs = StatusPicker.build(q);
+    cats.hidden = !!q;
+    cats.innerHTML = secs.map((x, i) => `<button data-s="${x.id}" class="${i ? "" : "on"}" aria-label="${esc(x.t)}">${x.ic || ""}</button>`).join("") + `<button data-s="add" class="sp-plus" aria-label="${esc(T("Добавить набор"))}">${SI.plus}</button>`;
+    const note = !q && StatusPicker.sets && !StatusPicker.sets.some((s) => s.items && s.items.length)
+      ? `<div class="sp-note">${esc(T("Свои наборы эмодзи появятся здесь: создайте набор или добавьте чужой по ссылке — кнопка «+» в полоске сверху."))}</div>` : "";
+    const y = body.scrollTop;
+    body.innerHTML = secs.length
+      ? secs.map((x) => `<div class="sp-sec" data-sec="${x.id}"><div class="sp-h"><span>${esc(x.t)}</span>${x.own ? `<button class="sp-edit" data-act="set" data-s="${x.sid}">${esc(T("Изменить"))}</button>` : ""}</div><div class="sp-grid">${x.g}</div></div>`).join("") + note
+      : `<div class="sp-empty">${esc(T("Ничего не найдено"))}</div>`;
+    body.scrollTop = y;
+    StatusPicker.mark();
+  },
+
+  // подсветить в полоске раздел, который сейчас на экране
+  mark() {
+    const el = StatusPicker.el; if (!el || StatusPicker.q) return;
+    const body = el.querySelector(".sp-body"), cats = el.querySelector(".sp-cats"), top = body.scrollTop + 24;
+    let cur = null;
+    body.querySelectorAll(".sp-sec").forEach((s) => { if (s.offsetTop <= top) cur = s.dataset.sec; });
+    if (!cur) return;
+    const on = cats.querySelector("button.on");
+    if (on && on.dataset.s === cur) return;
+    if (on) on.classList.remove("on");
+    const nb = cats.querySelector(`button[data-s="${cur}"]`);
+    if (nb) { nb.classList.add("on"); const l = nb.offsetLeft - cats.clientWidth / 2 + nb.offsetWidth / 2; cats.scrollTo({ left: Math.max(0, l), behavior: "auto" }); }
   },
 
   click(e) {
     const t = e.target.closest(".sp-t"), ed = e.target.closest("[data-act]");
     if (ed && ed.dataset.act === "set") { StatusPicker.close(); setTimeout(() => EmojiSets.set(+ed.dataset.s), 280); return; }
-    if (t && t.dataset.act === "add") { EmojiSets.add(() => StatusPicker.load()); return; }
     if (t && t.dataset.k) StatusPicker.pick(t.dataset.k);
   },
 
@@ -341,7 +378,7 @@ const StatusPicker = {
     try {
       const d = await api("/api/me/status", { method: "POST", body: { status: key } });
       App.user = d.user; haptic("medium");
-      if (key.startsWith("b:")) { const r = [key].concat(StatusPicker.recent().filter((x) => x !== key)).slice(0, 8); Prefs.set("es_recent", r); }
+      if (key) { const r = [key].concat(StatusPicker.recent().filter((x) => x !== key)).slice(0, 16); Prefs.set("es_recent", r); }
       try { Profile.render(); } catch (e) {}
       toast(key ? T("Эмодзи-статус обновлён") : T("Эмодзи-статус убран"));
       if (StatusPicker.close) StatusPicker.close();
@@ -350,6 +387,7 @@ const StatusPicker = {
     }
   },
 };
+const PIC_CLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
 
 // ═════════════ СВОИ ЭМОДЗИ: НАБОРЫ ═════════════
 const EmojiSets = {

@@ -242,3 +242,22 @@ html.eco-anim .pp-rays,html.eco-anim .pp-orbit,html.eco-anim .pp-cta{animation:n
 .stk-w>svg,.stk-w>img{max-width:100%;max-height:100%}
 .sk>img,.sk>svg{aspect-ratio:1}
 video.cem-m{object-fit:cover;border-radius:18%}
+
+/* выбор эмодзи-статуса: общая лента наборов + полоска быстрого перехода (как в Telegram) */
+.sp-card{position:relative;overflow:hidden}
+.sp-grab{display:block;width:38px;height:4px;border-radius:2px;background:var(--line);margin:8px auto 0}
+.sp-top{padding-top:8px}
+.sp-cats{align-items:center;padding:8px 12px 8px;border-bottom:1px solid var(--line);margin-top:2px}
+.sp-cats[hidden]{display:none}
+.sp-cats button{min-width:42px;height:42px;padding:0 6px;border-radius:12px}
+.sp-cats button .cs-ic,.sp-cats button .sp-ci{width:26px;height:26px;display:grid;place-items:center;font-size:21px;line-height:1}
+.sp-cats button .cs-ic .es-c,.sp-cats button .cs-ic img,.sp-cats button .cs-ic video,.sp-cats button .cs-ic svg,.sp-cats button .cs-ic .sp-ch{width:26px;height:26px;font-size:21px;display:grid;place-items:center}
+.sp-cats button.sp-plus{color:var(--accent);background:var(--raised);border-radius:50%;min-width:38px;width:38px;height:38px;padding:0;margin-left:2px}
+.sp-body{position:relative;padding-top:2px}
+.sp-grid{grid-template-columns:repeat(7,1fr);gap:2px}
+.sp-t{padding:5px;border-radius:12px}
+.sp-t svg,.sp-t img,.sp-t video,.sp-t .es-c{width:100%;height:100%;display:block;object-fit:contain}
+.sp-t .sp-ch{font-size:26px;line-height:1}
+.sp-h{padding-top:14px}
+@media (max-width:360px){.sp-grid{grid-template-columns:repeat(6,1fr)}}
+.eco-anim .sp-t [class^="a-"]{animation:none!important}

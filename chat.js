@@ -121,7 +121,7 @@ const Chat = {
   // ───────────── подключение событий ─────────────
   bind() {
     Editor.init(); Voice.bind(); Player.init(); Panel.bind();
-    Editor.onChange = () => { Chat.syncMain(); Chat.quickCheck(); if (!Editor.isEmpty()) Typing.send("typing"); };
+    Editor.onChange = () => { Chat.syncMain(); Chat.quickCheck(); try { BotUI.onInput(); } catch (e) {} if (!Editor.isEmpty()) Typing.send("typing"); };
     const inp = Editor.el, box = $("msgs"), main = $("btn-main");
 
     inp.addEventListener("keydown", (e) => {
@@ -129,7 +129,7 @@ const Chat = {
     });
     // тап по полю, когда открыта своя панель: возвращаем обычную клавиатуру
     inp.addEventListener("click", () => {
-      if (Panel.open) { Panel.hide(); inp.blur(); Editor.focus(false); }
+      if (Panel.open) Panel.toKeyboard();
     });
     inp.addEventListener("focus", () => { if (!Panel.open) inp.setAttribute("inputmode", "text"); });
 
@@ -140,6 +140,7 @@ const Chat = {
     });
     $("btn-emoji").addEventListener("pointerdown", (e) => e.preventDefault());
     $("btn-emoji").onclick = () => Panel.toggle();
+    try { BotUI.init(); } catch (e) {}
     $("btn-attach").addEventListener("pointerdown", (e) => e.preventDefault());
     $("btn-attach").onclick = () => Attach.menu();
     $("cb-x").onclick = () => (Chat.editing ? Chat.cancelEdit() : Chat.clearReply());
@@ -284,6 +285,7 @@ const Chat = {
     try { Groups.syncBars(); Chat.applyAccess(); } catch (e) {}
     if (p.slow_left > 0 && !(Chat.slowEnd[p.id] > Date.now())) Chat.slowEnd[p.id] = Date.now() + p.slow_left * 1000;
     Chat.slowTick();
+    try { BotUI.sync(); } catch (e) {}
   },
 
   paintSub() {
@@ -297,6 +299,7 @@ const Chat = {
 
   openProfile() {
     const p = Chat.peer; if (!p) return;
+    if (p.saved) { try { Nav.unwindWhile((t) => t.id === "chat"); App.go("profile"); } catch (e) {} return; }
     if (p.gk) return GroupEdit.profile(p);
     UserProfile.open(p);
   },
@@ -375,6 +378,7 @@ const Chat = {
       Chat.peer = null; Chat.topic = null; MsgMenu.close(true); Panel.hide(); Voice.cancel(); Player.stop(); Editor.clear(); Editor.hideTb();
       Chat.replyTo = null; Chat.editing = null; Chats.load();
       $("composer").classList.remove("nowrite");
+      try { BotUI.sync(); } catch (e) {}
       if (typeof Music !== "undefined") setTimeout(() => Music.paint(), 0);     // полоска плеера — обратно в список чатов
     });
     if (typeof Music !== "undefined") setTimeout(() => Music.paint(), 0);
@@ -382,12 +386,20 @@ const Chat = {
     else Chat.syncBlock();
     // сначала — сохранённая на устройстве переписка (открывается мгновенно, работает и без сети),
     // затем свежие сообщения с сервера тихо дополняют её
-    const cached = await tmoC(OC.get(OC.msgKey(peer.id, Chat.topic && Chat.topic.id)), 400, null);
-    if (Chat.peer === peer && Array.isArray(cached) && cached.length && !Chat.msgs.length) {
-      Chat.msgs = cached.map((m) => Object.assign({}, m, { _c: 1 })); Chat.hasMore = false; Chat.render();
-    }
+    // из памяти — в тот же кадр (никакого «пустого чата»), с диска — параллельно с запросом на сервер, а не перед ним
+    const ck = OC.msgKey(peer.id, Chat.topic && Chat.topic.id);
+    const useCached = (arr) => {
+      if (Chat.peer !== peer || !Array.isArray(arr) || !arr.length) return;
+      if (Chat.msgs.some((m) => m.id && !m._c)) return;                    // свежие данные с сервера уже пришли — кэш старее
+      const have = new Set(Chat.msgs.filter((m) => m.id).map((m) => m.id));
+      Chat.msgs = arr.filter((m) => !have.has(m.id)).map((m) => Object.assign({}, m, { _c: 1 })).concat(Chat.msgs);
+      Chat.hasMore = false; Chat.render();
+    };
+    const mem = OC.peek(ck);
+    if (mem) useCached(mem);
     Outbox.forPeer(peer.id, Chat.topic && Chat.topic.id).forEach((m) => { if (!Chat.msgs.some((x) => same(x, m))) { m._peer = peer; Chat.msgs.push(m); } });
-    if (Outbox.q.length) Chat.render();
+    if (Outbox.q.length && Chat.msgs.length) Chat.render();
+    if (!mem) tmoC(OC.get(ck), 4000, null).then(useCached);
     await Chat.fetch();
     Chats.markRead(peer.id);
   },
@@ -541,7 +553,7 @@ const Chat = {
     if (m.auto) h += `<span class="auto">${esc(T("Автоматическое сообщение"))}</span>`;
     if (m.fw) h += `<div class="fw">${T("Переслано от")} ${m.fw.id ? `<b class="fwl" role="link">${esc(m.fw.name || "")}</b>` : `<b>${esc(m.fw.name || "")}</b>`}</div>`;
     if (m.reply_to || m.reply) h += Chat.replyHTML(m);
-    if (k === "text") h += `<span class="tx">${big ? Fx.html(m.text, m.ents) : Chat.textHTML(m)}</span>`;
+    if (k === "text") h += m.inv ? BotUI.inv(m) : `<span class="tx">${big ? Fx.html(m.text, m.ents) : Chat.textHTML(m)}</span>`;
     else if (k === "photo" || k === "gif") h += Chat.mediaHTML(m, ov ? time : "");
     else if (k === "file") h += Chat.fileHTML(m);
     else if (k === "voice") h += Player.html(m);
@@ -561,25 +573,8 @@ const Chat = {
     return bubble;
   },
   // кнопки под сообщением (бот admin-panel): «d» — действие на сервере, «o» — открыть что-то в приложении
-  kbHTML(m) {
-    return `<div class="ikb">${m.kb.map((row) => `<div class="ikb-r">${(row || []).map((b) =>
-      `<button type="button" class="ikb-b" ${b.o ? `data-o="${esc(b.o)}"` : `data-d="${esc(b.d || "")}"`}>${esc(b.t || "")}</button>`).join("")}</div>`).join("")}</div>`;
-  },
-  async kbPress(m, btn) {
-    if (btn.dataset.o) {
-      const [kind, arg] = btn.dataset.o.split(":");
-      if (kind === "user") return UserProfile.open({ id: +arg, name: "", surname: "", username: "", avatar: "", bio: "" });
-      if (kind === "report") return HCReport.open(+arg);
-      return;
-    }
-    if (btn.classList.contains("busy")) return;
-    btn.classList.add("busy"); haptic();
-    try {
-      const r = await api("/api/hc/cb", { method: "POST", body: { id: m.id, d: btn.dataset.d } });
-      if (r.toast) toast(r.toast);
-    } catch (e) { toast(e.message); }
-    finally { btn.classList.remove("busy"); }
-  },
+  kbHTML(m) { return BotUI.kbHTML(m); },
+  kbPress(m, btn) { return BotUI.press(m, btn); },
   dayHead(m) {
     const day = new Date(m.ts * 1000).toDateString();
     if (day === Chat.lastDay) return "";
@@ -591,6 +586,7 @@ const Chat = {
     const fromBottom = box.scrollHeight - box.scrollTop;
     const pi = Chat.peer && Chat.peer.intro;
     if (!Chat.msgs.length && pi) html = `<div class="intro-card"><div class="intro-e">${esc(pi.emoji || "👋")}</div>${pi.title ? `<b>${esc(pi.title)}</b>` : ""}${pi.text ? `<span>${esc(pi.text)}</span>` : ""}</div>`;
+    else if (!Chat.msgs.length && BotUI.isBot(Chat.peer) && !Chat.topic) html = BotUI.startCard(Chat.peer);
     else if (!Chat.msgs.length) html = `<div class="empty"><h3>Сообщений пока нет</h3><p>${Chat.peer && Chat.peer.is_system ? "Это официальный аккаунт: он принимает любые сообщения, но не отвечает." : "Напишите первым."}</p></div>`;
     for (let i = 0; i < Chat.msgs.length; i++) { const m = Chat.msgs[i]; html += Chat.dayHead(m) + Chat.bubble(m, prev, false, Chat.msgs[i + 1]); prev = m; }
     box.innerHTML = html;
@@ -599,6 +595,7 @@ const Chat = {
     if (typeof Music !== "undefined") Music.paint();
     if (Chat.hasMore && box.scrollHeight <= box.clientHeight + 40) setTimeout(() => Chat.more(), 0);
     Chat.saveCache();
+    try { BotUI.sync(); } catch (e) {}
   },
   // переписка на экране → в кэш устройства (для мгновенного открытия и оффлайна)
   saveCache() { if (Chat.peer) OC.saveMsgs(Chat.peer.id, Chat.topic && Chat.topic.id, Chat.msgs); },
@@ -606,7 +603,7 @@ const Chat = {
   append(m) {
     const box = $("msgs"), prev = Chat.msgs[Chat.msgs.length - 2] || null;
     const near = box.scrollHeight - box.scrollTop - box.clientHeight < 200 || m.sender === App.user.id;
-    const empty = box.querySelector(".empty, .intro-card"); if (empty) empty.remove();
+    const empty = box.querySelector(".empty, .intro-card, .bot-start"); if (empty) empty.remove();
     const lastEl = box.lastElementChild;
     box.insertAdjacentHTML("beforeend", Chat.dayHead(m) + Chat.bubble(m, prev, true));
     // аватарка группы остаётся только у последнего сообщения в «стопке»
@@ -620,6 +617,7 @@ const Chat = {
       box.querySelectorAll("img:not([data-s])").forEach((i) => { i.dataset.s = 1; i.addEventListener("load", go, { once: true }); });
     }
     Chat.saveCache();
+    try { BotUI.sync(); } catch (e) {}
   },
 
   // перерисовать один пузырь на месте

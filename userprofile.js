@@ -17,6 +17,8 @@ const UserProfile = {
     flag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22V4M4 4h13l-2 4.500L17 13H4"/></svg>',
     ban: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="m5.600 5.600 12.800 12.800"/></svg>',
     link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>',
+    stop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><rect x="9" y="9" width="6" height="6" rx="1.2" fill="currentColor" stroke="none"/></svg>',
+    play: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m10 8.500 5.500 3.500-5.500 3.500z" fill="currentColor"/></svg>',
     crown: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 18 2 7l5.500 4.500L12 4l4.500 7.500L22 7l-1 11z"/><rect x="3" y="19.500" width="18" height="2.200" rx="1"/></svg>',
   },
 
@@ -79,7 +81,6 @@ const UserProfile = {
       const bi = u.binfo || {}, isBot = !!u.bot;
       // как в Telegram: сначала «О себе» (у бота — «О боте»), затем телефон и имя пользователя
       if (u.bio) rows.push(row(Rich.render(u.bio, u.bio_ents || []), isBot ? T("О боте") : T("О себе"), u.bio));
-      if (isBot && bi.descr && bi.descr !== u.bio) rows.push(row(esc(bi.descr).replace(/\n/g, "<br>"), T("Описание")));
       if (u.number && !isBot) rows.push(row(esc(fmtPhone(u.number)), T("Телефон"), u.number));
       const unr = UserProfile.unRow(u); if (unr) rows.push(unr);
       if (isBot && Array.isArray(bi.cmds) && bi.cmds.length) {
@@ -101,18 +102,20 @@ const UserProfile = {
     const acts = sys || u.deleted ? (u.deleted ? `<div class="ubl"><span>${esc(T("Этот аккаунт удалён"))}</span></div>` : "") : `<div class="uacts${u.bot ? " bot" : ""}" id="up-acts">
       <button class="ua" data-a="chat">${I.chat}<span>${esc(T("Чат"))}</span></button>
       <button class="ua" data-a="mute">${muted ? I.bellOff : I.bell}<span>${esc(muted ? T("Включить") : T("Звук"))}</span></button>
-      ${u.bot ? "" : `<button class="ua" data-a="call">${I.call}<span>${esc(T("Звонок"))}</span></button>
+      ${u.bot ? `<button class="ua" data-a="link">${I.link}<span>${esc(T("Ссылка"))}</span></button>
+      <button class="ua${u.blocked ? " on" : ""}" data-a="stop">${u.blocked ? I.play : I.stop}<span>${esc(u.blocked ? T("Запуск") : T("Стоп"))}</span></button>` : `<button class="ua" data-a="call">${I.call}<span>${esc(T("Звонок"))}</span></button>
       <button class="ua gift" data-a="gift">${I.gift}<span>${esc(T("Подарок"))}</span></button>`}</div>`;
     const blocked = !sys && u.blocked
       ? `<div class="ubl"><span>${esc(T("Вы заблокировали этого пользователя"))}</span><button data-a="unblock">${esc(T("Разблокировать"))}</button></div>` : "";
 
     const pc = u.pchan ? `<button class="upc" data-a="pchan"><span class="upc-h">${esc(T("Канал"))}</span><span class="upc-b">${avatar(u.pchan, "sm")}<span class="upc-t"><b>${esc(u.pchan.name)}</b><small>${esc(u.pchan.last ? u.pchan.last.text : (u.pchan.members || 0) + " " + plural(u.pchan.members || 0, T("подписчик"), T("подписчика"), T("подписчиков")))}</small></span><i>${I.chev}</i></span></button>` : "";
 
-    const rt = !sys && u.rating ? UserProfile.lvBadge(u.rating) : "";
+    const rt = !sys && !u.bot && u.rating ? UserProfile.lvBadge(u.rating) : "";          // у ботов рейтинга нет
 
     const dbBtn = u.bot && String(u.username || "").toLowerCase() === "dicebot" ? `<button class="uadd on" data-a="dicebot">${SI.bot}<span>${esc(T("Открыть панель ботов"))}</span></button>` : "";
-    const addBtn = !sys && !me && !u.bot ? `<button class="uadd${u.saved ? " on" : ""}" data-a="contact">${u.saved ? I.minus : I.add}<span>${esc(u.saved ? T("Удалить из контактов") : T("Добавить в контакты"))}</span></button>` : "";
-    const addBtn2 = dbBtn || addBtn;
+    const addBtn = !sys && !me && !u.bot ? `<button class="uadd${u.in_contacts ? " on" : ""}" data-a="contact">${u.in_contacts ? I.minus : I.add}<span>${esc(u.in_contacts ? T("Удалить из контактов") : T("Добавить в контакты"))}</span></button>` : "";
+    const botAdd = u.bot && !dbBtn && (u.binfo || {}).groups !== false ? `<button class="uadd" data-a="addchat">${SI.userPlus || I.add}<span>${esc(T("Добавить в канал или группу"))}</span></button>` : "";
+    const addBtn2 = dbBtn || botAdd || addBtn;
 
     const tabs = sys ? [] : UserProfile.tabs(u);
     // пока человек сам не выбрал вкладку, показываем первую: публикации и подарки приходят позже остальных данных
@@ -243,20 +246,46 @@ const UserProfile = {
     }
     if (a === "rating") return UserProfile.rating(u);
     if (a === "contact") {
-      if (u.saved) {
-        try { const d = await api("/api/contact", { method: "POST", body: { id: u.id, on: false } }); u.saved = d.saved; toast(T("Удалено из контактов")); UserProfile.render(u); try { Contacts.load(); } catch (e) {} } catch (e) { toast(e.message); }
+      if (u.in_contacts) {
+        try { const d = await api("/api/contact", { method: "POST", body: { id: u.id, on: false } }); u.in_contacts = d.saved; toast(T("Удалено из контактов")); UserProfile.render(u); try { Contacts.load(); } catch (e) {} } catch (e) { toast(e.message); }
         return;
       }
       const r = await UserProfile.addContactSheet(u);
       if (!r) return;
       try {
         const d = await api("/api/contact", { method: "POST", body: { id: u.id, on: true, name: r.name, surname: r.surname, share_phone: r.share } });
-        u.saved = d.saved; toast(T("Добавлено в контакты")); UserProfile.reload(); try { Contacts.load(); } catch (e) {}
+        u.in_contacts = d.saved; toast(T("Добавлено в контакты")); UserProfile.reload(); try { Contacts.load(); } catch (e) {}
       } catch (e) { toast(e.message); }
       return;
     }
     if (a === "dicebot") return Dicebot.open();
+    if (a === "link") { if (!(await Links.copy({ kind: "user", id: u.id }))) copyText("@" + u.username); return; }
+    if (a === "stop") return UserProfile.stopBot(u);
+    if (a === "addchat") return UserProfile.addToChat(u);
     if (a === "unblock") return UserProfile.block(false);
+  },
+
+  // «Стоп» у бота — как в Telegram: бот больше не пишет вам; «Запуск» возвращает всё обратно
+  async stopBot(u) {
+    if (u.blocked) {
+      try { await api("/api/block", { method: "POST", body: { id: u.id, on: false } }); u.blocked = false; toast(T("Бот запущен")); UserProfile.render(u); try { Chat.applyAccess(); } catch (e) {} Chats.load(); }
+      catch (e) { toast(e.message); }
+      return;
+    }
+    const ok = await UI.sheet({ icon: UserProfile.UI_I.stop, title: T("Остановить бота?"), text: T("Бот перестанет присылать вам сообщения. Вернуть его можно кнопкой «Запуск» в профиле."), actions: [{ label: T("Остановить"), value: true, danger: true }], cancel: T("Отмена") });
+    if (!ok) return;
+    try { await api("/api/block", { method: "POST", body: { id: u.id, on: true } }); u.blocked = true; toast(T("Бот остановлен")); UserProfile.render(u); try { Chat.applyAccess(); } catch (e) {} Chats.load(); }
+    catch (e) { toast(e.message); }
+  },
+
+  // «Добавить в канал или группу»: показываем чаты, куда можно приглашать
+  async addToChat(u) {
+    const list = Chats.list.filter((c) => { const p = c.peer; return (p.gk === "group" || p.gk === "channel") && (p.role === "owner" || p.can_invite); });
+    if (!list.length) return UI.sheet({ icon: SI.userPlus || UserProfile.UI_I.add, title: T("Нет подходящих чатов"), text: T("Добавлять ботов можно в свои группы и каналы или туда, где у вас есть право приглашать."), actions: [], cancel: T("Понятно") });
+    const v = await UI.sheet({ title: T("Добавить в канал или группу"), text: "@" + (u.username || ""), actions: list.slice(0, 40).map((c) => ({ label: (c.peer.gk === "channel" ? "📢 " : "👥 ") + (c.peer.name || dispName(c.peer)), value: c.peer.id })), cancel: T("Отмена") });
+    if (!v) return;
+    try { await api("/api/bot/add_to_chat", { method: "POST", body: { bot: u.id, chat: Math.abs(+v) } }); toast(T("Бот добавлен")); Chats.load(); }
+    catch (e) { toast(e.message); }
   },
 
   async block(on) {

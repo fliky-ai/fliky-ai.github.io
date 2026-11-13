@@ -242,7 +242,7 @@ const Chats = {
     }
     const checks = mine && !p.gk && m.kind !== "svc" && m.kind !== "call" ? (m.is_read ? CK2 : CK1) : "";
     const badge = unread > 0 ? `<span class="bdg${muted ? " mut" : ""}">${unread > 999 ? "999+" : unread}</span>` : mu ? `<span class="bdg dot${muted ? " mut" : ""}"></span>` : pinned ? CI.pin : "";
-    const dot = p.online && !p.gk && !p.is_system ? '<i class="on-dot"></i>' : "";
+    const dot = p.online && !p.gk && !p.is_system && !p.saved ? '<i class="on-dot"></i>' : "";
     return `<button class="row chrow${pinned ? " pin" : ""}${unr ? " unr" : ""}" data-k="c" data-id="${id}">
       <span class="crow-av">${Stories.av(p)}${dot}</span>
       <div class="crow-main">

@@ -42,8 +42,7 @@ const BotUI = {
       const r = await api(m.bot ? "/api/bot/cb" : "/api/hc/cb", { method: "POST", body: { id: m.id, d: d.d } });
       if (r.toast) toast(r.toast);
       if (r.cb) {                                                    // бот пользователя: ответ придёт событием cbans
-        if (r.alive === false) toast(T("Бот сейчас не отвечает"));
-        else { keep = true; BotUI.wait[r.cb] = btn; setTimeout(() => BotUI.release(r.cb), 9000); }
+        keep = true; BotUI.wait[r.cb] = btn; setTimeout(() => BotUI.release(r.cb), 9000);
       }
     } catch (e) { toast(e.message); }
     finally { if (!keep) btn.classList.remove("busy"); }
@@ -98,9 +97,9 @@ const BotUI = {
   // ─────────── пустой чат с ботом ───────────
   startCard(p) {
     const bi = p.binfo || {};
-    const text = bi.descr || bi.about || p.bio || "";
+    const text = bi.about || p.bio || "";
     return `<div class="bot-start">${avatar(p)}<h3>${esc(dispName(p))}${verBadge(p)}</h3>${text ? `<p>${esc(text)}</p>` : ""}
-      ${bi.off ? `<p>${esc(T("Бот сейчас выключен"))}</p>` : `<button class="bot-go" type="button" data-go="start">${esc(T("СТАРТ"))}</button>`}</div>`;
+      <button class="bot-go" type="button" data-go="start">${esc(T("СТАРТ"))}</button></div>`;
   },
 
   // ─────────── клавиатура бота и меню команд ───────────

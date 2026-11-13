@@ -10,17 +10,17 @@ Object.assign(Settings, {
     pg.on = {
       plan: (el) => { pg.data.plan = el.dataset.v; Settings.drawPremium(pg); },
       buy: async () => {
-        const plan = pg.data.plan, price = PRICE[plan];
+        const plan = pg.data.plan, price = PRICE[plan], was = !!App.user.premium;
         if ((App.user.stars || 0) < price) {
           const v = await UI.sheet({ title: T("Недостаточно звёзд"), icon: SI.starF, text: T("Нужно {0} ★, у вас {1} ★. Пополнить баланс пока нельзя — мы добавим эту возможность позже.", price, App.user.stars || 0),
             actions: [{ label: T("Открыть «Звёзды»"), value: "s", accent: true }], cancel: T("Понятно") });
           if (v === "s") Settings.stars();
           return;
         }
-        if (!(await ask(T("Оформить {0} за {1} ★?", plan === "year" ? T("Premium на год") : T("Premium на месяц"), price), T("Оформить"), false))) return;
+        if (!(await ask(T(was ? "Продлить: {0} за {1} ★?" : "Оформить {0} за {1} ★?", plan === "year" ? T("Premium на год") : T("Premium на месяц"), price), T(was ? "Продлить" : "Оформить"), false))) return;
         try {
           const d = await api("/api/premium/buy", { method: "POST", body: { plan } });
-          App.user = d.user; Profile.render(); Settings.drawPremium(pg); toast(T("Premium активен")); Chats.load();
+          App.user = d.user; Profile.render(); Settings.drawPremium(pg); toast(T(was ? "Подписка продлена" : "Premium активен")); Chats.load();
         } catch (e) { toast(e.message); }
       },
       stars: () => Settings.stars(),
@@ -51,10 +51,10 @@ Object.assign(Settings, {
       ${on && typeof StatusPicker !== "undefined" ? `${R.lbl(esc(T("Ваш профиль")))}${R.card(
         R.row({ a: "est", ic: SI.smile, c: "y", t: esc(T("Эмодзи-статус")), s: esc(T("Анимированный значок рядом с именем")) }),
         R.row({ a: "mine", ic: SI.film, c: "p", t: esc(T("Мои эмодзи")), s: esc(T("Свои наборы: картинки, GIF, видео")) }))}` : ""}
-      ${on ? "" : `${R.lbl(esc(T("Выберите план")))}
-      <div class="plans">${card("year", "Ежегодно", T("{0} ★ в месяц", Math.round(PRICE.year / 12)), `<i class="save">−${Math.round((1 - PRICE.year / (PRICE.month * 12)) * 100)}%</i>`)}${card("month", "Ежемесячно", T("Подписка на месяц"))}</div>`}
+      ${R.lbl(esc(T(on ? "Продлить подписку" : "Выберите план")))}
+      <div class="plans">${card("year", "Ежегодно", T("{0} ★ в месяц", Math.round(PRICE.year / 12)), `<i class="save">−${Math.round((1 - PRICE.year / (PRICE.month * 12)) * 100)}%</i>`)}${card("month", "Ежемесячно", T("Подписка на месяц"))}</div>
       <div class="prem-bal" data-a="stars">${esc(T("Ваш баланс"))}: <b>${u.stars || 0} ★</b></div>
-      ${on ? "" : `<div class="pad-btn"><button class="pbtn prem-btn" data-a="buy">${esc(T("Оформить за {0} ★", PRICE[plan]))}</button></div>`}
+      <div class="pad-btn"><button class="pbtn prem-btn" data-a="buy">${esc(T(on ? "Продлить за {0} ★" : "Оформить за {0} ★", PRICE[plan]))}</button></div>
       <button class="prem-gift" data-a="gift"><span class="pg-ic">${PI.gift}</span><span class="tx"><b>${esc(T("Подарить Premium"))}</b><small>${esc(T("На 3, 6 или 12 месяцев — другу в красивой открытке"))}</small></span><i>›</i></button>
       ${R.hint(esc(T("Оплата списывается звёздами с вашего баланса.")))}`);
   },
@@ -85,11 +85,11 @@ Object.assign(Settings, {
   drawStars(pg) {
     const u = App.user;
     pg.set(`
-      <div class="stars-bal"><div class="stars-ic">${SI.starF}</div><div class="stars-n">${u.stars || 0}</div><div class="stars-l">${esc(T("Ваш баланс"))}</div>
+      <div class="stars-bal"><div class="stars-ic">${starFancy()}</div><div class="stars-n">${u.stars || 0}</div><div class="stars-l">${esc(T("Ваш баланс"))}</div>
         <button class="pbtn sm" data-a="topup">${esc(T("Пополнить"))}</button></div>
       ${R.card(
         R.row({ a: "stat", ic: SI.stats, c: "b", t: esc(T("Статистика")), s: esc(T("История начислений и покупок")) }),
-        R.row({ a: "earn", ic: SI.starF, c: "y", t: esc(T("Заработать звёзды")), s: esc(T("Сервисы, которые начисляют звёзды")) }),
+        R.row({ a: "earn", ic: starFancy(), c: "star", t: esc(T("Заработать звёзды")), s: esc(T("Сервисы, которые начисляют звёзды")) }),
         R.row({ a: "prem", ic: SI.starF, c: "pr", t: esc(T(NAME_PREMIUM)), s: esc(T("Потратить звёзды на подписку")) }))}
       ${R.hint(esc(T("Звёзды — внутренняя валюта приложения. Ими можно оплатить Premium.")))}`);
   },
@@ -126,15 +126,16 @@ Object.assign(Settings, {
   gift() {
     const pg = Pg.open({ title: T("Отправить подарок"), data: { q: "" }, build: (pg) => {
       const q = (pg.data.q || "").toLowerCase();
-      const list = Chats.list.filter((c) => !c.peer.is_system && (!q || (dispName(c.peer) + " " + (c.peer.username || "")).toLowerCase().includes(q)));
+      const all = [{ peer: Object.assign({}, App.user, { saved: 1 }) }].concat(Chats.list.filter((c) => !c.peer.saved));      // «Себе» есть всегда, даже если в Избранное ещё ничего не писали
+      const list = all.filter((c) => !c.peer.is_system && c.peer.gk !== "group" && (!q || (c.peer.saved && T("Себе").toLowerCase().includes(q)) || (dispName(c.peer) + " " + (c.peer.username || "")).toLowerCase().includes(q)));
       pg.set(`<label class="search g-s">${SI.search}<input id="g-q" data-i="q" placeholder="${esc(T("Поиск"))}" value="${esc(pg.data.q || "")}" autocomplete="off"></label>
-        ${list.length ? `${R.lbl(esc(T("Выберите получателя")))}<div class="card2 irows">${list.map((c) => `<button class="irow" data-a="to" data-v="${c.peer.id}">${Stories.av(c.peer, "sm")}<span class="tx"><b>${nameHTML(c.peer)}</b><small>${esc(statusText(c.peer))}</small></span></button>`).join("")}</div>`
+        ${list.length ? `${R.lbl(esc(T("Выберите получателя")))}<div class="card2 irows">${list.map((c) => `<button class="irow" data-a="to" data-v="${c.peer.id}">${Stories.av(c.peer, "sm")}<span class="tx"><b>${c.peer.saved ? esc(T("Себе")) : nameHTML(c.peer)}</b><small>${esc(c.peer.saved ? T("Подарок самому себе") : statusText(c.peer))}</small></span></button>`).join("")}</div>`
           : `<div class="empty">${PI.gift}<h3>${esc(T(q ? "Никого не нашли" : "Пока не с кем"))}</h3><p>${esc(T("Подарки можно отправлять тем, с кем вы переписываетесь."))}</p></div>`}`);
       const i = pg.$("#g-q"); if (i && q) { i.focus(); i.setSelectionRange(q.length, q.length); }
     } });
     pg.on = {
       q: (v) => { pg.data.q = v; pg.refresh(); },
-      to: (el) => { const c = Chats.byId(+el.dataset.v); if (c) Gifts.shop(c.peer); },
+      to: (el) => { const id = +el.dataset.v; if (App.user && id === App.user.id) return Gifts.shop(Object.assign({}, App.user, { saved: 1 })); const c = Chats.byId(id); if (c) Gifts.shop(c.peer); },
     };
   },
 

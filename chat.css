@@ -761,3 +761,11 @@ html.eco-anim .dl-btn.busy .dl-ar{animation:none}
 .gal.single .gal-cap{display:none}
 .gal.single .gal-bar{justify-content:flex-end}
 .gal.single .gal-ttl svg{display:none}
+
+/* панель стикеров/эмодзи/GIF: при удержании и движении ничего не «уезжает» — ни панель, ни страница, ни картинка */
+#panel{touch-action:pan-y;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;overscroll-behavior:contain}
+#panel img,#panel svg,#panel canvas,#panel video{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
+#panel .pn-body{touch-action:pan-y;overscroll-behavior:contain}
+#panel .pn-tabs{touch-action:none}
+#panel .pn-cats,#panel .pn-packs{touch-action:pan-x;overscroll-behavior:contain}
+#panel button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}

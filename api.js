@@ -68,6 +68,10 @@ async function api(path, { method = "GET", body, timeout = 0 } = {}) {
     try { OC.wipe(); } catch (e) {}
     Accounts.remove(Store.token); Store.token = ""; location.reload();
   }
+  if (r.status === 503 && d.maintenance) {                         // идут техработы: показываем экран с причиной и временем окончания
+    try { Maint.show(d); } catch (e) {}
+    throw Object.assign(new Error(d.error || "Технические работы"), { data: d, status: 503, maint: true });
+  }
   if (r.status >= 502 && r.status <= 504 && !d.error) throw new Error("Нет связи с сервером");
   if (!r.ok || d.ok === false) throw Object.assign(new Error(d.error || T("Ошибка") + " " + r.status), { data: d, status: r.status });
   return d;
@@ -142,7 +146,7 @@ const SAVED_I = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 3h10a2
 const DICE_I = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><circle cx="8.6" cy="8.6" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.4" cy="8.6" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="8.6" cy="15.4" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.4" cy="15.4" r="1.3" fill="currentColor" stroke="none"/></svg>';
 const BOT_I = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="4"/><path d="M12 8V4.5"/><circle cx="12" cy="3.6" r="1.1" fill="currentColor"/><circle cx="9" cy="14" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="14" r="1.2" fill="currentColor" stroke="none"/><path d="M2.5 13v3M21.5 13v3"/></svg>';
 function avatar(u, cls = "") {
-  if (u.saved) return `<div class="av sv ${cls}">${SAVED_I}</div>`;
+  if (u.saved) return `<div class="av svd ${cls}">${SAVED_I}</div>`;
   if (u.bot && !u.avatar && String(u.username || "").toLowerCase() === "dicebot") return `<div class="av dbot ${cls}">${DICE_I}</div>`;
   if (u.is_system) return `<div class="av sys ${cls}">${PLANE}<img class="sysimg" src="official.png" alt="" draggable="false" onerror="this.remove()"></div>`;
   if (u.avatar) return `<div class="av ${cls}"><img src="${avatarUrl(u)}" alt="" decoding="async"></div>`;
@@ -159,7 +163,7 @@ const PREM_I = '<svg class="prem-i" viewBox="0 0 24 24" fill="currentColor"><pat
 // Значок Premium показывается только на экранах профиля (см. PB в premium.js). Чтобы вернуть звезду в списки чатов — поставьте true.
 const BADGE_IN_LISTS = false;
 // имя на экране профиля: галочка + значок Premium (анимированный эмодзи-статус), по нажатию на значок открывается окно Premium
-const isVer = (u) => !!(u && (u.is_system || u.verified));
+const isVer = (u) => !!(u && !u.saved && (u.is_system || u.verified));          // у «Избранного» галочки нет
 const profName = (u) => esc(dispName(u)) + verBadge(u) + (typeof PB !== "undefined" ? PB.html(u) : "");
 // шапка профиля: обычный эмодзи-статус фон НЕ меняет. Фон и узор меняет только надетый коллекционный подарок (NFT)
 // ── премиальные фоны профиля: у каждого цвета своя палитра (глубокий тон, средний, свет, акцент),
@@ -209,13 +213,13 @@ const premHero = (u) => {
 // эмодзи-статус / надетый коллекционный подарок рядом с именем — и в личных чатах, и в списках, как в Telegram
 function nbadge(u) {
   try {
-    if (!u || !u.premium || u.is_system || u.gk || u.deleted) return "";
+    if (!u || !u.premium || u.is_system || u.saved || u.gk || u.deleted) return "";
     if (u.nft && typeof PB !== "undefined") return `<i class="nbadge">${PB.nft(u.nft)}</i>`;
     if (u.estatus && typeof ES !== "undefined") return `<i class="nbadge">${ES.node(u.estatus)}</i>`;
   } catch (e) {}
   return "";
 }
-const nameHTML = (u) => esc(dispName(u)) + verBadge(u) + nbadge(u) + (BADGE_IN_LISTS && u.premium && !u.is_system ? PREM_I : "");
+const nameHTML = (u) => esc(dispName(u)) + verBadge(u) + nbadge(u) + (BADGE_IN_LISTS && u.premium && !u.is_system && !u.saved ? PREM_I : "");
 
 // ── номер телефона и день рождения ──
 const fmtPhone = (n) => { const m = /^\+888(\d{4})(\d{4})$/.exec(n || ""); return m ? `+888 ${m[1]} ${m[2]}` : (n || ""); };

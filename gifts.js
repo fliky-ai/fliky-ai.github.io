@@ -261,11 +261,12 @@ const Gifts = {
   // ── магазин ──
   async shop(u, tab) {
     if (!u || u.is_system) return;
+    if (u.gk === "group") return toast(T("Подарки можно отправлять людям, в каналы и себе — не в группы"));
     const me = !!(App.user && u.id === App.user.id);
-    const tabs = (me ? [] : [["prem", "Premium"]]).concat([["reg", T("Подарки")], ["nft", "NFT"]]);
+    const tabs = (me || u.gk ? [] : [["prem", "Premium"]]).concat([["reg", T("Подарки")], ["nft", "NFT"]]);
     tab = tab && tabs.some((t) => t[0] === tab) ? tab : "reg";
     const L = Gifts.layer("gs-ov", `<div class="gs-card" role="dialog">
-      <div class="gs-top"><button class="gs-x" data-x aria-label="${esc(T("Закрыть"))}">${GIC.x}</button><b>${esc(me ? T("Магазин подарков") : T("Подарок для {0}", dispName(u)))}</b>
+      <div class="gs-top"><button class="gs-x" data-x aria-label="${esc(T("Закрыть"))}">${GIC.x}</button><b>${esc(me ? T("Подарок себе") : T("Подарок для {0}", dispName(u)))}</b>
         <button class="gs-bal" data-bal>${Gifts.stars(Gifts.balance())}</button></div>
       <div class="gs-tabs" style="--n:${tabs.length}"><i></i>${tabs.map((t) => `<button data-t="${t[0]}">${esc(t[1])}</button>`).join("")}</div>
       <div class="gs-body"><div class="gs-wait"><span class="spin"></span></div></div></div>`, 126);
@@ -434,7 +435,7 @@ const Gifts = {
     return Gifts.confirm({
       user: u, shop, price: g.price, title: T(g.name),
       sp: { kind: "reg", id: key, model: "classic", c1: bg[0], c2: bg[1], pat: bg[2], num: 0 }, art: "",
-      sub: me ? T("Подарок появится в вашей коллекции. Потяните, чтобы повернуть.") : T("Подарок появится в профиле. Потяните, чтобы повернуть."),
+      sub: me ? T("Подарок появится в вашей коллекции. Потяните, чтобы повернуть.") : u.gk ? T("Подарок появится во вкладке «Подарки» профиля канала. Потяните, чтобы повернуть.") : T("Подарок появится в профиле. Потяните, чтобы повернуть."),
       run: (x) => api("/api/gift/send", { method: "POST", body: { to: u.id, key, anon: x.anon, msg: x.msg } }),
     });
   },

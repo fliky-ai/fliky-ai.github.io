@@ -17,6 +17,7 @@ Object.assign(Settings, {
       mode: (el) => { Theme.set(el.dataset.v); Settings.drawChats(pg); },
       acc: (el) => { Prefs.set("acc", el.dataset.v); Theme.apply(true); Settings.drawChats(pg); },
       wall: () => Settings.wallpaper(),
+      tzs: async (el) => { await Settings.setTz(el.dataset.v === "m" ? TZ.shift(-1) : el.dataset.v === "p" ? TZ.shift(1) : el.dataset.v, pg); },
       night: () => Settings.night(),
       fs: (v) => { Prefs.set("fs", v); Theme.apply(); const n = pg.$("#fs-n"); if (n) n.textContent = v; },
       br: (v) => { Prefs.set("br", v); Theme.apply(); const n = pg.$("#br-n"); if (n) n.textContent = v; },
@@ -28,6 +29,18 @@ Object.assign(Settings, {
       reset: () => { ["fs", "br", "acc", "wp", "wppat", "wpdim"].forEach((k) => Prefs.del(k)); try { localStorage.removeItem("pf_wpimg"); } catch (e) {} Theme.apply(true); Settings.drawChats(pg); toast(T("Оформление сброшено")); },
     };
     return pg;
+  },
+
+  // время аккаунта: "" (как на телефоне), "adj:±минуты", "abs:минуты от UTC" — хранится на сервере и действует на всех устройствах
+  async setTz(v, pg) {
+    try {
+      await Prefs.cloudSet("tz", v || null);
+      TZ.apply(v);
+      try { Chats.render(); } catch (e) {}
+      try { Chat.updateHeader(); } catch (e) {}
+      try { if (Chat.peer && typeof Chat.render === "function") Chat.render(true); } catch (e) {}
+      if (pg && pg.alive) Settings.drawChats(pg);
+    } catch (e) {}
   },
 
   drawChats(pg) {
@@ -45,6 +58,13 @@ Object.assign(Settings, {
       <div class="card2 rng-card"><div class="rng-h"><span class="aa s">Aa</span><b id="fs-n">${Theme.fs()}</b><span class="aa l">Aa</span></div>${R.range({ s: "fs", min: 12, max: 26, val: Theme.fs(), label: T("Размер текста") })}</div>
       ${R.lbl(esc(T("Скругление сообщений")))}
       <div class="card2 rng-card"><div class="rng-h"><span class="sq s"></span><b id="br-n">${Theme.br()}</b><span class="sq l"></span></div>${R.range({ s: "br", min: 0, max: 22, val: Theme.br(), label: T("Скругление сообщений") })}</div>
+      ${R.lbl(esc(T("Время")))}
+      <div class="card2 tzc">
+        <div class="tz-now"><button class="tz-b" data-a="tzs" data-v="m" aria-label="${esc(T("На час меньше"))}">−1 ${esc(T("ч"))}</button>
+          <div class="tz-c"><b>${esc(TZ.clock())}</b><small>${esc(TZ.label())} · ${esc(TZ.mode() === "" ? T("как на телефоне") : TZ.mode() === "adj" ? T("сдвиг от времени телефона") : T(Object.values(TZ.PRESETS).find((x) => x[0] === TZ.get())?.[1] || "свой пояс"))}</small></div>
+          <button class="tz-b" data-a="tzs" data-v="p" aria-label="${esc(T("На час больше"))}">+1 ${esc(T("ч"))}</button></div>
+        <div class="tz-chips"><button data-a="tzs" data-v="" class="${TZ.get() === "" ? "on" : ""}">${esc(T("Как на телефоне"))}</button>${Object.values(TZ.PRESETS).map(([v, n]) => `<button data-a="tzs" data-v="${v}" class="${TZ.get() === v ? "on" : ""}">${esc(T(n))}</button>`).join("")}</div></div>
+      ${R.hint(esc(T("Время в сообщениях и статусах «был(а) в сети» показывается по выбранному поясу. Выбор сохраняется в вашем аккаунте.")))}
       ${R.lbl(esc(T("Ночной режим")))}
       ${R.card(R.row({ a: "night", ic: SI.moon, c: "i", t: esc(T("Автоматический ночной режим")), r: esc(nightTxt) }))}
       ${R.hint(esc(T("Тёмная тема включается сама ночью — по расписанию или по настройкам телефона.")))}

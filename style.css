@@ -252,8 +252,8 @@ img{-webkit-user-drag:none;pointer-events:none}
 .av.sys .sysimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%}
 
 /* «Избранное» и боты */
-.av.sv{background:linear-gradient(160deg,#5cc0ff,#2a8cf0);color:#fff;display:grid;place-items:center}
-.av.sv svg{width:50%;height:50%}
+.av.svd{background:linear-gradient(160deg,#5cc0ff,#2a8cf0);color:#fff;display:grid;place-items:center}
+.av.svd svg{width:50%;height:50%}
 .av.dbot{background:linear-gradient(150deg,#7a6bff,#3a8dff 60%,#2fd2ff);color:#fff;display:grid;place-items:center}
 .av.dbot svg{width:56%;height:56%}
 .bot-tag{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:7px;font-size:10px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent);vertical-align:2px}

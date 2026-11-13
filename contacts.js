@@ -7,7 +7,7 @@ const Contacts = {
     if (Contacts.loading) return;
     Contacts.loading = true;
     try { Contacts.cache = (await api("/api/contacts")).contacts || []; Contacts.loaded = true; }
-    catch (e) { if (!Contacts.loaded) Contacts.cache = Chats.list.filter((c) => !c.peer.gk && !c.peer.is_system).map((c) => c.peer); }
+    catch (e) { if (!Contacts.loaded) Contacts.cache = Chats.list.filter((c) => !c.peer.gk && !c.peer.is_system && !c.peer.saved).map((c) => c.peer); }
     finally { Contacts.loading = false; }
     Contacts.render();
   },
@@ -15,7 +15,7 @@ const Contacts = {
   // «Избранное» — своя переписка: заметки, файлы и подарки себе
   savedRow() {
     if (!App.user) return "";
-    return `<button class="nm-row solo nm-saved" data-saved="1"><span class="av sv">${SAVED_I}</span><span class="tx"><b>${esc(T("Избранное"))}</b><small>${esc(T("Заметки и файлы для себя"))}</small></span></button>`;
+    return `<button class="nm-row solo nm-saved" data-saved="1"><span class="av svd">${SAVED_I}</span><span class="tx"><b>${esc(T("Избранное"))}</b><small>${esc(T("Заметки и файлы для себя"))}</small></span></button>`;
   },
   openSaved() {
     if (!App.user) return;
@@ -23,7 +23,7 @@ const Contacts = {
     Chat.open(c ? c.peer : Object.assign({}, App.user, { saved: 1 }));
   },
 
-  people() { return Contacts.cache.length ? Contacts.cache : Chats.list.filter((c) => !c.peer.gk && !c.peer.is_system).map((c) => c.peer); },
+  people() { return (Contacts.cache.length ? Contacts.cache : Chats.list.filter((c) => !c.peer.gk && !c.peer.is_system && !c.peer.saved).map((c) => c.peer)).filter((p) => !p.saved && !(App.user && p.id === App.user.id)); },     // «Избранное» в группу добавить нельзя
 
   bind() {
     const f = $("contact-fab"), s = $("btn-csearch");

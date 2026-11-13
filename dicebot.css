@@ -135,8 +135,7 @@
 .unp-link:active{background:var(--raised)}
 
 /* профиль бота */
-.uacts.bot{justify-content:center}
-.uacts.bot .ua{flex:0 1 120px}
+.ua.on svg{color:var(--danger)}
 .pi .bcmds{display:flex;flex-direction:column;gap:4px}
 .pi .bcmd{display:block;font-size:14.5px;line-height:1.35}
 .pi .bcmd b{color:var(--accent);font-weight:700}

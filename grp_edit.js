@@ -92,8 +92,17 @@ const GroupEdit = {
       link: () => GroupEdit.copy(pg.data.link),
       plink: () => Links.copy({ kind: "chat", id: pg.data.peer.id }),
       tag: () => GroupEdit.myTag(pg.data.peer, pg),
+      tab: (el) => { pg.data.tab = el.dataset.v; pg.refresh(); },
       member: (el) => { const m = (pg.data.members || []).find((x) => x.user.id === +el.dataset.v); if (m) GroupEdit.memberMenu(pg.data.peer, m, pg); },
     };
+    if (ch) pg.el.addEventListener("click", (e) => {                       // вкладки канала: подарки и медиа
+      const t = e.target, D = pg.data;
+      if (t.closest("[data-gsend]")) { haptic(); return Gifts.shop(D.peer); }
+      const g = t.closest(".gt[data-g]");
+      if (g && D.gifts) { const x = D.gifts.find((k) => k.id === +g.dataset.g); if (x) Gifts.detail(x); return; }
+      const m = t.closest(".mt[data-i]");
+      if (m && D.media) { const x = D.media[+m.dataset.i]; if (x) Viewer.open(x.message.att); }
+    });
     GroupEdit.loadMembers(pg);
     if (ch || peer.rights) { /* ссылка нужна только тем, кто может приглашать */ }
     Groups.refresh(peer).then((r) => { if (r && pg.alive) pg.refresh(); });
@@ -139,8 +148,37 @@ const GroupEdit = {
       const total = pg.data.total || L.length;
       h += `${R.lbl(esc(T(ch ? "Администраторы и подписчики" : "Участники")))}<div class="card2 irows">${items}${total > L.length || total > 8 ? R.row({ a: "all", ic: SI.search, c: "gr", t: esc(T("Показать всех ({0})", total)) }) : ""}</div>`;
     } else if (!ch) h += `<div class="sr-load"><div class="spin"></div></div>`;
+    if (ch) h += GroupEdit.tabsHTML(pg);
     pg.set(h);
     pg.title(T(ch ? "Информация о канале" : "Информация о группе"));
+  },
+
+  // вкладки профиля канала: «Подарки» (подарки, отправленные каналу) и «Медиа»; сообщение в канале о подарке не пишется
+  tabsHTML(pg) {
+    const p = pg.data.peer, D = pg.data, t = D.tab || (p.gifts_n > 0 ? "gifts" : "media");
+    D.tab = t;
+    const gn = D.gifts ? D.gifts.length : (p.gifts_n || 0);
+    const empty = (ic, h, tx) => `<div class="pf-empty"><div class="pf-eic">${ic}</div><h3>${esc(h)}</h3><p>${esc(tx)}</p></div>`;
+    let body;
+    if (!D[t]) {
+      body = `<div class="pf-load"><span class="spin"></span></div>`;
+      GroupEdit.loadTab(pg, t);
+    } else if (t === "gifts") {
+      body = D.gifts.length ? Gifts.grid(D.gifts, p, false) : Gifts.emptyGrid(false);
+    } else {
+      body = D.media.length ? `<div class="umg">${D.media.map((x, i) => { const a = x.message.att, vid = /^video\//.test(a.mime || ""); return `<button class="mt" data-i="${i}"><img src="${esc(fileUrl(a.turl || a.url))}" alt="" loading="lazy" decoding="async">${vid ? `<span class="mt-v">▶</span>` : ""}</button>`; }).join("")}</div>`
+        : empty(SI.image, T("Нет медиа"), T("Фото и видео из канала появятся здесь."));
+    }
+    return `<div class="utabs gp-tabs">${[["gifts", T("Подарки"), gn], ["media", T("Медиа")]].map(([k, l, n]) => `<button data-a="tab" data-v="${k}" class="${t === k ? "on" : ""}">${esc(l)}${n ? `<em>${n}</em>` : ""}</button>`).join("")}</div><div class="up-tab gp-tab">${body}</div>`;
+  },
+  async loadTab(pg, t) {
+    const D = pg.data, p = D.peer; D.ld = D.ld || {};
+    if (D.ld[t]) return; D.ld[t] = 1;
+    try {
+      if (t === "gifts") D.gifts = (await api("/api/gifts/chat/" + p.gid)).gifts;
+      else D.media = ((await api("/api/search/messages?kind=media&peer=" + p.id)).messages || []).filter((x) => x.message && x.message.att);
+    } catch (e) { if (t === "gifts") D.gifts = []; else D.media = []; }
+    if (pg.alive) pg.refresh();
   },
 
   async myTag(p, pg) {

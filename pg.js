@@ -1,6 +1,24 @@
 // pg.js — каркас внутренних экранов настроек (как в Telegram): страница с заголовком и кнопкой «назад»,
 // строки с цветными значками, переключатели, ползунки, выбор из списка. Страницы открываются поверх друг друга
 // и закрываются кнопкой «назад» (Nav).
+const starFancy = (() => {
+  let n = 0;
+  // красивая объёмная золотая звезда («стикер» баланса звёзд): градиент, грани, блик и искры
+  return (cls = "") => {
+    const i = "sf" + ++n;
+    return `<svg class="starf ${cls}" viewBox="0 0 64 64" aria-hidden="true"><defs>
+      <linearGradient id="${i}a" x1="14" y1="6" x2="50" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#FFF08A"/><stop offset=".45" stop-color="#FFC21A"/><stop offset="1" stop-color="#F58A00"/></linearGradient>
+      <linearGradient id="${i}b" x1="10" y1="8" x2="54" y2="58" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#FFF6B8"/><stop offset="1" stop-color="#D97700"/></linearGradient>
+      <radialGradient id="${i}c" cx="26" cy="22" r="22" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+      <filter id="${i}s" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="2.2" stdDeviation="2.2" flood-color="#E07B00" flood-opacity=".5"/></filter></defs>
+      <g filter="url(#${i}s)"><path d="M32.00 8.00 L38.82 24.62 L56.73 25.97 L43.03 37.58 L47.28 55.03 L32.00 45.60 L16.72 55.03 L20.97 37.58 L7.27 25.97 L25.18 24.62Z" fill="url(#${i}a)" stroke="url(#${i}b)" stroke-width="3.2" stroke-linejoin="round"/>
+      <g stroke-linejoin="round"><path d="M32 34 L32.00 8.00 L38.82 24.62Z" fill="#fff" opacity="0.26"/><path d="M32 34 L38.82 24.62 L56.73 25.97Z" fill="#B45F00" opacity="0.13"/><path d="M32 34 L56.73 25.97 L43.03 37.58Z" fill="#B45F00" opacity="0.28"/><path d="M32 34 L43.03 37.58 L47.28 55.03Z" fill="#B45F00" opacity="0.34"/><path d="M32 34 L47.28 55.03 L32.00 45.60Z" fill="#B45F00" opacity="0.34"/><path d="M32 34 L32.00 45.60 L16.72 55.03Z" fill="#B45F00" opacity="0.16"/><path d="M32 34 L16.72 55.03 L20.97 37.58Z" fill="#fff" opacity="0.02"/><path d="M32 34 L20.97 37.58 L7.27 25.97Z" fill="#fff" opacity="0.37"/><path d="M32 34 L7.27 25.97 L25.18 24.62Z" fill="#fff" opacity="0.42"/><path d="M32 34 L25.18 24.62 L32.00 8.00Z" fill="#fff" opacity="0.38"/></g>
+      <path d="M32.00 8.00 L38.82 24.62 L56.73 25.97 L43.03 37.58 L47.28 55.03 L32.00 45.60 L16.72 55.03 L20.97 37.58 L7.27 25.97 L25.18 24.62Z" fill="url(#${i}c)"/>
+      <path d="M32.00 8.00 L38.82 24.62 L56.73 25.97 L43.03 37.58 L47.28 55.03 L32.00 45.60 L16.72 55.03 L20.97 37.58 L7.27 25.97 L25.18 24.62Z" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width=".9" stroke-linejoin="round"/></g>
+      <path d="M52 8l1.3 3.2 3.2 1.3-3.2 1.3L52 17l-1.3-3.2-3.2-1.3 3.2-1.3z" fill="#FFF3B0"/>
+      <path d="M10 44l.9 2.2 2.2.9-2.2.9L10 50.2l-.9-2.2-2.2-.9 2.2-.9z" fill="#FFE27A" opacity=".9"/></svg>`;
+  };
+})();
 const SI = {
   user: svg('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'),
   chat: svg('<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 12.5 3 8.4 8.4 0 0 1 21 11.5z"/>'),

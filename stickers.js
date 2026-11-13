@@ -301,7 +301,7 @@ const Panel = {
   stickerBody() {
     const id = Panel.pack, cell = (b, inner, extra = "") => `<button class="sk" ${b} ${extra}>${inner}</button>`;
     if (id === "mine") {
-      const items = Panel.mine.stickers.map((s) => cell(`data-fid="${s.fid}" data-sid="${s.id}" data-em="${esc(s.emoji || "")}"`, `<img src="${fileUrl(s.url)}" alt="">`, `data-del="${s.id}" data-kind="sticker"`)).join("");
+      const items = Panel.mine.stickers.map((s) => cell(`data-fid="${s.fid}" data-sid="${s.id}" data-em="${esc(s.emoji || "")}"`, `<img src="${fileUrl(s.url)}" alt="" draggable="false">`, `data-del="${s.id}" data-kind="sticker"`)).join("");
       return `<div class="sk-g"><button class="sk add" data-act="mk"><span>＋</span><small>Создать</small></button>${items}</div>` +
         (Panel.mine.stickers.length ? '<div class="pn-hint">Удерживайте стикер, чтобы удалить</div>' : '<div class="pn-hint">Сделайте свой стикер из любого фото — он появится здесь.</div>');
     }
@@ -311,7 +311,7 @@ const Panel = {
       return `<div class="sk-g">${rec.map((r) => {
         if (r.b) return Stk.byId[r.b] ? cell(`data-b="${r.b}"`, Stk.svg(r.b)) : "";
         const s = Panel.mine.stickers.find((x) => x.fid === r.fid);
-        return s ? cell(`data-fid="${s.fid}" data-sid="${s.id}" data-em="${esc(s.emoji || "")}"`, `<img src="${fileUrl(s.url)}" alt="">`) : "";
+        return s ? cell(`data-fid="${s.fid}" data-sid="${s.id}" data-em="${esc(s.emoji || "")}"`, `<img src="${fileUrl(s.url)}" alt="" draggable="false">`) : "";
       }).join("")}</div>`;
     }
     const pk = Stk.PACKS.find((k) => k.id === id) || Stk.PACKS[0];
@@ -320,7 +320,7 @@ const Panel = {
 
   gifBody() {
     const m = Panel.mine, list = Panel.gifQ || Panel.gifRes.length ? Panel.gifRes : [];
-    const tile = (src, attrs, del = "") => `<button class="gf" ${attrs} ${del}><img src="${src}" alt="" loading="lazy"></button>`;
+    const tile = (src, attrs, del = "") => `<button class="gf" ${attrs} ${del}><img src="${src}" alt="" loading="lazy" draggable="false"></button>`;
     let html = "";
     html += `<div class="em-h">Мои GIF</div><div class="gf-g"><button class="gf add mk" data-act="mkgif">${PIC.film}<small>${T("Создать GIF")}</small></button><button class="gf add" data-act="addgif"><span>＋</span><small>${T("Добавить")}</small></button>` +
       m.gifs.map((g) => tile(fileUrl(g.url), `data-fid="${g.fid}" data-gid="${g.id}" data-w="${g.w}" data-h="${g.h}"`, `data-del="${g.id}" data-kind="gif"`)).join("") + "</div>";

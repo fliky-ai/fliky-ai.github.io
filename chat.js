@@ -299,7 +299,7 @@ const Chat = {
 
   openProfile() {
     const p = Chat.peer; if (!p) return;
-    if (p.saved) { try { Nav.unwindWhile((t) => t.id === "chat"); App.go("profile"); } catch (e) {} return; }
+    if (p.saved) return;                                       // профиль «Избранного» не открывается — как в Telegram
     if (p.gk) return GroupEdit.profile(p);
     UserProfile.open(p);
   },

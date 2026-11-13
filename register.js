@@ -58,8 +58,29 @@ const Auth = (() => {
     b.classList.toggle("off", !(cur >= 2 || Accounts.list().length > 0));
   }
 
+  // Состояние шага «код» хранится на устройстве: пока человек ходит за кодом в Telegram, приложение могут выгрузить из памяти —
+  // после возврата открываем сразу ввод кода, а не номер телефона (код ещё действует).
+  const LK = "dg_login";
+  function saveLogin(num, len, ttl) { try { localStorage.setItem(LK, JSON.stringify({ number: num, len, sent: Date.now(), exp: Date.now() + Math.max(30, ttl - 5) * 1000 })); } catch (e) {} }
+  function clearLogin() { try { localStorage.removeItem(LK); } catch (e) {} }
+  function restoreLogin() {
+    try {
+      const s = JSON.parse(localStorage.getItem(LK) || "null");
+      if (!s || !s.number || !(s.exp > Date.now())) { clearLogin(); return false; }
+      number = s.number;
+      const raw = String(s.number).replace(/^\+888/, "");
+      const t = $("code-num"); if (t) t.textContent = "+888 " + fmtPhone(raw);
+      const p = $("phone"); if (p) p.value = fmtPhone(raw);
+      buildCodeCells(s.len || 5);
+      step(2);
+      countdown(Math.max(0, 60 - Math.round((Date.now() - s.sent) / 1000)));
+      return true;
+    } catch (e) { clearLogin(); return false; }
+  }
+
   function goBack() {
     if (cur === 2 || cur === 3) {
+      clearLogin();
       clearInterval(timer);
       clearCells();
       syncHiddenCode();
@@ -88,7 +109,7 @@ const Auth = (() => {
       c.className = "code-cell";
       c.type = "text";
       c.inputMode = "numeric";
-      c.maxLength = 1;
+      c.maxLength = 64;                          // не 1: иначе вставка целого кода из клавиатуры/буфера обрезается до одной цифры
       c.autocomplete = "one-time-code";
       c.dataset.i = String(i);
       c.setAttribute("aria-label", T("Цифра {0}", i + 1));
@@ -106,14 +127,17 @@ const Auth = (() => {
     const idx = Number(el.dataset.i);
     const v = el.value.replace(/\D/g, "");
 
-    if (v.length > 1) {
+    if (v.length > 1) {                            // вставили несколько цифр (весь код) — раскладываем по ячейкам
       const all = cells();
+      const full = v.length >= codeLen, from = full ? 0 : idx, s = full ? v.slice(0, codeLen) : v;
       let k = 0;
-      for (; k < v.length && idx + k < all.length; k++) {
-        all[idx + k].value = v[k];
-        all[idx + k].classList.add("filled");
+      all.forEach((c, i) => { if (full) { c.value = ""; c.classList.remove("filled"); } });
+      for (; k < s.length && from + k < all.length; k++) {
+        all[from + k].value = s[k];
+        all[from + k].classList.add("filled");
       }
-      focusCell(idx + v.length);
+      if (!full && el.value !== (all[idx] || {}).value) el.value = all[idx].value;
+      focusCell(from + s.length);
     } else {
       el.value = v;
       el.classList.toggle("filled", !!v);
@@ -224,6 +248,7 @@ const Auth = (() => {
       buildCodeCells(d.len || 5);
       step(2);
       countdown(60);
+      saveLogin(number, d.len || 5, d.ttl || 300);
     } catch (e) {
       if (/был заблокирован/.test((e && e.message) || "")) { busy = false; syncArrow(); return App.banSheet(false); }
       err((e && e.message) || "Не удалось отправить код");
@@ -285,6 +310,7 @@ const Auth = (() => {
     Store.token = d.token;
     Accounts.clearPrev();
     clearInterval(timer);
+    clearLogin();
     onDone(d.user);
   }
 
@@ -357,6 +383,7 @@ const Auth = (() => {
       buildCodeCells(5);
       syncArrow();
       step(1);
+      restoreLogin();                               // вернулись из Telegram с кодом — продолжаем с шага «код»
     }
   };
 })();

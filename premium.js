@@ -199,7 +199,7 @@ const PB = {
   // кнопка со значком рядом с именем; нажатие открывает окно «Premium» (или подарок, если значок — NFT).
   // Пока ни статус, ни подарок не выбраны, значка нет.
   html(u, cls = "") {
-    if (!u || !u.premium || u.is_system) return "";
+    if (!u || !u.premium || u.is_system || u.saved) return "";           // у «Избранного» нет значков и NFT
     if (!u.nft && !u.estatus) return "";
     PB.users[u.id] = u;
     return `<button class="pbadge ${cls}${u.nft ? " nftb" : ""}" data-pb="${u.id}" aria-label="Premium">${u.nft ? PB.nft(u.nft) : ES.node(u.estatus)}</button>`;

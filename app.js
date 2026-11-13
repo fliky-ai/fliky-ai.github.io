@@ -421,6 +421,7 @@ const App = {
 
   enter(user, fromCache) {
     App.user = user;
+    try { TZ.apply((user.prefs || {}).tz); } catch (e) {}                    // время аккаунта (по умолчанию — телефона)
     const b = $("boot"); if (b) b.classList.add("hidden");
     $("auth").classList.add("hidden"); $("app").classList.remove("hidden");
     if (fromCache) { App.setOnline(false); guard("cache", () => Chats.fromCache()); }
@@ -569,6 +570,7 @@ const App = {
       else if (d.type === "joinok") guard("groups", () => Groups.onJoinOk(d));
       else if (d.type === "vc") guard("calls", () => Calls.onVC(d));
       else if (d.type === "rtc") guard("calls", () => Calls.onRTC(d));
+      else if (d.type === "maint") guard("maint", () => Maint.show(d));
       else if (d.type === "profile") App.profile(d.user);
       else if (d.type === "banned") return App.banned(d.deleted);
       else if (d.type === "block") guard("block", () => App.onBlock(d));
@@ -614,7 +616,9 @@ const App = {
       "set_safe.js": () => typeof Settings.privacy === "function" && Lock,
       "set_look.js": () => typeof Settings.chats === "function" && typeof Settings.energy === "function",
       "premium.js": () => PB && ES && StatusPicker && EmojiSets && PremiumPromo,
-      "pg.js": () => Pg && SI && R,
+      "pg.js": () => Pg && SI && R && typeof starFancy === "function",
+      "maint.js": () => typeof Maint === "object" && typeof Maint.show === "function",
+      "tz.js": () => typeof TZ === "object" && typeof TZ.apply === "function",
       "fx.js": () => Fx && typeof Fx.play === "function",
       "intro.js": () => Intro && typeof Intro.show === "function",
       "gift3d.js": () => Gift3D && typeof Gift3D.live === "function" && typeof Gift3D.thumb === "function" && Gift3D.hasDesign("nft", "dragon") && Gift3D.hasDesign("reg", "heart"),
@@ -648,7 +652,7 @@ const App = {
       "voicefx.js": () => VoiceFX && typeof VoiceFX.process === "function",
       "call.js": () => Calls && typeof Calls.start === "function",
       "settings.js": () => Settings && Accounts,
-      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261111a/.test([...document.scripts].map((x) => x.src).join(" ")),
+      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261113a/.test([...document.scripts].map((x) => x.src).join(" ")),
     };
     const bad = Object.keys(chk).filter((k) => !has(chk[k]));
     const miss = (window.__boot && window.__boot.miss || []).filter((x, i, a) => a.indexOf(x) === i && /\.(js|css)$/.test(x));

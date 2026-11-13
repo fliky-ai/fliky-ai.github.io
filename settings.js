@@ -49,12 +49,10 @@ const Settings = {
         R.row({ a: "lang", ic: SI.globe, c: "v", t: esc(T("Язык")), r: I18N.lang === "en" ? "English" : "Русский" }))}
       ${grp(
         R.row({ a: "premium", ic: SI.starF, c: "pr", t: esc(T(NAME_PREMIUM)), r: u.premium ? esc(T("активен")) : "" }),
-        R.row({ a: "pbg", ic: SI.image, c: "v", t: esc(T("Фон профиля")), r: esc(u.pbg && PBG.byId(u.pbg) ? T(PBG.byId(u.pbg).n) : T(u.premium ? "Нет" : "Premium")) }),
-        R.row({ a: "stars", ic: SI.starF, c: "y", t: esc(T(NAME_STARS)), r: u.stars ? String(u.stars) : "" }),
+        R.row({ a: "stars", ic: starFancy(), c: "star", t: esc(T(NAME_STARS)), r: u.stars ? String(u.stars) : "" }),
         R.row({ a: "biz", ic: SI.bag, c: "v2", t: esc(T(NAME_BIZ)) }),
         R.row({ a: "gift", ic: SI.gift, c: "p", t: esc(T("Отправить подарок")) }),
-        R.row({ a: "games", ic: SI.games, c: "t", t: esc(T("Игры")), s: esc(T("4 игры и таблицы лидеров дня")) }),
-        R.row({ a: "dicebot", ic: SI.bot, c: "b", t: "Dicebot", s: esc(T("Создание ботов")) }))}
+        R.row({ a: "games", ic: SI.games, c: "t", t: esc(T("Игры")), s: esc(T("4 игры и таблицы лидеров дня")) }))}
       ${isStandalone() || (typeof AppPush !== "undefined" && AppPush.isApp()) ? "" : grp(R.row({ a: "install", ic: SI.laptop, c: "b", t: esc(T("Установить Dicegram")), s: esc(/Android/i.test(navigator.userAgent) ? T("Скачать APK или на экран «Домой»") : T("Как приложение на экран «Домой»")) }))}
       ${grp(
         R.row({ a: "ask", ic: SI.headset, c: "b", t: esc(T("Задать вопрос")) }),
@@ -80,7 +78,7 @@ const Settings = {
       edit: () => Profile.openEdit(), chats: () => Settings.chats(), privacy: () => Settings.privacy(), notif: () => Settings.notif(),
       data: () => Settings.data(), energy: () => Settings.energy(), folders: () => Settings.folders(), devices: () => Settings.devices(),
       lang: () => Settings.lang(), premium: () => Settings.premium(), stars: () => Settings.stars(), biz: () => Settings.biz(),
-      gift: () => Settings.gift(), games: () => Games.open(), dicebot: () => Dicebot.open(), tips: () => Browser.external(TIPS_URL), pbg: () => Settings.pbg(), ask: () => Settings.ask(), policy: () => Settings.policy(), out: () => Settings.logout(),
+      gift: () => Settings.gift(), games: () => Games.open(), tips: () => Browser.external(TIPS_URL), ask: () => Settings.ask(), policy: () => Settings.policy(), out: () => Settings.logout(),
       addacc: () => Settings.addAccount(), acc: (el) => Settings.switchTo(+el.dataset.v), install: () => Settings.install(),
     };
     box.onclick = (e) => {
@@ -282,10 +280,9 @@ const Settings = {
       E(NAME_PREMIUM, "", SI.starF, "pr", () => Settings.premium(), "подписка"),
       E("Эмодзи-статус", NAME_PREMIUM, SI.smile, "y", () => StatusPicker.open(), "значок звезда статус emoji status анимированный"),
       E("Мои эмодзи", NAME_PREMIUM, SI.film, "p", () => EmojiSets.open(), "наборы стикеры свои эмодзи загрузить видео"),
-      E(NAME_STARS, "", SI.starF, "y", () => Settings.stars(), "баланс пополнить"),
+      E(NAME_STARS, "", starFancy(), "star", () => Settings.stars(), "баланс пополнить"),
       E(NAME_BIZ, "", SI.bag, "v2", () => Settings.biz(), "адрес график быстрые ответы приветствие"),
       E("Отправить подарок", "", SI.gift, "p", () => Settings.gift()),
-      E("Dicebot", "Создание ботов", SI.bot, "b", () => Dicebot.open(), "бот боты botfather токен api создать бота"),
       E("Возможности Dicegram", "", SI.bulb, "y2", () => Browser.external(TIPS_URL), "советы подсказки tips возможности"),
       E("Задать вопрос", "", SI.headset, "b", () => Settings.ask(), "поддержка помощь"),
       E("Политика конфиденциальности", "", SI.doc, "gr", () => Settings.policy()),

@@ -253,8 +253,8 @@ button.irow:active{background:var(--raised)}
 #sc-cancel{padding:10px 26px;border-radius:20px;background:rgba(255,255,255,.18);color:#fff;font-weight:700}
 
 /* ───────── профиль собеседника (как в Telegram) ───────── */
-#uprofile .up-h{position:absolute;left:0;right:0;top:0;z-index:6;background:transparent;border-bottom:1px solid transparent;-webkit-backdrop-filter:none;backdrop-filter:none;transition:background .2s,border-color .2s}
-#uprofile.scrolled .up-h{background:color-mix(in srgb,var(--surface) 92%,transparent);border-bottom-color:var(--line);-webkit-backdrop-filter:saturate(1.4) blur(14px);backdrop-filter:saturate(1.4) blur(14px)}
+#uprofile .up-h{position:absolute;left:0;right:0;top:0;z-index:6;background:transparent;border-bottom:1px solid transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;transition:background .2s,border-color .2s}
+#uprofile.scrolled .up-h{box-shadow:0 1px 0 var(--line);background:color-mix(in srgb,var(--surface) 92%,transparent);border-bottom-color:var(--line);-webkit-backdrop-filter:saturate(1.4) blur(14px);backdrop-filter:saturate(1.4) blur(14px)}
 #uprofile .up-h .ptitle{opacity:0;transition:opacity .2s;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 #uprofile.scrolled .up-h .ptitle{opacity:1}
 #uprofile .up-h .icon-btn{transition:color .2s}

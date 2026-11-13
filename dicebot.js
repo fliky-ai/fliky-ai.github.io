@@ -118,7 +118,7 @@ const Dicebot = {
 
   cmdsHelp() {
     UI.sheet({ title: T("Команды Dicebot"), icon: SI.bot, cancel: T("Понятно"), actions: [],
-      text: ["/start — главное меню", "/miniapp — эта панель", "/createbot — создать бота", "/mybots — ваши боты", "/setname — название", "/setdescription — описание",
+      text: ["/start — главное меню", "/miniapp — эта панель", "/createbot — создать бота", "/mybots — ваши боты", "/setname — название",
         "/setabouttext — «О боте»", "/setuserpic — аватар", "/token — токен", "/revoke — заменить токен", "/deletebot — удалить бота", "/documention — документация"].map((x) => T(x)).join("\n") });
   },
 
@@ -215,8 +215,7 @@ const Dicebot = {
     };
     pg.on = {
       name: () => edit("name", "Название бота", 64, false),
-      descr: () => edit("descr", "Описание", 512, true),
-      about: () => edit("about", "О боте", 120, true),
+      about: () => edit("about", "О боте", 200, true),
       id: () => { copyText(String(id)); toast(T("ID скопирован")); },
       uname: () => { copyText("@" + (B() || {}).username); toast(T("Username скопирован")); },
       avatar: () => Dicebot.avatar(pg),
@@ -259,7 +258,6 @@ const Dicebot = {
       ${R.lbl(esc(T("Информация")))}
       ${R.card(
         R.row({ a: "name", ic: SI.edit, c: "b", t: esc(T("Название")), s: esc(b.name) }),
-        R.row({ a: "descr", ic: SI.doc, c: "g", t: esc(T("Описание")), s: short(b.descr) }),
         R.row({ a: "about", ic: SI.info, c: "t", t: esc(T("О боте")), s: short(b.about) }),
         R.row({ a: "uname", ic: SI.link, c: "v", t: "Username", s: "@" + esc(b.username) }),
         R.row({ a: "id", ic: SI.user, c: "gr", t: "ID", s: String(b.id) }))}

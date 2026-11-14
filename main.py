@@ -11,9 +11,10 @@ main.py — сервер + Telegram-бот + БД мессенджера (Secure
     BOT_TOKEN        (обязательно) токен бота из @BotFather
     ADMIN_TG_ID      Telegram ID администратора (необязательно). Админ может начислять себе звёзды/Premium для проверки
     ADMIN_NUMBER     особый номер администратора (по умолчанию +88888888888)
-    WEB_URL          адрес фронтенда (по умолчанию https://fliky-ai.github.io/)
+    WEB_URL          адрес фронтенда (по умолчанию https://dicegram.dpdns.org/)
+    PUBLIC_BASE      домен публичных ссылок (по умолчанию https://dicegram.dpdns.org)
     BOT_APP_LINK     прямая ссылка Mini App https://t.me/<bot>/<app> (скрывает WEB_URL в кнопке бота)
-    CORS_ORIGINS     разрешённые origin через запятую (по умолчанию origin из WEB_URL)
+    CORS_ORIGINS     дополнительные origin через запятую (https://dicegram.dpdns.org и https://fliky-ai.github.io разрешены всегда)
     TRUST_PROXY      1 — доверять X-Forwarded-For (ставь 1, если сервер стоит за прокси хостинга:
                      иначе у всех пользователей будет один и тот же IP и общий лимит запросов)
     PROXY_HOPS       сколько прокси стоит перед сервером (по умолчанию 1; нужно только при TRUST_PROXY=1)
@@ -21,6 +22,12 @@ main.py — сервер + Telegram-бот + БД мессенджера (Secure
                      новый фронт шлёт токен первым сообщением, а не в адресе)
     SECRET_KEY       ключ Fernet (иначе берётся/создаётся secret.key)
     MAX_UPLOAD_MB    максимальный размер файла в мегабайтах (по умолчанию 50)
+    MAX_UPLOAD_PREMIUM_MB  то же для Premium-пользователей (по умолчанию 100; не меньше обычного лимита)
+    STT_URL          адрес Whisper-совместимого сервиса распознавания речи (POST multipart: file, model), например
+                     https://api.groq.com/openai/v1/audio/transcriptions, https://api.openai.com/v1/audio/transcriptions
+                     или свой faster-whisper-server. Без него кнопка «в текст» у голосовых честно сообщает, что сервис не подключён
+    STT_API_KEY      ключ для STT_URL (Authorization: Bearer …)
+    STT_MODEL        модель (по умолчанию whisper-1), STT_LANG — подсказка языка (например ru), STT_TIMEOUT — секунд (по умолчанию 90)
     GIPHY_KEY        ключ api.giphy.com — включает поиск GIF в панели стикеров (без него есть «Мои GIF»)
     HOST, PORT       адрес и порт сервера
 """
@@ -50,18 +57,25 @@ BOT_TOKEN = os.environ.get("8878544024:AAFzlAgJ5typSAFyo-FLKQ8VZBG4HLiLRA4", "88
 if not BOT_TOKEN:
     sys.exit("BOT_TOKEN не задан. Запуск: BOT_TOKEN=xxxx python main.py")
 
-WEB_URL = os.environ.get("WEB_URL", "https://fliky-ai.github.io/")
+WEB_URL = os.environ.get("WEB_URL", "https://dicegram.dpdns.org/")
+PUBLIC_BASE = os.environ.get("PUBLIC_BASE", "https://dicegram.dpdns.org").strip().rstrip("/")   # домен публичных ссылок (только он)
 BOT_APP_LINK = os.environ.get("BOT_APP_LINK", "").strip()
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = env_int("PORT", 26033)
-ADMIN_TG_ID = env_int("ADMIN_TG_ID")
+ADMIN_TG_ID = env_int("ADMIN_TG_ID", "8771009385")
 ADMIN_NUMBER = os.environ.get("ADMIN_NUMBER", "+88888888888")
+TON_USD = float(os.environ.get("TON_USD", "3.2"))                 # курс для пересчёта цены коллекционного имени в $, если админ не указал $ сам
+NFT_PLATFORM = os.environ.get("NFT_PLATFORM", "Dicegram")         # «приобретено на платформе …» в окне коллекционного имени
 TRUST_PROXY = os.environ.get("TRUST_PROXY", "0") == "1"
 PROXY_HOPS = max(1, env_int("PROXY_HOPS", 1))
 WS_LEGACY_TOKEN = os.environ.get("WS_LEGACY_TOKEN", "0") == "1"
 
 _o = urlparse(WEB_URL)
-CORS_ORIGINS = [x.strip() for x in os.environ.get("CORS_ORIGINS", f"{_o.scheme}://{_o.netloc}").split(",") if x.strip()]
+# Фронтенд может открываться с любого из этих адресов (новый домен или прежний на github.io) — оба разрешены всегда,
+# CORS_ORIGINS из окружения только добавляет к ним. Токен идёт в заголовке Authorization (не в cookie), так что это безопасно.
+CORS_ORIGINS = list(dict.fromkeys(
+    [f"{_o.scheme}://{_o.netloc}", "https://dicegram.dpdns.org", "https://fliky-ai.github.io"]
+    + [x.strip().rstrip("/") for x in os.environ.get("CORS_ORIGINS", "").split(",") if x.strip()]))
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE, "messenger.db")
@@ -71,11 +85,18 @@ UPLOAD_DIR = os.path.join(BASE, "uploads")
 os.makedirs(AVATAR_DIR, exist_ok=True)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 MAX_UPLOAD = max(1, env_int("MAX_UPLOAD_MB", 50)) * 1024 * 1024   # максимальный размер одного файла
+MAX_UPLOAD_PREMIUM = max(MAX_UPLOAD, env_int("MAX_UPLOAD_PREMIUM_MB", 100) * 1024 * 1024)   # у Premium — до 100 МБ
+STT_URL = os.environ.get("STT_URL", "").strip()                    # распознавание голоса (Whisper-совместимый сервис)
+STT_API_KEY = os.environ.get("STT_API_KEY", "").strip()
+STT_MODEL = os.environ.get("STT_MODEL", "whisper-1").strip() or "whisper-1"
+STT_LANG = os.environ.get("STT_LANG", "").strip()
+STT_TIMEOUT = max(5, env_int("STT_TIMEOUT", 90))
+STT_MAX = 25 * 1024 * 1024                                          # столько принимают Whisper-сервисы
 GIPHY_KEY = os.environ.get("GIPHY_KEY", "").strip()                # ключ для поиска GIF (необязательно)
 
 SYSTEM_ID = 1                        # официальный аккаунт "Dicegram" (служебные уведомления)
 SYSTEM_NAME = "Dicegram"
-CODE_TTL = 300                       # код живёт 5 минут
+CODE_TTL = 600                       # код живёт 10 минут (человек ходит за ним в Telegram и возвращается)
 LOCK_SECONDS = 900                   # блокировка после перебора кода
 SESSION_TTL = 30 * 86400             # сессия живёт 30 дней с последней активности
 MAX_SESSIONS = 10                    # максимум устройств на аккаунт
@@ -138,7 +159,7 @@ BODY_MAX = 1024 * 1024                 # обычные запросы (JSON) �
 UPLOAD_BODY_MAX = 4 * 1024 * 1024 + 4096   # кусок файла — до 4 МБ (клиент растит размер куска сам, если связь быстрая)
 app.config["MAX_CONTENT_LENGTH"] = UPLOAD_BODY_MAX
 app.config["SOCK_SERVER_OPTIONS"] = {"ping_interval": 25}
-CORS(app, resources={r"/*": {"origins": CORS_ORIGINS}}, max_age=86400)
+CORS(app, resources={r"/*": {"origins": CORS_ORIGINS}}, max_age=86400, expose_headers=["Content-Range", "Accept-Ranges", "Content-Length"])
 sock = Sock(app)
 http = requests.Session()
 clients = {}                         # user_id -> set(ws)
@@ -251,8 +272,11 @@ def init_db():
         chat_id INTEGER, user_id INTEGER, ts INTEGER, adder INTEGER DEFAULT 0, PRIMARY KEY(chat_id, user_id));
     CREATE TABLE IF NOT EXISTS chat_links(
         slug TEXT PRIMARY KEY, chat_id INTEGER, creator INTEGER, title TEXT DEFAULT '', prim INTEGER DEFAULT 0,
-        expires INTEGER DEFAULT 0, lim INTEGER DEFAULT 0, uses INTEGER DEFAULT 0, revoked INTEGER DEFAULT 0, ts INTEGER);
+        expires INTEGER DEFAULT 0, lim INTEGER DEFAULT 0, uses INTEGER DEFAULT 0, revoked INTEGER DEFAULT 0, ts INTEGER, req INTEGER DEFAULT 0);
     CREATE INDEX IF NOT EXISTS ix_cl_chat ON chat_links(chat_id);
+    CREATE TABLE IF NOT EXISTS chat_reqs(
+        chat_id INTEGER, user_id INTEGER, slug TEXT DEFAULT '', ts INTEGER, PRIMARY KEY(chat_id, user_id));
+    CREATE INDEX IF NOT EXISTS ix_cr_chat ON chat_reqs(chat_id, ts);
     CREATE TABLE IF NOT EXISTS chat_topics(
         id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER, title TEXT DEFAULT '', color INTEGER DEFAULT 0, emoji TEXT DEFAULT '',
         closed INTEGER DEFAULT 0, creator INTEGER, ts INTEGER);
@@ -269,6 +293,7 @@ def init_db():
     CREATE INDEX IF NOT EXISTS ix_gifts_to ON gifts(to_id, id);
     CREATE INDEX IF NOT EXISTS ix_gifts_from ON gifts(from_id);
     CREATE TABLE IF NOT EXISTS coll_mint(coll TEXT PRIMARY KEY, minted INTEGER DEFAULT 0);
+    CREATE TABLE IF NOT EXISTS voice_stt(uid INTEGER, mid INTEGER, text TEXT DEFAULT '', ts INTEGER, PRIMARY KEY(uid, mid));
     CREATE TABLE IF NOT EXISTS emoji_saved(user_id INTEGER, set_id INTEGER, ts INTEGER, PRIMARY KEY(user_id, set_id));
     CREATE TABLE IF NOT EXISTS chat_audit(
         id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER, actor INTEGER, target INTEGER DEFAULT 0,
@@ -291,8 +316,10 @@ def init_db():
         user_id INTEGER PRIMARY KEY, coins INTEGER DEFAULT 0, streak INTEGER DEFAULT 0,
         captcha TEXT DEFAULT '', captcha_ans INTEGER DEFAULT 0, captcha_at INTEGER DEFAULT 0);
     CREATE TABLE IF NOT EXISTS fcm_tokens(
-        id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, token TEXT UNIQUE, install TEXT DEFAULT '', ts INTEGER);
+        id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, token TEXT UNIQUE, install TEXT DEFAULT '', sess TEXT DEFAULT '', ts INTEGER);
     CREATE INDEX IF NOT EXISTS ix_fcm_user ON fcm_tokens(user_id);
+    CREATE TABLE IF NOT EXISTS report_files(rid INTEGER, fid TEXT, PRIMARY KEY(rid, fid));
+    CREATE INDEX IF NOT EXISTS ix_report_files_fid ON report_files(fid);
     """)
     # миграции для баз, созданных старыми версиями
     for table, col, ddl in (("users", "avatar", "TEXT DEFAULT ''"), ("users", "last_seen", "INTEGER DEFAULT 0"),
@@ -317,7 +344,12 @@ def init_db():
                             ("users", "vtier", "TEXT DEFAULT ''"), ("chats", "vtier", "TEXT DEFAULT ''"),
                             ("users", "uname_nft", "INTEGER DEFAULT 0"), ("users", "uname_ton", "INTEGER DEFAULT 0"),
                             ("game_wallet", "click_power", "INTEGER DEFAULT 0"), ("game_wallet", "passive_level", "INTEGER DEFAULT 0"),
-                            ("game_wallet", "passive_ts", "INTEGER DEFAULT 0")):
+                            ("game_wallet", "passive_ts", "INTEGER DEFAULT 0"),
+                            ("users", "banned", "INTEGER DEFAULT 0"), ("users", "banned_at", "INTEGER DEFAULT 0"),
+                            ("users", "ban_backup", "TEXT DEFAULT ''"), ("users", "deleted", "INTEGER DEFAULT 0"),
+                            ("reports", "status", "TEXT DEFAULT 'open'"), ("reports", "evidence", "TEXT DEFAULT ''"),
+                            ("users", "pbg", "TEXT DEFAULT ''"),
+                            ("users", "bio_ents", "TEXT"), ("chat_links", "req", "INTEGER DEFAULT 0"), ("gifts", "tier", "INTEGER DEFAULT 0")):
         cols = {r["name"] for r in _db.execute(f"PRAGMA table_info({table})")}
         if col not in cols:
             _db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}")
@@ -341,6 +373,20 @@ def init_db():
     except sqlite3.Error as e:
         print("username index:", e)
     try:
+        # коллекционные имена (как в Telegram): хранятся отдельно и НЕ заменяют основной username
+        _db.execute("""CREATE TABLE IF NOT EXISTS unames(id INTEGER PRIMARY KEY AUTOINCREMENT, uid INTEGER NOT NULL, name TEXT NOT NULL,
+                       ton REAL DEFAULT 0, usd REAL DEFAULT 0, ts INTEGER DEFAULT 0, by INTEGER DEFAULT 0)""")
+        _db.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_unames_name ON unames(name COLLATE NOCASE)")
+        _db.execute("CREATE INDEX IF NOT EXISTS ix_unames_uid ON unames(uid)")
+        # прежняя схема: имя лежало прямо в username с флагом uname_nft → переносим в список коллекционных
+        for r in _db.execute("SELECT id, username, uname_ton FROM users WHERE uname_nft=1 AND username != ''").fetchall():
+            ton = float(r["uname_ton"] or 0)
+            _db.execute("INSERT OR IGNORE INTO unames(uid,name,ton,usd,ts,by) VALUES(?,?,?,?,?,0)",
+                        (r["id"], r["username"], ton, round(ton * TON_USD, 2), int(time.time())))
+        _db.execute("UPDATE users SET uname_nft=0, uname_ton=0 WHERE uname_nft=1")
+    except sqlite3.Error as e:
+        print("unames table:", e)
+    try:
         # защита от дублей при повторной отправке: одно и то же cid от одного отправителя сохраняется один раз
         _db.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_msg_cid ON messages(sender, cid) WHERE cid IS NOT NULL")
     except sqlite3.Error as e:
@@ -357,34 +403,59 @@ def init_db():
     _db.execute("INSERT OR IGNORE INTO users(id,number,name,is_system,created) VALUES(?,?,?,1,?)",
                 (SYSTEM_ID, "+42777", SYSTEM_NAME, int(time.time())))
     _db.execute("UPDATE users SET name=? WHERE id=? AND name<>?", (SYSTEM_NAME, SYSTEM_ID, SYSTEM_NAME))
+    bots_schema(_db)
+    try:
+        _db.set_progress_handler(_q_guard, 20000)      # см. QUERY_MAX_S
+    except Exception as e:
+        print("progress handler:", e)
+
+
+# ── защита от «тяжёлого» запроса: база одна на всех, поэтому запрос дольше QUERY_MAX_S секунд прерывается,
+#    иначе один зависший запрос одного человека остановил бы мессенджер для всех ──
+QUERY_MAX_S = max(2.0, float(os.environ.get("QUERY_MAX_S", "10") or 10))
+_qt = [0.0]
+
+
+def _q_guard():
+    t = _qt[0]
+    return 1 if t and time.monotonic() - t > QUERY_MAX_S else 0
 
 
 def run(sql, args=()):
     with db_lock:
+        _qt[0] = time.monotonic()
         try:
             return _db.execute(sql, args)
         except Exception as e:
             print(f"DB Run Error [{sql[:60]}]:", e)
             raise
+        finally:
+            _qt[0] = 0.0
 
 
 def q1(sql, args=()):
     with db_lock:
+        _qt[0] = time.monotonic()
         try:
             r = _db.execute(sql, args).fetchone()
             return dict(r) if r else None
         except Exception as e:
             print(f"DB Q1 Error [{sql[:60]}]:", e)
             return None
+        finally:
+            _qt[0] = 0.0
 
 
 def qa(sql, args=()):
     with db_lock:
+        _qt[0] = time.monotonic()
         try:
             return [dict(r) for r in _db.execute(sql, args).fetchall()]
         except Exception as e:
             print(f"DB QA Error [{sql[:60]}]:", e)
             return []
+        finally:
+            _qt[0] = 0.0
 
 
 # ───────────────────── НОМЕРА И КОДЫ ─────────────────────
@@ -508,6 +579,9 @@ def handle_update(u):
         user = get_or_create_user(frm)
         if not user:
             return
+        if user.get("banned"):
+            tg("sendMessage", chat_id=chat_id, text="⛔️ Ваш аккаунт Dicegram был заблокирован администрацией.")
+            return
         tg("sendMessage", chat_id=chat_id, parse_mode="HTML",
            text=f"👋 <b>Добро пожаловать!</b>\n\nВаш номер: <code>{user['number']}</code>\n\n"
                 "Нажмите кнопку ниже, введите номер — код для входа придёт сюда.",
@@ -581,7 +655,7 @@ def auth_from(token, raw_init):
         run("DELETE FROM sessions WHERE token=?", (h,))
         return None
     u = q1("SELECT * FROM users WHERE id=?", (s["user_id"],))
-    if not u:
+    if not u or u.get("banned") or u.get("deleted"):
         return None
     st, tid = init_tid(raw_init)
     if st == "bad" or (st == "ok" and u["tg_id"] != tid):
@@ -606,7 +680,7 @@ def err(msg, code=400):
 def limit_body():
     """Общий лимит запроса — 1 МБ; больше разрешён только куску файла (upload_chunk)."""
     n = request.content_length
-    if n and n > BODY_MAX and request.endpoint != "upload_chunk":
+    if n and n > BODY_MAX and request.endpoint not in ("upload_chunk", "bot_api"):
         return err("Слишком большой запрос", 413)
 
 
@@ -696,9 +770,14 @@ def device_label(ua, info=None):
     return (out if out != app else (ua[:100] or "Unknown"))[:140]
 
 
-PRIV_KEYS = ("phone", "seen", "photo", "fwd", "calls", "bio")
-PRIV_DEFAULT = {"phone": "contacts", "seen": "all", "photo": "all", "fwd": "all", "calls": "all", "bio": "all"}
+PRIV_KEYS = ("phone", "seen", "photo", "fwd", "calls", "bio", "voice", "msg", "gifts", "invite")
+PRIV_DEFAULT = {"phone": "contacts", "seen": "all", "photo": "all", "fwd": "all", "calls": "all", "bio": "all",
+                "voice": "all", "msg": "all", "gifts": "all", "invite": "all"}
 PRIV_VALUES = ("all", "contacts", "none")
+PRIV_VALUES_BY = {"msg": ("all", "cp", "paid")}              # «Сообщения»: все / контакты и Premium / платные (за звёзды)
+GIFT_TYPES = ("regular", "rare", "unique", "channels", "premium")   # какие подарки принимать: обычные, редкие, уникальные (NFT), от каналов, Premium
+MSG_PRICE_MAX = 35000
+GIFT_RARE = set()                                            # ключи «редких» (ограниченных) подарков — заполняется в разделе подарков
 
 
 def json_load(raw, default):
@@ -711,10 +790,73 @@ def json_load(raw, default):
 
 def priv_of(u):
     d = dict(PRIV_DEFAULT)
-    for k, v in json_load(u.get("priv"), {}).items():
-        if k in PRIV_DEFAULT and v in PRIV_VALUES:
+    raw = json_load(u.get("priv"), {})
+    for k, v in raw.items():
+        if k in PRIV_DEFAULT and v in PRIV_VALUES_BY.get(k, PRIV_VALUES):
             d[k] = v
+    pr = raw.get("msg_price")
+    d["msg_price"] = pr if isinstance(pr, int) and 1 <= pr <= MSG_PRICE_MAX else 0
+    gt = raw.get("gtypes")
+    d["gtypes"] = [x for x in GIFT_TYPES if x in gt] if isinstance(gt, list) else list(GIFT_TYPES)
+    if d["msg"] == "paid" and not d["msg_price"]:
+        d["msg"] = "cp"                                       # платный режим без цены не бывает
     return d
+
+
+def contact_of(owner, other):
+    """Есть ли other среди контактов owner: owner сохранил его в контактах или сам ему писал.
+    Сообщения, которые other написал первым (в том числе платные), контактом его не делают."""
+    return bool(q1("SELECT 1 FROM saved_contacts WHERE owner=? AND contact=?", (owner, other))) or \
+        bool(q1("SELECT 1 FROM messages WHERE sender=? AND receiver=? AND COALESCE(kind,'text') NOT IN ('call','gift','svc','greet') LIMIT 1", (owner, other)))
+
+
+def priv_ok(u, key, viewer):
+    """Разрешает ли человек u действие key (voice / gifts / invite) для viewer: все / только контакты / никто."""
+    if u.get("is_system") or viewer == u["id"]:
+        return True
+    v = priv_of(u).get(key, "all")
+    if v == "all":
+        return True
+    if v != "contacts" or not viewer:
+        return False
+    return contact_of(u["id"], viewer)
+
+
+def msg_gate(sender, rcv):
+    """Кто может писать человеку rcv: None — можно; ("err", текст) — нельзя; ("pay", цена) — только за звёзды.
+    Контакты, Premium-отправители и служебные аккаунты проходят бесплатно."""
+    if sender["id"] == rcv["id"] or rcv.get("is_system") or sender.get("is_system") or is_admin(sender):
+        return None
+    p = priv_of(rcv)
+    if p["msg"] == "all":
+        return None
+    if contact_of(rcv["id"], sender["id"]) or is_premium(sender):
+        return None
+    if p["msg"] == "cp":
+        return ("err", "Этот пользователь принимает сообщения только от контактов и подписчиков Premium")
+    return ("pay", p["msg_price"])
+
+
+def gift_kind(key):
+    """Тип подарка для настроек приватности: regular / rare / unique / premium."""
+    key = str(key or "")
+    if key.startswith("prem:"):
+        return "premium"
+    if key.startswith("c:"):
+        return "unique"
+    return "rare" if key in GIFT_RARE else "regular"
+
+
+def gift_gate(sender, rcv, key):
+    """Можно ли sender'у подарить rcv подарок key. None — можно, иначе текст отказа."""
+    if sender["id"] == rcv["id"] or rcv.get("is_system"):
+        return None
+    p = priv_of(rcv)
+    if not priv_ok(rcv, "gifts", sender["id"]):
+        return "Этот пользователь не принимает подарки от вас"
+    if gift_kind(key) not in p["gtypes"]:
+        return "Этот пользователь не принимает подарки такого типа"
+    return None
 
 
 def priv_allows(u, key, viewer, contact=None):
@@ -756,6 +898,24 @@ def status_out(u):
     return None
 
 
+PBG_IDS = ("dark", "red", "blue", "purple", "green", "pink", "orange", "graphite", "light", "cosmic")
+
+
+def unames_of(uid):
+    """Коллекционные имена человека (в порядке выдачи) — для строки «а также @…» и окна «коллекционное имя»."""
+    return [{"n": r["name"], "ton": r["ton"] or 0, "usd": r["usd"] or 0, "ts": r["ts"] or 0, "link": link_url(r["name"], "u"),
+             "plat": NFT_PLATFORM} for r in qa("SELECT * FROM unames WHERE uid=? ORDER BY id", (uid,))]
+
+
+def user_by_name(name):
+    """Кто скрывается за @именем: основной username или коллекционное имя (заблокированные и удалённые не находятся)."""
+    t = q1("SELECT * FROM users WHERE username=? COLLATE NOCASE", (name,))
+    if t:
+        return t
+    return q1("""SELECT u.* FROM unames n JOIN users u ON u.id=n.uid WHERE n.name=? COLLATE NOCASE
+                 AND COALESCE(u.banned,0)=0 AND COALESCE(u.deleted,0)=0""", (name,))
+
+
 def public(u, me=False, viewer=None, contact=None):
     """Данные человека для клиента. viewer — кто смотрит: по его правам скрываем фото, «о себе», время захода; номер показываем, если разрешено."""
     d = {"id": u["id"], "name": u["name"] or ("" if me else "Пользователь"), "surname": u.get("surname") or "",
@@ -766,15 +926,27 @@ def public(u, me=False, viewer=None, contact=None):
     if u.get("number") == ADMIN_NUMBER:
         d["owner_theme"] = 1                       # чёрная тема профиля + «премиум»-синяя галочка — только у владельца
     vt = u.get("vtier") or ""
-    if vt in ("major", "official"):
+    if vt in ("major", "official", "blue"):
         d["verified"] = 1
         d["vtier"] = vt
-    if u.get("uname_nft"):
-        d["uname_nft"] = 1
-        d["uname_ton"] = u.get("uname_ton") or 0
     if u["is_system"]:
         d["number"] = u["number"]
-    if is_premium(u):
+    if u.get("bot"):
+        d["bot"] = 1
+        bi = bot_info_out(u["id"])
+        if bi:
+            d["binfo"] = bi
+            if not d["bio"]:
+                d["bio"] = bi["about"] or ""
+    if u.get("banned") or u.get("deleted"):
+        d.update(name="Удалённый аккаунт", surname="", username="", bio="", avatar="", online=False, last_seen=0, deleted=1)
+        for k in ("verified", "vtier", "owner_theme"):
+            d.pop(k, None)
+        if not me:
+            return d
+    if (is_premium(u) or u.get("number") == ADMIN_NUMBER) and u.get("pbg") in PBG_IDS:
+        d["pbg"] = u["pbg"]                        # фон профиля (Premium)
+    if is_premium(u) and not (u.get("banned") or u.get("deleted")):
         d["premium"] = 1
         es = status_out(u)
         if es:
@@ -788,6 +960,8 @@ def public(u, me=False, viewer=None, contact=None):
     if me:
         d["number"] = u["number"]
         d["birthday"] = u.get("birthday") or ""
+        if not (u.get("banned") or u.get("deleted")):
+            d["unames"] = unames_of(u["id"])
         d["birthday_vis"] = u.get("birthday_vis") or "contacts"
         d["priv"] = priv_of(u)
         d["auto_del"] = u.get("auto_del") or 0
@@ -795,6 +969,8 @@ def public(u, me=False, viewer=None, contact=None):
         d["has_cloud"] = bool(u.get("cloud_hash"))
         d["stars"] = u.get("stars") or 0
         d["premium_until"] = u.get("premium_until") or 0
+        d["up_max"] = MAX_UPLOAD_PREMIUM if is_premium(u) else MAX_UPLOAD            # сколько можно загрузить одним файлом
+        d["up_max_premium"] = MAX_UPLOAD_PREMIUM
         d["admin"] = is_admin(u)
         d["prefs"] = json_load(u.get("prefs"), {})
     elif viewer is not None and viewer != u["id"] and not u["is_system"]:
@@ -810,6 +986,25 @@ def public(u, me=False, viewer=None, contact=None):
         cn = q1("SELECT fname, lname FROM saved_contacts WHERE owner=? AND contact=?", (viewer, u["id"]))
         if cn and (cn["fname"] or cn["lname"]):
             d["name"], d["surname"] = cn["fname"] or "", cn["lname"] or ""
+        # ограничения, которые человек поставил для меня: клиент заранее знает, что можно (запросы к базе — только если настройка не «все»)
+        pv = priv_of(u)
+        if pv["voice"] != "all" and not priv_ok(u, "voice", viewer):
+            d["no_voice"] = 1
+        if pv["msg"] != "all":
+            vu = q1("SELECT * FROM users WHERE id=?", (viewer,))
+            g_ = msg_gate(vu, u) if vu else None
+            if g_ and g_[0] == "err":
+                d["no_msg"] = 1
+            elif g_:
+                d["pay"] = g_[1]
+        if pv["gifts"] != "all" or len(pv["gtypes"]) < len(GIFT_TYPES):
+            d["gift_ok"] = pv["gtypes"] if priv_ok(u, "gifts", viewer) else []
+    if u.get("bot"):
+        d.pop("number", None)                      # у бота нет телефонного номера
+    if d.get("bio") and u.get("bio_ents"):
+        be = json_load(u.get("bio_ents"), [])
+        if isinstance(be, list) and be:
+            d["bio_ents"] = be[:40]                # свои (Premium) эмодзи в «О себе» — видны всем, кому видно «О себе»
     return d
 
 
@@ -1007,7 +1202,12 @@ def fcm_access_token(sa):
 def fcm_send(uid, data):
     """data — словарь amp_* (все значения строки). Отправка на все телефоны пользователя."""
     try:
-        toks = qa("SELECT * FROM fcm_tokens WHERE user_id=?", (uid,))
+        toks = qa("""SELECT f.*, s.token AS alive FROM fcm_tokens f LEFT JOIN sessions s ON s.token=f.sess
+                     WHERE f.user_id=?""", (uid,))
+        dead = [t["id"] for t in toks if t.get("sess") and not t.get("alive")]
+        if dead:
+            run(f"DELETE FROM fcm_tokens WHERE id IN ({','.join('?' * len(dead))})", dead)
+        toks = [t for t in toks if t["id"] not in dead]
         if not toks:
             return
         sa = fcm_sa()
@@ -1032,10 +1232,16 @@ def fcm_send(uid, data):
         print("fcm_send error:", e)
 
 
+def fcm_gc():
+    """Токены телефонов, чей сеанс завершён (выход, «завершить другие сеансы», бан), — удаляем."""
+    run("DELETE FROM fcm_tokens WHERE sess!='' AND sess NOT IN (SELECT token FROM sessions)")
+
+
 def has_push(uid):
     """Есть ли у человека хоть один способ получить уведомление вне приложения."""
     return bool(qa("SELECT 1 FROM push_subs WHERE user_id=? LIMIT 1", (uid,)) or
-                (fcm_sa() and qa("SELECT 1 FROM fcm_tokens WHERE user_id=? LIMIT 1", (uid,))))
+                (fcm_sa() and qa("""SELECT 1 FROM fcm_tokens f LEFT JOIN sessions s ON s.token=f.sess
+                                    WHERE f.user_id=? AND (f.sess='' OR s.token IS NOT NULL) LIMIT 1""", (uid,))))
 
 
 ws_vis = {}                         # ws -> True/False: открыто ли приложение на экране (а не свёрнуто)
@@ -1134,7 +1340,10 @@ def notify_profile(uid):
     u = q1("SELECT * FROM users WHERE id=?", (uid,))
     if not u:
         return
-    push(uid, {"type": "profile", "user": public(u)})
+    me_d = public(u)
+    if not (u.get("banned") or u.get("deleted")):
+        me_d["unames"] = unames_of(uid)             # свой список коллекционных имён обновляется сразу после выдачи
+    push(uid, {"type": "profile", "user": me_d})
     for p in contacts(uid):
         if clients.get(p):
             push(p, {"type": "profile", "user": public(u, viewer=p, contact=True)})
@@ -1240,6 +1449,9 @@ def can_access(uid, fid):
     # свои эмодзи Premium-пользователя видны всем: они показываются рядом с его именем
     if q1("SELECT 1 FROM emoji_items WHERE fid=? LIMIT 1", (fid,)):
         return True
+    # файл из переписки-доказательства по жалобе — его видят участники admin-panel
+    if q1("SELECT 1 FROM report_files WHERE fid=? LIMIT 1", (fid,)) and hc_member(uid):
+        return True
     # файл публикации: её видят все (aud=0) или собеседники автора (aud=1), пока публикация не истекла
     now = int(time.time())
     for st in qa("SELECT owner, aud FROM stories WHERE (fid=? OR tfid=?) AND exp>?", (fid, fid, now)):
@@ -1268,6 +1480,7 @@ def file_url(fid, uid):
 
 def file_referenced(fid):
     return bool(q1("SELECT 1 FROM messages WHERE fid=? OR tfid=? LIMIT 1", (fid, fid)) or
+                q1("SELECT 1 FROM report_files WHERE fid=? LIMIT 1", (fid,)) or
                 q1("SELECT 1 FROM stickers WHERE fid=? LIMIT 1", (fid,)) or
                 q1("SELECT 1 FROM emoji_items WHERE fid=? LIMIT 1", (fid,)) or
                 q1("SELECT 1 FROM stories WHERE fid=? OR tfid=? LIMIT 1", (fid, fid)))
@@ -1422,8 +1635,20 @@ def ser_many(rows, viewer):
             d["fw"] = fw
         if meta.get("auto"):
             d["auto"] = 1
+        if meta.get("pd"):
+            d["paid"] = meta["pd"]                 # сообщение отправлено за звёзды (столько звёзд заплатил отправитель)
         if meta.get("cc"):
             d["cc"] = meta["cc"]
+        if meta.get("kb") and (row["sender"] == SYSTEM_ID or meta.get("bot")):
+            d["kb"] = meta["kb"]                    # кнопки под сообщением бота (админ-панель, Dicebot, пользовательские боты)
+        if meta.get("bot"):
+            d["bot"] = 1
+            if meta.get("rk"):
+                d["rk"] = meta["rk"]                # обычная клавиатура бота (вместо поля ввода)
+            if meta.get("inv"):
+                d["inv"] = meta["inv"]              # счёт на оплату звёздами
+            if meta.get("sp"):
+                d["sp"] = meta["sp"]                # успешная оплата
         if row.get("exp"):
             d["exp"] = row["exp"]
         if row.get("reply_to"):
@@ -1489,7 +1714,9 @@ def group_senders(rows, viewer):
         if uid != viewer and d["avatar"] and not priv_allows(u, "photo", viewer):
             d["avatar"] = ""
         vt = u.get("vtier") or ""
-        if vt in ("major", "official"):
+        if u.get("bot"):
+            d["bot"] = 1
+        if vt in ("major", "official", "blue"):
             d["verified"], d["vtier"] = 1, vt
         elif verified_user(u):
             d["verified"] = 1
@@ -1535,7 +1762,7 @@ def bot_notify(receiver, sender, kind, text):
         print("bot_notify:", e)
 
 
-def add_message(sender, receiver, text, cid=None, kind="text", ents=None, att=None, reply_to=None, fw=None, auto=False, call=None):
+def add_message(sender, receiver, text, cid=None, kind="text", ents=None, att=None, reply_to=None, fw=None, auto=False, call=None, paid=0, extra=None):
     ts = int(time.time())
     su = q1("SELECT auto_del FROM users WHERE id=?", (sender,)) or {}
     ttl = 0 if auto or sender == SYSTEM_ID else (su.get("auto_del") or 0)
@@ -1546,11 +1773,14 @@ def add_message(sender, receiver, text, cid=None, kind="text", ents=None, att=No
                 return ser_one(old, sender)  # то же cid уже сохранено: просто возвращаем его
         mid = run("""INSERT INTO messages(sender,receiver,text,ts,cid,kind,meta,reply_to,fid,tfid,exp) VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
                   (sender, receiver, encrypt_text(text), ts, cid or None, kind,
-                   meta_dump({"e": ents, "a": att, "fw": fw, "auto": 1 if auto else None, "c": call}), reply_to,
+                   meta_dump({"e": ents, "a": att, "fw": fw, "auto": 1 if auto else None, "c": call, "pd": paid or None, **(extra or {})}), reply_to,
                    (att or {}).get("fid"), (att or {}).get("tfid"), ts + ttl if ttl else 0)).lastrowid
+        if sender == receiver:                     # «Избранное»: заметки себе всегда прочитаны
+            run("UPDATE messages SET is_read=1 WHERE id=?", (mid,))
         row = q1("SELECT * FROM messages WHERE id=?", (mid,))
-    push(receiver, {"type": "message", "message": ser_one(row, receiver)})
     mine = ser_one(row, sender)
+    if receiver != sender:
+        push(receiver, {"type": "message", "message": ser_one(row, receiver)})
     push(sender, {"type": "message", "message": mine})
     if kind != "call" and receiver != sender and not user_visible(receiver):
         r, s_ = q1("SELECT * FROM users WHERE id=?", (receiver,)), q1("SELECT * FROM users WHERE id=?", (sender,))
@@ -1647,6 +1877,8 @@ def auth_request():
         user = q1("SELECT * FROM users WHERE number=?", (num,))
         if not user or user["is_system"]:
             return err("Номер не найден. Получите номер в боте: /start", 404)
+        if user.get("banned"):
+            return jsonify(ok=False, banned=True, error="Ваш аккаунт был заблокирован администрацией Dicegram"), 403
         if st == "ok" and user["tg_id"] != tid:
             return err("Этот номер выдан другому аккаунту Telegram", 403)
         if locked(num):
@@ -1717,6 +1949,8 @@ def auth_verify():
         user = q1("SELECT * FROM users WHERE number=?", (num,))
         if not user or user["is_system"] or (st == "ok" and user["tg_id"] != tid):
             return err("Неверный номер или код", 403)
+        if user.get("banned"):
+            return jsonify(ok=False, banned=True, error="Ваш аккаунт был заблокирован администрацией Dicegram"), 403
         if locked(num):
             return err("Слишком много попыток. Попробуйте позже", 429)
 
@@ -1827,7 +2061,7 @@ def auth_logout():
 
 # ───────────────────── ПРОФИЛЬ ─────────────────────
 USER_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{3,30}[A-Za-z0-9]$")
-RESERVED = {"telegram", "admin", "support", "botfather", "service", "official", "dicegram"}
+RESERVED = {"telegram", "admin", "support", "botfather", "service", "official", "dicegram", "dicebot", "addemoji", "joinchat", "settings", "login", "static", "bot", "file"}
 
 
 def check_username(name, my_id):
@@ -1908,8 +2142,15 @@ def me_update():
         if d["birthday_vis"] not in ("all", "contacts", "none"):
             return err("Неверная настройка")
         bvis = d["birthday_vis"]
+    bio_ents = u.get("bio_ents")
     if "bio" in d:
-        bio = str(d["bio"]).strip()[:140 if is_premium(u) else 70]   # с Premium «О себе» длиннее
+        raw = str(d["bio"])
+        bio = raw.strip()[:140 if is_premium(u) else 70]   # с Premium «О себе» длиннее
+        bio_ents = None
+        if bio and raw.startswith(bio[:1]) and is_premium(u):
+            # только свои эмодзи (ce); проверяются так же, как в сообщениях: набор свой или добавленный
+            be = [e for e in clean_ents(d.get("bio_ents"), utf16len(bio), u) if e.get("t") == "ce"][:40]
+            bio_ents = json.dumps(be, separators=(",", ":")) if be else None
     if "username" in d:
         username = str(d["username"]).strip().lstrip("@")
         if username and username != u["username"]:
@@ -1917,8 +2158,8 @@ def me_update():
             if e:
                 return err(e)
     try:
-        run("UPDATE users SET name=?, surname=?, username=?, bio=?, birthday=?, birthday_vis=? WHERE id=?",
-            (name, surname, username, bio, birthday, bvis, u["id"]))
+        run("UPDATE users SET name=?, surname=?, username=?, bio=?, bio_ents=?, birthday=?, birthday_vis=? WHERE id=?",
+            (name, surname, username, bio, bio_ents, birthday, bvis, u["id"]))
     except sqlite3.IntegrityError:
         return err("Это имя уже занято")
     nu = q1("SELECT * FROM users WHERE id=?", (u["id"],))
@@ -2029,7 +2270,10 @@ def user_get(uid):
     bp = biz_public(u)
     if bp:
         out["biz"] = bp
-    out["rating"] = rating_of(u)
+    if not u.get("bot"):
+        out["rating"] = rating_of(u)                  # у ботов рейтинга нет
+    if not out.get("deleted"):
+        out["unames"] = unames_of(uid)
     if u["username"]:
         out["plink"] = link_url(u["username"], "u")
     out["gifts_n"] = q1("SELECT COUNT(*) n FROM gifts WHERE to_id=? AND shown=1", (uid,))["n"]
@@ -2037,7 +2281,7 @@ def user_get(uid):
     if pc:
         out["pchan"] = pc
     if not me_ and not u["is_system"]:
-        out["saved"] = bool(q1("SELECT 1 FROM saved_contacts WHERE owner=? AND contact=?", (viewer["id"], uid)))
+        out["in_contacts"] = bool(q1("SELECT 1 FROM saved_contacts WHERE owner=? AND contact=?", (viewer["id"], uid)))       # НЕ "saved": так помечено «Избранное»
         out["blocked"] = is_blocked(viewer["id"], uid)
         out["blocked_me"] = is_blocked(uid, viewer["id"])
         out["common"] = q1("""SELECT COUNT(*) n FROM chat_members a JOIN chat_members b ON a.chat_id=b.chat_id JOIN chats c ON c.id=a.chat_id
@@ -2180,20 +2424,33 @@ def me_email():
 
 @app.post("/api/me/privacy")
 def me_privacy():
-    """{key: phone|seen|photo|fwd|calls|bio|birthday, value: all|contacts|none}"""
+    """{key: phone|seen|photo|fwd|calls|bio|voice|msg|gifts|invite|birthday, value: all|contacts|none}
+    Особые: msg — all|cp|paid (+ price: 1…35000 звёзд за сообщение); gtypes — список принимаемых типов подарков."""
     u = auth_user()
     if not u:
         return err("Требуется вход", 401)
     d = body()
     key, val = d.get("key"), d.get("value")
-    if val not in PRIV_VALUES or key not in PRIV_KEYS + ("birthday",):
-        return err("Неверная настройка")
-    if key == "birthday":
-        run("UPDATE users SET birthday_vis=? WHERE id=?", (val, u["id"]))
-    else:
-        p = priv_of(u)
-        p[key] = val
+    if key == "gtypes":
+        if not isinstance(val, list) or any(x not in GIFT_TYPES for x in val):
+            return err("Неверная настройка")
+        p = json_load(u.get("priv"), {})
+        p["gtypes"] = [x for x in GIFT_TYPES if x in val]
         run("UPDATE users SET priv=? WHERE id=?", (json.dumps(p), u["id"]))
+    else:
+        if key not in PRIV_KEYS + ("birthday",) or val not in PRIV_VALUES_BY.get(key, PRIV_VALUES):
+            return err("Неверная настройка")
+        if key == "birthday":
+            run("UPDATE users SET birthday_vis=? WHERE id=?", (val, u["id"]))
+        else:
+            p = json_load(u.get("priv"), {})
+            if key == "msg" and val == "paid":
+                price = num(d.get("price"), 1, MSG_PRICE_MAX)
+                if price is None:
+                    return err("Укажите цену одного сообщения: от 1 до 35 000 звёзд")
+                p["msg_price"] = price
+            p[key] = val
+            run("UPDATE users SET priv=? WHERE id=?", (json.dumps(p), u["id"]))
     nu = q1("SELECT * FROM users WHERE id=?", (u["id"],))
     notify_profile(u["id"])
     return jsonify(ok=True, user=public(nu, True))
@@ -2224,6 +2481,10 @@ def prefs_set():
     for k, v in ch.items():
         if not re.fullmatch(r"[a-z_]{1,24}", str(k)):
             return err("Неверный ключ")
+        if k == "tz" and v is not None:                    # время аккаунта: "adj:<минуты сдвига от телефона>" или "abs:<минуты от UTC>"
+            m_ = re.fullmatch(r"(adj|abs):(-?\d{1,4})", str(v))
+            if not m_ or abs(int(m_.group(2))) > 14 * 60:
+                return err("Неверный часовой пояс")
         if v is None:
             cur.pop(k, None)
         else:
@@ -2263,7 +2524,10 @@ def chats():
             p = peers.get(r["peer"])
             if not p:
                 continue
-            out.append({"peer": public(p, viewer=me_, contact=True), "last": last, "unread": unread.get(r["peer"], 0)})
+            pe = public(p, viewer=me_, contact=True)
+            if r["peer"] == me_:
+                pe["saved"] = 1                    # «Избранное» — переписка с самим собой
+            out.append({"peer": pe, "last": last, "unread": 0 if r["peer"] == me_ else unread.get(r["peer"], 0)})
         gi = group_chat_items(me_)
         if gi:
             glasts = ser_many([x[0] for x in gi], me_)
@@ -2282,10 +2546,13 @@ def contacts_list():
     u = auth_user()
     if not u:
         return err("Требуется вход", 401)
-    ids = [i for i in contacts(u["id"]) if i != u["id"]]
+    saved = {r["contact"] for r in qa("SELECT contact FROM saved_contacts WHERE owner=?", (u["id"],))}
+    ids = sorted(({i for i in contacts(u["id"])} | saved) - {u["id"]})       # переписка + сохранённые по номеру (даже без единого сообщения)
     out = []
     if ids:
         for r in qa(f"SELECT * FROM users WHERE id IN ({','.join('?' * len(ids))}) AND is_system=0", ids):
+            if r.get("deleted") or r.get("banned") or (r.get("bot") and r["id"] not in saved):
+                continue
             out.append(public(r, viewer=u["id"], contact=True))
     out.sort(key=lambda x: ((x.get("name") or "") + " " + (x.get("surname") or "")).strip().lower())
     return jsonify(ok=True, contacts=out)
@@ -2353,9 +2620,21 @@ def send():
     cid = cid if re.fullmatch(r"[\w-]{1,40}", cid) else None
     if to < 0:
         return g_send(u, to, d, cid)
-    peer = q1("SELECT id FROM users WHERE id=?", (to,))
+    if to == u["id"] and not u.get("bot"):                       # «Избранное»: заметки, файлы и подарки самому себе
+        try:
+            kind, text, ents, att, reply_to = parse_payload(u, d, to)
+        except ValueError as e:
+            return err(str(e))
+        if not hit("send", u["id"], 30, 10):
+            return err("Слишком часто. Подождите пару секунд", 429)
+        return jsonify(ok=True, message=add_message(u["id"], to, text, cid, kind, ents, att, reply_to))
+    peer = q1("SELECT id, banned, deleted, bot FROM users WHERE id=?", (to,))
     if not peer or to == u["id"]:
         return err("Нельзя отправить")
+    if u.get("bot"):
+        return err("Нельзя отправить", 403)
+    if peer.get("banned") or peer.get("deleted"):
+        return err("Этот аккаунт удалён", 403)
     be = block_err(u["id"], to)
     if be:
         return err(be, 403)
@@ -2365,7 +2644,43 @@ def send():
         return err(str(e))
     if not hit("send", u["id"], 20, 10):
         return err("Слишком часто. Подождите пару секунд", 429)
-    msg = add_message(u["id"], to, text, cid, kind, ents, att, reply_to)
+    rcv = q1("SELECT * FROM users WHERE id=?", (to,))
+    paid = 0
+    if not (cid and q1("SELECT 1 FROM messages WHERE sender=? AND cid=?", (u["id"], cid))):     # повтор того же сообщения не списывает звёзды второй раз
+        if kind == "voice" and not priv_ok(rcv, "voice", u["id"]):
+            return err("Этот пользователь не принимает голосовые сообщения", 403)
+        gate = msg_gate(u, rcv)
+        if gate and gate[0] == "err":
+            return err(gate[1], 403)
+        if gate and gate[0] == "pay":
+            price = gate[1]
+            if num(d.get("paid"), 0, MSG_PRICE_MAX) != price:
+                return jsonify(ok=False, error=f"Сообщение этому пользователю стоит {price} ⭐", need_pay=price), 402
+            with db_lock:
+                cur = run("UPDATE users SET stars=stars-? WHERE id=? AND stars>=?", (price, u["id"], price))
+                if not cur.rowcount:
+                    return jsonify(ok=False, error=f"Недостаточно звёзд: нужно {price}", need_pay=price, short=True), 402
+                run("UPDATE users SET stars=stars+? WHERE id=?", (price, to))
+            star_tx(u["id"], -price, "Платное сообщение", "paid_msg")
+            star_tx(to, price, "Платное сообщение от " + (u.get("name") or "пользователя"), "paid_msg")
+            paid = price
+    msg = add_message(u["id"], to, text, cid, kind, ents, att, reply_to, paid=paid)
+    if paid:
+        notify_profile(to)
+        notify_profile(u["id"])
+    if peer.get("bot"):
+        try:
+            bot_incoming(u, to, msg["id"])
+        except Exception as e:
+            print("bot_incoming:", repr(e))
+    if to == support_id():
+        try:
+            what = text or MSG_KIND_TXT.get(kind, kind)
+            mid_ = hc_post("reports", f"💬 Сообщение в {SUPPORT_NAME}\n👤 От: {who_label(u)}\n\n{what[:1500]}",
+                           kb=[[{"t": "💬 Ответить", "d": f"dm:{u['id']}"}, {"t": "🔎 Инфо", "d": f"rep_u:{u['id']}"}],
+                               [{"t": "👤 Открыть профиль", "o": f"user:{u['id']}"}]])
+        except Exception as e:
+            print("support → admin-panel:", e)
     try:
         biz_auto_reply(u["id"], to)
     except Exception as e:
@@ -2455,7 +2770,7 @@ def delete():
         for r in rows:
             peers.add(other_of(r, uid))
             col = "del_s" if r["sender"] == uid else "del_r"
-            both = everyone or bool(r.get("del_r" if col == "del_s" else "del_s"))
+            both = everyone or r["sender"] == r["receiver"] or bool(r.get("del_r" if col == "del_s" else "del_s"))
             if both:
                 run("DELETE FROM messages WHERE id=?", (r["id"],))
                 run("DELETE FROM reacts WHERE msg_id=?", (r["id"],))
@@ -2577,12 +2892,19 @@ def forward():
         return err("Нельзя переслать")
     elif block_err(uid, to):
         return err(block_err(uid, to), 403)
+    if to and to > 0:
+        rc_ = q1("SELECT * FROM users WHERE id=?", (to,))
+        g_ = msg_gate(u, rc_)
+        if g_:
+            return err(g_[1] if g_[0] == "err" else f"Этот пользователь принимает сообщения за {g_[1]} ⭐ — напишите ему обычным сообщением", 403)
     ids = sorted({n for n in (num(x, 1, 2 ** 62) for x in (d.get("ids") or [])[:20]) if n}) if isinstance(d.get("ids"), list) else []
     sent = []
     for mid in ids:
         r = mine_row(mid, uid)
         if not r:
             continue
+        if r["receiver"] < 0 and is_hc(-r["receiver"]):
+            return err("Сообщения admin-panel пересылать нельзя", 403)
         if not hit("send", uid, 20, 10):
             return err("Слишком часто. Подождите пару секунд", 429)
         if r.get("kind") in ("svc", "call", "greet"):
@@ -2623,8 +2945,12 @@ def upload_init():
     size = num(d.get("size"), 1, 2 ** 40)
     if not size:
         return err("Пустой файл")
-    if size > MAX_UPLOAD:
-        return err(f"Файл слишком большой (максимум {MAX_UPLOAD // 1048576} МБ)")
+    lim = MAX_UPLOAD_PREMIUM if is_premium(u) else MAX_UPLOAD
+    if size > lim:
+        if lim < MAX_UPLOAD_PREMIUM and size <= MAX_UPLOAD_PREMIUM:
+            return jsonify(ok=False, error=f"Файл больше {lim // 1048576} МБ. С Premium можно загружать файлы до {MAX_UPLOAD_PREMIUM // 1048576} МБ",
+                           premium=True, max=lim, max_premium=MAX_UPLOAD_PREMIUM), 400
+        return err(f"Файл слишком большой (максимум {lim // 1048576} МБ)")
     mime = str(d.get("mime") or "")[:100].lower()
     if not MIME_RE.match(mime):
         mime = "application/octet-stream"
@@ -2697,6 +3023,71 @@ def file_get(fid):
     resp.headers["Cache-Control"] = "private, max-age=86400"
     resp.headers["Content-Security-Policy"] = "default-src 'none'; sandbox"
     return resp
+
+
+# ───────────────────── ГОЛОС В ТЕКСТ (Premium, личный результат) ─────────────────────
+STT_EXT = {"audio/webm": "webm", "audio/ogg": "ogg", "audio/mp4": "m4a", "audio/aac": "m4a", "audio/mpeg": "mp3", "audio/mp3": "mp3", "audio/wav": "wav",
+           "audio/x-wav": "wav", "audio/x-m4a": "m4a", "audio/flac": "flac", "video/webm": "webm", "video/mp4": "mp4"}
+stt_busy = set()
+
+
+@app.post("/api/voice/transcribe")
+def voice_transcribe():
+    """{mid} — расшифровать голосовое сообщение в текст. Только для Premium. Результат личный: хранится у того, кто нажал,
+    не отправляется собеседнику, не попадает в сообщение и не рассылается по WebSocket. Повторное нажатие берёт готовый текст."""
+    u = auth_user()
+    if not u:
+        return err("Требуется вход", 401)
+    mid = num(body().get("mid"), 1, 2 ** 62) or 0
+    m = q1("SELECT * FROM messages WHERE id=?", (mid,))
+    if not m or m.get("kind") != "voice" or not m.get("fid") or not can_access(u["id"], m["fid"]):
+        return err("Сообщение не найдено", 404)
+    if not is_premium(u):
+        return jsonify(ok=False, error="Расшифровка голосовых доступна с Premium", premium=True), 403
+    row = q1("SELECT text FROM voice_stt WHERE uid=? AND mid=?", (u["id"], mid))
+    if row:
+        return jsonify(ok=True, text=decrypt_text(row["text"]), cached=True)
+    if not STT_URL:
+        return jsonify(ok=False, error="Распознавание речи на сервере пока не подключено", unconfigured=True), 503
+    f = q1("SELECT * FROM files WHERE fid=? AND done=1", (m["fid"],))
+    if not f or not os.path.exists(file_path(f["fid"])):
+        return err("Файл не найден", 404)
+    if f["size"] > STT_MAX:
+        return err("Это голосовое слишком длинное для расшифровки")
+    if not hit("stt", u["id"], 20, 60):
+        return err("Слишком часто. Попробуйте через минуту", 429)
+    key = (u["id"], mid)
+    if key in stt_busy:
+        return err("Уже расшифровывается — подождите пару секунд", 409)
+    stt_busy.add(key)
+    try:
+        with open(file_path(f["fid"]), "rb") as fh:
+            data = fh.read()
+        mime = (f["mime"] or "audio/webm").split(";")[0].strip().lower()
+        fields = {"model": STT_MODEL, "response_format": "json"}
+        if STT_LANG:
+            fields["language"] = STT_LANG
+        hdr = {"Authorization": "Bearer " + STT_API_KEY} if STT_API_KEY else {}
+        try:
+            r = requests.post(STT_URL, headers=hdr, data=fields, files={"file": ("voice." + STT_EXT.get(mime, "webm"), data, mime)}, timeout=STT_TIMEOUT)
+        except requests.RequestException as e:
+            print("stt request failed:", repr(e))
+            return jsonify(ok=False, error="Сервис распознавания не отвечает. Попробуйте позже"), 502
+        if r.status_code != 200:
+            print("stt http", r.status_code, r.text[:200])
+            return jsonify(ok=False, error="Не удалось распознать речь. Попробуйте позже"), 502
+        try:
+            text = str((r.json() or {}).get("text") or "").strip()
+        except ValueError:
+            text = ""
+    finally:
+        stt_busy.discard(key)
+    if not text:
+        return jsonify(ok=True, text="", empty=True)                 # речи нет — не запоминаем, можно повторить
+    text = text[:4000]
+    with db_lock:
+        run("INSERT OR REPLACE INTO voice_stt(uid, mid, text, ts) VALUES(?,?,?,?)", (u["id"], mid, encrypt_text(text), int(time.time())))
+    return jsonify(ok=True, text=text)
 
 
 # ───────────────────── ПУБЛИКАЦИИ (истории на 6–48 часов + архив) ─────────────────────
@@ -3128,6 +3519,22 @@ def emoji_item_delete():
     return jsonify(ok=True)
 
 
+@app.post("/api/me/pbg")
+def me_pbg():
+    """Фон профиля: один из премиальных (Premium) или "" — без фона."""
+    u = auth_user()
+    if not u:
+        return err("Требуется вход", 401)
+    v = str(body().get("id") or "")
+    if v and v not in PBG_IDS:
+        return err("Неизвестный фон")
+    if v and not is_premium(u) and u.get("number") != ADMIN_NUMBER:
+        return jsonify(ok=False, error="Фоны профиля доступны с Premium", need_premium=True), 403
+    run("UPDATE users SET pbg=? WHERE id=?", (v, u["id"]))
+    notify_profile(u["id"])
+    return jsonify(ok=True, user=public(fresh(u["id"]), True))
+
+
 @app.post("/api/me/status")
 def me_status():
     """Эмодзи-статус: {status: "" | "b:<значок>" | "c:<номер своего эмодзи>"}. Менять может только Premium; сбросить — любой."""
@@ -3242,14 +3649,15 @@ def search():
         return jsonify(ok=True, users=[], chats=[])
     digits = re.sub(r"\D", "", q)
     if len(digits) >= 8 and re.fullmatch(r"[+\d\s]+", q):
-        rows = qa("SELECT * FROM users WHERE number=? AND is_system=0 AND id!=?", ("+" + digits, u["id"]))
+        rows = qa("SELECT * FROM users WHERE number=? AND is_system=0 AND COALESCE(banned,0)=0 AND COALESCE(deleted,0)=0 AND id!=?", ("+" + digits, u["id"]))
     else:
         ql = q.lower()
         like = "%" + ql.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
-        found = qa("""SELECT * FROM users WHERE is_system=0 AND id!=?
+        found = qa("""SELECT * FROM users WHERE is_system=0 AND COALESCE(banned,0)=0 AND COALESCE(deleted,0)=0 AND id!=?
                       AND (plower(username) LIKE ? ESCAPE '\\' OR plower(name) LIKE ? ESCAPE '\\'
-                           OR plower(surname) LIKE ? ESCAPE '\\' OR plower(name || ' ' || surname) LIKE ? ESCAPE '\\')
-                      LIMIT 100""", (u["id"], like, like, like, like))
+                           OR plower(surname) LIKE ? ESCAPE '\\' OR plower(name || ' ' || surname) LIKE ? ESCAPE '\\'
+                           OR id IN (SELECT uid FROM unames WHERE plower(name) LIKE ? ESCAPE '\\'))
+                      LIMIT 100""", (u["id"], like, like, like, like, like))
         scored = []
         for r in found:
             un, nm = (r["username"] or "").lower(), ((r["name"] or "") + " " + (r.get("surname") or "")).strip().lower()
@@ -3320,8 +3728,8 @@ def premium_buy():
     now = int(time.time())
     with db_lock:
         cur = fresh(u["id"])
-        if is_premium(cur):                                    # досрочно продлить нельзя — только когда подписка закончится
-            return jsonify(ok=False, error="Premium уже активен. Продлить можно после окончания подписки", active=True), 409
+        if max(now, cur.get("premium_until") or 0) + PREMIUM_DAYS[plan] * 86400 > now + 5 * 365 * 86400:      # продлевать можно, но не дальше 5 лет вперёд
+            return jsonify(ok=False, error="Premium уже оплачен на несколько лет вперёд. Продлить можно позже", active=True), 409
         if (cur.get("stars") or 0) < price:
             return jsonify(ok=False, error=f"Недостаточно звёзд: нужно {price}, у вас {cur.get('stars') or 0}", need=price), 402
         base = max(now, cur.get("premium_until") or 0)          # покупка продлевает действующий Premium
@@ -3354,10 +3762,10 @@ def admin_grant():
     st, days = num(d.get("stars"), -1_000_000, 1_000_000) or 0, num(d.get("premium_days"), -3650, 3650) or 0
     gift_key, nft_coll, uname = str(d.get("gift") or ""), str(d.get("nft") or ""), str(d.get("username") or "").lstrip("@")
     if uname:
-        e = check_username(uname, t["id"])
-        if e:
-            return err(f"Нельзя выдать @{uname}: {e}")
-        run("UPDATE users SET username=?, uname_nft=1, uname_ton=? WHERE id=?", (uname, random_ton_price(uname), t["id"]))
+        ton = fnum(d.get("ton"), 0.01, 10 ** 9) or random_ton_price(uname)
+        res = grant_uname(t, uname, ton, u, fnum(d.get("usd"), 0.01, 10 ** 9))
+        if not res.startswith("✅"):
+            return err(res)
     if st:
         run("UPDATE users SET stars=MAX(0, stars+?) WHERE id=?", (st, t["id"]))
         star_tx(t["id"], st, "Начислено администратором", "grant")
@@ -3386,12 +3794,222 @@ def admin_grant():
     return jsonify(ok=True, user=public(fresh(t["id"]), True) if t["id"] == u["id"] else None)
 
 
-# ───────────────────── СЛУЖЕБНАЯ ГРУППА ВЛАДЕЛЬЦА (helpcreator) ─────────────────────
-# Вместо отдельного экрана «админка» — обычная группа с темами: владелец печатает команды прямо в чат,
-# бот отвечает тут же. Группа создаётся один раз и видна только владельцу (он единственный участник).
+# ───────────────────── РЕЖИМ ТЕХРАБОТ ─────────────────────
+# Один тумблер в админ-панели (тема «Техработы»): обычные пользователи не могут войти и видят экран с причиной и
+# примерным временем окончания. Номера из белого списка (по умолчанию — владелец +88888888888) работают как обычно.
+MAINT_ALWAYS = list(dict.fromkeys([ADMIN_NUMBER, "+88888888888"]))
+_maint_cache = {"ts": 0.0, "v": None}
+
+
+def maint_get(force=False):
+    now = time.time()
+    if not force and _maint_cache["v"] is not None and now - _maint_cache["ts"] < 3:
+        return _maint_cache["v"]
+    v = kv_get("maint") or {}
+    wl = [n for n in (v.get("wl") or []) if isinstance(n, str) and re.fullmatch(r"\+888\d{8}", n)]
+    st = {"on": bool(v.get("on")), "reason": str(v.get("reason") or "")[:500], "until": int(v.get("until") or 0), "since": int(v.get("since") or 0),
+          "wl": list(dict.fromkeys(MAINT_ALWAYS + wl))[:300]}
+    _maint_cache["ts"], _maint_cache["v"] = now, st
+    return st
+
+
+def maint_set(**kw):
+    cur = dict(maint_get(True))
+    cur.update(kw)
+    kv_set("maint", {k: cur[k] for k in ("on", "reason", "until", "since", "wl")})
+    _maint_cache["v"] = None
+    return maint_get(True)
+
+
+def maint_pub(st=None):
+    st = st or maint_get()
+    return {"on": st["on"], "reason": st["reason"], "until": st["until"], "now": int(time.time())}
+
+
+def maint_resp(st):
+    return jsonify(ok=False, maintenance=True, error="Технические работы", reason=st["reason"], until=st["until"], now=int(time.time())), 503
+
+
+@app.get("/api/maintenance")
+def maintenance_status():
+    """Публичный статус техработ (без входа): экран «Технические работы» опрашивает его и сам закрывается, когда работы закончены."""
+    return jsonify(ok=True, **maint_pub())
+
+
+@app.before_request
+def maint_gate():
+    st = maint_get()
+    if not st["on"]:
+        return None
+    p = request.path
+    if not p.startswith("/api/") or p in ("/api/maintenance", "/api/auth/password", "/api/auth/logout"):
+        return None
+    if p in ("/api/auth/request", "/api/auth/verify"):
+        return None if norm(body().get("number")) in st["wl"] else maint_resp(st)
+    u = auth_user()
+    return None if u and u.get("number") in st["wl"] else maint_resp(st)
+
+
+def maint_kick():
+    """Режим включили: у обычных пользователей, которые сейчас онлайн, открывается экран техработ."""
+    st = maint_get(True)
+    ids = list(clients.keys())
+    if not ids:
+        return
+    for r in qa(f"SELECT id, number FROM users WHERE id IN ({','.join('?' * len(ids))})", ids):
+        if r["number"] in st["wl"]:
+            continue
+        push(r["id"], {"type": "maint", **maint_pub(st)})
+
+
+def maint_parse_until(text, now=None):
+    """«2ч», «90м», «1д 3ч», «18:30» (сегодня/завтра), «15.11 18:00», «-» (убрать). Время — по UTC+STATS_TZ. → (ts | 0 | None)."""
+    t = str(text or "").strip().lower()
+    now = int(now or time.time())
+    if t in ("-", "нет", "0", "сброс", "убрать"):
+        return 0
+    m = re.fullmatch(r"(?:(\d+)\s*д)?\s*(?:(\d+)\s*(?:ч|час\w*|h))?\s*(?:(\d+)\s*(?:м|мин\w*|m))?", t)
+    if m and any(m.groups()):
+        sec = int(m.group(1) or 0) * 86400 + int(m.group(2) or 0) * 3600 + int(m.group(3) or 0) * 60
+        return now + sec if 0 < sec <= 60 * 86400 else None
+    off = timedelta(hours=STATS_TZ)
+    loc = datetime.fromtimestamp(now, tz=timezone.utc) + off
+    m = re.fullmatch(r"(\d{1,2}):(\d{2})", t)
+    if m:
+        h, mi = int(m.group(1)), int(m.group(2))
+        if h > 23 or mi > 59:
+            return None
+        d = loc.replace(hour=h, minute=mi, second=0, microsecond=0)
+        if d <= loc:
+            d += timedelta(days=1)
+        return int((d - off).timestamp())
+    m = re.fullmatch(r"(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?\s+(\d{1,2}):(\d{2})", t)
+    if m:
+        try:
+            y = int(m.group(3)) if m.group(3) else loc.year
+            y += 2000 if y < 100 else 0
+            d = datetime(y, int(m.group(2)), int(m.group(1)), int(m.group(4)), int(m.group(5)), tzinfo=timezone.utc)
+        except ValueError:
+            return None
+        ts = int((d - off).timestamp())
+        return ts if ts > now else None
+    return None
+
+
+def maint_fmt(ts):
+    try:
+        return (datetime.fromtimestamp(int(ts), tz=timezone.utc) + timedelta(hours=STATS_TZ)).strftime("%d.%m.%Y %H:%M") + f" (UTC{STATS_TZ:+d})"
+    except Exception:
+        return "—"
+
+
+def maint_card():
+    st = maint_get(True)
+    wl = st["wl"]
+    txt = (f"🛠 Режим техработ: {'🔴 ВКЛЮЧЁН' if st['on'] else '🟢 выключен'}\n\n"
+           f"📝 Причина: {st['reason'] or '— не задана (пользователи увидят «Идут технические работы»)'}\n"
+           f"🕐 Примерное окончание: {maint_fmt(st['until']) if st['until'] else 'не указано'}\n"
+           f"✅ Белый список ({len(wl)}): {', '.join(wl)}\n\n"
+           "Пока режим включён, обычные пользователи не могут войти и видят экран с причиной и временем окончания. "
+           "Номера из белого списка заходят как обычно (владелец +88888888888 — всегда).")
+    kb = [[{"t": "🟢 Выключить" if st["on"] else "🔴 Включить", "d": "mt:tg"}],
+          [{"t": "📝 Причина", "d": "mt:r"}, {"t": "🕐 Время окончания", "d": "mt:e"}],
+          [{"t": "➕ Номер в белый список", "d": "mt:a"}]]
+    rm = [n for n in wl if n not in MAINT_ALWAYS][:20]
+    for i in range(0, len(rm), 2):
+        kb.append([{"t": "✖ " + n, "d": "mt:d:" + n} for n in rm[i:i + 2]])
+    return txt, kb
+
+
+def maint_action(u, row, p):
+    """Кнопки карточки «Техработы»: mt:tg | mt:r | mt:e | mt:a | mt:d:<номер>."""
+    mid, topic = row["id"], row.get("topic") or 0
+    a = p[1] if len(p) > 1 else ""
+    if a == "tg":
+        st = maint_get(True)
+        on = not st["on"]
+        maint_set(on=on, since=int(time.time()) if on else 0)
+        hc_log(f"🛠 {who_label(u)}: режим техработ {'ВКЛЮЧЁН' if on else 'выключен'}")
+        if on:
+            maint_kick()
+        hc_edit(mid, *maint_card())
+        return "Режим техработ включён" if on else "Режим техработ выключен"
+    if a == "d" and len(p) > 2:
+        st = maint_get(True)
+        n = p[2]
+        if n in MAINT_ALWAYS:
+            return "Этот номер нельзя убрать"
+        v = kv_get("maint") or {}
+        maint_set(wl=[x for x in (v.get("wl") or []) if x != n])
+        hc_log(f"🛠 {who_label(u)}: номер {n} убран из белого списка техработ")
+        hc_edit(mid, *maint_card())
+        return "Убрано"
+    prompts = {"r": ("mt_reason", "📝 Напишите причину — её увидят пользователи. «-» — убрать причину."),
+               "e": ("mt_end", "🕐 Когда примерно закончатся работы? Напишите, например: 2ч, 90м, 1д 3ч, 18:30 или 15.11 18:00 "
+                               f"(время по UTC{STATS_TZ:+d}). «-» — не указывать время."),
+               "a": ("mt_add", "➕ Напишите номер, который сможет заходить во время техработ: +888 и ровно 8 цифр, например +88812345678.")}
+    if a in prompts:
+        k, text = prompts[a]
+        hc_wait[u["id"]] = {"k": k, "t": 0, "topic": topic, "ts": time.time(), "mid": mid}
+        hc_edit(mid, text, [[{"t": "❌ Отмена", "d": "mt:x"}]])
+        return ""
+    if a == "x":
+        hc_wait.pop(u["id"], None)
+        hc_edit(mid, *maint_card())
+        return ""
+    return ""
+
+
+def maint_input(u, topic, w, text):
+    """Ответ админа на вопрос карточки «Техработы» (причина / время / номер). Всегда True — сообщение было ответом."""
+    k, mid = w["k"], w.get("mid")
+    text = (text or "").strip()
+    if k == "mt_reason":
+        maint_set(reason="" if text == "-" else text[:500])
+        hc_log(f"🛠 {who_label(u)}: причина техработ изменена")
+    elif k == "mt_end":
+        ts = maint_parse_until(text)
+        if ts is None:
+            hc_wait[u["id"]] = dict(w, ts=time.time())
+            hc_reply(topic, "Не понял время. Примеры: 2ч, 90м, 1д 3ч, 18:30, 15.11 18:00. «-» — убрать. Напишите ещё раз.")
+            return True
+        maint_set(until=ts)
+        hc_log(f"🛠 {who_label(u)}: окончание техработ — {maint_fmt(ts) if ts else 'не указано'}")
+    elif k == "mt_add":
+        n = parse_new_number(text)
+        if not n:
+            hc_wait[u["id"]] = dict(w, ts=time.time())
+            hc_reply(topic, "Номер должен быть строго +888 и ровно 8 цифр, например +88812345678. Напишите ещё раз.")
+            return True
+        v = kv_get("maint") or {}
+        maint_set(wl=list(dict.fromkeys((v.get("wl") or []) + [n]))[:300])
+        hc_log(f"🛠 {who_label(u)}: номер {n} добавлен в белый список техработ")
+    st = maint_get(True)
+    if mid and q1("SELECT 1 FROM messages WHERE id=?", (mid,)):
+        hc_edit(mid, *maint_card())
+    else:
+        hc_reply(topic, *maint_card())
+    if st["on"]:
+        maint_kick()
+    return True
+
+
+# ───────────────────── АДМИН-ПАНЕЛЬ (служебная группа «admin-panel») ─────────────────────
+# Закрытая группа с темами. Вступить в неё нельзя ни по ссылке, ни по адресу — участников добавляет только
+# владелец сервиса. Любой участник может пользоваться командами и кнопками. Бот (официальный аккаунт)
+# отвечает прямо в темах: карточки аккаунтов с кнопками (бан, очистка, удаление, связь), выдача по кнопкам,
+# верификация, жалобы с перепиской-доказательством, ежедневная и еженедельная статистика.
+# Коды входа и облачные пароли сюда не попадают никогда.
+HC_TITLE = "admin-panel"
+HC_ABOUT = "Закрытая служебная группа администрации Dicegram. Вступить нельзя — участников добавляет только владелец."
 HC_TOPICS = (("logs", "Логи", "📋"), ("new", "Новые аккаунты", "🆕"), ("info", "Инфо об аккаунте", "🔎"),
-             ("grant", "Grant", "🎁"), ("verify", "Верификация", "✅"))
+             ("grant", "Выдача", "🎁"), ("verify", "Верификация", "✅"), ("reports", "Жалобы и репорты", "🚨"),
+             ("stats", "Статистика", "📊"), ("numbers", "Номера", "📞"), ("maint", "Техработы", "🛠"))
+SUPPORT_NUMBER, SUPPORT_NAME = "+42778", "Dicegram Support"
+STATS_TZ = int(os.environ.get("STATS_TZ", "5"))        # часовой пояс отчётов статистики (часы от UTC), по умолчанию UTC+5
+HC_WAIT_TTL = 600
 _hc_cache = {}
+hc_wait = {}                                              # uid → ожидаемый ввод: {"k", "t", "topic", "ts", ...}
 
 
 def kv_get(k, default=None):
@@ -3415,8 +4033,26 @@ def get_admin_user():
     return q1("SELECT * FROM users WHERE tg_id=?", (ADMIN_TG_ID,)) if ADMIN_TG_ID else None
 
 
+def support_id():
+    """Официальный аккаунт «Dicegram Support»: от его имени администрация пишет людям в личку."""
+    r = q1("SELECT id FROM users WHERE number=?", (SUPPORT_NUMBER,))
+    if r:
+        return r["id"]
+    with db_lock:
+        r = q1("SELECT id FROM users WHERE number=?", (SUPPORT_NUMBER,))
+        if r:
+            return r["id"]
+        return run("INSERT INTO users(number,name,is_system,created) VALUES(?,?,1,?)",
+                   (SUPPORT_NUMBER, SUPPORT_NAME, int(time.time()))).lastrowid
+
+
+def system_ids():
+    return {r["id"] for r in qa("SELECT id FROM users WHERE is_system=1")}
+
+
 def ensure_helpcreator():
-    """Возвращает (chat_row, {key: topic_id}); создаёт группу и темы при первой необходимости."""
+    """Возвращает (chat_row, {key: topic_id}); создаёт группу и темы при первой необходимости и
+    один раз за запуск приводит её к нужному виду: название, закрытость (без ссылок и адреса), темы."""
     if _hc_cache.get("chat"):
         ch = chat_row(_hc_cache["chat"])
         if ch:
@@ -3431,39 +4067,96 @@ def ensure_helpcreator():
         if not ch:
             now = int(time.time())
             cid = run("INSERT INTO chats(kind,title,about,owner,ts,topics,hist) VALUES('group',?,?,?,?,1,1)",
-                      ("Dicegram — создатель", "Служебная группа: видна только владельцу сервиса", admin["id"], now)).lastrowid
+                      (HC_TITLE, HC_ABOUT, admin["id"], now)).lastrowid
             run("INSERT INTO chat_members(chat_id,user_id,role,joined,adder) VALUES(?,?,'owner',?,0)", (cid, admin["id"], now))
             ch = chat_row(cid)
             saved = {"chat": cid, "topics": {}}
         topics = saved.get("topics") or {}
         changed = not saved.get("chat")
         for key, title, emoji in HC_TOPICS:
-            if not topics.get(key):
+            if not topics.get(key) or not q1("SELECT 1 FROM chat_topics WHERE id=? AND chat_id=?", (topics[key], ch["id"])):
                 tid = run("INSERT INTO chat_topics(chat_id,title,color,emoji,creator,ts) VALUES(?,?,0,?,?,?)",
                           (ch["id"], title, emoji, admin["id"], int(time.time()))).lastrowid
                 topics[key] = tid
                 changed = True
+            else:
+                run("UPDATE chat_topics SET title=?, emoji=? WHERE id=? AND (title!=? OR emoji!=?)", (title, emoji, topics[key], title, emoji))
         if changed:
             kv_set("hc", {"chat": ch["id"], "topics": topics})
+        # закрытость: никаких пригласительных ссылок и публичного адреса; название — admin-panel
+        run("UPDATE chat_links SET revoked=1 WHERE chat_id=? AND revoked=0", (ch["id"],))
+        run("UPDATE chats SET slug='', title=?, about=?, topics=1 WHERE id=? AND (slug!='' OR title!=? OR topics=0)",
+            (HC_TITLE, HC_ABOUT, ch["id"], HC_TITLE))
+        ch = chat_row(ch["id"])
     _hc_cache["chat"], _hc_cache["topics"] = ch["id"], topics
     return ch, topics
 
 
-def hc_post(topic_key, text):
-    """Опубликовать строку в служебной группе, если она уже создана (владелец хоть раз заходил в приложение)."""
+def hc_id():
+    ch, _ = ensure_helpcreator()
+    return ch["id"] if ch else 0
+
+
+def is_hc(cid):
+    return bool(cid) and cid == (_hc_cache.get("chat") or hc_id())
+
+
+def hc_member(uid):
+    cid = hc_id()
+    return bool(cid and member_row(cid, uid))
+
+
+def hc_post(topic_key, text, kb=None, ents=None):
+    """Сообщение бота в тему админ-панели. Возвращает id сообщения (или 0)."""
     try:
         ch, topics = ensure_helpcreator()
         if not ch:
-            return
+            return 0
         tid = topics.get(topic_key)
         if tid:
-            add_gmessage(ch, SYSTEM_ID, text, topic=tid)
+            return (add_gmessage(ch, SYSTEM_ID, text, ents=ents, topic=tid, kb=kb) or {}).get("id") or 0
     except Exception as e:
         print("hc_post error:", e)
+    return 0
+
+
+def hc_reply(topic_id, text, kb=None):
+    ch, _ = ensure_helpcreator()
+    if ch:
+        return (add_gmessage(ch, SYSTEM_ID, text, topic=topic_id, kb=kb) or {}).get("id") or 0
+    return 0
+
+
+def hc_edit(mid, text=None, kb=None):
+    """Изменить сообщение бота в админ-панели (текст и/или кнопки) у всех участников."""
+    row = q1("SELECT * FROM messages WHERE id=?", (mid,))
+    if not row or row["receiver"] >= 0:
+        return
+    meta = meta_load(row["meta"])
+    if kb is not None:
+        meta["kb"] = kb or None
+    if text is not None:
+        meta["e"] = None
+    run("UPDATE messages SET text=?, meta=? WHERE id=?", (encrypt_text(text) if text is not None else row["text"], meta_dump(meta), mid))
+    row = q1("SELECT * FROM messages WHERE id=?", (mid,))
+    for v in member_ids(-row["receiver"]):
+        if clients.get(v):
+            push(v, {"type": "edit", "message": ser_one(row, v)})
+
+
+def hc_log(text):
+    hc_post("logs", text)
+
+
+def who_label(u):
+    if not u:
+        return "—"
+    n = " ".join(x for x in (u.get("name"), u.get("surname")) if x) or "Пользователь"
+    return f"{n} ({u['number']})" if u.get("number") and not str(u["number"]).startswith("deleted:") else n
 
 
 def hc_resolve(token):
-    """номер телефона / @имя / #id чата → ('user', row) | ('chat', row) | None."""
+    """номер телефона / @имя / #id чата / ID пользователя → ('user', row) | ('chat', row) | None."""
     token = (token or "").strip()
     if not token:
         return None
@@ -3473,13 +4166,26 @@ def hc_resolve(token):
         return ("chat", ch) if ch else None
     if token[0] == "@":
         name = token[1:]
-        t = q1("SELECT * FROM users WHERE username=? COLLATE NOCASE", (name,))
+        t = user_by_name(name)
         if t:
             return ("user", t)
         ch = q1("SELECT * FROM chats WHERE slug=? COLLATE NOCASE", (name,))
         return ("chat", ch) if ch else None
     t = q1("SELECT * FROM users WHERE number=?", (norm(token),))
-    return ("user", t) if t else None
+    if t:
+        return ("user", t)
+    if token.isdigit() and len(token) <= 12:
+        t = q1("SELECT * FROM users WHERE id=?", (int(token),))
+        if t:
+            return ("user", t)
+    if re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{3,31}", token):      # юзернейм без «@» (бот, человек, группа или канал)
+        t = user_by_name(token)
+        if t:
+            return ("user", t)
+        ch = q1("SELECT * FROM chats WHERE slug=? COLLATE NOCASE", (token,))
+        if ch:
+            return ("chat", ch)
+    return None
 
 
 def hc_fmt_ts(ts):
@@ -3489,25 +4195,274 @@ def hc_fmt_ts(ts):
         return "—"
 
 
+def ru_plural(n, a, b, c):
+    n = abs(int(n))
+    if n % 10 == 1 and n % 100 != 11:
+        return a
+    return b if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14 else c
+
+
+def ago_ru(ts):
+    secs = max(0, time.time() - (ts or 0))
+    if secs < 3600:
+        m_ = int(secs // 60)
+        return "только что" if m_ < 1 else f"{m_} {ru_plural(m_, 'минуту', 'минуты', 'минут')} назад"
+    if secs < 86400:
+        h_ = int(secs // 3600)
+        return f"{h_} {ru_plural(h_, 'час', 'часа', 'часов')} назад"
+    d_ = int(secs // 86400)
+    if d_ < 30:
+        return f"{d_} {ru_plural(d_, 'день', 'дня', 'дней')} назад"
+    mo = d_ // 30
+    if mo < 12:
+        return f"{mo} {ru_plural(mo, 'месяц', 'месяца', 'месяцев')} назад"
+    y = d_ // 365
+    return f"{y} {ru_plural(y, 'год', 'года', 'лет')} назад"
+
+
+# ── карточка аккаунта ──
+def hc_card(t):
+    """Инфо об аккаунте для админ-панели (без кодов входа и паролей) + кнопки управления."""
+    name = " ".join(x for x in (t.get("name"), t.get("surname")) if x) or "—"
+    if t.get("deleted"):
+        return f"⚫️ Аккаунт удалён\n🆔 ID: {t['id']}", [[{"t": "Аккаунт удалён", "d": "noop"}]]
+    if t.get("banned"):
+        st = "🔴 Заблокирован"
+    elif clients.get(t["id"]):
+        st = "🟢 В сети"
+    else:
+        st = "⚪️ Был(а) " + (ago_ru(t["last_seen"]) if t.get("last_seen") else "давно")
+    ips = {r["ip"] for r in qa("SELECT ip FROM sessions WHERE user_id=?", (t["id"],)) if r["ip"]}
+    ipch = "Нет" if len(ips) <= 1 else f"Да ({len(ips)} {ru_plural(len(ips), 'адрес', 'адреса', 'адресов')})"
+    reps = (q1("SELECT COUNT(*) n FROM reports WHERE kind='user' AND target=?", (t["id"],)) or {}).get("n", 0)
+    vt = {"major": "🔷 Major", "official": "⚫️ Official", "blue": "✅ Синяя галочка"}.get(t.get("vtier") or "", "нет")
+    lines = [
+        f"👤 Пользователь: {name}" + (f" (@{t['username']})" if t.get("username") else ""),
+        f"🆔 ID: {t['id']} | Номер: {t['number']}",
+        f"🗓 Регистрация: {datetime.fromtimestamp(t.get('created') or 0, tz=timezone.utc).strftime('%d.%m.%Y')} ({ago_ru(t.get('created') or 0)})",
+        f"📶 Статус: {st} | Смена IP: {ipch}",
+        f"🚩 Репорты от других юзеров: {reps}",
+        f"⛔️ Текущий статус блока: {'🔴 Заблокирован ' + hc_fmt_ts(t.get('banned_at')) if t.get('banned') else '🟢 Не заблокирован'}",
+        f"🔐 Облачный пароль: {'установлен' if t.get('cloud_hash') else 'не установлен'}",
+        f"⭐ Звёзды: {t.get('stars') or 0} · 💎 Premium: {'до ' + hc_fmt_ts(t['premium_until']) if is_premium(t) else 'нет'}",
+        f"✅ Верификация: {vt}",
+    ]
+    un_ = qa("SELECT name, ton FROM unames WHERE uid=? ORDER BY id", (t["id"],))
+    if un_:
+        lines.append("🏷 Коллекционные имена: " + ", ".join(f"@{r['name']} ({fmt_ton(r['ton'])} TON)" for r in un_))
+    sess = qa("SELECT device, ip, country, last_used FROM sessions WHERE user_id=? ORDER BY last_used DESC LIMIT 5", (t["id"],))
+    lines.append("—— Сеансы ——" if sess else "Активных сеансов нет.")
+    for s in sess:
+        lines.append(f"{s['device'] or '?'} · {s['ip'] or '?'} · {s['country'] or '?'} · {hc_fmt_ts(s['last_used'])}")
+    return "\n".join(lines), hc_card_kb(t)
+
+
+def hc_card_kb(t):
+    uid = t["id"]
+    if t.get("is_system"):
+        return [[{"t": "👤 Открыть профиль", "o": f"user:{uid}"}]]
+    ban = {"t": "🟢 Разблокировать", "d": f"unban:{uid}"} if t.get("banned") else {"t": "⛔️ Заблокировать (Бан)", "d": f"ban:{uid}"}
+    return [[ban],
+            [{"t": "🧹 Очистить сообщения", "d": f"clear:{uid}"}, {"t": "🗑 Удалить аккаунт", "d": f"del:{uid}"}],
+            [{"t": "💬 Связаться", "d": f"dm:{uid}"}, {"t": "🎁 Выдать", "d": f"g:{uid}"}],
+            [{"t": "👤 Открыть профиль", "o": f"user:{uid}"}]]
+
+
+NUM_FULL_RE = re.compile(r"^\+?888(\d{8})$")
+
+
+def parse_new_number(text):
+    """Новый номер: строго +888 и ровно 8 цифр (пробелы, дефисы и скобки не мешают, «+» можно не писать).
+    Возвращает '+888XXXXXXXX' или None."""
+    t = re.sub(r"[\s\-()]", "", str(text or ""))
+    m = NUM_FULL_RE.match(t)
+    return "+888" + m.group(1) if m else None
+
+
+def hc_number_card(t):
+    """Карточка «Номера»: кто это, текущий номер и кнопка «Изменить номер»."""
+    if t.get("deleted"):
+        return "⚫️ Аккаунт удалён.", None
+    name = " ".join(x for x in (t.get("name"), t.get("surname")) if x) or "—"
+    lines = [f"📞 {name}" + (f" (@{t['username']})" if t.get("username") else ""), f"🆔 ID: {t['id']}", f"📱 Текущий номер: {t['number']}"]
+    if t.get("is_system") or t["number"] == ADMIN_NUMBER:
+        lines.append("🔒 У служебных аккаунтов и владельца номер менять нельзя.")
+        return "\n".join(lines), None
+    return "\n".join(lines), [[{"t": "✏️ Изменить номер", "d": f"nm:{t['id']}"}]]
+
+
+def hc_cmd_numbers(text):
+    text = (text or "").strip()
+    if not text:
+        return "Напишите номер или @username аккаунта — покажу номер и кнопку «Изменить номер».", None
+    r = hc_resolve(text)
+    if not r or r[0] != "user":
+        return "Пользователь не найден. Напишите номер (+888…), @username или ID.", None
+    return hc_number_card(r[1])
+
+
+def change_user_number(t, new, by):
+    """Смена номера админом. Возвращает текст результата («✅ …» или причина отказа)."""
+    t = fresh(t["id"])
+    if not t or t.get("deleted"):
+        return "❌ Аккаунт не найден или удалён."
+    if t.get("is_system") or t["number"] == ADMIN_NUMBER:
+        return "❌ У служебных аккаунтов и владельца номер менять нельзя."
+    if new == t["number"]:
+        return "❌ Это уже текущий номер аккаунта."
+    if new == ADMIN_NUMBER:
+        return "❌ Этот номер зарезервирован."
+    with db_lock:
+        if q1("SELECT 1 FROM users WHERE number=? AND id!=?", (new, t["id"])):
+            return "❌ Номер уже занят другим аккаунтом."
+        old = t["number"]
+        run("UPDATE users SET number=? WHERE id=?", (new, t["id"]))
+        run("DELETE FROM codes WHERE number=?", (new,))
+        run("DELETE FROM locks WHERE number=?", (new,))
+    notify_profile(t["id"])
+    hc_log(f"📞 {who_label(by)}: номер {old} → {new} (ID {t['id']})")
+    return f"✅ Номер изменён: {old} → {new}\nАккаунт: {who_label(fresh(t['id']))}"
+
+
 def hc_cmd_info(text):
     r = hc_resolve(text)
     if not r or r[0] != "user":
-        return "Аккаунт не найден. Укажите номер телефона или @username."
-    t = r[1]
-    lines = [
-        f"📱 Номер: {t['number']}",
-        f"👤 Имя: {((t.get('name') or '') + ' ' + (t.get('surname') or '')).strip() or '—'}",
-        f"🔖 Username: @{t['username']}" if t.get("username") else "🔖 Username: —",
-        f"🔐 Облачный пароль: {'установлен' if t.get('cloud_hash') else 'не установлен'}",
-        f"🗓 Регистрация: {hc_fmt_ts(t.get('created') or 0)}",
-        f"⭐ Звёзды: {t.get('stars') or 0}",
-        f"💎 Premium: {'до ' + hc_fmt_ts(t['premium_until']) if is_premium(t) else 'нет'}",
-    ]
-    sess = qa("SELECT device, ip, country, last_used FROM sessions WHERE user_id=? ORDER BY last_used DESC LIMIT 5", (t["id"],))
-    lines.append("—— Последние сессии ——" if sess else "Сессий нет.")
-    for s in sess:
-        lines.append(f"{s['device'] or '?'} · {s['ip'] or '?'} · {s['country'] or '?'} · {hc_fmt_ts(s['last_used'])}")
-    return "\n".join(lines)
+        return "Аккаунт не найден. Укажите номер телефона, @username или ID.", None
+    return hc_card(r[1])
+
+
+# ── бан / разбан / очистка / удаление / связь ──
+def kick_ws(uid, payload=None):
+    for ws in list(clients.get(uid, [])):
+        try:
+            if payload:
+                ws.send(json.dumps(payload))
+            ws.close()
+        except Exception:
+            pass
+
+
+def protected_acc(t):
+    return bool(t.get("is_system")) or t.get("number") == ADMIN_NUMBER
+
+
+def ban_user(t, by):
+    if protected_acc(t):
+        return "Этот аккаунт заблокировать нельзя"
+    if t.get("deleted"):
+        return "Аккаунт уже удалён"
+    if t.get("banned"):
+        return "Уже заблокирован"
+    backup = {k: t.get(k) or "" for k in ("name", "surname", "username", "avatar", "bio", "estatus")}
+    with db_lock:
+        run("""UPDATE users SET banned=1, banned_at=?, ban_backup=?, name='Удалённый аккаунт', surname='', username='',
+               avatar='', bio='', estatus='' WHERE id=?""", (int(time.time()), encrypt_text(json.dumps(backup, ensure_ascii=False)), t["id"]))
+        run("DELETE FROM sessions WHERE user_id=?", (t["id"],))
+        run("DELETE FROM fcm_tokens WHERE user_id=?", (t["id"],))
+        run("DELETE FROM push_subs WHERE user_id=?", (t["id"],))
+    kick_ws(t["id"], {"type": "banned"})                         # открытые приложения сразу выходят из аккаунта
+    notify_profile(t["id"])
+    hc_log(f"⛔️ {who_label(by)} заблокировал(а) {t['number']} (id {t['id']})")
+    return None
+
+
+def unban_user(t, by):
+    if not t.get("banned"):
+        return "Аккаунт не заблокирован"
+    try:
+        b = json.loads(decrypt_text(t["ban_backup"])) if t.get("ban_backup") else {}
+    except Exception:
+        b = {}
+    uname = b.get("username") or ""
+    if uname and name_taken(uname, skip_user=t["id"]):
+        uname = ""                                                 # пока был в бане, имя занял кто-то другой
+    run("""UPDATE users SET banned=0, banned_at=0, ban_backup='', name=?, surname=?, username=?, avatar=?, bio=?, estatus=?
+           WHERE id=?""", (b.get("name") or "Пользователь", b.get("surname") or "", uname, b.get("avatar") or "",
+                           b.get("bio") or "", b.get("estatus") or "", t["id"]))
+    notify_profile(t["id"])
+    hc_log(f"🟢 {who_label(by)} разблокировал(а) {t['number']} (id {t['id']})")
+    return None
+
+
+def clear_user_messages(t, by, log=True):
+    """Удалить у всех ВСЁ, что человек отправил: сообщения, голосовые, файлы, стикеры, реакции и истории."""
+    uid = t["id"]
+    rows = qa("SELECT id, sender, receiver, fid, tfid FROM messages WHERE sender=?", (uid,))
+    ids = [r["id"] for r in rows]
+    fids = [f for r in rows for f in (r.get("fid"), r.get("tfid"))]
+    with db_lock:
+        for i in range(0, len(ids), 400):
+            part = ids[i:i + 400]
+            ph = ",".join("?" * len(part))
+            run(f"DELETE FROM reacts WHERE msg_id IN ({ph})", part)
+            run(f"DELETE FROM messages WHERE id IN ({ph})", part)
+        run("DELETE FROM reacts WHERE user_id=?", (uid,))
+        st = qa("SELECT fid, tfid FROM stories WHERE owner=?", (uid,))
+        fids += [f for s in st for f in (s.get("fid"), s.get("tfid"))]
+        run("DELETE FROM stories WHERE owner=?", (uid,))
+    try:
+        gc_files(fids)
+    except Exception as e:
+        print("clear gc:", e)
+    by_user = {}
+    for r in rows:
+        aud = member_ids(-r["receiver"]) if r["receiver"] < 0 else (r["receiver"], r["sender"])
+        for v in aud:
+            by_user.setdefault(v, []).append(r["id"])
+    for v, lst in by_user.items():
+        if clients.get(v):
+            for i in range(0, len(lst), 500):
+                push(v, {"type": "del", "ids": lst[i:i + 500]})
+    if log:
+        hc_log(f"🧹 {who_label(by)} очистил(а) все сообщения {t['number']}: удалено {len(ids)}")
+    return len(ids)
+
+
+def delete_account(t, by):
+    """Полное удаление (как GDPR): профиль стирается, номер освобождается для новой регистрации."""
+    if protected_acc(t):
+        return "Этот аккаунт удалить нельзя", 0
+    if t.get("deleted"):
+        return "Аккаунт уже удалён", 0
+    uid, number = t["id"], t["number"]
+    n = clear_user_messages(t, by, log=False)
+    with db_lock:
+        for tbl, col in (("sessions", "user_id"), ("fcm_tokens", "user_id"), ("push_subs", "user_id"),
+                         ("game_wallet", "user_id"), ("game_scores", "user_id")):
+            run(f"DELETE FROM {tbl} WHERE {col}=?", (uid,))
+        run("DELETE FROM saved_contacts WHERE owner=? OR contact=?", (uid, uid))
+        # свои группы/каналы — передаём самому старому администратору (или участнику); пустые — удаляем
+        for ch in qa("SELECT * FROM chats WHERE owner=?", (uid,)):
+            nxt = q1("""SELECT user_id FROM chat_members WHERE chat_id=? AND user_id!=?
+                        ORDER BY CASE role WHEN 'admin' THEN 0 ELSE 1 END, joined LIMIT 1""", (ch["id"], uid))
+            if nxt:
+                run("UPDATE chats SET owner=? WHERE id=?", (nxt["user_id"], ch["id"]))
+                run("UPDATE chat_members SET role='owner' WHERE chat_id=? AND user_id=?", (ch["id"], nxt["user_id"]))
+            else:
+                run("DELETE FROM messages WHERE receiver=?", (-ch["id"],))
+                run("DELETE FROM chats WHERE id=?", (ch["id"],))
+        run("DELETE FROM chat_members WHERE user_id=?", (uid,))
+        run("DELETE FROM unames WHERE uid=?", (uid,))
+        run("""UPDATE users SET number=?, tg_id=NULL, name='Удалённый аккаунт', surname='', username='', bio='', bio_ents=NULL, avatar='',
+               estatus='', cloud_hash='', cloud_salt='', cloud_hint='', login_email='', prefs='', priv='', biz='', stars=0,
+               premium_until=0, nft=0, vtier='', uname_nft=0, uname_ton=0, pchan=0, banned=0, ban_backup='', deleted=1
+               WHERE id=?""", (f"deleted:{uid}:{int(time.time())}", uid))
+    kick_ws(uid, {"type": "banned", "deleted": 1})
+    notify_profile(uid)
+    hc_log(f"🗑 {who_label(by)} удалил(а) аккаунт {number} (id {uid}), сообщений: {n}")
+    return None, n
+
+
+def support_dm(t, text, by):
+    if t.get("deleted") or t.get("banned"):
+        return "Аккаунт заблокирован или удалён — написать нельзя"
+    add_message(support_id(), t["id"], text)
+    hc_log(f"💬 {who_label(by)} написал(а) от Dicegram Support → {t['number']}: {text[:120]}")
+    return None
+
+
+# ── выдача ──
+NFT_UNAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{2,30}[A-Za-z0-9]$")       # NFT-юзернейм: от 4 до 32 символов
 
 
 def random_ton_price(name):
@@ -3517,115 +4472,783 @@ def random_ton_price(name):
     return random.randint(lo, hi)
 
 
-def hc_cmd_grant(text):
+def uname_holder(name):
+    """Кому сейчас принадлежит коллекционное имя (строка unames) или None."""
+    return q1("SELECT * FROM unames WHERE name=? COLLATE NOCASE", (name or "",))
+
+
+def check_nft_uname(name, uid):
+    """None — имя можно выдать. Коллекционное имя, которое уже у другого человека, администратор может ОТОБРАТЬ
+    (оно перейдёт новому владельцу); обычный username или адрес канала отобрать нельзя."""
+    if not NFT_UNAME_RE.match(name or "") or "__" in name:
+        return "От 4 до 32 символов: латиница, цифры и _, начинается с буквы"
+    old = uname_holder(name)
+    if old and old["uid"] == uid:
+        return "Это имя уже у этого пользователя"
+    if old:
+        if q1("SELECT 1 FROM users WHERE username=? COLLATE NOCASE AND id!=?", (name, old["uid"])) or q1("SELECT 1 FROM chats WHERE slug=? COLLATE NOCASE", (name,)):
+            return "Это имя уже занято"
+    elif name_taken(name, skip_user=uid):
+        return "Это имя уже занято"
+    if name.lower() in RESERVED:
+        return "Это имя зарезервировано"
+    return None
+
+
+def grant_stars(t, amt, by):
+    run("UPDATE users SET stars=MAX(0, stars+?) WHERE id=?", (amt, t["id"]))
+    star_tx(t["id"], amt, "Начислено администратором", "grant")
+    notify_profile(t["id"])
+    return f"✅ {'+' if amt >= 0 else ''}{amt} ⭐ → {who_label(t)}"
+
+
+def grant_premium(t, days, by):
+    t = fresh(t["id"])
+    base = max(int(time.time()), t.get("premium_until") or 0) if days > 0 else int(time.time())
+    run("UPDATE users SET premium_until=? WHERE id=?", (base + days * 86400 if days > 0 else 0, t["id"]))
+    if days > 0 and not (t.get("estatus") or "") and not t.get("nft"):
+        run("UPDATE users SET estatus='b:star' WHERE id=?", (t["id"],))
+    notify_profile(t["id"])
+    hc_log(f"💎 {who_label(by)}: Premium {('+' + str(days) + ' дн.') if days > 0 else 'отключён'} → {t['number']}")
+    return f"✅ Premium {('на ' + str(days) + ' дн.') if days > 0 else 'отключён'} → {who_label(t)}"
+
+
+def grant_gift(t, key, by):
+    e, n, pr, up = GIFTS[key]
+    gid = run("""INSERT INTO gifts(from_id,to_id,key,coll,model,backdrop,pattern,num,anon,msg,price,ts,shown)
+                 VALUES(?,?,?,'',0,0,0,0,0,'',?,?,1)""", (SYSTEM_ID, t["id"], key, pr, int(time.time()))).lastrowid
+    gift_message(SYSTEM_ID, t["id"], q1("SELECT * FROM gifts WHERE id=?", (gid,)), f"🎁 Подарок от создателя: {n}")
+    notify_profile(t["id"])
+    hc_log(f"🎁 {who_label(by)}: подарок «{n}» → {t['number']}")
+    return f"✅ Подарок {e} «{n}» → {who_label(t)}"
+
+
+def grant_nft(t, coll, backdrop, by, model=None, pattern=None):
+    """Выдать NFT-подарок от создателя. model / pattern / backdrop — индексы из MODELS / PATTERNS / BACKDROPS; None — случайно."""
+    a = mint(coll, t["id"])
+    if not a:
+        return "Тираж этой коллекции закончился"
+    if backdrop is not None and 0 <= backdrop < len(BACKDROPS):
+        a["backdrop"] = backdrop
+    if model is not None and 0 <= model < len(MODELS):
+        a["model"] = model
+    if pattern is not None and 0 <= pattern < len(PATTERNS):
+        a["pattern"] = pattern
+    price = COLLS[coll][3]
+    gid = run("""INSERT INTO gifts(from_id,to_id,key,coll,model,backdrop,pattern,num,anon,msg,price,ts,shown)
+                 VALUES(?,?,?,?,?,?,?,?,0,'',?,?,1)""",
+              (SYSTEM_ID, t["id"], "c:" + coll, a["coll"], a["model"], a["backdrop"], a["pattern"], a["num"], price, int(time.time()))).lastrowid
+    gift_message(SYSTEM_ID, t["id"], q1("SELECT * FROM gifts WHERE id=?", (gid,)), f"🎁 NFT-подарок от создателя: {COLLS[coll][1]}")
+    notify_profile(t["id"])
+    mo, pt, bd = MODELS[a["model"]][0], PATTERNS[a["pattern"]][0], BACKDROPS[a["backdrop"]][0]
+    hc_log(f"💠 {who_label(by)}: NFT «{COLLS[coll][1]} №{a['num']}» ({mo} · {pt} · {bd}) → {t['number']}")
+    return f"✅ NFT {COLLS[coll][0]} «{COLLS[coll][1]} №{a['num']}» → {who_label(t)}\n🧬 Модель: {mo}\n✨ Узор: {pt}\n🎨 Фон: {bd}"
+
+
+def fnum(v, lo, hi):
+    """Дробное число из ввода «15», «15.5», «15,5» (иначе None)."""
+    try:
+        x = float(str(v).strip().replace(" ", "").replace(",", "."))
+    except (TypeError, ValueError):
+        return None
+    return round(x, 2) if x == x and lo <= x <= hi else None
+
+
+def fmt_ton(x):
+    x = float(x or 0)
+    return f"{x:.0f}" if x == int(x) else f"{x:.2f}".rstrip("0")
+
+
+def parse_ton_usd(text):
+    """«15», «15.5» или «15 15.73» → (TON, $ или None); None, если не число."""
+    parts = str(text or "").replace("$", " ").split()
+    ton = fnum(parts[0], 0.01, 10 ** 9) if parts else None
+    if ton is None:
+        return None
+    return ton, (fnum(parts[1], 0.01, 10 ** 9) if len(parts) > 1 else None)
+
+
+def grant_uname(t, name, price, by, usd=None):
+    """Выдать коллекционное имя: основной username человека НЕ меняется — имя добавляется в «а также»."""
+    e = check_nft_uname(name, t["id"])
+    if e:
+        return f"Нельзя выдать @{name}: {e}"
+    ton = round(float(price), 2)
+    usd = round(float(usd), 2) if usd else round(ton * TON_USD, 2)
+    old = uname_holder(name)
+    prev = fresh(old["uid"]) if old else None
+    with db_lock:
+        if old:
+            run("DELETE FROM unames WHERE id=?", (old["id"],))          # отбираем у прежнего владельца
+            run("UPDATE users SET username='' WHERE id=? AND username=? COLLATE NOCASE", (old["uid"], name))      # если оно было у него основным
+        run("INSERT INTO unames(uid,name,ton,usd,ts,by) VALUES(?,?,?,?,?,?)", (t["id"], name, ton, usd, int(time.time()), by["id"] if by else 0))
+    notify_profile(t["id"])
+    took = ""
+    if prev:
+        notify_profile(prev["id"])
+        try:
+            add_message(SYSTEM_ID, prev["id"], f"Коллекционное имя @{name} передано другому пользователю.", auto=True)
+        except Exception as e:
+            print("uname take notice:", repr(e))
+        took = f" Отобран у {who_label(prev)}."
+    hc_log(f"🏷 {who_label(by)}: коллекционное имя @{name} ({fmt_ton(ton)} TON, ${usd:.2f}) → {t['number']}" + (f" (отобран у {prev['number']})" if prev else ""))
+    return f"✅ @{name} выдан {who_label(t)} как коллекционное имя ({fmt_ton(ton)} TON, ${usd:.2f}). Основной username не изменён." + took
+
+
+def hc_grant_menu(t):
+    uid = t["id"]
+    return (f"🎁 Выдача для: {who_label(t)}\nЧто выдать?",
+            [[{"t": "⭐ Звёзды", "d": f"g:s:{uid}"}, {"t": "💎 Premium", "d": f"g:p:{uid}"}],
+             [{"t": "🎁 Подарок", "d": f"g:g:{uid}"}, {"t": "💠 NFT-подарок", "d": f"g:n:{uid}"}],
+             [{"t": "🏷 NFT-юзернейм", "d": f"g:u:{uid}"}]])
+
+
+def hc_cmd_grant(text, actor):
+    """Текстом: «<номер/@ник> stars 500» и т.п. (как раньше) или просто «<номер/@ник>» — дальше кнопками."""
     parts = text.split()
-    if len(parts) < 2:
-        return "Формат: <номер/@ник> stars <число> | premium <дней> | gift <ключ> | nft <коллекция> | username <имя>"
+    if not parts:
+        return "Напишите номер, @username или ID — дальше выберите кнопками, что выдать.", None
     r = hc_resolve(parts[0])
-    what = parts[1].lower()
     if not r or r[0] != "user":
-        return "Пользователь не найден."
+        return "Пользователь не найден.", None
     t = r[1]
+    if t.get("deleted") or t.get("banned"):
+        return "Аккаунт заблокирован или удалён.", None
+    if len(parts) == 1:
+        return hc_grant_menu(t)
+    what = parts[1].lower()
+    arg = parts[2] if len(parts) > 2 else ""
     if what == "username":
-        name = (parts[2] if len(parts) > 2 else "").lstrip("@")
-        e = check_username(name, t["id"])
-        if e:
-            return f"Нельзя выдать @{name}: {e}"
-        price = random_ton_price(name)
-        run("UPDATE users SET username=?, uname_nft=1, uname_ton=? WHERE id=?", (name, price, t["id"]))
-        notify_profile(t["id"])
-        return f"Готово: @{name} выдан {t['number']} как NFT-юзернейм (≈{price} TON)."
+        name = arg.lstrip("@")
+        pr = parse_ton_usd(" ".join(parts[3:5])) if len(parts) > 3 else None
+        return grant_uname(t, name, pr[0] if pr else random_ton_price(name), actor, pr[1] if pr else None), None
     if what == "stars":
-        amt = num(parts[2], -1_000_000, 1_000_000) if len(parts) > 2 else None
-        if amt is None:
-            return "Укажите количество звёзд, например: +88800000001 stars 500"
-        run("UPDATE users SET stars=MAX(0, stars+?) WHERE id=?", (amt, t["id"]))
-        star_tx(t["id"], amt, "Начислено администратором", "grant")
-        notify_profile(t["id"])
-        return f"Готово: {'+' if amt >= 0 else ''}{amt} ⭐ пользователю {t['number']}."
+        amt = num(arg, -1_000_000, 1_000_000)
+        return (grant_stars(t, amt, actor) if amt is not None else "Укажите количество звёзд, например: +88800000001 stars 500"), None
     if what == "premium":
-        days = num(parts[2], -3650, 3650) if len(parts) > 2 else None
-        if days is None:
-            return "Укажите число дней, например: +88800000001 premium 30"
-        base = max(int(time.time()), t.get("premium_until") or 0) if days > 0 else int(time.time())
-        run("UPDATE users SET premium_until=? WHERE id=?", (base + days * 86400 if days > 0 else 0, t["id"]))
-        notify_profile(t["id"])
-        return f"Готово: Premium {'+' + str(days) + ' дн.' if days > 0 else 'отключён'} пользователю {t['number']}."
+        days = num(arg, -3650, 3650)
+        return (grant_premium(t, days, actor) if days is not None else "Укажите число дней, например: +88800000001 premium 30"), None
     if what == "gift":
-        key = parts[2] if len(parts) > 2 else ""
-        if key not in GIFTS:
-            return "Неизвестный подарок. Доступные: " + ", ".join(GIFTS.keys())
-        e, n, pr, up = GIFTS[key]
-        gid = run("""INSERT INTO gifts(from_id,to_id,key,coll,model,backdrop,pattern,num,anon,msg,price,ts,shown)
-                     VALUES(?,?,?,'',0,0,0,0,0,'',?,?,1)""", (SYSTEM_ID, t["id"], key, pr, int(time.time()))).lastrowid
-        gift_message(SYSTEM_ID, t["id"], q1("SELECT * FROM gifts WHERE id=?", (gid,)), f"🎁 Подарок от создателя: {n}")
-        notify_profile(t["id"])
-        return f"Готово: подарок «{n}» отправлен {t['number']}."
+        return (grant_gift(t, arg, actor) if arg in GIFTS else "Неизвестный подарок. Доступные: " + ", ".join(GIFTS.keys())), None
     if what == "nft":
-        coll = parts[2] if len(parts) > 2 else ""
-        if coll not in COLLS:
-            return "Неизвестная коллекция. Доступные: " + ", ".join(COLLS.keys())
-        a = mint(coll, t["id"])
-        if not a:
-            return "Тираж этой коллекции закончился."
-        price = COLLS[coll][3]
-        gid = run("""INSERT INTO gifts(from_id,to_id,key,coll,model,backdrop,pattern,num,anon,msg,price,ts,shown)
-                     VALUES(?,?,?,?,?,?,?,?,0,'',?,?,1)""",
-                  (SYSTEM_ID, t["id"], "c:" + coll, a["coll"], a["model"], a["backdrop"], a["pattern"], a["num"], price, int(time.time()))).lastrowid
-        gift_message(SYSTEM_ID, t["id"], q1("SELECT * FROM gifts WHERE id=?", (gid,)), f"🎁 NFT-подарок от создателя: {COLLS[coll][1]}")
-        notify_profile(t["id"])
-        return f"Готово: NFT «{COLLS[coll][1]} №{a['num']}» выдан {t['number']}."
-    return "Неизвестная команда. Используйте: stars / premium / gift / nft"
+        return (grant_nft(t, arg, None, actor) if arg in COLLS else "Неизвестная коллекция. Доступные: " + ", ".join(COLLS.keys())), None
+    return "Неизвестная команда. Используйте: stars / premium / gift / nft / username — или просто номер.", None
 
 
-def hc_cmd_verify(text):
-    parts = text.split()
-    if len(parts) < 2:
-        return "Формат: <номер/@ник/#id> major | official | none"
-    tier = parts[1].lower()
-    if tier not in ("major", "official", "none"):
-        return "Укажите: major, official или none (снять отметку)."
-    r = hc_resolve(parts[0])
-    if not r:
-        return "Не найдено. Укажите номер телефона, @username или #id чата."
-    kind, row = r
+# ── верификация ──
+def set_vtier(kind, row, tier, by):
     val = "" if tier == "none" else tier
     if kind == "user":
         run("UPDATE users SET vtier=? WHERE id=?", (val, row["id"]))
         notify_profile(row["id"])
-        label = row["number"]
+        label = who_label(row)
     else:
         run("UPDATE chats SET vtier=? WHERE id=?", (val, row["id"]))
         push_chat_update(chat_row(row["id"]))
-        label = f"#{row['id']}" + (f" ({row['title']})" if row.get("title") else "")
+        label = f"#{row['id']}" + (f" «{row['title']}»" if row.get("title") else "")
+    hc_log(f"✅ {who_label(by)}: верификация {('«' + val.capitalize() + '»') if val else 'снята'} → {label}")
     if val:
-        return f"Готово: {label} получил отметку «{'Major' if val == 'major' else 'Official'}» (Подтверждено Dicegram)."
-    return f"Готово: отметка снята у {label}."
+        if val == "blue":
+            return f"✅ {label}: синяя галочка (подтверждено администрацией Dicegram)"
+        return f"✅ {label}: отметка «{'Major' if val == 'major' else 'Official'}» (подтверждено администрацией Dicegram)"
+    return f"✅ Отметка снята: {label}"
+
+
+def hc_verify_menu(kind, row):
+    k = "u" if kind == "user" else "c"
+    label = (("🤖 Бот " if row.get("bot") else "") + who_label(row)) if kind == "user" else f"{'Канал' if row['kind'] == 'channel' else 'Группа'} «{row['title']}» (#{row['id']})"
+    cur = {"major": "🔷 Major", "official": "⚫️ Official", "blue": "✅ Синяя галочка"}.get(row.get("vtier") or "", "нет")
+    return (f"✅ Верификация: {label}\nСейчас: {cur}\nКакую выдать?",
+            [[{"t": "✅ Синяя галочка", "d": f"v:{k}:{row['id']}:blue"}],
+             [{"t": "🔷 Major", "d": f"v:{k}:{row['id']}:major"}, {"t": "⚫️ Official", "d": f"v:{k}:{row['id']}:official"}],
+             [{"t": "❌ Снять отметку", "d": f"v:{k}:{row['id']}:none"}]])
+
+
+def hc_cmd_verify(text, actor):
+    parts = text.split()
+    if not parts:
+        return "Напишите номер, @username или #id группы/канала.", None
+    r = hc_resolve(parts[0])
+    if not r:
+        return "Не найдено. Укажите номер телефона, @username или #id чата.", None
+    kind, row = r
+    if len(parts) == 1:
+        return hc_verify_menu(kind, row)
+    tier = parts[1].lower()
+    if tier not in ("blue", "major", "official", "none"):
+        return "Укажите: blue (синяя галочка), major, official или none (снять отметку).", None
+    return set_vtier(kind, row, tier, actor), None
+
+
+# ── жалобы ──
+REPORT_REASONS = {"spam": "Спам", "scam": "Мошенничество", "abuse": "Оскорбления", "violence": "Насилие",
+                  "porn": "Неприемлемый контент", "child": "Нарушение прав детей", "illegal": "Незаконные товары",
+                  "fake": "Выдаёт себя за другого", "other": "Другое"}
+
+
+def report_evidence(reporter, kind, target):
+    """Снимок переписки на момент жалобы — доказательство для модерации. Сообщения, которые кто-то из двоих
+    удалил «только у себя», тоже попадают (они ещё есть у собеседника); всё, что будет удалено ПОСЛЕ жалобы,
+    сохранится в этом снимке."""
+    if kind == "user":
+        rows = qa("""SELECT * FROM messages WHERE ((sender=? AND receiver=?) OR (sender=? AND receiver=?))
+                     AND COALESCE(kind,'text')!='call' ORDER BY id DESC LIMIT 300""", (reporter, target, target, reporter))
+    else:
+        rows = qa("SELECT * FROM messages WHERE receiver=? ORDER BY id DESC LIMIT 200", (-target,)) if member_row(target, reporter) else []
+    msgs = []
+    for r in reversed(rows):
+        a = meta_load(r["meta"]).get("a") or {}
+        msgs.append({"id": r["id"], "from": r["sender"], "ts": r["ts"], "kind": r.get("kind") or "text",
+                     "text": decrypt_text(r["text"])[:4000], "name": str(a.get("name") or "")[:120], "fid": r.get("fid") or "",
+                     "mime": str(a.get("mime") or "")[:60], "del": 1 if (r.get("del_s") or r.get("del_r")) else 0,
+                     "edited": 1 if r.get("edited") else 0})
+    return {"msgs": msgs, "taken": int(time.time())}
+
+
+def hc_report_post(rid):
+    r = q1("SELECT * FROM reports WHERE id=?", (rid,))
+    if not r:
+        return 0
+    frm = q1("SELECT * FROM users WHERE id=?", (r["reporter"],))
+    if r["kind"] == "user":
+        tgt = q1("SELECT * FROM users WHERE id=?", (r["target"],))
+        on = who_label(tgt)
+    else:
+        tgt = chat_row(r["target"])
+        on = f"{'канал' if tgt and tgt['kind'] == 'channel' else 'группа'} «{tgt['title'] if tgt else '?'}» (#{r['target']})"
+    lines = [f"🚨 Жалоба #{rid} · {REPORT_REASONS.get(r['reason'], r['reason'])}",
+             f"👤 От: {who_label(frm)}", f"🎯 На: {on}"]
+    if r.get("text"):
+        lines.append(f"📝 Комментарий: {r['text']}")
+    lines.append(f"🕐 {hc_fmt_ts(r['ts'])}")
+    if (r.get("status") or "open") != "open":
+        lines.append(f"✅ {r['status']}")
+    kb = [[{"t": "👤 Кто пожаловался", "d": f"rep:from:{rid}"}] + ([{"t": "👤 На кого", "d": f"rep:to:{rid}"}] if r["kind"] == "user" else []),
+          [{"t": "💬 Посмотреть переписку", "o": f"report:{rid}"}]]
+    if (r.get("status") or "open") == "open":
+        row2 = [{"t": "✅ Закрыть жалобу", "d": f"rep:close:{rid}"}]
+        if r["kind"] == "user" and tgt and not tgt.get("banned") and not tgt.get("deleted"):
+            row2.insert(0, {"t": "⛔️ Забанить", "d": f"ban:{r['target']}"})
+        kb.append(row2)
+    return "\n".join(lines), kb
+
+
+# ── статистика ──
+_peak = {}
+
+
+def local_day(ts=None):
+    return (datetime.fromtimestamp(ts if ts is not None else time.time(), tz=timezone.utc) + timedelta(hours=STATS_TZ)).date()
+
+
+def day_start_ts(d):
+    return int((datetime(d.year, d.month, d.day, tzinfo=timezone.utc) - timedelta(hours=STATS_TZ)).timestamp())
+
+
+def stats_seen_online():
+    """Пиковый онлайн за день: запоминаем максимум одновременно подключённых людей."""
+    try:
+        n, day = len(clients), local_day().isoformat()
+        if n > _peak.get(day, -1):
+            if day not in _peak:
+                _peak[day] = (kv_get("peak:" + day) or 0)
+            if n > _peak[day]:
+                _peak[day] = n
+                kv_set("peak:" + day, n)
+    except Exception as e:
+        print("peak:", e)
+
+
+def stats_text(d0, d1, title):
+    """Отчёт за дни [d0, d1] (локальные даты, включительно)."""
+    t0, t1 = day_start_ts(d0), day_start_ts(d1 + timedelta(days=1))
+    sys_ = tuple(system_ids()) or (0,)
+    ph = ",".join("?" * len(sys_))
+    c = lambda sql, args: (q1(sql, args) or {}).get("n", 0) or 0
+    new = c(f"SELECT COUNT(*) n FROM users WHERE created>=? AND created<? AND is_system=0", (t0, t1))
+    msgs = c(f"""SELECT COUNT(*) n FROM messages WHERE ts>=? AND ts<? AND COALESCE(kind,'text') NOT IN ('svc','greet','call')
+                 AND sender NOT IN ({ph})""", (t0, t1) + sys_)
+    active = c(f"""SELECT COUNT(DISTINCT sender) n FROM messages WHERE ts>=? AND ts<? AND COALESCE(kind,'text') NOT IN ('svc','greet')
+                   AND sender NOT IN ({ph})""", (t0, t1) + sys_)
+    calls = c("SELECT COUNT(*) n FROM messages WHERE ts>=? AND ts<? AND kind='call'", (t0, t1))
+    groups = c("SELECT COUNT(*) n FROM chats WHERE ts>=? AND ts<? AND kind='group'", (t0, t1))
+    chans = c("SELECT COUNT(*) n FROM chats WHERE ts>=? AND ts<? AND kind='channel'", (t0, t1))
+    stories = c("SELECT COUNT(*) n FROM stories WHERE ts>=? AND ts<?", (t0, t1))
+    reps = c("SELECT COUNT(*) n FROM reports WHERE ts>=? AND ts<?", (t0, t1))
+    total = c("SELECT COUNT(*) n FROM users WHERE is_system=0 AND COALESCE(deleted,0)=0", ())
+    peak, d = 0, d0
+    while d <= d1:
+        peak = max(peak, int(kv_get("peak:" + d.isoformat()) or 0), _peak.get(d.isoformat(), 0))
+        d += timedelta(days=1)
+    return (f"📊 {title}\n\n👥 Новых пользователей: +{new}\n💬 Отправлено сообщений: {msgs}\n🙋 Активных пользователей: {active}\n"
+            f"📞 Звонков: {calls}\n👪 Новых групп: {groups} · каналов: {chans}\n📸 Историй: {stories}\n"
+            f"🔝 Пиковый онлайн: {peak} {ru_plural(peak, 'человек', 'человека', 'человек')}\n🚩 Жалоб: {reps}\n\n"
+            f"Всего пользователей: {total}")
+
+
+STATS_KB = [[{"t": "📅 Сегодня", "d": "st:today"}, {"t": "🗓 7 дней", "d": "st:week"}, {"t": "📆 30 дней", "d": "st:month"}]]
+
+
+def stats_for(kind):
+    today = local_day()
+    if kind == "week":
+        return stats_text(today - timedelta(days=6), today, f"Последние 7 дней ({(today - timedelta(days=6)).strftime('%d.%m')}–{today.strftime('%d.%m.%Y')})")
+    if kind == "month":
+        return stats_text(today - timedelta(days=29), today, f"Последние 30 дней ({(today - timedelta(days=29)).strftime('%d.%m')}–{today.strftime('%d.%m.%Y')})")
+    return stats_text(today, today, f"За сегодня, {today.strftime('%d.%m.%Y')} (пока)")
+
+
+def stats_tick():
+    """Раз в минуту: после полуночи — итоги вчерашнего дня, в понедельник — итоги прошлой недели."""
+    try:
+        now_l = datetime.now(timezone.utc) + timedelta(hours=STATS_TZ)
+        if now_l.hour == 0 and now_l.minute < 5:
+            return
+        y = now_l.date() - timedelta(days=1)
+        if kv_get("stats_daily") != y.isoformat() and hc_id():
+            kv_set("stats_daily", y.isoformat())
+            hc_post("stats", stats_text(y, y, f"Итоги дня {y.strftime('%d.%m.%Y')}"), kb=STATS_KB)
+        if now_l.weekday() == 0:
+            w1 = now_l.date() - timedelta(days=1)
+            w0 = w1 - timedelta(days=6)
+            if kv_get("stats_weekly") != w1.isoformat() and hc_id():
+                kv_set("stats_weekly", w1.isoformat())
+                hc_post("stats", stats_text(w0, w1, f"Итоги недели {w0.strftime('%d.%m')}–{w1.strftime('%d.%m.%Y')}"), kb=STATS_KB)
+    except Exception as e:
+        print("stats_tick:", e)
+
+
+# ── кнопки под сообщениями бота ──
+def back_kb(uid):
+    return [[{"t": "« Назад", "d": f"g:{uid}"}]]
+
+
+def hc_action(u, row, data):
+    """Нажатие кнопки под сообщением бота в админ-панели. Возвращает текст всплывающей подсказки (или "")."""
+    mid, topic = row["id"], row.get("topic") or 0
+    p = data.split(":")
+    k = p[0]
+    tgt = lambda i: q1("SELECT * FROM users WHERE id=?", (num(p[i], 1, 2 ** 62) or 0,)) if len(p) > i else None
+    if k == "noop":
+        if len(p) > 1 and p[1] == "cancel":
+            hc_edit(mid, "Отменено.", [])
+        return ""
+    if k == "mt":
+        return maint_action(u, row, p)
+    if k == "nm":
+        t = tgt(1)
+        if not t or t.get("deleted"):
+            return "Пользователь не найден"
+        if t.get("is_system") or t["number"] == ADMIN_NUMBER:
+            return "У служебных аккаунтов и владельца номер менять нельзя"
+        hc_wait[u["id"]] = {"k": "number", "t": t["id"], "topic": topic, "ts": time.time(), "mid": mid}
+        hc_edit(mid, f"📞 {who_label(t)}\nТекущий номер: {t['number']}\n\nНапишите новый номер: +888 и ровно 8 цифр, например +88812345678.",
+                [[{"t": "❌ Отмена", "d": "w:cancel"}]])
+        return ""
+    if k in ("ban", "unban"):
+        t = tgt(1)
+        if not t:
+            return "Пользователь не найден"
+        e = ban_user(t, u) if k == "ban" else unban_user(t, u)
+        if e:
+            return e
+        t = fresh(t["id"])
+        # если это карточка аккаунта — перерисовываем её, иначе (жалоба) — только кнопки
+        if meta_load(row["meta"]).get("card") == t["id"]:
+            txt, kb = hc_card(t)
+            hc_edit(mid, txt, kb)
+        else:
+            rep = meta_load(row["meta"]).get("rep")
+            if rep:
+                txt, kb = hc_report_post(rep)
+                hc_edit(mid, txt, kb)
+        return "Заблокирован: все сеансы завершены" if k == "ban" else "Разблокирован"
+    if k in ("clear", "del"):
+        t = tgt(1)
+        if not t:
+            return "Пользователь не найден"
+        what = (f"🧹 Удалить ВСЕ сообщения {who_label(t)}?\nТекст, голосовые, файлы, стикеры, реакции и истории исчезнут у всех. Отменить нельзя."
+                if k == "clear" else
+                f"🗑 Удалить аккаунт {who_label(t)} полностью?\nПрофиль и все отправленные сообщения будут стёрты, номер освободится. Отменить нельзя.")
+        hc_reply(topic, what, [[{"t": "✅ Да, удалить", "d": f"{k}Y:{t['id']}"}, {"t": "❌ Нет", "d": "noop:cancel"}]])
+        return ""
+    if k == "clearY":
+        t = tgt(1)
+        if not t:
+            return "Пользователь не найден"
+        n = clear_user_messages(t, u)
+        hc_edit(mid, f"✅ Удалено сообщений: {n} — {who_label(t)}", [])
+        return f"Удалено: {n}"
+    if k == "delY":
+        t = tgt(1)
+        if not t:
+            return "Пользователь не найден"
+        label = who_label(t)
+        e, n = delete_account(t, u)
+        if e:
+            hc_edit(mid, f"❌ {e}", [])
+            return e
+        hc_edit(mid, f"✅ Аккаунт {label} удалён. Сообщений стёрто: {n}. Номер свободен.", [])
+        return "Аккаунт удалён"
+    if k == "dm":
+        t = tgt(1)
+        if not t:
+            return "Пользователь не найден"
+        hc_wait[u["id"]] = {"k": "dm", "t": t["id"], "topic": topic, "ts": time.time()}
+        hc_reply(topic, f"💬 Напишите следующим сообщением текст для {who_label(t)} — он придёт в личку от «{SUPPORT_NAME}».",
+                 [[{"t": "❌ Отмена", "d": "w:cancel"}]])
+        return ""
+    if k == "w" and len(p) > 1 and p[1] == "cancel":
+        hc_wait.pop(u["id"], None)
+        hc_edit(mid, "Отменено.", [])
+        return ""
+    if k == "g":
+        # g:<uid> — меню выдачи; g:s|p|g|n|u|sx:<uid> — разделы
+        if len(p) == 2:
+            t = tgt(1)
+            if not t:
+                return "Пользователь не найден"
+            txt, kb = hc_grant_menu(t)
+            if meta_load(row["meta"]).get("gm") == t["id"]:
+                hc_edit(mid, txt, kb)
+            else:
+                gid = hc_reply(topic, txt, kb)
+                hc_mark(gid, gm=t["id"])
+            return ""
+        sub, t = p[1], tgt(2)
+        if not t:
+            return "Пользователь не найден"
+        uid = t["id"]
+        if sub == "s":
+            hc_edit(mid, f"⭐ Сколько звёзд выдать {who_label(t)}?",
+                    [[{"t": f"+{x}", "d": f"gs:{uid}:{x}"} for x in (50, 100, 250)],
+                     [{"t": f"+{x}", "d": f"gs:{uid}:{x}"} for x in (500, 1000, 5000)],
+                     [{"t": "✍️ Другое количество", "d": f"g:sx:{uid}"}]] + back_kb(uid))
+        elif sub == "sx":
+            hc_wait[u["id"]] = {"k": "stars", "t": uid, "topic": topic, "ts": time.time(), "mid": mid}
+            hc_edit(mid, f"⭐ Напишите количество звёзд для {who_label(t)} (со знаком минус — списать).", [[{"t": "❌ Отмена", "d": "w:cancel"}]])
+        elif sub == "p":
+            hc_edit(mid, f"💎 Premium для {who_label(t)}:",
+                    [[{"t": "1 месяц", "d": f"gp:{uid}:30"}, {"t": "3 месяца", "d": f"gp:{uid}:90"}],
+                     [{"t": "6 месяцев", "d": f"gp:{uid}:180"}, {"t": "1 год", "d": f"gp:{uid}:365"}],
+                     [{"t": "❌ Отключить Premium", "d": f"gp:{uid}:0"}]] + back_kb(uid))
+        elif sub == "g":
+            keys = list(GIFTS.keys())
+            rows_ = [[{"t": f"{GIFTS[x][0]} {GIFTS[x][1]}", "d": f"gg:{uid}:{x}"} for x in keys[i:i + 3]] for i in range(0, len(keys), 3)]
+            hc_edit(mid, f"🎁 Какой подарок отправить {who_label(t)}?", rows_ + back_kb(uid))
+        elif sub == "n":
+            keys = list(COLLS.keys())
+            rows_ = [[{"t": f"{COLLS[x][0]} {COLLS[x][1]}", "d": f"gn:{uid}:{x}"} for x in keys[i:i + 2]] for i in range(0, len(keys), 2)]
+            hc_edit(mid, f"💠 Какой NFT-подарок выдать {who_label(t)}?", rows_ + back_kb(uid))
+        elif sub == "u":
+            hc_wait[u["id"]] = {"k": "uname", "t": uid, "topic": topic, "ts": time.time(), "mid": mid}
+            hc_edit(mid, f"🏷 Напишите NFT-юзернейм для {who_label(t)}: от 4 до 32 символов (латиница, цифры, _).",
+                    [[{"t": "❌ Отмена", "d": "w:cancel"}]])
+        return ""
+    if k in ("gs", "gp", "gg", "gn", "gnm", "gnp", "gnb", "gu"):
+        t = tgt(1)
+        if not t:
+            return "Пользователь не найден"
+        if t.get("banned") or t.get("deleted"):
+            return "Аккаунт заблокирован или удалён"
+        uid = t["id"]
+        if k == "gs":
+            amt = num(p[2] if len(p) > 2 else "", -1_000_000, 1_000_000)
+            if amt is None:
+                return "Неверное количество"
+            res = grant_stars(t, amt, u)
+            hc_log(f"⭐ {who_label(u)}: {'+' if amt >= 0 else ''}{amt} → {t['number']}")
+        elif k == "gp":
+            days = num(p[2] if len(p) > 2 else "", 0, 3650)
+            if days is None:
+                return "Неверный срок"
+            res = grant_premium(t, days, u)
+        elif k == "gg":
+            key = p[2] if len(p) > 2 else ""
+            if key not in GIFTS:
+                return "Неизвестный подарок"
+            res = grant_gift(t, key, u)
+        elif k == "gn":
+            coll = p[2] if len(p) > 2 else ""
+            if coll not in COLLS:
+                return "Неизвестная коллекция"
+            rows_ = [[{"t": f"{MODELS[i][0]} · {MODELS[i][2] / 10:g}%", "d": f"gnm:{uid}:{coll}:{i}"} for i in range(j, min(j + 2, len(MODELS)))]
+                     for j in range(0, len(MODELS), 2)]
+            hc_edit(mid, f"🧬 Модель для {COLLS[coll][0]} «{COLLS[coll][1]}» → {who_label(t)}:",
+                    rows_ + [[{"t": "🎲 Случайная модель", "d": f"gnm:{uid}:{coll}:-1"}],
+                             [{"t": "🎲 Всё случайно", "d": f"gnb:{uid}:{coll}:-1:-1:-1"}]] + back_kb(uid))
+            return ""
+        elif k == "gnm":
+            coll = p[2] if len(p) > 2 else ""
+            mi = num(p[3] if len(p) > 3 else "", -1, len(MODELS) - 1)
+            if coll not in COLLS or mi is None:
+                return "Неверный выбор"
+            rows_ = [[{"t": f"{PATTERNS[i][0]} · {PATTERNS[i][2] / 10:g}%", "d": f"gnp:{uid}:{coll}:{mi}:{i}"} for i in range(j, min(j + 2, len(PATTERNS)))]
+                     for j in range(0, len(PATTERNS), 2)]
+            mn = MODELS[mi][0] if mi >= 0 else "случайная"
+            hc_edit(mid, f"✨ Узор для {COLLS[coll][0]} «{COLLS[coll][1]}» (модель: {mn}) → {who_label(t)}:",
+                    rows_ + [[{"t": "🎲 Случайный узор", "d": f"gnp:{uid}:{coll}:{mi}:-1"}]] + back_kb(uid))
+            return ""
+        elif k == "gnp":
+            coll = p[2] if len(p) > 2 else ""
+            mi = num(p[3] if len(p) > 3 else "", -1, len(MODELS) - 1)
+            pi_ = num(p[4] if len(p) > 4 else "", -1, len(PATTERNS) - 1)
+            if coll not in COLLS or mi is None or pi_ is None:
+                return "Неверный выбор"
+            rows_ = [[{"t": BACKDROPS[i][0], "d": f"gnb:{uid}:{coll}:{mi}:{pi_}:{i}"} for i in range(j, min(j + 3, len(BACKDROPS)))]
+                     for j in range(0, len(BACKDROPS), 3)]
+            mn = MODELS[mi][0] if mi >= 0 else "случайная"
+            pn = PATTERNS[pi_][0] if pi_ >= 0 else "случайный"
+            hc_edit(mid, f"🎨 Фон для {COLLS[coll][0]} «{COLLS[coll][1]}» (модель: {mn}, узор: {pn}) → {who_label(t)}:",
+                    rows_ + [[{"t": "🎲 Случайный фон", "d": f"gnb:{uid}:{coll}:{mi}:{pi_}:-1"}]] + back_kb(uid))
+            return ""
+        elif k == "gnb":
+            coll = p[2] if len(p) > 2 else ""
+            if len(p) >= 6:          # gnb:<uid>:<coll>:<модель>:<узор>:<фон>
+                mi, pi_, bi = (num(p[3], -1, len(MODELS) - 1), num(p[4], -1, len(PATTERNS) - 1), num(p[5], -1, len(BACKDROPS) - 1))
+            else:                    # старый вид gnb:<uid>:<coll>:<фон> — модель и узор случайные
+                mi, pi_, bi = -1, -1, num(p[3] if len(p) > 3 else "", -1, len(BACKDROPS) - 1)
+            if coll not in COLLS or mi is None or pi_ is None or bi is None:
+                return "Неверный выбор"
+            res = grant_nft(t, coll, None if bi < 0 else bi, u, None if mi < 0 else mi, None if pi_ < 0 else pi_)
+        else:   # gu:<uid>:<name>:<price|r>
+            name = p[2] if len(p) > 2 else ""
+            price = random_ton_price(name) if (len(p) < 4 or p[3] == "r") else (num(p[3], 1, 10 ** 9) or random_ton_price(name))
+            hc_wait.pop(u["id"], None)
+            res = grant_uname(t, name, price, u)
+        hc_edit(mid, res, back_kb(uid))
+        return "Готово" if res.startswith("✅") else res
+    if k == "v":
+        # v:u|c:<id>:<tier>
+        if len(p) < 4 or p[3] not in ("blue", "major", "official", "none"):
+            return "Неверный выбор"
+        kind = "user" if p[1] == "u" else "chat"
+        rid = num(p[2], 1, 2 ** 62) or 0
+        row2 = q1("SELECT * FROM users WHERE id=?", (rid,)) if kind == "user" else chat_row(rid)
+        if not row2:
+            return "Не найдено"
+        res = set_vtier(kind, row2, p[3], u)
+        txt, kb = hc_verify_menu(kind, q1("SELECT * FROM users WHERE id=?", (rid,)) if kind == "user" else chat_row(rid))
+        hc_edit(mid, res + "\n\n" + txt, kb)
+        return "Готово"
+    if k == "rep":
+        rid = num(p[2] if len(p) > 2 else "", 1, 2 ** 62) or 0
+        r = q1("SELECT * FROM reports WHERE id=?", (rid,))
+        if not r:
+            return "Жалоба не найдена"
+        if p[1] in ("from", "to"):
+            t = q1("SELECT * FROM users WHERE id=?", (r["reporter"] if p[1] == "from" else r["target"],))
+            if not t:
+                return "Аккаунт не найден"
+            txt, kb = hc_card(t)
+            cid_ = hc_reply(topic, txt, kb)
+            hc_mark(cid_, card=t["id"])
+            return ""
+        if p[1] == "close":
+            run("UPDATE reports SET status=? WHERE id=?", (f"Закрыта: {who_label(u)}, {hc_fmt_ts(time.time())}", rid))
+            txt, kb = hc_report_post(rid)
+            hc_edit(mid, txt, kb)
+            hc_log(f"✅ {who_label(u)} закрыл(а) жалобу #{rid}")
+            return "Жалоба закрыта"
+    if k == "st":
+        hc_reply(topic, stats_for(p[1] if len(p) > 1 else "today"), STATS_KB)
+        return ""
+    if k == "rep_u":
+        t = tgt(1)
+        if not t:
+            return "Аккаунт не найден"
+        txt, kb = hc_card(t)
+        hc_mark(hc_reply(topic, txt, kb), card=t["id"])
+        return ""
+    return "Кнопка устарела"
+
+
+def hc_mark(mid, **kw):
+    """Пометка в сообщении бота: к какому аккаунту/жалобе оно относится (чтобы кнопки потом перерисовали его)."""
+    if not mid:
+        return
+    row = q1("SELECT * FROM messages WHERE id=?", (mid,))
+    if not row:
+        return
+    meta = meta_load(row["meta"])
+    meta.update(kw)
+    run("UPDATE messages SET meta=? WHERE id=?", (meta_dump(meta), mid))
+
+
+def hc_input(u, topic, text):
+    """Ответ на вопрос бота («напишите количество…»). True — сообщение было этим ответом."""
+    w = hc_wait.get(u["id"])
+    if not w or w.get("topic") != topic or time.time() - w["ts"] > HC_WAIT_TTL:
+        return False
+    if str(w.get("k", "")).startswith("mt_"):                  # вопросы карточки «Техработы» — без привязки к пользователю
+        hc_wait.pop(u["id"], None)
+        return maint_input(u, topic, w, text)
+    t = q1("SELECT * FROM users WHERE id=?", (w["t"],))
+    hc_wait.pop(u["id"], None)
+    if not t:
+        hc_reply(topic, "Пользователь не найден.")
+        return True
+    if w["k"] == "dm":
+        e = support_dm(t, text[:4000], u)
+        hc_reply(topic, f"❌ {e}" if e else f"✅ Отправлено от «{SUPPORT_NAME}» → {who_label(t)}")
+    elif w["k"] == "stars":
+        amt = num(text.strip().replace(" ", ""), -1_000_000, 1_000_000)
+        if amt is None:
+            hc_wait[u["id"]] = dict(w, ts=time.time())
+            hc_reply(topic, "Нужно целое число, например 750 или -100. Напишите ещё раз.")
+        else:
+            res = grant_stars(t, amt, u)
+            hc_log(f"⭐ {who_label(u)}: {'+' if amt >= 0 else ''}{amt} → {t['number']}")
+            if w.get("mid"):
+                hc_edit(w["mid"], res, back_kb(t["id"]))
+            else:
+                hc_reply(topic, res)
+    elif w["k"] == "uname":
+        name = text.strip().lstrip("@")
+        e = check_nft_uname(name, t["id"])
+        if e:
+            hc_wait[u["id"]] = dict(w, ts=time.time())
+            hc_reply(topic, f"Нельзя: {e}. Напишите другое имя.")
+        else:
+            hc_wait[u["id"]] = {"k": "uprice", "t": t["id"], "topic": topic, "ts": time.time(), "name": name, "mid": w.get("mid")}
+            pr = random_ton_price(name)
+            hold = uname_holder(name)
+            hp = fresh(hold["uid"]) if hold else None
+            hc_reply(topic, (f"🏷 @{name} сейчас у {who_label(hp)} — выдам новому владельцу, а у него заберу.\n" if hp else f"🏷 @{name} свободен — ") + f"выдам как коллекционное имя (основной username человека не изменится).\n"
+                            f"Сколько TON он стоит? Напишите число, например 15 или 15.5. Если хотите указать и сумму в $, добавьте её через пробел: 15 15.73 "
+                            f"(иначе $ посчитаю по курсу). Или нажмите кнопку.",
+                     [[{"t": f"🎲 Случайная цена ({pr} TON)", "d": f"gu:{t['id']}:{name}:{pr}"}], [{"t": "❌ Отмена", "d": "w:cancel"}]])
+    elif w["k"] == "number":
+        new = parse_new_number(text)
+        if not new:
+            hc_wait[u["id"]] = dict(w, ts=time.time())
+            hc_reply(topic, "Номер должен быть строго +888 и ровно 8 цифр после него (всего 11 цифр), например +88812345678. Напишите ещё раз.")
+        else:
+            res = change_user_number(t, new, u)
+            if res.startswith("❌"):
+                hc_wait[u["id"]] = dict(w, ts=time.time())
+                hc_reply(topic, res + "\nНапишите другой номер или нажмите «Отмена».", [[{"t": "❌ Отмена", "d": "w:cancel"}]])
+            else:
+                if w.get("mid"):
+                    hc_edit(w["mid"], res, [])
+                else:
+                    hc_reply(topic, res)
+    elif w["k"] == "uprice":
+        price = parse_ton_usd(text)
+        if price is None:
+            hc_wait[u["id"]] = dict(w, ts=time.time())
+            hc_reply(topic, "Нужно число TON, например 15 или 15.5 (можно добавить цену в $ через пробел).")
+        else:
+            res = grant_uname(t, w["name"], price[0], u, price[1])
+            if w.get("mid"):
+                hc_edit(w["mid"], res, back_kb(t["id"]))
+            else:
+                hc_reply(topic, res)
+    return True
 
 
 def hc_dispatch(ch, u, topic, text):
-    """Команда владельца в одной из тем служебной группы → выполнить и ответить тут же."""
-    if not topic or not is_admin(u):
+    """Сообщение участника в теме админ-панели → команда; бот отвечает тут же (с кнопками)."""
+    if not topic:
         return
     hch, topics = ensure_helpcreator()
-    if not topics or not hch or hch["id"] != ch["id"]:
+    if not topics or not hch or hch["id"] != ch["id"] or not member_row(ch["id"], u["id"]):
+        return
+    if hc_input(u, topic, text):
         return
     key = next((k for k, v in topics.items() if v == topic), None)
-    if not key or key in ("logs", "new"):
+    if not key or key in ("logs", "new", "reports"):
         return
+    reply, kb, mark = None, None, {}
     try:
         if key == "info":
-            reply = hc_cmd_info(text)
+            reply, kb = hc_cmd_info(text)
+            r = hc_resolve(text)
+            if kb and r and r[0] == "user":
+                mark = {"card": r[1]["id"]}
         elif key == "grant":
-            reply = hc_cmd_grant(text)
+            reply, kb = hc_cmd_grant(text, u)
+            r = hc_resolve(text.split()[0]) if text.split() else None
+            if kb and r and r[0] == "user":
+                mark = {"gm": r[1]["id"]}
         elif key == "verify":
-            reply = hc_cmd_verify(text)
-        else:
-            reply = None
+            reply, kb = hc_cmd_verify(text, u)
+        elif key == "numbers":
+            reply, kb = hc_cmd_numbers(text)
+        elif key == "maint":
+            reply, kb = maint_card()
+        elif key == "stats":
+            low = text.strip().lower()
+            kind = "week" if "нед" in low or "7" in low else "month" if "мес" in low or "30" in low else "today"
+            reply, kb = stats_for(kind), STATS_KB
     except Exception as e:
         reply = f"Ошибка: {e}"
     if reply:
-        add_gmessage(ch, SYSTEM_ID, reply, topic=topic)
+        mid = hc_reply(topic, reply, kb)
+        if mark:
+            hc_mark(mid, **mark)
+
+
+@app.post("/api/hc/cb")
+def hc_cb():
+    """Нажатие кнопки под сообщением бота в админ-панели. Только для участников admin-panel."""
+    u = auth_user()
+    if not u:
+        return err("Требуется вход", 401)
+    d = body()
+    mid = num(d.get("id"), 1, 2 ** 62) or 0
+    data = str(d.get("d") or "")[:160]
+    row = q1("SELECT * FROM messages WHERE id=?", (mid,))
+    ch, _ = ensure_helpcreator()
+    if not row or not ch or row["receiver"] != -ch["id"] or row["sender"] != SYSTEM_ID:
+        return err("Кнопка недоступна", 404)
+    if not member_row(ch["id"], u["id"]):
+        return err("Нет доступа", 403)
+    if not hit("hccb", u["id"], 40, 20):
+        return err("Слишком часто", 429)
+    try:
+        res = hc_action(u, row, data)
+    except Exception as e:
+        print("hc_action:", repr(e))
+        res = f"Ошибка: {e}"
+    return jsonify(ok=True, toast=res or "")
+
+
+@app.get("/api/hc/report/<int:rid>")
+def hc_report_view(rid):
+    """Переписка-доказательство по жалобе. Только участникам admin-panel; каждый просмотр — в «Логи»."""
+    u = auth_user()
+    if not u:
+        return err("Требуется вход", 401)
+    if not hc_member(u["id"]):
+        return err("Нет доступа", 403)
+    r = q1("SELECT * FROM reports WHERE id=?", (rid,))
+    if not r:
+        return err("Жалоба не найдена", 404)
+    try:
+        ev = json.loads(decrypt_text(r["evidence"])) if r.get("evidence") else {"msgs": []}
+    except Exception:
+        ev = {"msgs": []}
+    ids = {r["reporter"]} | ({r["target"]} if r["kind"] == "user" else set()) | {m["from"] for m in ev.get("msgs", [])}
+    users = {}
+    for x in (qa(f"SELECT * FROM users WHERE id IN ({','.join('?' * len(ids))})", list(ids)) if ids else []):
+        users[x["id"]] = {"id": x["id"], "name": " ".join(y for y in (x["name"], x.get("surname")) if y) or "Пользователь",
+                          "number": x["number"] if not str(x["number"]).startswith("deleted:") else "", "avatar": x.get("avatar") or "",
+                          "banned": 1 if x.get("banned") else 0}
+    msgs = []
+    for m in ev.get("msgs", []):
+        o = dict(m)
+        if o.get("fid"):
+            o["url"] = file_url(o["fid"], u["id"])
+        o.pop("fid", None)
+        msgs.append(o)
+    hc_log(f"👁 {who_label(u)} открыл(а) переписку по жалобе #{rid}")
+    tgt = chat_row(r["target"]) if r["kind"] == "chat" else None
+    return jsonify(ok=True, report={"id": rid, "kind": r["kind"], "reporter": r["reporter"], "target": r["target"],
+                                    "reason": REPORT_REASONS.get(r["reason"], r["reason"]), "text": r.get("text") or "",
+                                    "ts": r["ts"], "taken": ev.get("taken") or r["ts"], "status": r.get("status") or "open",
+                                    "chat": tgt["title"] if tgt else ""},
+                   users=users, messages=msgs)
 
 
 # ───────────────────── БИЗНЕС-ФУНКЦИИ (только с Premium) ─────────────────────
@@ -3820,6 +5443,11 @@ def support_send():
         return err("Слишком часто. Попробуйте позже", 429)
     run("INSERT INTO support(user_id,text,ts) VALUES(?,?,?)", (u["id"], text, int(time.time())))
     alert_admin(f"🆘 Обращение в поддержку от {u['number']}:\n{text[:500]}")
+    try:
+        hc_post("reports", f"🆘 Обращение в поддержку\n👤 От: {who_label(u)}\n\n{text[:1500]}",
+                kb=[[{"t": "💬 Ответить", "d": f"dm:{u['id']}"}, {"t": "🔎 Инфо", "d": f"rep_u:{u['id']}"}]])
+    except Exception as e:
+        print("support → admin-panel:", e)
     return jsonify(ok=True)
 
 
@@ -3835,7 +5463,7 @@ RIGHTS_G = ("info", "delete", "ban", "invite", "pin", "topics", "calls", "admins
 RIGHTS_C = ("info", "post", "edit", "delete", "pin", "ban", "invite", "calls", "admins")
 RIGHTS_DEFAULT = ("info", "delete", "ban", "invite", "pin", "topics", "calls", "post", "edit")
 SLOW_STEPS = (0, 2, 5, 10, 30, 60, 300, 900, 3600)
-SLUG_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{3,31}$")
+PUB_SLUG_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{4,31}$")
 LINK_RE = re.compile(r"^[A-Za-z0-9_-]{4,40}$")
 URL_IN_TEXT = re.compile(r"(https?://|www\.|t\.me/|tg://)\S+", re.I)
 MAX_MEMBERS = 5000
@@ -3944,7 +5572,7 @@ def chat_public(ch, m=None, count=None):
     if ch["slug"]:
         d["plink"] = link_url(ch["slug"], "p")      # публичная ссылка (по адресу)
     vt = ch.get("vtier") or ""
-    if vt in ("major", "official"):
+    if vt in ("major", "official", "blue"):
         d["verified"] = 1
         d["vtier"] = vt
     if ch["kind"] == "channel" and ch.get("disc_chat_id"):
@@ -3963,6 +5591,8 @@ def chat_public(ch, m=None, count=None):
 
 def chat_full(ch, m):
     d = chat_public(ch, m)
+    if ch["kind"] == "channel":
+        d["gifts_n"] = (q1("SELECT COUNT(*) n FROM gifts WHERE to_id=? AND shown=1 AND sold=0 AND key NOT LIKE 'prem:%'", (-ch["id"],)) or {}).get("n", 0)
     d.update({"hist": int(ch["hist"] or 0), "greet": ch["greet"] or "", "greet_on": int(ch["greet_on"] or 0), "perms_all": chat_perms(ch),
               "auto_del": ch["auto_del"] or 0, "sign": int(ch["sign"] or 0),
               "pfmt": link_url("{s}", "p")})            # шаблон публичной ссылки: {s} заменяется адресом
@@ -3970,6 +5600,8 @@ def chat_full(ch, m):
         d["admins"] = (q1("SELECT COUNT(*) n FROM chat_members WHERE chat_id=? AND role IN ('owner','admin')", (ch["id"],)) or {}).get("n", 0)
         d["banned"] = (q1("SELECT COUNT(*) n FROM chat_bans WHERE chat_id=?", (ch["id"],)) or {}).get("n", 0)
         d["links"] = (q1("SELECT COUNT(*) n FROM chat_links WHERE chat_id=? AND revoked=0", (ch["id"],)) or {}).get("n", 0)
+    if m and can_do(ch, m, "invite"):
+        d["reqs"] = (q1("SELECT COUNT(*) n FROM chat_reqs WHERE chat_id=?", (ch["id"],)) or {}).get("n", 0)
     if ch["kind"] == "channel":
         d["disc_chat_id"] = ch.get("disc_chat_id") or 0
         if d["disc_chat_id"]:
@@ -3999,7 +5631,7 @@ def push_chat_update(ch):
     chat_push(ch, fn)
 
 
-def add_gmessage(ch, sender, text, cid=None, kind="text", ents=None, att=None, reply_to=None, fw=None, topic=0, svc=None, only=0):
+def add_gmessage(ch, sender, text, cid=None, kind="text", ents=None, att=None, reply_to=None, fw=None, topic=0, svc=None, only=0, kb=None, extra=None):
     """Сообщение в группу или канал: сохраняем и рассылаем всем, кто сейчас в сети."""
     ts = int(time.time())
     ttl = 0 if kind in ("svc", "greet") else (ch["auto_del"] or 0)
@@ -4010,7 +5642,7 @@ def add_gmessage(ch, sender, text, cid=None, kind="text", ents=None, att=None, r
                 return ser_one(old, sender)
         mid = run("""INSERT INTO messages(sender,receiver,text,ts,cid,kind,meta,reply_to,fid,tfid,exp,topic,only_u) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                   (sender, -ch["id"], encrypt_text(text), ts, cid or None, kind,
-                   meta_dump({"e": ents, "a": att, "fw": fw, "s": svc}), reply_to,
+                   meta_dump({"e": ents, "a": att, "fw": fw, "s": svc, "kb": kb, **(extra or {})}), reply_to,
                    (att or {}).get("fid"), (att or {}).get("tfid"), ts + ttl if ttl else 0, topic or 0, only or 0)).lastrowid
         row = q1("SELECT * FROM messages WHERE id=?", (mid,))
     targets = [only] if only else member_ids(ch["id"])
@@ -4180,7 +5812,11 @@ def g_send(u, to, d, cid):
         return err("Слишком часто. Подождите пару секунд", 429)
     msg = add_gmessage(ch, u["id"], text, cid, kind, ents, att, reply_to, topic=topic)
     run("UPDATE chat_members SET last_send=? WHERE chat_id=? AND user_id=?", (int(time.time()), ch["id"], u["id"]))
-    if topic and text and is_admin(u):
+    try:
+        bot_group_hook(ch, q1("SELECT * FROM messages WHERE id=?", (msg["id"],)), u)
+    except Exception as e:
+        print("bot_group_hook:", repr(e))
+    if topic and text and is_hc(ch["id"]):
         try:
             hc_dispatch(ch, u, topic, text)
         except Exception as e:
@@ -4224,14 +5860,84 @@ def ensure_primary_link(ch, creator):
 
 
 def link_url(slug, pref="j"):
-    if BOT_APP_LINK:
-        return f"{BOT_APP_LINK}{'&' if '?' in BOT_APP_LINK else '?'}startapp={pref}_{slug}"
-    return WEB_URL.rstrip("/") + f"/#{pref}={slug}"
+    """Публичные ссылки — только на своём домене, как в Telegram:
+       профиль /<имя>, группа или канал /<имя>, сообщение /<имя>/<номер>, медиа /<имя>/<номер>?single,
+       приглашение /+КОД, закрытый чат (для участников) /c/<номер чата>/<номер сообщения>."""
+    b, sl = PUBLIC_BASE, str(slug)
+    if pref == "j":
+        return f"{b}/+{sl}"
+    if pref == "u":
+        return f"{b}/{sl}"
+    if pref == "e":
+        return f"{b}/addemoji/{sl}"
+    if pref == "c":
+        return f"{b}/biz/{sl}"
+    mm = re.fullmatch(r"(.+?)-(\d+)(-s)?", sl)
+    if pref == "k":
+        return f"{b}/c/{mm.group(1)}/{mm.group(2)}" + ("?single" if mm.group(3) else "") if mm else f"{b}/c/{sl}"
+    if mm:
+        return f"{b}/{mm.group(1)}/{mm.group(2)}" + ("?single" if mm.group(3) else "")
+    return f"{b}/{sl}"
+
+
+@app.post("/api/link")
+def link_make():
+    """Ссылки как в Telegram: {kind:"user", id} — профиль (по @имени); {kind:"chat", id} — группа/канал;
+    {kind:"msg", id: id_чата, mid, single?} — конкретное сообщение (single — открыть медиа отдельно).
+    Публичный чат — ссылка по адресу (#p=адрес-сообщение), закрытый — по номеру чата (#k=…), откроется только участникам."""
+    u = auth_user()
+    if not u:
+        return err("Требуется вход", 401)
+    d = body()
+    kind = str(d.get("kind") or "")
+    if kind == "user":
+        t = q1("SELECT * FROM users WHERE id=?", (num(d.get("id"), 1, 2 ** 62) or 0,))
+        if not t or t.get("banned") or t.get("deleted"):
+            return err("Аккаунт не найден", 404)
+        if not t.get("username"):
+            return err("У этого аккаунта нет имени пользователя (@username) — поделиться ссылкой нельзя")
+        return jsonify(ok=True, url=link_url(t["username"], "u"))
+    if kind not in ("chat", "msg"):
+        return err("Неизвестная ссылка")
+    cid = abs(num(d.get("id"), -2 ** 62, 2 ** 62) or 0)
+    ch = chat_row(cid)
+    m = member_row(cid, u["id"]) if ch else None
+    if not ch or is_hc(cid) or (not ch["slug"] and not m):
+        return err("Нет доступа", 403)
+    base, pref = (ch["slug"], "p") if ch["slug"] else (str(cid), "k")
+    if kind == "chat":
+        return jsonify(ok=True, url=link_url(base, pref), public=bool(ch["slug"]))
+    mid = num(d.get("mid"), 1, 2 ** 62) or 0
+    row = q1("SELECT * FROM messages WHERE id=? AND receiver=?", (mid, -cid))
+    if not row or (m and row["id"] < (m.get("first_id") or 0)):
+        return err("Сообщение не найдено", 404)
+    return jsonify(ok=True, url=link_url(f"{base}-{mid}" + ("-s" if d.get("single") else ""), pref), public=bool(ch["slug"]))
+
+
+@app.get("/api/msglink")
+def msglink_resolve():
+    """Куда ведёт ссылка на сообщение: чат (если есть доступ) и существует ли ещё сообщение."""
+    u = auth_user()
+    if not u:
+        return err("Требуется вход", 401)
+    slug, cid = str(request.args.get("p") or ""), request.args.get("k", type=int) or 0
+    mid = request.args.get("m", type=int) or 0
+    ch = q1("SELECT * FROM chats WHERE slug=? COLLATE NOCASE", (slug,)) if slug else chat_row(cid)
+    if not ch or is_hc(ch["id"]):
+        return err("Ссылка недействительна", 404)
+    m = member_row(ch["id"], u["id"])
+    if not m and not ch["slug"]:
+        return jsonify(ok=False, error="Это закрытая группа или канал — сообщение видно только участникам", private=True), 403
+    row = q1("SELECT * FROM messages WHERE id=? AND receiver=?", (mid, -ch["id"])) if mid else None
+    exists = bool(row) and (not m or row["id"] >= (m.get("first_id") or 0) or ch["kind"] == "channel" or ch["hist"])
+    return jsonify(ok=True, chat=chat_public(ch, m), joined=bool(m), exists=exists, topic=(row or {}).get("topic") or 0,
+                   slug=ch["slug"] or "")
 
 
 def link_out(l):
     return {"slug": l["slug"], "url": link_url(l["slug"]), "title": l["title"] or "", "prim": int(l["prim"]), "expires": l["expires"] or 0,
-            "lim": l["lim"] or 0, "uses": l["uses"] or 0, "revoked": int(l["revoked"]), "creator": l["creator"], "ts": l["ts"]}
+            "lim": l["lim"] or 0, "uses": l["uses"] or 0, "revoked": int(l["revoked"]), "creator": l["creator"], "ts": l["ts"],
+            "req": int(l.get("req") or 0)}
 
 
 def join_chat(ch, uid, adder=0, by=None):
@@ -4240,6 +5946,10 @@ def join_chat(ch, uid, adder=0, by=None):
     by — кто на самом деле совершил вход, для журнала действий (по умолчанию — сам uid, то есть самостоятельный вход,
     даже если adder указывает на создателя пригласительной ссылки)."""
     cid = ch["id"]
+    if is_hc(cid):
+        owner = get_admin_user()
+        if not owner or (by if by is not None else uid) != owner["id"]:
+            raise ValueError("В эту группу нельзя вступить")
     if q1("SELECT 1 FROM chat_bans WHERE chat_id=? AND user_id=?", (cid, uid)):
         raise ValueError("Вы заблокированы в этом канале" if ch["kind"] == "channel" else "Вы заблокированы в этой группе")
     with db_lock:
@@ -4268,10 +5978,16 @@ def send_greeting(ch, uid):
     add_gmessage(ch, ch["owner"], ch["greet"], None, "greet", only=uid)
 
 
-def add_members(ch, actor, ids):
+def add_members(ch, actor, ids, skipped=None):
     """Добавить нескольких человек: одно служебное сообщение «X добавил(а) …». Возвращает список добавленных."""
     added = []
+    au = q1("SELECT * FROM users WHERE id=?", (actor,)) or {}
     for i in ids:
+        tu = q1("SELECT * FROM users WHERE id=?", (i,))
+        if tu and not is_admin(au) and not priv_ok(tu, "invite", actor):     # человек закрыл приглашения в группы и каналы
+            if skipped is not None:
+                skipped.append({"id": i, "name": tu.get("name") or "Пользователь"})
+            continue
         try:
             if join_chat(ch, i, actor, by=actor):
                 added.append(i)
@@ -4367,9 +6083,19 @@ def chat_create():
         return err("Можно создать не больше %d групп и каналов" % MAX_OWNED)
     about = str(d.get("about") or "").strip()[:255]
     auto = num(d.get("auto_del"), 0, AUTO_DEL_MAX) or 0
+    sl = str(d.get("slug") or "").strip().lstrip("@")
+    if d.get("public") or sl:                                   # публичный чат: адрес обязателен, 5–32 символа
+        if not PUB_SLUG_RE.match(sl):
+            return err("Адрес публичной ссылки обязателен: от 5 до 32 символов — латиница, цифры, _. Должен начинаться с буквы")
+        if name_reserved(sl, u):
+            return err("Этот адрес зарезервирован")
+        if name_taken(sl):
+            return err("Такой адрес уже занят")
     now = int(time.time())
     with db_lock:
-        cid = run("INSERT INTO chats(kind,title,about,owner,ts,auto_del) VALUES(?,?,?,?,?,?)", (kind, title, about, u["id"], now, auto)).lastrowid
+        if sl and name_taken(sl):
+            return err("Такой адрес уже занят")
+        cid = run("INSERT INTO chats(kind,title,about,owner,ts,auto_del,slug) VALUES(?,?,?,?,?,?,?)", (kind, title, about, u["id"], now, auto, sl)).lastrowid
         run("INSERT INTO chat_members(chat_id,user_id,role,joined,adder) VALUES(?,?,'owner',?,0)", (cid, u["id"], now))
     ch = chat_row(cid)
     ensure_primary_link(ch, u["id"])
@@ -4381,10 +6107,11 @@ def chat_create():
             pass
     svc_add(chat_row(cid), u["id"], "create")
     ids = [i for i in (num(x, 1, 2 ** 62) for x in (d.get("members") or [])[:200] if isinstance(d.get("members"), list)) if i and i != u["id"] and is_contact(u["id"], i)]
+    skipped = []
     if ids:
-        add_members(chat_row(cid), u["id"], ids)
+        add_members(chat_row(cid), u["id"], ids, skipped)
     ch = chat_row(cid)
-    return jsonify(ok=True, chat=chat_full(ch, member_row(cid, u["id"])))
+    return jsonify(ok=True, chat=chat_full(ch, member_row(cid, u["id"])), skipped=skipped)
 
 
 @app.get("/api/chat/<int:cid>")
@@ -4431,8 +6158,10 @@ def chat_update(cid):
             return err("Нет прав на изменение", 403)
         if "slug" in d:
             sl = str(d.get("slug") or "").strip().lstrip("@")
-            if sl and not SLUG_RE.match(sl):
-                return err("Адрес: от 4 до 32 символов — латиница, цифры, _. Должен начинаться с буквы")
+            if sl and is_hc(cid):
+                return err("У admin-panel не может быть публичного адреса", 403)
+            if sl and not PUB_SLUG_RE.match(sl):
+                return err("Адрес: от 5 до 32 символов — латиница, цифры, _. Должен начинаться с буквы")
             if sl and name_reserved(sl, u):
                 return err("Этот адрес зарезервирован")
             if sl and name_taken(sl, skip_chat=cid):
@@ -4648,6 +6377,8 @@ def chat_add(cid):
         return err("Нет доступа", 403)
     if not can_do(ch, m, "invite"):
         return err("Нет прав на добавление участников", 403)
+    if is_hc(cid) and u["number"] != ADMIN_NUMBER:
+        return err("Добавлять участников в admin-panel может только владелец", 403)
     d = body()
     ids = [i for i in (num(x, 1, 2 ** 62) for x in (d.get("users") or [])[:50]) if i] if isinstance(d.get("users"), list) else []
     ids = [i for i in dict.fromkeys(ids) if i != u["id"]]
@@ -4665,8 +6396,47 @@ def chat_add(cid):
     else:
         for i in banned:
             run("DELETE FROM chat_bans WHERE chat_id=? AND user_id=?", (cid, i))
-    added = add_members(ch, u["id"], ids)
-    return jsonify(ok=True, added=added, chat=chat_full(chat_row(cid), member_row(cid, u["id"])))
+    skipped = []
+    added = add_members(ch, u["id"], ids, skipped)
+    return jsonify(ok=True, added=added, skipped=skipped, chat=chat_full(chat_row(cid), member_row(cid, u["id"])))
+
+
+@app.post("/api/bot/add_to_chat")
+def bot_add_to_chat():
+    """{bot, chat} — добавить бота в группу или канал (кнопка «Добавить в канал или группу» в профиле бота)."""
+    u = auth_user()
+    if not u:
+        return err("Требуется вход", 401)
+    d = body()
+    bid, cid = num(d.get("bot"), 1, 2 ** 62) or 0, num(d.get("chat"), 1, 2 ** 62) or 0
+    b, bu = bot_row(bid), q1("SELECT * FROM users WHERE id=?", (bid,))
+    if not b or not bu or not bu.get("bot") or bu.get("deleted") or bu.get("banned"):
+        return err("Бот не найден", 404)
+    if bid == dicebot_id():
+        return err("Dicebot нельзя добавить в чат")
+    ch, m = ctx(u, cid)
+    if not ch or not m:
+        return err("Нет доступа", 403)
+    if not can_do(ch, m, "invite"):
+        return err("Нет прав на добавление участников", 403)
+    if is_hc(cid):
+        return err("Сюда нельзя добавлять ботов", 403)
+    if not b["groups_ok"]:
+        return err("Владелец запретил добавлять этого бота в группы и каналы")
+    if not hit("botadd", u["id"], 20, 60):
+        return err("Слишком часто. Подождите минуту", 429)
+    if q1("SELECT 1 FROM chat_bans WHERE chat_id=? AND user_id=?", (cid, bid)):
+        run("DELETE FROM chat_bans WHERE chat_id=? AND user_id=?", (cid, bid))
+    try:
+        joined = join_chat(ch, bid, u["id"], by=u["id"])
+    except ValueError as e:
+        return err(str(e))
+    if not joined:
+        return jsonify(ok=False, error="Бот уже в этом чате", already=True), 409
+    if ch["kind"] == "group":
+        svc_add(ch, u["id"], "add", [bid])
+    push_chat_update(ch)
+    return jsonify(ok=True, chat=chat_full(chat_row(cid), member_row(cid, u["id"])))
 
 
 @app.post("/api/chat/<int:cid>/remove")
@@ -4876,14 +6646,17 @@ def chat_link_new(cid):
     ch, m = ctx(u, cid)
     if not ch or not m or m["role"] == "member" or not link_check(ch, m):
         return err("Нет прав", 403)
+    if is_hc(cid):
+        return err("В эту группу нельзя пригласить по ссылке", 403)
     d = body()
     if (q1("SELECT COUNT(*) n FROM chat_links WHERE chat_id=? AND revoked=0", (cid,)) or {}).get("n", 0) >= MAX_LINKS:
         return err("Можно создать не больше %d ссылок" % MAX_LINKS)
     exp_in = num(d.get("expires_in"), 0, 366 * 86400) or 0
     lim = num(d.get("lim"), 0, 99999) or 0
     slug = secrets.token_urlsafe(12).replace("-", "A").replace("_", "B")[:16]
-    run("INSERT INTO chat_links(slug,chat_id,creator,title,prim,expires,lim,ts) VALUES(?,?,?,?,0,?,?,?)",
-        (slug, cid, u["id"], str(d.get("title") or "").strip()[:32], int(time.time()) + exp_in if exp_in else 0, lim, int(time.time())))
+    run("INSERT INTO chat_links(slug,chat_id,creator,title,prim,expires,lim,ts,req) VALUES(?,?,?,?,0,?,?,?,?)",
+        (slug, cid, u["id"], str(d.get("title") or "").strip()[:32], int(time.time()) + exp_in if exp_in else 0, lim, int(time.time()),
+         1 if d.get("req") else 0))
     return jsonify(ok=True, link=link_out(q1("SELECT * FROM chat_links WHERE slug=?", (slug,))))
 
 
@@ -4902,8 +6675,9 @@ def chat_link_edit(cid):
     if l["creator"] != u["id"] and m["role"] != "owner":
         return err("Нет прав", 403)
     exp_in = num(d.get("expires_in"), 0, 366 * 86400) or 0
-    run("UPDATE chat_links SET title=?, expires=?, lim=? WHERE slug=?",
-        (str(d.get("title") or "").strip()[:32], int(time.time()) + exp_in if exp_in else 0, num(d.get("lim"), 0, 99999) or 0, l["slug"]))
+    run("UPDATE chat_links SET title=?, expires=?, lim=?, req=? WHERE slug=?",
+        (str(d.get("title") or "").strip()[:32], int(time.time()) + exp_in if exp_in else 0, num(d.get("lim"), 0, 99999) or 0,
+         (1 if d.get("req") else 0) if "req" in d else int(l.get("req") or 0), l["slug"]))
     return jsonify(ok=True, link=link_out(q1("SELECT * FROM chat_links WHERE slug=?", (l["slug"],))))
 
 
@@ -4937,6 +6711,9 @@ def join_preview(slug):
     m = member_row(ch["id"], u["id"])
     d = chat_public(ch, m)
     d.update(bio=ch["about"] or "", joined=bool(m))
+    if l and l.get("req") and not m:
+        d["req"] = 1                                        # вход только по заявке — клиент покажет «Отправить запрос»
+        d["requested"] = bool(q1("SELECT 1 FROM chat_reqs WHERE chat_id=? AND user_id=?", (ch["id"], u["id"])))
     if not m and q1("SELECT 1 FROM chat_bans WHERE chat_id=? AND user_id=?", (ch["id"], u["id"])):
         d["banned"] = True                                  # клиент покажет «Вы заблокированы в группе» вместо кнопки «Вступить»
     return jsonify(ok=True, chat=d)
@@ -4950,7 +6727,7 @@ def resolve_join(slug):
     l = q1("SELECT * FROM chat_links WHERE slug=?", (slug,))
     if l:
         ch = chat_row(l["chat_id"])
-        if not ch or l["revoked"]:
+        if not ch or l["revoked"] or is_hc(ch["id"]):
             return None, None
         if l["expires"] and l["expires"] < time.time():
             return None, None
@@ -4958,7 +6735,7 @@ def resolve_join(slug):
             return None, None
         return ch, l
     ch = q1("SELECT * FROM chats WHERE slug=? COLLATE NOCASE", (slug,))
-    return (ch, None) if ch else (None, None)
+    return (ch, None) if ch and not is_hc(ch["id"]) else (None, None)
 
 
 @app.post("/api/join")
@@ -4971,6 +6748,16 @@ def join_do():
     ch, l = resolve_join(body().get("slug"))
     if not ch:
         return err("Ссылка недействительна или устарела", 404)
+    if l and l.get("req") and not member_row(ch["id"], u["id"]):
+        # ссылка «с одобрением»: вместо входа создаём заявку, участником человек станет после решения админа
+        if q1("SELECT 1 FROM chat_bans WHERE chat_id=? AND user_id=?", (ch["id"], u["id"])):
+            return err("Вы заблокированы в этом канале" if ch["kind"] == "channel" else "Вы заблокированы в этой группе", 403)
+        if not q1("SELECT 1 FROM chat_reqs WHERE chat_id=? AND user_id=?", (ch["id"], u["id"])):
+            if (q1("SELECT COUNT(*) n FROM chat_reqs WHERE chat_id=?", (ch["id"],)) or {}).get("n", 0) >= MAX_REQS:
+                return err("Слишком много заявок. Попробуйте позже", 429)
+            run("INSERT OR REPLACE INTO chat_reqs(chat_id,user_id,slug,ts) VALUES(?,?,?,?)", (ch["id"], u["id"], l["slug"], int(time.time())))
+            notify_reqs(ch, u)
+        return jsonify(ok=True, joined=False, requested=True, chat=chat_public(ch, None))
     try:
         joined = join_chat(ch, u["id"], l["creator"] if l else 0, by=u["id"])
     except ValueError as e:
@@ -4983,6 +6770,84 @@ def join_do():
         send_greeting(ch, u["id"])
         push_chat_update(ch)
     return jsonify(ok=True, joined=joined, chat=chat_public(ch, member_row(ch["id"], u["id"])))
+
+
+# ── заявки на вступление ──
+MAX_REQS = 500
+
+
+def notify_reqs(ch, who):
+    """Сообщить онлайн-админам, что пришла новая заявка (клиент обновит счётчик и покажет уведомление)."""
+    n = (q1("SELECT COUNT(*) n FROM chat_reqs WHERE chat_id=?", (ch["id"],)) or {}).get("n", 0)
+    for mid in member_ids(ch["id"]):
+        if not clients.get(mid):
+            continue
+        mr = member_row(ch["id"], mid)
+        if mr and can_do(ch, mr, "invite"):
+            push(mid, {"type": "joinreq", "chat": -ch["id"], "gid": ch["id"], "n": n, "title": ch["title"],
+                       "user": {"id": who["id"], "name": uname(who["id"])}})
+
+
+@app.get("/api/chat/<int:cid>/requests")
+def chat_requests(cid):
+    u = auth_user()
+    if not u:
+        return err("Требуется вход", 401)
+    ch, m = ctx(u, cid)
+    if not ch or not m or not link_check(ch, m):
+        return err("Нет прав", 403)
+    rows = qa("SELECT * FROM chat_reqs WHERE chat_id=? ORDER BY ts LIMIT 200", (cid,))
+    out = []
+    for r in rows:
+        usr = q1("SELECT * FROM users WHERE id=?", (r["user_id"],))
+        if not usr or usr.get("deleted") or usr.get("banned"):
+            continue
+        out.append({"user": public(usr, False, u), "ts": r["ts"], "slug": r["slug"]})
+    return jsonify(ok=True, requests=out, n=len(out))
+
+
+@app.post("/api/chat/<int:cid>/request/decide")
+def chat_request_decide(cid):
+    """Одобрить или отклонить заявку: {uid, ok} или {all: true, ok}."""
+    u = auth_user()
+    if not u:
+        return err("Требуется вход", 401)
+    ch, m = ctx(u, cid)
+    if not ch or not m or not link_check(ch, m):
+        return err("Нет прав", 403)
+    d = body()
+    ok = bool(d.get("ok"))
+    if d.get("all"):
+        ids = [r["user_id"] for r in qa("SELECT user_id FROM chat_reqs WHERE chat_id=? ORDER BY ts LIMIT 200", (cid,))]
+    else:
+        ids = [num(d.get("uid"), 1, 1 << 40)]
+    done, failed = 0, []
+    for uid in ids:
+        r = q1("SELECT * FROM chat_reqs WHERE chat_id=? AND user_id=?", (cid, uid)) if uid else None
+        if not r:
+            continue
+        run("DELETE FROM chat_reqs WHERE chat_id=? AND user_id=?", (cid, uid))
+        if not ok:
+            done += 1
+            continue
+        l = q1("SELECT * FROM chat_links WHERE slug=?", (r["slug"],))
+        try:
+            joined = join_chat(ch, uid, (l or {}).get("creator") or 0, by=u["id"])
+        except ValueError as e:
+            failed.append({"id": uid, "error": str(e)})
+            continue
+        done += 1
+        if joined:
+            if l:
+                run("UPDATE chat_links SET uses=uses+1 WHERE slug=?", (l["slug"],))
+            if ch["kind"] == "group":
+                svc_add(ch, uid, "join")
+            send_greeting(ch, uid)
+        push(uid, {"type": "joinok", "chat": chat_public(ch, member_row(cid, uid)), "gid": cid})
+    if done:
+        push_chat_update(ch)
+    left = (q1("SELECT COUNT(*) n FROM chat_reqs WHERE chat_id=?", (cid,)) or {}).get("n", 0)
+    return jsonify(ok=True, done=done, failed=failed, n=left)
 
 
 # ── темы ──
@@ -5183,6 +7048,49 @@ def search_messages():
     return jsonify(ok=True, messages=res)
 
 
+@app.get("/api/gallery")
+def gallery_list():
+    """Галерея внутри приложения: фото и видео из всех чатов пользователя (новые сверху), постранично ?before=<id>.
+    Повторная отправка из галереи — по fid, без новой загрузки (доступ проверяет clean_att → can_access)."""
+    u = auth_user()
+    if not u:
+        return err("Требуется вход", 401)
+    if not hit("gallery", u["id"], 60, 60):
+        return err("Слишком часто. Попробуйте позже", 429)
+    uid = u["id"]
+    before = request.args.get("before", type=int) or 2 ** 62
+    lim = max(10, min(200, request.args.get("limit", type=int) or 150))
+    rows = qa("""SELECT m.* FROM messages m JOIN files f ON f.fid = m.fid
+                 WHERE m.id < :b AND m.fid IS NOT NULL AND m.fid != '' AND f.done = 1
+                   AND (f.mime LIKE 'image/%' OR f.mime LIKE 'video/%') AND COALESCE(m.kind,'') IN ('photo','file','gif')
+                   AND ((m.sender=:me AND m.del_s=0 AND m.receiver>0) OR (m.receiver=:me AND m.del_r=0) OR
+                        (m.receiver<0 AND EXISTS(SELECT 1 FROM chat_members c WHERE c.chat_id=-m.receiver AND c.user_id=:me
+                                                 AND m.id>=c.first_id AND (m.only_u=0 OR m.only_u=:me))))
+                   AND (m.exp IS NULL OR m.exp=0 OR m.exp > :now)
+                 ORDER BY m.id DESC LIMIT :lim""", {"b": before, "me": uid, "lim": lim, "now": int(time.time())})
+    more = len(rows) == lim
+    seen, items, peers = set(), [], {}
+    msgs = ser_many(rows, uid)
+    for r, mm in zip(rows, msgs):
+        a = mm.get("att") or {}
+        if not a.get("fid") or a["fid"] in seen:
+            continue
+        seen.add(a["fid"])
+        pid = r["receiver"] if r["receiver"] < 0 else (r["receiver"] if r["sender"] == uid else r["sender"])
+        if pid not in peers:
+            if pid < 0:
+                ch = chat_row(-pid)
+                peers[pid] = (ch["title"] if ch else "") or "Чат"
+            elif pid == uid:
+                peers[pid] = "Избранное"
+            else:
+                p = q1("SELECT * FROM users WHERE id=?", (pid,))
+                peers[pid] = ("Удалённый аккаунт" if (p.get("banned") or p.get("deleted")) else dm_title(uid, p)) if p else "Пользователь"
+        items.append({"mid": r["id"], "ts": r["ts"], "peer": pid, "att": {k: a.get(k) for k in ("fid", "tfid", "url", "turl", "w", "h", "dur", "mime", "name", "size") if a.get(k) is not None}})
+    return jsonify(ok=True, items=items, peers={str(k): v for k, v in peers.items()}, more=more,
+                   next=rows[-1]["id"] if rows else 0)
+
+
 @app.post("/api/chats/delete")
 def chats_delete():
     """Удалить переписку у себя: в личном чате — все сообщения «у меня»; в группе или канале — выйти (владелец удаляет)."""
@@ -5309,9 +7217,9 @@ def push_fcm():
     with db_lock:
         if inst:
             run("DELETE FROM fcm_tokens WHERE user_id=? AND install=? AND token!=?", (u["id"], inst, tok))
-        run("""INSERT INTO fcm_tokens(user_id,token,install,ts) VALUES(?,?,?,?)
-               ON CONFLICT(token) DO UPDATE SET user_id=excluded.user_id, install=excluded.install, ts=excluded.ts""",
-            (u["id"], tok, inst, int(time.time())))
+        run("""INSERT INTO fcm_tokens(user_id,token,install,sess,ts) VALUES(?,?,?,?,?)
+               ON CONFLICT(token) DO UPDATE SET user_id=excluded.user_id, install=excluded.install, sess=excluded.sess, ts=excluded.ts""",
+            (u["id"], tok, inst, token_hash(get_token()), int(time.time())))
         run("""DELETE FROM fcm_tokens WHERE user_id=? AND id NOT IN
                (SELECT id FROM fcm_tokens WHERE user_id=? ORDER BY ts DESC LIMIT 8)""", (u["id"], u["id"]))
     return jsonify(ok=True, ready=bool(fcm_sa()))
@@ -5391,7 +7299,8 @@ def rtc_handle(uid, d):
             call_end(cid, "busy")
             return push(uid, {"type": "rtc", "call": cid, "k": "busy"})
         # приложение не открыто (нет WS): звоним через Web Push, если есть подписка — иначе сразу "офлайн"
-        if not clients.get(to) and not has_push(to):
+        tu = q1("SELECT banned, deleted FROM users WHERE id=?", (to,)) or {}
+        if tu.get("banned") or tu.get("deleted") or (not clients.get(to) and not has_push(to)):
             with clock:
                 calls[cid] = c
             call_end(cid, "offline")
@@ -5410,7 +7319,7 @@ def rtc_handle(uid, d):
     if k == "accept" and uid == c["b"] and not c["ans"]:
         c["ans"] = time.time()
         push(other, {"type": "rtc", "call": cid, "k": "accept"})
-        push(uid, {"type": "rtc", "call": cid, "k": "answered"})        # остальные устройства перестают звонить
+        rtc_push(uid, {"type": "rtc", "call": cid, "k": "answered"})    # остальные устройства и уведомление в шторке перестают звонить
     elif k == "decline" and uid == c["b"] and not c["ans"]:
         call_end(cid, "declined", "decline", by=uid)
     elif k == "cancel" and uid == c["a"] and not c["ans"]:
@@ -5549,6 +7458,35 @@ def ws_dispatch(uid, d):
         rtc_handle(uid, d)
     elif t == "vc":
         vc_handle(uid, d)
+    elif t == "typing":
+        typing_handle(uid, d)
+
+
+TYPING_ACTS = ("typing", "voice", "video", "file", "photo", "sticker")
+
+
+def typing_handle(uid, d):
+    """«печатает…» / «записывает голосовое…»: собеседнику (если не заблокировал) или участникам группы,
+    кто сейчас в сети. Имя — как отправитель записан в контактах у каждого получателя."""
+    if not hit("typing", uid, 25, 10):
+        return
+    to = num(d.get("to"), -2 ** 62, 2 ** 62) or 0
+    act = d.get("act") if d.get("act") in TYPING_ACTS else "typing"
+    if to > 0:
+        if to == uid or not clients.get(to) or block_err(uid, to):
+            return
+        push(to, {"type": "typing", "chat": uid, "from": uid, "act": act})
+        return
+    if to < 0:
+        ch = chat_row(-to)
+        m = member_row(-to, uid) if ch else None
+        if not ch or not m or ch["kind"] != "group" or not can_write(ch, m):
+            return
+        s_ = q1("SELECT * FROM users WHERE id=?", (uid,)) or {}
+        topic = num(d.get("topic"), 0, 2 ** 62) or 0
+        for v in member_ids(ch["id"]):
+            if v != uid and clients.get(v):
+                push(v, {"type": "typing", "chat": to, "from": uid, "act": act, "topic": topic, "name": dm_title(v, s_)})
 
 
 # ───────────────────── WEBSOCKET ─────────────────────
@@ -5589,9 +7527,19 @@ def ws_route(ws):
             pass
         return
     uid = u["id"]
+    _mt = maint_get()
+    if _mt["on"] and u.get("number") not in _mt["wl"]:               # идут техработы: обычным пользователям сообщаем и не подключаем
+        try:
+            ws.send(json.dumps({"type": "maint", **maint_pub(_mt)}))
+            ws.close()
+        except Exception:
+            pass
+        return
     first_conn = not clients.get(uid)
     clients.setdefault(uid, set()).add(ws)
     ws_tok[ws] = token_h
+    if first_conn:
+        stats_seen_online()
     try:
         ws.send('{"type":"ready"}')
         if first_conn:
@@ -5631,11 +7579,18 @@ def ws_route(ws):
 
 # ───────────────────── СЛУЖЕБНОЕ ─────────────────────
 def expiry_loop():
+    n = 0
     while True:
         time.sleep(10)
+        n += 1
         try:
             sweep_expired()
             call_sweep()
+            if n % 6 == 0:
+                stats_tick()                     # раз в минуту: ежедневный/еженедельный отчёт в admin-panel
+                for k_, w_ in list(hc_wait.items()):
+                    if time.time() - w_["ts"] > HC_WAIT_TTL:
+                        hc_wait.pop(k_, None)
         except Exception as e:
             print("expiry error:", e)
 
@@ -5646,6 +7601,7 @@ def maintenance_loop():
         try:
             now = int(time.time())
             run("DELETE FROM sessions WHERE COALESCE(NULLIF(last_used,0),created) < ?", (now - SESSION_TTL,))
+            fcm_gc()
             run("DELETE FROM codes WHERE expires < ?", (now,))
             run("DELETE FROM locks WHERE until < ?", (now,))
             # недогруженные файлы старше суток и загруженные, но так и не отправленные
@@ -5663,6 +7619,7 @@ def maintenance_loop():
             with _rl_lock:
                 for k in [k for k, v in _rl.items() if not v or time.time() - v[-1] > 3600]:
                     _rl.pop(k, None)
+            bots_gc()
         except Exception as e:
             print("maintenance error:", e)
 
@@ -5788,10 +7745,6 @@ def blocks_list():
     return jsonify(ok=True, users=out)
 
 
-REPORT_REASONS = {"spam": "Спам", "violence": "Насилие", "porn": "Неприемлемый контент", "child": "Нарушение прав детей",
-                  "illegal": "Незаконные товары", "fake": "Выдаёт себя за другого", "other": "Другое"}
-
-
 @app.post("/api/report")
 def report_do():
     u = auth_user()
@@ -5809,6 +7762,8 @@ def report_do():
             return err("Нельзя пожаловаться")
         if t["is_system"]:
             return err("На служебный аккаунт пожаловаться нельзя")
+        if t.get("banned") or t.get("deleted"):
+            return err("Этот аккаунт уже удалён")
         label = t["name"] or str(tid)
     else:
         t = chat_row(tid)
@@ -5818,33 +7773,65 @@ def report_do():
     if not hit("report", u["id"], 10, 3600):
         return err("Слишком много жалоб. Попробуйте позже", 429)
     text = str(d.get("text") or "").strip()[:500]
-    run("INSERT INTO reports(reporter,kind,target,reason,text,ts) VALUES(?,?,?,?,?,?)", (u["id"], kind, tid, reason, text, int(time.time())))
+    evd = report_evidence(u["id"], kind, tid)
+    ev = encrypt_text(json.dumps(evd, ensure_ascii=False))
+    rid = run("INSERT INTO reports(reporter,kind,target,reason,text,ts,status,evidence) VALUES(?,?,?,?,?,?,'open',?)",
+              (u["id"], kind, tid, reason, text, int(time.time()), ev)).lastrowid
+    for m_ in evd["msgs"]:
+        if m_.get("fid"):
+            run("INSERT OR IGNORE INTO report_files(rid,fid) VALUES(?,?)", (rid, m_["fid"]))
     alert_admin(f"🚩 Жалоба ({REPORT_REASONS[reason]})\nНа: {label} [{kind} {tid}]\nОт: {u['name']} [{u['id']}]\n{text}")
+    try:
+        txt, kb = hc_report_post(rid)
+        mid = hc_post("reports", txt, kb=kb)
+        hc_mark(mid, rep=rid)
+    except Exception as e:
+        print("report → admin-panel:", e)
     return jsonify(ok=True)
 
 
 # ── подарки и коллекционные NFT ──
-# обычные подарки: id → (значок, название, цена, коллекция для улучшения или "")
+# Два раздела. Обычные подарки покупают, дарят и коллекционируют; улучшать их нельзя.
+# NFT-подарки — отдельная категория: у каждого свой номер, модель, фон и узор; только NFT можно улучшать (до трёх раз),
+# и каждое улучшение даёт более редкое сочетание. Внешний вид (3D-модель) рисует клиент по ключам из этих таблиц.
+# обычные: ключ → (значок для бота, название, цена, «» — улучшить нельзя)
 GIFTS = {
-    "heart": ("❤️", "Сердце", 15, ""), "bear": ("🧸", "Мишка", 15, "bear"), "box": ("🎁", "Подарок", 25, ""), "rose": ("🌹", "Роза", 25, "rose"),
-    "cake": ("🎂", "Торт", 50, ""), "bouquet": ("💐", "Букет", 50, ""), "rocket": ("🚀", "Ракета", 50, "rocket"), "wine": ("🍾", "Шампанское", 50, ""),
-    "cup": ("🏆", "Кубок", 100, "cup"), "ring": ("💍", "Кольцо", 100, ""), "gem": ("💎", "Алмаз", 100, "gem"), "crown": ("👑", "Корона", 250, "crown"),
+    "heart": ("❤️", "Сердце", 15, ""), "bear": ("🧸", "Мишка", 15, ""), "balloon": ("🎈", "Шарик", 20, ""), "star": ("⭐", "Звезда", 25, ""),
+    "box": ("🎁", "Подарок", 25, ""), "rose": ("🌹", "Роза", 25, ""), "lollipop": ("🍭", "Леденец", 30, ""), "cupcake": ("🧁", "Капкейк", 40, ""),
+    "cake": ("🎂", "Торт", 50, ""), "bouquet": ("💐", "Букет", 50, ""), "rocket": ("🚀", "Ракета", 50, ""), "wine": ("🍾", "Шампанское", 50, ""),
+    "mug": ("☕", "Какао", 60, ""), "clover": ("🍀", "Клевер", 75, ""), "snowman": ("⛄", "Снеговик", 80, ""), "cup": ("🏆", "Кубок", 100, ""),
+    "ring": ("💍", "Кольцо", 100, ""), "gem": ("💎", "Самоцвет", 100, ""), "crown": ("👑", "Корона", 250, ""),
 }
-# коллекции: id → (значок, название, тираж, цена покупки, цена улучшения обычного подарка)
+# NFT-коллекции: id → (значок для бота, название, тираж, цена покупки, базовая цена улучшения)
 COLLS = {
-    "bear": ("🧸", "Плюшевый мишка", 3000, 400, 100), "rose": ("🌹", "Красная роза", 2500, 500, 120), "cup": ("🏆", "Золотой кубок", 1500, 900, 200),
-    "rocket": ("🚀", "Космический корабль", 1200, 1200, 260), "gem": ("💎", "Алмаз", 800, 2500, 500), "dragon": ("🐉", "Огненный дракон", 500, 4000, 0),
-    "crown": ("👑", "Волшебная корона", 300, 6500, 900), "dice": ("🎲", "Счастливый кубик", 100, 15000, 0),
+    "elixir": ("🧪", "Эликсир", 2500, 1000, 250), "key": ("🗝️", "Золотой ключ", 3000, 900, 220), "moon": ("🌙", "Лунный серп", 2000, 1400, 330),
+    "planet": ("🪐", "Кольцевая планета", 2200, 1200, 300), "ufo": ("🛸", "Тарелка пришельцев", 1500, 1500, 350), "chalice": ("🏆", "Кубок судьбы", 1200, 1800, 420),
+    "orb": ("🔮", "Звёздный шар", 800, 2500, 560), "diamond": ("💎", "Бриллиант", 800, 2600, 580), "lamp": ("🪔", "Лампа джинна", 700, 3000, 650),
+    "dragon": ("🐉", "Огненный дракон", 500, 4000, 900), "crown": ("👑", "Королевская корона", 300, 6500, 1400), "dice": ("🎲", "Счастливый кубик", 100, 15000, 3000),
 }
-# модели: название, поворот цвета, украшение, редкость (в промилле)
-MODELS = [("Классика", 0, "", 300), ("Золотой", 38, "✨", 220), ("Ночной", 235, "🌙", 180), ("Неоновый", 300, "💫", 150), ("Королевский", 268, "👑", 100), ("Призрачный", 175, "👻", 50)]
+# старые коллекции (до обновления) показываются как новые: коллекционные подарки у людей не пропадают
+COLL_ALIAS = {"bear": "orb", "rose": "elixir", "cup": "chalice", "rocket": "ufo", "gem": "diamond"}
+MAX_TIER = 3
+TIER_NAMES = ["Стандартный", "Улучшенный", "Мастерский", "Совершенный"]
+# модели: название, ключ окраски на клиенте, редкость (в промилле)
+MODELS = [("Классика", "classic", 280), ("Золотой", "gold", 200), ("Ледяной", "ice", 160), ("Обсидиан", "obsidian", 130),
+          ("Неоновый", "neon", 100), ("Королевский", "royal", 70), ("Призрачный", "ghost", 40), ("Космический", "cosmic", 20)]
 BACKDROPS = [("Небесный", "#7ec8ff", "#2f7bff", 150), ("Малина", "#ff8fb1", "#d6336c", 150), ("Мята", "#8ff0d0", "#12b886", 140), ("Янтарь", "#ffd27a", "#f08c00", 130),
              ("Лаванда", "#c9b5ff", "#7048e8", 120), ("Графит", "#9aa3b2", "#343a46", 100), ("Рубин", "#ff7a7a", "#c92a2a", 80), ("Изумруд", "#69db7c", "#2b8a3e", 70),
              ("Закат", "#ffa8a8", "#f76707", 35), ("Северное сияние", "#63e6be", "#4263eb", 15), ("Чёрный бриллиант", "#6b7280", "#05060a", 5)]
-PATTERNS = [("Звёзды", "⭐", 220), ("Сердца", "💜", 180), ("Искры", "✨", 180), ("Снежинки", "❄️", 140), ("Цветы", "🌸", 120), ("Молнии", "⚡", 90), ("Кубики", "🎲", 50), ("Короны", "👑", 20)]
+# узоры: название, ключ рисунка на клиенте, редкость
+PATTERNS = [("Звёзды", "star", 220), ("Сердца", "heart", 180), ("Искры", "spark", 180), ("Снежинки", "snow", 140), ("Цветы", "flower", 120), ("Молнии", "bolt", 90),
+            ("Кубики", "cube", 50), ("Короны", "crown", 20)]
 PREMIUM_GIFT = {3: (1400, 90), 6: (2600, 180), 12: (4990, 365)}          # месяцы → (цена, дней)
 GIFT_SELL_DAYS = 7                                                       # окно продажи обычного подарка обратно за звёзды
 GIFT_SELL_RATE = 0.5                                                     # доля исходной цены, которую возвращают при продаже
+GIFT_RARE.update(k for k, v in GIFTS.items() if v[2] >= 75)            # «редкие» (для настроек приватности): дорогие обычные подарки
+# редкость по вероятности сочетания «модель × фон × узор» (с поправкой на улучшения)
+RARITY_STEPS = [(0.00016, "myth", "Мифический"), (0.00045, "legend", "Легендарный"), (0.00105, "epic", "Эпический"), (0.0027, "rare", "Редкий")]
+
+
+def coll_of(c):
+    return COLL_ALIAS.get(c, c)
 
 
 def pick_w(table, idx_w=3):
@@ -5858,16 +7845,77 @@ def pick_w(table, idx_w=3):
     return len(table) - 1
 
 
+def combo_prob(mi, bi, pi_):
+    mo, bd, pt = MODELS[mi % len(MODELS)], BACKDROPS[bi % len(BACKDROPS)], PATTERNS[pi_ % len(PATTERNS)]
+    return (mo[2] / sum(x[2] for x in MODELS)) * (bd[3] / sum(x[3] for x in BACKDROPS)) * (pt[2] / sum(x[2] for x in PATTERNS))
+
+
+def nft_rarity(g):
+    p = combo_prob(g["model"], g["backdrop"], g["pattern"]) / (1.8 ** (g.get("tier") or 0))
+    for th, k, n in RARITY_STEPS:
+        if p < th:
+            return {"k": k, "n": n}
+    return {"k": "common", "n": "Обычный"}
+
+
+def up_price(coll, tier):
+    """Цена улучшения NFT с уровня tier на следующий: базовая × 1, 2, 4."""
+    return COLLS[coll_of(coll)][4] * (2 ** tier)
+
+
+def reroll(g, tier_new):
+    """Новая модель/фон/узор при улучшении: чем выше уровень, тем ровнее шансы (редкое выпадает чаще), и результат всегда редче прежнего."""
+    cur = (g["model"], g["backdrop"], g["pattern"])
+    p_old = combo_prob(*cur)
+    ex = max(0.0, 1.0 - 0.4 * tier_new)
+
+    def pick(table, idx):
+        return random.choices(range(len(table)), [x[idx] ** ex for x in table])[0]
+    best = None
+    for _ in range(80):
+        c = (pick(MODELS, 2), pick(BACKDROPS, 3), pick(PATTERNS, 2))
+        p = combo_prob(*c)
+        if p < p_old * 0.8:
+            return c
+        if best is None or p < combo_prob(*best):
+            best = c
+    if combo_prob(*best) >= p_old:
+        # крайний случай: подставляем самое редкое значение одного из признаков
+        for idx, tbl, w in ((0, MODELS, 2), (2, PATTERNS, 2), (1, BACKDROPS, 3)):
+            c = list(cur)
+            c[idx] = min(range(len(tbl)), key=lambda i: tbl[i][w])
+            if combo_prob(*c) < p_old:
+                return tuple(c)
+    return best
+
+
+def _minted():
+    now = time.time()
+    c = _minted.cache
+    if now - c[0] > 4:
+        c[1] = {r["coll"]: r["minted"] for r in qa("SELECT coll, minted FROM coll_mint")}
+        c[0] = now
+    return c[1]
+
+
+_minted.cache = [0, {}]
+
+
 def attrs_out(g):
-    """Описание коллекционного подарка для клиента: модель, фон, узор и их редкость."""
-    if not g.get("coll") or g["coll"] not in COLLS:
+    """Описание NFT-подарка для клиента: коллекция, номер, тираж, модель, фон, узор, их редкость, уровень улучшения."""
+    if not g.get("coll"):
         return None
-    em, name, supply, price, _ = COLLS[g["coll"]]
+    coll = coll_of(g["coll"])
+    if coll not in COLLS:
+        return None
+    em, name, supply, price, _ = COLLS[coll]
     mo, bd, pt = MODELS[g["model"] % len(MODELS)], BACKDROPS[g["backdrop"] % len(BACKDROPS)], PATTERNS[g["pattern"] % len(PATTERNS)]
-    return {"coll": g["coll"], "e": em, "name": name, "num": g["num"], "supply": supply,
-            "model": {"n": mo[0], "hue": mo[1], "acc": mo[2], "r": round(mo[3] / sum(x[3] for x in MODELS) * 100, 1)},
+    tier = int(g.get("tier") or 0)
+    return {"coll": coll, "e": em, "name": name, "num": g["num"], "supply": supply, "minted": _minted().get(coll, 0),
+            "model": {"n": mo[0], "k": mo[1], "r": round(mo[2] / sum(x[2] for x in MODELS) * 100, 1)},
             "backdrop": {"n": bd[0], "c1": bd[1], "c2": bd[2], "r": round(bd[3] / sum(x[3] for x in BACKDROPS) * 100, 1)},
-            "pattern": {"n": pt[0], "e": pt[1], "r": round(pt[2] / sum(x[2] for x in PATTERNS) * 100, 1)}}
+            "pattern": {"n": pt[0], "k": pt[1], "e": pt[1], "r": round(pt[2] / sum(x[2] for x in PATTERNS) * 100, 1)},
+            "tier": tier, "tier_n": TIER_NAMES[min(tier, MAX_TIER)], "rarity": nft_rarity(g)}
 
 
 def gift_sell_price(g):
@@ -5884,12 +7932,15 @@ def gift_out(g, viewer, owner_view=False):
          "shown": 1 if g.get("shown", 1) else 0, "sold": 1 if g.get("sold") else 0}
     if g["key"] in GIFTS:
         e, n, pr, up = GIFTS[g["key"]]
-        d.update(e=e, name=n, up=up and COLLS[up][4] or 0)
+        d.update(e=e, name=n, up=0, kind="reg")
     a = attrs_out(g)
     if a:
         d["nft"] = a
         d["name"] = a["name"]
         d["e"] = a["e"]
+        d["kind"] = "nft"
+        if viewer == g["to_id"] and a["tier"] < MAX_TIER:
+            d["up"] = up_price(g["coll"], a["tier"])           # цена следующего улучшения; у обычных подарков улучшения нет
     if viewer == g["to_id"] and gift_sell_ok(g):
         d["can_sell"] = 1
         d["sell_price"] = gift_sell_price(g)
@@ -5916,7 +7967,7 @@ def mint(coll, uid):
             run("UPDATE coll_mint SET minted=? WHERE coll=?", (n, coll))
         else:
             run("INSERT INTO coll_mint(coll,minted) VALUES(?,?)", (coll, n))
-    return {"coll": coll, "num": n, "model": pick_w(MODELS), "backdrop": pick_w(BACKDROPS), "pattern": pick_w(PATTERNS, 2)}
+    return {"coll": coll, "num": n, "model": pick_w(MODELS, 2), "backdrop": pick_w(BACKDROPS), "pattern": pick_w(PATTERNS, 2)}
 
 
 @app.get("/api/gifts/catalog")
@@ -5925,12 +7976,15 @@ def gifts_catalog():
     if not u:
         return err("Требуется вход", 401)
     mints = {r["coll"]: r["minted"] for r in qa("SELECT coll, minted FROM coll_mint")}
-    reg = [{"key": k, "e": v[0], "name": v[1], "price": v[2], "up": COLLS[v[3]][4] if v[3] else 0, "coll": v[3]} for k, v in GIFTS.items()]
-    col = [{"coll": k, "e": v[0], "name": v[1], "supply": v[2], "minted": mints.get(k, 0), "price": v[3], "left": v[2] - mints.get(k, 0),
-            "models": [{"n": m[0], "hue": m[1], "acc": m[2]} for m in MODELS],
-            "backdrops": [{"n": b[0], "c1": b[1], "c2": b[2]} for b in BACKDROPS], "patterns": [{"n": p[0], "e": p[1]} for p in PATTERNS]} for k, v in COLLS.items()]
+    reg = [{"key": k, "name": v[1], "price": v[2], "rare": 1 if k in GIFT_RARE else 0} for k, v in GIFTS.items()]
+    sm, sb, sp = sum(x[2] for x in MODELS), sum(x[3] for x in BACKDROPS), sum(x[2] for x in PATTERNS)
+    col = [{"coll": k, "name": v[1], "supply": v[2], "minted": mints.get(k, 0), "price": v[3], "left": v[2] - mints.get(k, 0), "up": v[4],
+            "models": [{"n": m[0], "k": m[1], "r": round(m[2] / sm * 100, 1)} for m in MODELS],
+            "backdrops": [{"n": b[0], "c1": b[1], "c2": b[2], "r": round(b[3] / sb * 100, 1)} for b in BACKDROPS],
+            "patterns": [{"n": p[0], "k": p[1], "r": round(p[2] / sp * 100, 1)} for p in PATTERNS]} for k, v in COLLS.items()]
     prem = [{"months": m, "price": v[0], "days": v[1]} for m, v in PREMIUM_GIFT.items()]
-    return jsonify(ok=True, regular=reg, collectibles=col, premium=prem, balance=u.get("stars") or 0, my_premium=is_premium(u))
+    return jsonify(ok=True, regular=reg, collectibles=col, nft=col, premium=prem, balance=u.get("stars") or 0, my_premium=is_premium(u),
+                   tiers={"max": MAX_TIER, "names": TIER_NAMES})
 
 
 def gift_message(sender, receiver, g, text_fallback):
@@ -5945,6 +7999,8 @@ def gift_message(sender, receiver, g, text_fallback):
     with db_lock:
         mid = run("""INSERT INTO messages(sender,receiver,text,ts,kind,meta) VALUES(?,?,?,?,'gift',?)""",
                   (SYSTEM_ID if anon else sender, receiver, encrypt_text(text_fallback), ts, meta_dump({"g": info}))).lastrowid
+        if receiver == sender and not anon:        # подарок себе приходит в «Избранное» уже прочитанным
+            run("UPDATE messages SET is_read=1 WHERE id=?", (mid,))
         row = q1("SELECT * FROM messages WHERE id=?", (mid,))
     push(receiver, {"type": "message", "message": ser_one(row, receiver)})
     if receiver != sender and not anon:
@@ -5959,13 +8015,28 @@ def gift_send():
     if not u:
         return err("Требуется вход", 401)
     d = body()
-    to = num(d.get("to"), 1, 2 ** 62) or 0
-    t = q1("SELECT * FROM users WHERE id=?", (to,))
-    if not t or t["is_system"]:
-        return err("Нельзя отправить подарок этому аккаунту")
-    be = block_err(u["id"], to)
-    if be:
-        return err(be, 403)
+    chan = None                                        # подарок каналу: to = -id канала. Группам подарки не отправляются
+    try:
+        raw_to = int(d.get("to"))
+    except (TypeError, ValueError):
+        raw_to = 0
+    if raw_to < 0:
+        chan = chat_row(-raw_to)
+        if not chan or chan["kind"] != "channel" or is_hc(chan["id"]):
+            return err("Подарки можно отправлять людям, в каналы и себе — не в группы")
+        if not chan["slug"] and not member_row(chan["id"], u["id"]):
+            return err("Нет доступа к этому каналу", 403)
+        if q1("SELECT 1 FROM chat_bans WHERE chat_id=? AND user_id=?", (chan["id"], u["id"])):
+            return err("Вы заблокированы в этом канале", 403)
+        to, t = raw_to, {"id": raw_to, "is_system": 0}
+    else:
+        to = num(d.get("to"), 1, 2 ** 62) or 0
+        t = q1("SELECT * FROM users WHERE id=?", (to,))
+        if not t or t["is_system"]:
+            return err("Нельзя отправить подарок этому аккаунту")
+        be = block_err(u["id"], to)
+        if be:
+            return err(be, 403)
     key = str(d.get("key") or "")
     coll = ""
     if key.startswith("c:") and key[2:] in COLLS:
@@ -5975,6 +8046,9 @@ def gift_send():
         emo, name, price = GIFTS[key][0], GIFTS[key][1], GIFTS[key][2]
     else:
         return err("Такого подарка нет")
+    gg = None if chan else gift_gate(u, t, key)
+    if gg:
+        return err(gg, 403)
     if not hit("gift", u["id"], 30, 60):
         return err("Слишком часто. Попробуйте позже", 429)
     msg = str(d.get("msg") or "").strip()[:140]
@@ -5990,13 +8064,29 @@ def gift_send():
             if not a:
                 return err("Эта коллекция распродана", 409)
         run("UPDATE users SET stars=stars-? WHERE id=?", (price, u["id"]))
-        star_tx(u["id"], -price, f"Подарок: {name}" + (" (себе)" if to == u["id"] else ""), "gift")
+        star_tx(u["id"], -price, f"Подарок: {name}" + (" (себе)" if to == u["id"] else f" (каналу «{chan['title']}»)" if chan else ""), "gift")
         gid = run("""INSERT INTO gifts(from_id,to_id,key,coll,model,backdrop,pattern,num,anon,msg,price,ts,shown) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,1)""",
                   (u["id"], to, coll and ("c:" + coll) or key, a["coll"], a["model"], a["backdrop"], a["pattern"], a["num"], anon, msg, price, now)).lastrowid
     g = q1("SELECT * FROM gifts WHERE id=?", (gid,))
-    gift_message(u["id"], to, g, f"🎁 Подарок: {name}")
-    notify_profile(to)
+    if chan:                                                   # в канале никаких сообщений-объявлений: подарок виден во вкладке «Подарки» профиля канала
+        push_chat_update(chan)
+    else:
+        gift_message(u["id"], to, g, f"🎁 Подарок: {name}")
+        notify_profile(to)
     return jsonify(ok=True, gift=gift_out(g, u["id"]), user=public(fresh(u["id"]), True))
+
+
+@app.get("/api/gifts/chat/<int:cid>")
+def gifts_chat(cid):
+    """Подарки канала — вкладка «Подарки» в профиле канала."""
+    u = auth_user()
+    if not u:
+        return err("Требуется вход", 401)
+    ch = chat_row(cid)
+    if not ch or ch["kind"] != "channel" or (not ch["slug"] and not member_row(cid, u["id"])):
+        return err("Не найдено", 404)
+    rows = qa("SELECT * FROM gifts WHERE to_id=? AND key NOT LIKE 'prem:%' AND sold=0 AND shown=1 ORDER BY pin DESC, id DESC LIMIT 300", (-cid,))
+    return jsonify(ok=True, gifts=[gift_out(g, u["id"]) for g in rows], total=len(rows))
 
 
 @app.get("/api/gifts/user/<int:uid>")
@@ -6050,15 +8140,20 @@ def gift_get(gid):
     if not g or (not g["shown"] and u["id"] not in (g["to_id"], g["from_id"])):
         return err("Подарок не найден", 404)
     d = gift_out(g, u["id"])
-    o = q1("SELECT * FROM users WHERE id=?", (g["to_id"],))
+    o = q1("SELECT * FROM users WHERE id=?", (g["to_id"],)) if g["to_id"] > 0 else None
     if o:
         d["owner"] = {"id": o["id"], "name": o["name"], "surname": o.get("surname") or "", "avatar": o.get("avatar") or ""}
+    elif g["to_id"] < 0:
+        oc = chat_row(-g["to_id"])
+        if oc:
+            d["owner"] = {"id": -oc["id"], "name": oc["title"], "surname": "", "avatar": oc["photo"] or "", "chan": 1}
     return jsonify(ok=True, gift=d)
 
 
 @app.post("/api/gift/upgrade")
 def gift_upgrade():
-    """Владелец обычного подарка улучшает его до коллекционного: номер, модель, фон и узор выпадают случайно."""
+    """Владелец NFT-подарка улучшает его: модель, фон и узор выпадают заново и всегда оказываются редче прежних (номер сохраняется).
+    Обычные подарки улучшить нельзя. Цена растёт с каждым уровнем; всего {MAX_TIER} улучшения."""
     u = auth_user()
     if not u:
         return err("Требуется вход", 401)
@@ -6066,26 +8161,27 @@ def gift_upgrade():
     g = q1("SELECT * FROM gifts WHERE id=? AND to_id=?", (gid, u["id"]))
     if not g:
         return err("Подарок не найден", 404)
-    if g["coll"]:
-        return err("Подарок уже улучшен")
-    up = GIFTS.get(g["key"], ("", "", 0, ""))[3]
-    if not up:
-        return err("Этот подарок нельзя улучшить")
-    price = COLLS[up][4]
+    if not g["coll"] or coll_of(g["coll"]) not in COLLS:
+        return err("Улучшать можно только NFT-подарки")
+    tier = int(g.get("tier") or 0)
+    if tier >= MAX_TIER:
+        return err("Подарок уже улучшен до максимума")
+    price = up_price(g["coll"], tier)
+    prev = attrs_out(g)
     with db_lock:
         cur = fresh(u["id"])
         if (cur.get("stars") or 0) < price:
             return jsonify(ok=False, error=f"Недостаточно звёзд: нужно {price}, у вас {cur.get('stars') or 0}", need=price), 402
-        a = mint(up, u["id"])
-        if not a:
-            return err("Эта коллекция распродана", 409)
+        g = q1("SELECT * FROM gifts WHERE id=? AND to_id=?", (gid, u["id"]))
+        if int(g.get("tier") or 0) != tier:
+            return err("Подарок уже улучшен")
+        mi, bi, pi_ = reroll(g, tier + 1)
         run("UPDATE users SET stars=stars-? WHERE id=?", (price, u["id"]))
-        star_tx(u["id"], -price, f"Улучшение подарка: {COLLS[up][1]}", "gift")
-        run("UPDATE gifts SET coll=?, model=?, backdrop=?, pattern=?, num=?, key=?, price=price+? WHERE id=?",
-            (a["coll"], a["model"], a["backdrop"], a["pattern"], a["num"], "c:" + up, price, gid))
+        star_tx(u["id"], -price, f"Улучшение NFT: {COLLS[coll_of(g['coll'])][1]} №{g['num']}", "gift")
+        run("UPDATE gifts SET model=?, backdrop=?, pattern=?, tier=?, price=price+? WHERE id=?", (mi, bi, pi_, tier + 1, price, gid))
     g = q1("SELECT * FROM gifts WHERE id=?", (gid,))
     notify_profile(u["id"])
-    return jsonify(ok=True, gift=gift_out(g, u["id"]), user=public(fresh(u["id"]), True))
+    return jsonify(ok=True, gift=gift_out(g, u["id"]), prev=prev, user=public(fresh(u["id"]), True))
 
 
 @app.post("/api/gift/show")
@@ -6176,6 +8272,9 @@ def premium_gift():
     if be:
         return err(be, 403)
     price, days = PREMIUM_GIFT[months]
+    gg = gift_gate(u, t, "prem:" + str(months))
+    if gg:
+        return err(gg, 403)
     if not hit("pgift", u["id"], 10, 3600):
         return err("Слишком часто. Попробуйте позже", 429)
     now = int(time.time())
@@ -6210,6 +8309,9 @@ def premium_gift():
 def name_taken(name, skip_user=0, skip_chat=0):
     if q1("SELECT 1 FROM users WHERE username=? COLLATE NOCASE AND id!=?", (name, skip_user)):
         return True
+    if q1("""SELECT 1 FROM unames n JOIN users u ON u.id=n.uid WHERE n.name=? COLLATE NOCASE AND n.uid!=?
+             AND COALESCE(u.deleted,0)=0""", (name, skip_user)):
+        return True
     return bool(q1("SELECT 1 FROM chats WHERE slug=? COLLATE NOCASE AND id!=?", (name, skip_chat)))
 
 
@@ -6221,6 +8323,139 @@ def name_reserved(name, u):
     return n in RESERVED
 
 
+# ── сведения о ссылке для встроенного браузера: можно ли показать страницу внутри приложения + заголовок/описание/картинка ──
+import socket, ssl, html as _html
+import http.client as _httpc      # именно так: «import http.client» затёр бы глобальное имя http (сессию requests) и сломал отправку в Telegram
+from urllib.parse import urljoin
+LINKINFO_ALLOW_PRIVATE = os.environ.get("LINKINFO_ALLOW_PRIVATE", "0") == "1"      # только для тестов: разрешает адреса внутренней сети
+_linkinfo_cache = {}
+
+
+class _PinnedConn:
+    """Соединение строго с заранее проверенным IP (защита от подмены DNS): адрес проверен как публичный, подключаемся именно к нему."""
+    @staticmethod
+    def make(scheme, host, port, ip, timeout):
+        base = _httpc.HTTPSConnection if scheme == "https" else _httpc.HTTPConnection
+
+        class C(base):
+            def connect(self_):
+                sock = socket.create_connection((ip, port), timeout)
+                if scheme == "https":
+                    self_.sock = ssl.create_default_context().wrap_socket(sock, server_hostname=host)
+                else:
+                    self_.sock = sock
+        return C(host, port, timeout=timeout)
+
+
+def _frame_allowed(headers):
+    """Разрешает ли сайт показ внутри чужой страницы (X-Frame-Options / CSP frame-ancestors)."""
+    xfo = (headers.get("x-frame-options") or "").lower()
+    if xfo and "allowall" not in xfo:
+        return False
+    csp = headers.get("content-security-policy") or ""
+    for part in csp.split(";"):
+        part = part.strip().lower()
+        if part.startswith("frame-ancestors"):
+            vals = part.split()[1:]
+            host = urlparse(PUBLIC_BASE).hostname or ""
+            ok = "*" in vals or any(host and host in v for v in vals) or any(v in ("https:", "http:") for v in vals)
+            return bool(ok) and "'none'" not in vals
+    return True
+
+
+def _meta_of(doc, final_url):
+    def pick(*names):
+        for n in names:
+            for pat in (r'<meta[^>]+(?:property|name)=["\']%s["\'][^>]*content=["\']([^"\']*)["\']' % re.escape(n),
+                        r'<meta[^>]+content=["\']([^"\']*)["\'][^>]*(?:property|name)=["\']%s["\']' % re.escape(n)):
+                m = re.search(pat, doc, re.I)
+                if m and m.group(1).strip():
+                    return _html.unescape(m.group(1)).strip()
+        return ""
+    title = pick("og:title", "twitter:title")
+    if not title:
+        m = re.search(r"<title[^>]*>(.*?)</title>", doc, re.I | re.S)
+        title = _html.unescape(re.sub(r"\s+", " ", m.group(1))).strip() if m else ""
+    img = pick("og:image", "twitter:image")
+    if img:
+        img = urljoin(final_url, img)
+        if not re.match(r"^https?://", img, re.I):
+            img = ""
+    return {"title": title[:140], "desc": pick("og:description", "description", "twitter:description")[:260], "image": img[:500], "site": pick("og:site_name")[:60]}
+
+
+def fetch_linkinfo(url):
+    cur, hops = url, 0
+    while hops < 4:
+        u = urlparse(cur)
+        if u.scheme not in ("http", "https") or not u.hostname:
+            return None
+        port = u.port or (443 if u.scheme == "https" else 80)
+        if not LINKINFO_ALLOW_PRIVATE and port not in (80, 443):
+            return None
+        try:
+            ips = [i[4][0] for i in socket.getaddrinfo(u.hostname, port, type=socket.SOCK_STREAM)]
+        except OSError:
+            return {"frame": True, "unreachable": True, "url": cur}
+        if not ips or (not LINKINFO_ALLOW_PRIVATE and not all(_public_ip(ip) for ip in ips)):
+            return None
+        conn = _PinnedConn.make(u.scheme, u.hostname, port, ips[0], 4.5)
+        try:
+            path = (u.path or "/") + ("?" + u.query if u.query else "")
+            hostH = u.hostname + (":%d" % u.port if u.port else "")
+            conn.request("GET", path, headers={"Host": hostH, "User-Agent": "Mozilla/5.0 (compatible; DicegramLinkBot/1.0)", "Accept": "text/html,*/*;q=0.5",
+                                              "Accept-Encoding": "identity", "Accept-Language": "ru,en;q=0.8"})
+            r = conn.getresponse()
+            h = {k.lower(): v for k, v in r.getheaders()}
+            if r.status in (301, 302, 303, 307, 308) and h.get("location"):
+                cur = urljoin(cur, h["location"]); hops += 1
+                continue
+            out = {"url": cur, "frame": _frame_allowed(h), "status": r.status}
+            if "text/html" in (h.get("content-type") or "").lower():
+                raw = r.read(262144)
+                cs = re.search(r"charset=([\w-]+)", h.get("content-type") or "", re.I) or re.search(rb'<meta[^>]+charset=["\']?([\w-]+)', raw[:4096], re.I)
+                enc = (cs.group(1).decode() if cs and isinstance(cs.group(1), bytes) else cs.group(1) if cs else "utf-8")
+                try:
+                    doc = raw.decode(enc, "replace")
+                except LookupError:
+                    doc = raw.decode("utf-8", "replace")
+                out.update(_meta_of(doc, cur))
+            return out
+        except (OSError, _httpc.HTTPException, ssl.SSLError):
+            return {"frame": True, "unreachable": True, "url": cur}
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+    return None
+
+
+@app.get("/api/linkinfo")
+def linkinfo():
+    """?url=… → {frame, title, desc, image, site, url}. frame=false — сайт запрещает показ внутри приложения (откроем во внешнем браузере)."""
+    u = auth_user()
+    if not u:
+        return err("Требуется вход", 401)
+    url = str(request.args.get("url") or "").strip()[:2000]
+    if not re.match(r"^https?://", url, re.I):
+        return err("Неверная ссылка")
+    if not hit("linkinfo", u["id"], 30, 60):
+        return err("Слишком часто", 429)
+    now = time.time()
+    c = _linkinfo_cache.get(url)
+    if c and now - c[0] < 600:
+        return jsonify(ok=True, info=c[1])
+    info = fetch_linkinfo(url)
+    if info is None:
+        return err("Эту ссылку нельзя проверить", 400)
+    if len(_linkinfo_cache) > 500:
+        for k in sorted(_linkinfo_cache, key=lambda k: _linkinfo_cache[k][0])[:100]:
+            _linkinfo_cache.pop(k, None)
+    _linkinfo_cache[url] = (now, info)
+    return jsonify(ok=True, info=info)
+
+
 @app.get("/api/resolve/<name>")
 def resolve_name(name):
     """Кто или что скрывается за @именем: человек, группа или канал (для нажатий на @упоминания)."""
@@ -6230,7 +8465,7 @@ def resolve_name(name):
     name = str(name or "").strip().lstrip("@")
     if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{2,31}", name):
         return err("Не найдено", 404)
-    t = q1("SELECT * FROM users WHERE username=? COLLATE NOCASE", (name,))
+    t = user_by_name(name)
     if t:
         return jsonify(ok=True, type="user", user=public(t, t["id"] == u["id"], viewer=u["id"]))
     ch = q1("SELECT * FROM chats WHERE slug=? COLLATE NOCASE", (name,))
@@ -6304,6 +8539,9 @@ CLICKER_CAPTCHA_TTL = 120
 UPGRADE_MAX_LEVEL = 50
 UPGRADE_CLICK_BASE, UPGRADE_CLICK_GROWTH = 10, 1.6        # +1 монета за тап за уровень
 UPGRADE_PASSIVE_BASE, UPGRADE_PASSIVE_GROWTH = 25, 1.7    # +1 монета/сек пассивно за уровень
+CLICKER_TPS = 12               # устойчивая скорость тапов в секунду (человек — до ~9–10)
+CLICKER_BURST = 30             # запас «токенов»: короткий всплеск тапов не режется
+CLICKER_BATCH_MAX = 40         # сколько тапов клиент может прислать одним пакетом
 PASSIVE_MAX_ACCRUE = 24 * 3600  # не копим пассивный доход дольше суток простоя (защита от переполнения/абуза времени клиента)
 
 
@@ -6392,24 +8630,44 @@ def games_leaderboard(game):
 
 
 def wallet_row(uid):
-    row = q1("SELECT * FROM game_wallet WHERE user_id=?", (uid,))
-    now = int(time.time())
-    if not row:
-        with db_lock:
-            run("INSERT INTO game_wallet(user_id, passive_ts) VALUES(?,?)", (uid, now))
-        return q1("SELECT * FROM game_wallet WHERE user_id=?", (uid,))
-    # лениво начисляем пассивный доход с момента последнего посещения (а не по таймеру на сервере —
-    # так дешевле и не нужен фоновый планировщик для каждого игрока)
-    elapsed = max(0, min(now - (row["passive_ts"] or now), PASSIVE_MAX_ACCRUE))
-    gained = elapsed * (row["passive_level"] or 0)
-    if gained > 0:
-        with db_lock:
+    # весь «прочитал → начислил» под одной блокировкой: два параллельных запроса не начислят
+    # пассивный доход дважды за один и тот же промежуток времени
+    with db_lock:
+        row = q1("SELECT * FROM game_wallet WHERE user_id=?", (uid,))
+        now = int(time.time())
+        if not row:
+            run("INSERT OR IGNORE INTO game_wallet(user_id, passive_ts) VALUES(?,?)", (uid, now))
+            return q1("SELECT * FROM game_wallet WHERE user_id=?", (uid,))
+        # лениво начисляем пассивный доход с момента последнего посещения (а не по таймеру на сервере —
+        # так дешевле и не нужен фоновый планировщик для каждого игрока)
+        elapsed = max(0, min(now - (row["passive_ts"] or now), PASSIVE_MAX_ACCRUE))
+        gained = elapsed * (row["passive_level"] or 0)
+        if gained > 0:
             run("UPDATE game_wallet SET coins=coins+?, passive_ts=? WHERE user_id=?", (gained, now, uid))
-        return q1("SELECT * FROM game_wallet WHERE user_id=?", (uid,))
-    if not row["passive_ts"]:
-        with db_lock:
+            return q1("SELECT * FROM game_wallet WHERE user_id=?", (uid,))
+        if not row["passive_ts"] or not row["passive_level"]:
+            # нет пассивного дохода — просто двигаем метку времени, чтобы будущие уровни
+            # не начислили «задним числом» за все дни простоя
             run("UPDATE game_wallet SET passive_ts=? WHERE user_id=?", (now, uid))
-    return row
+            row["passive_ts"] = now
+        return row
+
+
+_click_bucket = {}   # uid -> (токены, время) — токен-бакет скорости тапов
+
+
+def click_allow(uid, n):
+    """Сколько из n тапов в пакете засчитываем: человек физически не тапает быстрее CLICKER_TPS."""
+    now = time.monotonic()
+    with _rl_lock:
+        tokens, ts = _click_bucket.get(uid, (float(CLICKER_BURST), now))
+        tokens = min(float(CLICKER_BURST), tokens + (now - ts) * CLICKER_TPS)
+        take = max(0, min(n, int(tokens)))
+        _click_bucket[uid] = (tokens - take, now)
+        if len(_click_bucket) > 4000:       # не растём бесконечно: выкидываем давно «полные» бакеты
+            for k in [k for k, (_t, _ts) in _click_bucket.items() if now - _ts > 60][:2000]:
+                _click_bucket.pop(k, None)
+        return take
 
 
 def new_captcha(uid):
@@ -6443,25 +8701,35 @@ def clicker_state():
 
 @app.post("/api/games/clicker/click")
 def clicker_click():
+    """Принимает ПАКЕТ тапов (n) — клиент копит тапы и шлёт раз в ~0.4 с, поэтому быстрые тапы не теряются.
+    Сервер сам ограничивает скорость (токен-бакет) и обрывает пакет на тапе, после которого нужна капча."""
     u = auth_user()
     if not u:
         return err("Требуется вход", 401)
-    if not hit("gclick", u["id"], 12, 10):      # не больше ~1.2 клика/сек устойчиво — человеку этого достаточно
-        return err("Слишком быстро", 429)
-    w = wallet_row(u["id"])
-    if w["captcha"]:
-        return jsonify(ok=False, need_captcha=True, captcha=w["captcha"], error="Сначала решите проверку")
-    gain = 1 + (w["click_power"] or 0)   # базовая монета за тап + уровень улучшения «силы клика»
-    streak = (w["streak"] or 0) + 1
-    need_captcha = streak % CLICKER_CAPTCHA_EVERY == 0
+    n = num(body().get("n", 1), 1, 100_000)
+    n = min(n or 1, CLICKER_BATCH_MAX)
     with db_lock:
-        run("UPDATE game_wallet SET coins=coins+?, streak=? WHERE user_id=?", (gain, 0 if need_captcha else streak, u["id"]))
+        w = wallet_row(u["id"])
+        if w["captcha"]:
+            return jsonify(ok=False, need_captcha=True, captcha=w["captcha"], error="Сначала решите проверку")
+        allowed = click_allow(u["id"], n)
+        if allowed <= 0:
+            return jsonify(ok=True, accepted=0, throttled=True, coins=w["coins"], need_captcha=False, captcha=None)
+        power = w["click_power"] or 0
+        streak = w["streak"] or 0
+        room = max(1, CLICKER_CAPTCHA_EVERY - streak)      # сколько тапов осталось до проверки «не бот»
+        take = min(allowed, room)
+        need_captcha = take >= room
+        gain = take * (1 + power)
+        run("UPDATE game_wallet SET coins=coins+?, streak=? WHERE user_id=?", (gain, 0 if need_captcha else streak + take, u["id"]))
         run("""INSERT INTO game_scores(user_id,game,day,score,ts) VALUES(?,?,?,?,?)
                ON CONFLICT(user_id,game,day) DO UPDATE SET score=score+excluded.score, ts=excluded.ts""",
             (u["id"], "clicker", today_str(), gain, int(time.time())))
-    q = new_captcha(u["id"]) if need_captcha else None
-    w2 = wallet_row(u["id"])
-    return jsonify(ok=True, coins=w2["coins"], gain=gain, need_captcha=need_captcha, captcha=q)
+        q = new_captcha(u["id"]) if need_captcha else None
+        w2 = wallet_row(u["id"])
+        td = q1("SELECT score FROM game_scores WHERE user_id=? AND game='clicker' AND day=?", (u["id"], today_str()))
+    return jsonify(ok=True, coins=w2["coins"], today=td["score"] if td else 0, gain=gain, accepted=take,
+                   throttled=take < n, need_captcha=need_captcha, captcha=q)
 
 
 @app.post("/api/games/clicker/upgrade")
@@ -6474,22 +8742,22 @@ def clicker_upgrade():
     kind = str(body().get("kind") or "")
     if kind not in ("click", "passive"):
         return err("Неизвестное улучшение")
-    w = wallet_row(u["id"])
-    if w["captcha"]:
-        return jsonify(ok=False, need_captcha=True, captcha=w["captcha"], error="Сначала решите проверку")
     field = "click_power" if kind == "click" else "passive_level"
     base, growth = (UPGRADE_CLICK_BASE, UPGRADE_CLICK_GROWTH) if kind == "click" else (UPGRADE_PASSIVE_BASE, UPGRADE_PASSIVE_GROWTH)
-    level = w[field] or 0
-    if level >= UPGRADE_MAX_LEVEL:
-        return err("Это улучшение уже максимального уровня")
-    cost = upgrade_cost(level, base, growth)
-    if (w["coins"] or 0) < cost:
-        return err("Недостаточно монет")
-    with db_lock:
+    with db_lock:        # проверка баланса и списание — одной транзакцией: двойной тап не уведёт баланс в минус
+        w = wallet_row(u["id"])
+        if w["captcha"]:
+            return jsonify(ok=False, need_captcha=True, captcha=w["captcha"], error="Сначала решите проверку")
+        level = w[field] or 0
+        if level >= UPGRADE_MAX_LEVEL:
+            return err("Это улучшение уже максимального уровня")
+        cost = upgrade_cost(level, base, growth)
+        if (w["coins"] or 0) < cost:
+            return err("Недостаточно монет")
         # field — всегда одна из двух фиксированных констант выше, никогда не приходит от клиента напрямую
-        run(f"UPDATE game_wallet SET coins=coins-?, {field}={field}+1 WHERE user_id=?", (cost, u["id"]))
-    w2 = wallet_row(u["id"])
-    new_level = level + 1
+        run(f"UPDATE game_wallet SET coins=coins-?, {field}={field}+1 WHERE user_id=? AND {field}=? AND coins>=?", (cost, u["id"], level, cost))
+        w2 = wallet_row(u["id"])
+    new_level = w2[field] or 0
     next_cost = upgrade_cost(new_level, base, growth) if new_level < UPGRADE_MAX_LEVEL else None
     return jsonify(ok=True, coins=w2["coins"], kind=kind, level=new_level, next_cost=next_cost)
 
@@ -6517,6 +8785,2397 @@ def clicker_captcha():
     return jsonify(ok=True, need_captcha=False)
 
 
+
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+#  DICEBOT · БОТЫ · BOT API (названия методов и формат ответов — как у Telegram Bot API)
+# ═══════════════════════════════════════════════════════════════════════════════════════
+import queue, mimetypes
+from html.parser import HTMLParser as _HTMLParser
+
+BOT_ABOUT_MAX = 200                                                   # длина «О боте»
+BOT_LIMIT = min(20, max(1, env_int("BOT_MAX_PER_USER", 20)))                  # сколько ботов может создать один человек
+DICEBOT_NUMBER, DICEBOT_NAME, DICEBOT_USER = "+42779", "Dicebot", "Dicebot"
+BOT_UPD_MAX = 3000                                                   # необработанных обновлений на бота
+BOT_UPD_TTL = 24 * 3600                                              # и сколько они хранятся
+BOT_BAD_PREFIX = ("dicegram", "dicebot", "telegram", "botfather", "official", "support", "admin", "owner")
+BOT_BAD_NAMES = {"dicegram", "dicebot", "telegram", "botfather", "dicegram support", "support", "official"}
+BOT_FILE_MAX = MAX_UPLOAD
+BOT_CMD_RE = re.compile(r"^[a-z0-9_]{1,32}$")
+bot_cond = threading.Condition()                                     # будит getUpdates, когда пришло обновление
+_gu_active, _gu_lock = {}, threading.Lock()                          # bot_id -> идёт getUpdates (одновременно — только один)
+_bot_seen = {}                                                       # bot_id -> когда последний раз обращался к API
+_pcq = {}                                                            # pre_checkout_query id -> ожидание ответа бота
+_hook_busy, _hook_q, _hook_retry, _hook_lock = set(), queue.Queue(), {}, threading.Lock()
+_dicebot_cache = [0]
+HOOK_ALLOW_PRIVATE = os.environ.get("HOOK_ALLOW_PRIVATE", "0") == "1"   # только для тестов: адреса внутренней сети
+
+
+class BotErr(Exception):
+    def __init__(self, code, desc, params=None):
+        super().__init__(desc)
+        self.code, self.desc, self.params = code, desc, params
+
+
+def bots_schema(db):
+    db.executescript("""
+    CREATE TABLE IF NOT EXISTS bots(
+        id INTEGER PRIMARY KEY, owner INTEGER NOT NULL, tok_hash TEXT NOT NULL, tok_enc TEXT NOT NULL, tok_ts INTEGER DEFAULT 0,
+        descr TEXT DEFAULT '', about TEXT DEFAULT '', cmds TEXT DEFAULT '[]', menu_kb TEXT DEFAULT '',
+        enabled INTEGER DEFAULT 1, groups_ok INTEGER DEFAULT 1, privacy INTEGER DEFAULT 1,
+        hook_url TEXT DEFAULT '', hook_secret TEXT DEFAULT '', hook_ts INTEGER DEFAULT 0, hook_err TEXT DEFAULT '', hook_err_ts INTEGER DEFAULT 0,
+        msgs_in INTEGER DEFAULT 0, msgs_out INTEGER DEFAULT 0, stars_in INTEGER DEFAULT 0, created INTEGER, last_api INTEGER DEFAULT 0);
+    CREATE INDEX IF NOT EXISTS ix_bots_owner ON bots(owner);
+    UPDATE bots SET about=substr(descr,1,200) WHERE COALESCE(about,'')='' AND COALESCE(descr,'')<>'';
+    UPDATE bots SET descr='' WHERE COALESCE(descr,'')<>'';
+    CREATE TABLE IF NOT EXISTS bot_admins(bot_id INTEGER, uid INTEGER, ts INTEGER, PRIMARY KEY(bot_id, uid));
+    CREATE INDEX IF NOT EXISTS ix_bot_admins_uid ON bot_admins(uid);
+    CREATE TABLE IF NOT EXISTS bot_users(bot_id INTEGER, uid INTEGER, first INTEGER, last INTEGER, msgs INTEGER DEFAULT 0,
+        blocked INTEGER DEFAULT 0, PRIMARY KEY(bot_id, uid));
+    CREATE TABLE IF NOT EXISTS bot_updates(id INTEGER PRIMARY KEY AUTOINCREMENT, bot_id INTEGER NOT NULL, data TEXT, ts INTEGER,
+        tries INTEGER DEFAULT 0);
+    CREATE INDEX IF NOT EXISTS ix_bot_upd ON bot_updates(bot_id, id);
+    CREATE TABLE IF NOT EXISTS bot_cbq(id TEXT PRIMARY KEY, bot_id INTEGER, uid INTEGER, mid INTEGER, ts INTEGER);
+    CREATE TABLE IF NOT EXISTS bot_pay(id INTEGER PRIMARY KEY AUTOINCREMENT, bot_id INTEGER, uid INTEGER, mid INTEGER, amount INTEGER,
+        title TEXT DEFAULT '', payload TEXT DEFAULT '', charge TEXT DEFAULT '', ts INTEGER, status TEXT DEFAULT 'paid');
+    CREATE INDEX IF NOT EXISTS ix_bot_pay ON bot_pay(bot_id, id);
+    CREATE TABLE IF NOT EXISTS bot_out(id INTEGER PRIMARY KEY AUTOINCREMENT, bot_id INTEGER, uid INTEGER, amount INTEGER, key TEXT, ref TEXT, ts INTEGER,
+        UNIQUE(bot_id, key));
+    """)
+    if "bot" not in {r["name"] for r in db.execute("PRAGMA table_info(users)")}:
+        db.execute("ALTER TABLE users ADD COLUMN bot INTEGER DEFAULT 0")
+
+
+# ───────────── токены ─────────────
+def bot_make_token(bid):
+    secret = "AA" + secrets.token_urlsafe(30)
+    return f"{bid}:{secret}", hashlib.sha256(secret.encode()).hexdigest()
+
+
+def bot_row(bid):
+    return q1("SELECT * FROM bots WHERE id=?", (bid,)) if bid else None
+
+
+def bot_token_of(b):
+    try:
+        return decrypt_text(b["tok_enc"])
+    except Exception:
+        return ""
+
+
+def bot_auth(token):
+    """token «id:секрет» → (bots-строка, users-строка) или None."""
+    try:
+        bid_s, sec = str(token).split(":", 1)
+        bid = int(bid_s)
+    except (ValueError, AttributeError):
+        return None
+    b = bot_row(bid)
+    if not b or not sec:
+        return None
+    if not hmac.compare_digest(hashlib.sha256(sec.encode()).hexdigest(), b["tok_hash"]):
+        return None
+    u = fresh(bid)
+    if not u or u.get("deleted") or u.get("banned"):
+        return None
+    return b, u
+
+
+def bot_cmds(b):
+    try:
+        v = json.loads(b.get("cmds") or "[]")
+    except Exception:
+        v = []
+    return [c for c in v if isinstance(c, dict) and c.get("command")][:100]
+
+
+def bot_alive(b):
+    """Бот сейчас «на связи»: подключён webhook или недавно был запрос getUpdates."""
+    return bool(b.get("hook_url")) or time.time() - _bot_seen.get(b["id"], 0) < 90
+
+
+def tg_user(u):
+    d = {"id": u["id"], "is_bot": bool(u.get("bot")), "first_name": u.get("name") or "User"}
+    if u.get("surname"):
+        d["last_name"] = u["surname"]
+    if u.get("username"):
+        d["username"] = u["username"]
+    if is_premium(u):
+        d["is_premium"] = True
+    return d
+
+
+def tg_chat_user(u):
+    d = {"id": u["id"], "type": "private", "first_name": u.get("name") or "User"}
+    if u.get("surname"):
+        d["last_name"] = u["surname"]
+    if u.get("username"):
+        d["username"] = u["username"]
+    return d
+
+
+def tg_chat_group(ch):
+    d = {"id": -ch["id"], "type": "channel" if ch["kind"] == "channel" else "supergroup", "title": ch["title"] or ""}
+    if ch.get("slug"):
+        d["username"] = ch["slug"]
+    return d
+
+
+_T2O = {"bold": "b", "italic": "i", "underline": "u", "strikethrough": "s", "code": "c", "pre": "c", "spoiler": "sp",
+        "blockquote": "q", "expandable_blockquote": "q"}
+_O2T = {"b": "bold", "i": "italic", "u": "underline", "s": "strikethrough", "c": "code", "sp": "spoiler", "q": "blockquote"}
+
+
+def tg_entities(text, ents):
+    out = []
+    for e in ents or []:
+        t = _O2T.get(e.get("t"))
+        if t:
+            out.append({"type": t, "offset": e["o"], "length": e["l"]})
+        elif e.get("t") == "a" and e.get("u"):
+            out.append({"type": "text_link", "offset": e["o"], "length": e["l"], "url": e["u"]})
+    if text:
+        m = re.match(r"^/[A-Za-z0-9_]{1,32}(@[A-Za-z0-9_]{3,32})?", text)
+        if m:
+            out.append({"type": "bot_command", "offset": 0, "length": utf16len(m.group(0))})
+        for m in re.finditer(r"(?<![\w@])@[A-Za-z][A-Za-z0-9_]{4,31}", text):
+            out.append({"type": "mention", "offset": utf16len(text[:m.start()]), "length": utf16len(m.group(0))})
+    return out
+
+
+def tg_file_obj(att, kind):
+    fid = att.get("fid") or ""
+    d = {"file_id": fid, "file_unique_id": fid[:16], "file_size": att.get("size") or 0}
+    if kind == "photo":
+        d.update(width=att.get("w") or 0, height=att.get("h") or 0)
+    elif kind in ("voice", "gif"):
+        d["duration"] = int((att.get("dur") or 0) / 1000)
+        d["mime_type"] = att.get("mime") or ""
+    else:
+        d["file_name"] = att.get("name") or ""
+        d["mime_type"] = att.get("mime") or ""
+    return d
+
+
+def tg_message(row, bot_id=0, depth=0):
+    """Строка messages → объект Message в формате Telegram."""
+    meta = meta_load(row["meta"])
+    text = decrypt_text(row["text"])
+    sender = fresh(row["sender"]) or {"id": row["sender"], "name": "?"}
+    m = {"message_id": row["id"], "from": tg_user(sender), "date": row["ts"]}
+    if row["receiver"] < 0:
+        ch = chat_row(-row["receiver"])
+        m["chat"] = tg_chat_group(ch) if ch else {"id": row["receiver"], "type": "supergroup", "title": ""}
+        if row.get("topic"):
+            m["message_thread_id"] = row["topic"]
+    else:
+        human = row["receiver"] if row["sender"] == bot_id else row["sender"]
+        m["chat"] = tg_chat_user(fresh(human) or {"id": human, "name": "?"})
+    kind = row.get("kind") or "text"
+    att = meta.get("a") or {}
+    ents = tg_entities(text, meta.get("e"))
+    if kind == "text":
+        m["text"] = text
+        if ents:
+            m["entities"] = ents
+    else:
+        if text:
+            m["caption"] = text
+            if ents:
+                m["caption_entities"] = ents
+        if kind == "photo":
+            m["photo"] = [tg_file_obj(att, "photo")]
+        elif kind == "voice":
+            m["voice"] = tg_file_obj(att, "voice")
+        elif kind == "gif":
+            m["animation"] = tg_file_obj(att, "gif")
+        elif kind == "sticker":
+            m["sticker"] = {"file_id": att.get("fid") or att.get("b") or "", "file_unique_id": (att.get("fid") or att.get("b") or "")[:16],
+                            "type": "regular", "emoji": att.get("em") or "", "width": att.get("w") or 0, "height": att.get("h") or 0}
+        else:
+            m["document"] = tg_file_obj(att, "file")
+    if row.get("reply_to") and depth == 0:
+        rr = q1("SELECT * FROM messages WHERE id=?", (row["reply_to"],))
+        if rr:
+            m["reply_to_message"] = tg_message(rr, bot_id, 1)
+    inv = meta.get("inv")
+    if inv:
+        m["invoice"] = {"title": inv.get("t", ""), "description": inv.get("d", ""), "currency": "XTR", "total_amount": inv.get("a", 0),
+                        "start_parameter": ""}
+    if meta.get("edit"):
+        m["edit_date"] = meta["edit"]
+    return m
+
+
+# ───────────── разбор форматирования (parse_mode) ─────────────
+class _FmtHTML(_HTMLParser):
+    TAGS = {"b": "b", "strong": "b", "i": "i", "em": "i", "u": "u", "ins": "u", "s": "s", "strike": "s", "del": "s",
+            "code": "c", "pre": "c", "tg-spoiler": "sp", "blockquote": "q", "a": "a"}
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.out, self.n, self.stack, self.ents = [], 0, [], []
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        if tag == "br":
+            return self.handle_data("\n")
+        t = self.TAGS.get(tag)
+        if tag == "span" and "tg-spoiler" in (a.get("class") or ""):
+            t = "sp"
+        if t:
+            self.stack.append((tag, t, self.n, a.get("href") or ""))
+
+    def handle_endtag(self, tag):
+        for i in range(len(self.stack) - 1, -1, -1):
+            if self.stack[i][0] == tag or (tag == "span" and self.stack[i][1] == "sp"):
+                _, t, start, href = self.stack.pop(i)
+                if self.n > start:
+                    e = {"t": t, "o": start, "l": self.n - start}
+                    if t == "a":
+                        e["u"] = href
+                    self.ents.append(e)
+                return
+
+    def handle_data(self, data):
+        self.out.append(data)
+        self.n += utf16len(data)
+
+
+def bot_parse(text, mode, ents_param=None):
+    """Текст бота + parse_mode/entities → (чистый текст, [наши entities])."""
+    text = str(text or "")
+    if isinstance(ents_param, str):
+        try:
+            ents_param = json.loads(ents_param)
+        except Exception:
+            ents_param = None
+    if isinstance(ents_param, list):
+        ents = []
+        for e in ents_param[:200]:
+            if not isinstance(e, dict):
+                continue
+            t = _T2O.get(e.get("type"))
+            if t:
+                ents.append({"t": t, "o": e.get("offset"), "l": e.get("length")})
+            elif e.get("type") == "text_link" and e.get("url"):
+                ents.append({"t": "a", "o": e.get("offset"), "l": e.get("length"), "u": str(e["url"])})
+        return text, ents
+    mode = str(mode or "").lower()
+    if mode == "html":
+        p = _FmtHTML()
+        try:
+            p.feed(text)
+            p.close()
+        except Exception:
+            raise BotErr(400, "Bad Request: can't parse entities: invalid HTML")
+        return "".join(p.out), sorted(p.ents, key=lambda e: e["o"])
+    if mode in ("markdown", "markdownv2"):
+        return _fmt_markdown(text, mode == "markdownv2")
+    return text, []
+
+
+def _fmt_markdown(text, v2):
+    """Минимальный разбор Markdown/MarkdownV2: *жирный*, _курсив_, __подчёркнутый__, ~зачёркнутый~, ||скрытый||, `код`, [текст](url)."""
+    out, n, ents, i = [], 0, [], 0
+    open_ = {}
+    marks = [("||", "sp"), ("__", "u"), ("*", "b"), ("_", "i"), ("~", "s")] if v2 else [("*", "b"), ("_", "i")]
+
+    def put(s):
+        nonlocal n
+        out.append(s)
+        n += utf16len(s)
+
+    while i < len(text):
+        c = text[i]
+        if c == "\\" and i + 1 < len(text):
+            put(text[i + 1]); i += 2; continue
+        if c == "`":
+            j = text.find("`", i + 1)
+            if j > 0:
+                s = text[i + 1:j]
+                ents.append({"t": "c", "o": n, "l": utf16len(s)}); put(s); i = j + 1; continue
+        if c == "[":
+            m = re.match(r"\[([^\]]+)\]\(([^)\s]+)\)", text[i:])
+            if m:
+                ents.append({"t": "a", "o": n, "l": utf16len(m.group(1)), "u": m.group(2)}); put(m.group(1)); i += m.end(); continue
+        hit_ = next((mk for mk in marks if text.startswith(mk[0], i)), None)
+        if hit_:
+            tok, t = hit_
+            if tok in open_:
+                st = open_.pop(tok)
+                if n > st:
+                    ents.append({"t": t, "o": st, "l": n - st})
+            else:
+                open_[tok] = n
+            i += len(tok); continue
+        put(c); i += 1
+    return "".join(out), sorted(ents, key=lambda e: e["o"])
+
+
+# ───────────── клавиатуры ─────────────
+def bot_markup(rm):
+    """reply_markup Telegram → (inline-кнопки, reply-клавиатура) в нашем виде. Ошибка — BotErr."""
+    if rm in (None, "", {}):
+        return None, None
+    if isinstance(rm, str):
+        try:
+            rm = json.loads(rm)
+        except Exception:
+            raise BotErr(400, "Bad Request: can't parse reply keyboard markup JSON object")
+    if not isinstance(rm, dict):
+        raise BotErr(400, "Bad Request: reply markup must be an object")
+    if isinstance(rm.get("inline_keyboard"), list):
+        rows = []
+        for row in rm["inline_keyboard"][:12]:
+            if not isinstance(row, list):
+                raise BotErr(400, "Bad Request: inline keyboard row must be an array")
+            r = []
+            for b in row[:8]:
+                if not isinstance(b, dict) or not str(b.get("text") or "").strip():
+                    raise BotErr(400, "Bad Request: text buttons are unallowed in the inline keyboard")
+                x = {"t": str(b["text"])[:64]}
+                if b.get("callback_data") is not None:
+                    cd = str(b["callback_data"])
+                    if not cd or len(cd.encode()) > 64:
+                        raise BotErr(400, "Bad Request: BUTTON_DATA_INVALID")
+                    x["d"] = cd
+                elif b.get("url"):
+                    if not URL_OK.match(str(b["url"])):
+                        raise BotErr(400, "Bad Request: wrong HTTP URL specified")
+                    x["u"] = str(b["url"])
+                elif isinstance(b.get("web_app"), dict) and b["web_app"].get("url"):
+                    if not re.match(r"^https://[^\s<>\"']{1,480}$", str(b["web_app"]["url"]), re.I):
+                        raise BotErr(400, "Bad Request: web app url must use https")
+                    x["w"] = str(b["web_app"]["url"])
+                elif b.get("pay"):
+                    x["p"] = 1
+                else:
+                    raise BotErr(400, "Bad Request: inline button must have callback_data, url, web_app or pay")
+                r.append(x)
+            if r:
+                rows.append(r)
+        return rows or None, None
+    if isinstance(rm.get("keyboard"), list):
+        rows = []
+        for row in rm["keyboard"][:20]:
+            if not isinstance(row, list):
+                raise BotErr(400, "Bad Request: keyboard row must be an array")
+            r = []
+            for b in row[:8]:
+                t = b.get("text") if isinstance(b, dict) else b
+                t = str(t or "")[:64]
+                if t:
+                    r.append(t)
+            if r:
+                rows.append(r)
+        rk = {"k": rows, "rs": bool(rm.get("resize_keyboard")), "ot": bool(rm.get("one_time_keyboard")),
+              "ph": str(rm.get("input_field_placeholder") or "")[:64]}
+        return None, (rk if rows else {"rm": 1})
+    if rm.get("remove_keyboard"):
+        return None, {"rm": 1}
+    if rm.get("force_reply"):
+        return None, {"fr": 1, "ph": str(rm.get("input_field_placeholder") or "")[:64]}
+    return None, None
+
+
+# ───────────── файлы ботов ─────────────
+def bot_url_ok(url):
+    """Адрес для webhook/скачивания: только http(s), и только на внешние адреса (нельзя ходить во внутреннюю сеть сервера)."""
+    try:
+        pu = urlparse(url)
+        if pu.scheme not in ("http", "https") or not pu.hostname:
+            return False
+        if HOOK_ALLOW_PRIVATE:
+            return True
+        import socket as _s
+        infos = _s.getaddrinfo(pu.hostname, pu.port or (443 if pu.scheme == "https" else 80), proto=_s.IPPROTO_TCP)
+        return bool(infos) and all(_public_ip(i[4][0]) for i in infos)
+    except Exception:
+        return False
+
+
+def bot_store_file(bid, raw, name, mime):
+    if not raw:
+        raise BotErr(400, "Bad Request: file must be non-empty")
+    if len(raw) > BOT_FILE_MAX:
+        raise BotErr(413, "Request Entity Too Large")
+    name = re.sub(r"[\\/\x00-\x1f]", "_", str(name or "file")).strip()[:120] or "file"
+    mime = str(mime or "").lower()[:100]
+    if not MIME_RE.match(mime):
+        mime = mimetypes.guess_type(name)[0] or "application/octet-stream"
+    fid = secrets.token_hex(16)
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    with open(file_path(fid), "wb") as fh:
+        fh.write(raw)
+    run("INSERT INTO files(fid,owner,name,size,mime,got,done,ts) VALUES(?,?,?,?,?,?,1,?)", (fid, bid, name, len(raw), mime, len(raw), int(time.time())))
+    return fid, name, mime, len(raw)
+
+
+def bot_can_file(bid, fid):
+    """Бот может читать файл только из своих переписок (личка с ним или группы, где он состоит)."""
+    if not FID_RE.match(fid or ""):
+        return False
+    f = q1("SELECT owner FROM files WHERE fid=?", (fid,))
+    if not f:
+        return False
+    if f["owner"] == bid:
+        return True
+    return bool(q1("""SELECT 1 FROM messages WHERE (fid=? OR tfid=?) AND (receiver=? OR sender=?) LIMIT 1""", (fid, fid, bid, bid)) or
+                q1("""SELECT 1 FROM messages m JOIN chat_members c ON c.chat_id=-m.receiver AND c.user_id=?
+                      WHERE m.receiver<0 AND (m.fid=? OR m.tfid=?) LIMIT 1""", (bid, fid, fid)))
+
+
+def bot_media(bid, p, field, kind):
+    """Значение поля (file_id / файл в multipart / ссылка) → att для сообщения."""
+    f = request.files.get(field) if request else None
+    raw, name, mime = None, "", ""
+    if f is not None:
+        raw = f.read(BOT_FILE_MAX + 1)
+        name, mime = f.filename or field, f.mimetype or ""
+    else:
+        v = str(p.get(field) or "").strip()
+        if not v:
+            raise BotErr(400, f"Bad Request: there is no {field} in the request")
+        if FID_RE.match(v):
+            if not bot_can_file(bid, v):
+                raise BotErr(400, "Bad Request: wrong file identifier/HTTP URL specified")
+            r = q1("SELECT * FROM files WHERE fid=? AND done=1", (v,))
+            if not r:
+                raise BotErr(400, "Bad Request: wrong file identifier/HTTP URL specified")
+            return {"fid": v, "name": r["name"], "size": r["size"], "mime": r["mime"]}
+        if re.match(r"^https?://", v, re.I):
+            if not bot_url_ok(v):
+                raise BotErr(400, "Bad Request: failed to get HTTP URL content")
+            try:
+                resp = http.get(v, timeout=15, stream=True, allow_redirects=False)
+                if resp.status_code != 200:
+                    raise BotErr(400, "Bad Request: wrong HTTP URL specified")
+                raw = resp.raw.read(BOT_FILE_MAX + 1, decode_content=True)
+                mime = (resp.headers.get("Content-Type") or "").split(";")[0]
+                name = urlparse(v).path.rsplit("/", 1)[-1] or field
+            except BotErr:
+                raise
+            except Exception:
+                raise BotErr(400, "Bad Request: failed to get HTTP URL content")
+        else:
+            raise BotErr(400, "Bad Request: wrong file identifier/HTTP URL specified")
+    if not raw:
+        raise BotErr(400, "Bad Request: file must be non-empty")
+    if len(raw) > BOT_FILE_MAX:
+        raise BotErr(413, "Request Entity Too Large")
+    guess = mimetypes.guess_type(name)[0] if name else None
+    if kind in ("photo", "gif"):
+        sig = (raw[:3] == b"\xff\xd8\xff" and "image/jpeg") or (raw[:8] == b"\x89PNG\r\n\x1a\n" and "image/png") or \
+              (raw[:4] == b"RIFF" and raw[8:12] == b"WEBP" and "image/webp") or (raw[:4] == b"GIF8" and "image/gif")
+        if not sig:
+            raise BotErr(400, "Bad Request: PHOTO_INVALID_DIMENSIONS" if kind == "photo" else "Bad Request: wrong file type")
+        mime = sig
+    elif kind == "voice":
+        mime = mime if mime.startswith("audio/") else (guess if guess and guess.startswith("audio/") else "audio/ogg")
+    else:
+        mime = mime if MIME_RE.match(mime or "") and mime != "application/octet-stream" else (guess or "application/octet-stream")
+    if mime in ("text/html", "application/xhtml+xml", "image/svg+xml", "text/javascript", "application/javascript") and kind == "file":
+        mime = "application/octet-stream"          # исполняемые в браузере типы отдаём как обычные данные
+    fid, name, mime, size = bot_store_file(bid, raw, name or field, mime)
+    return {"fid": fid, "name": name, "size": size, "mime": mime}
+
+
+
+
+# ───────────── отправка сообщений ботом, обновления, webhook ─────────────
+def bot_send_msg(b, chat_id, text="", ents=None, kind="text", att=None, reply_to=None, kb=None, rk=None, inv=None, topic=0):
+    """Сообщение от имени бота. Возвращает строку messages. Ошибка — BotErr (как у Telegram)."""
+    bid = b["id"]
+    text = text or ""
+    if kind == "text" and not text.strip():
+        raise BotErr(400, "Bad Request: message text is empty")
+    if len(text) > (4096 if kind == "text" else 1024):
+        raise BotErr(400, "Bad Request: message is too long" if kind == "text" else "Bad Request: message caption is too long")
+    ents = clean_ents(ents, utf16len(text), None) if text else []
+    extra = {"bot": 1, "kb": kb, "rk": rk, "inv": inv}
+    if chat_id > 0:
+        t = fresh(chat_id)
+        if not t or t.get("deleted") or t.get("banned") or t.get("bot") or t.get("is_system"):
+            raise BotErr(400, "Bad Request: chat not found")
+        bu = q1("SELECT * FROM bot_users WHERE bot_id=? AND uid=?", (bid, chat_id))
+        if not bu:
+            raise BotErr(403, "Forbidden: bot can't initiate conversation with a user")
+        if bu["blocked"] or block_err(bid, chat_id):
+            raise BotErr(403, "Forbidden: bot was blocked by the user")
+        if not hit("bchat", f"{bid}:{chat_id}", 30, 10):
+            raise BotErr(429, "Too Many Requests: retry after 5", {"retry_after": 5})
+        rt = None
+        if reply_to:
+            rr = q1("SELECT id FROM messages WHERE id=? AND ((sender=? AND receiver=?) OR (sender=? AND receiver=?))", (reply_to, bid, chat_id, chat_id, bid))
+            rt = rr["id"] if rr else None
+        msg = add_message(bid, chat_id, text, None, kind, ents, att, rt, extra=extra)
+    else:
+        ch = chat_row(-chat_id)
+        if not ch:
+            raise BotErr(400, "Bad Request: chat not found")
+        m = member_row(ch["id"], bid)
+        if not m:
+            raise BotErr(403, "Forbidden: bot is not a member of the group chat")
+        try:
+            check_post(ch, m, kind, text, att)
+        except ValueError as e:
+            raise BotErr(403, "Forbidden: " + str(e))
+        if not hit("bchat", f"{bid}:{chat_id}", 60, 10):
+            raise BotErr(429, "Too Many Requests: retry after 5", {"retry_after": 5})
+        tid = 0
+        if topic and ch["kind"] == "group" and ch["topics"] and q1("SELECT 1 FROM chat_topics WHERE id=? AND chat_id=?", (topic, ch["id"])):
+            tid = topic
+        rt = None
+        if reply_to:
+            rr = q1("SELECT id FROM messages WHERE id=? AND receiver=?", (reply_to, chat_id))
+            rt = rr["id"] if rr else None
+        msg = add_gmessage(ch, bid, text, None, kind, ents, att, rt, topic=tid, extra=extra)
+    run("UPDATE bots SET msgs_out=msgs_out+1 WHERE id=?", (bid,))
+    return q1("SELECT * FROM messages WHERE id=?", (msg["id"],))
+
+
+def bot_row_for(b, chat_id, mid):
+    """Сообщение бота (или входящее в его личке) по chat_id + message_id, иначе BotErr."""
+    r = q1("SELECT * FROM messages WHERE id=?", (num(mid, 1, 2 ** 62) or 0,))
+    ok = False
+    if r:
+        if chat_id < 0:
+            ok = r["receiver"] == chat_id and bool(member_row(-chat_id, b["id"]))
+        else:
+            ok = (r["sender"] == b["id"] and r["receiver"] == chat_id) or (r["receiver"] == b["id"] and r["sender"] == chat_id)
+    if not ok:
+        raise BotErr(400, "Bad Request: message to edit not found")
+    return r
+
+
+def bot_edit_row(row, text=None, ents=None, kb=None, set_kb=False, mark=True):
+    """Изменить сообщение бота (текст и/или кнопки) и разослать правку участникам."""
+    meta = meta_load(row["meta"])
+    ts = int(time.time())
+    if set_kb:
+        meta["kb"] = kb or None
+    if text is not None:
+        meta["e"] = ents or None
+    if mark:
+        meta["edit"] = ts
+    run("UPDATE messages SET text=?, meta=?, edited=? WHERE id=?",
+        (encrypt_text(text) if text is not None else row["text"], meta_dump(meta), ts if mark else row.get("edited") or 0, row["id"]))
+    row = q1("SELECT * FROM messages WHERE id=?", (row["id"],))
+    for v in audience(row):
+        if clients.get(v):
+            push(v, {"type": "edit", "message": ser_one(row, v)})
+    return row
+
+
+def bot_delete_row(row):
+    run("DELETE FROM messages WHERE id=?", (row["id"],))
+    run("DELETE FROM reacts WHERE msg_id=?", (row["id"],))
+    gc_files([row.get("fid"), row.get("tfid")])
+    for v in audience(row):
+        if clients.get(v):
+            push(v, {"type": "del", "ids": [row["id"]]})
+
+
+def bot_push_update(bot_id, upd):
+    """Положить обновление в очередь бота (его заберёт getUpdates или отправит webhook). Возвращает update_id."""
+    b = bot_row(bot_id)
+    if not b or not b["enabled"]:
+        return 0
+    now = int(time.time())
+    with db_lock:
+        uid_ = run("INSERT INTO bot_updates(bot_id,data,ts) VALUES(?,?,?)", (bot_id, json.dumps(upd, ensure_ascii=False, separators=(",", ":")), now)).lastrowid
+        n = (q1("SELECT COUNT(*) n FROM bot_updates WHERE bot_id=?", (bot_id,)) or {}).get("n", 0)
+        if n > BOT_UPD_MAX:
+            run("DELETE FROM bot_updates WHERE bot_id=? AND id IN (SELECT id FROM bot_updates WHERE bot_id=? ORDER BY id LIMIT ?)",
+                (bot_id, bot_id, n - BOT_UPD_MAX))
+    if b["hook_url"]:
+        hook_kick(bot_id)
+    with bot_cond:
+        bot_cond.notify_all()
+    return uid_
+
+
+def hook_kick(bot_id):
+    _hook_q.put(bot_id)
+
+
+def hook_post(b, upd):
+    """Отправить обновление на webhook. → (успех, пояснение, ответ-метод|None)."""
+    url = b["hook_url"]
+    if not bot_url_ok(url):
+        return False, "bad webhook url", None
+    h = {"Content-Type": "application/json"}
+    if b.get("hook_secret"):
+        h["X-Telegram-Bot-Api-Secret-Token"] = b["hook_secret"]
+        h["X-Dicegram-Bot-Api-Secret-Token"] = b["hook_secret"]
+    try:
+        r = http.post(url, data=json.dumps(upd, ensure_ascii=False).encode(), headers=h, timeout=10, allow_redirects=False)
+    except Exception as e:
+        return False, ("connection error: " + type(e).__name__)[:120], None
+    if 200 <= r.status_code < 300:
+        rep = None
+        try:
+            j = r.json()
+            if isinstance(j, dict) and j.get("method"):
+                rep = j
+        except Exception:
+            pass
+        return True, "", rep
+    return False, f"Wrong response from the webhook: {r.status_code}", None
+
+
+def hook_drain(bid):
+    for _ in range(300):
+        b = bot_row(bid)
+        if not b or not b["hook_url"] or not b["enabled"]:
+            return
+        if time.time() < _hook_retry.get(bid, 0):
+            return
+        row = q1("SELECT * FROM bot_updates WHERE bot_id=? ORDER BY id LIMIT 1", (bid,))
+        if not row:
+            return
+        upd = dict(json.loads(row["data"]), update_id=row["id"])
+        ok, info, rep = hook_post(b, upd)
+        now = int(time.time())
+        if ok:
+            run("DELETE FROM bot_updates WHERE id=?", (row["id"],))
+            if b["hook_err"]:
+                run("UPDATE bots SET hook_err='' WHERE id=?", (bid,))
+            if rep:
+                try:
+                    p = {k: v for k, v in rep.items() if k != "method"}
+                    fn = BOT_METHODS.get(str(rep["method"]).lower())
+                    if fn:
+                        fn(b, fresh(bid), p)
+                except Exception as e:
+                    print("webhook reply:", repr(e))
+        else:
+            tries = row["tries"] + 1
+            run("UPDATE bots SET hook_err=?, hook_err_ts=? WHERE id=?", (info[:200], now, bid))
+            if tries >= 12:
+                run("DELETE FROM bot_updates WHERE id=?", (row["id"],))      # не доставили 12 раз подряд — отбрасываем, чтобы не копить очередь
+                continue
+            run("UPDATE bot_updates SET tries=? WHERE id=?", (tries, row["id"]))
+            delay = min(60, 2 ** tries)
+            _hook_retry[bid] = time.time() + delay
+            threading.Timer(delay + 0.1, hook_kick, (bid,)).start()
+            return
+
+
+def hook_worker():
+    while True:
+        bid = _hook_q.get()
+        with _hook_lock:
+            if bid in _hook_busy:
+                continue
+            _hook_busy.add(bid)
+        try:
+            hook_drain(bid)
+        except Exception as e:
+            print("hook_drain:", repr(e))
+        finally:
+            with _hook_lock:
+                _hook_busy.discard(bid)
+
+
+def bots_boot():
+    """При старте: запустить обработчики webhook и дослать накопившееся."""
+    for _ in range(4):
+        threading.Thread(target=hook_worker, daemon=True, name="bot-hook").start()
+    for r in qa("SELECT id FROM bots WHERE hook_url!='' AND enabled=1"):
+        hook_kick(r["id"])
+
+
+def bots_gc():
+    now = int(time.time())
+    run("DELETE FROM bot_updates WHERE ts<?", (now - BOT_UPD_TTL,))
+    run("DELETE FROM bot_cbq WHERE ts<?", (now - 3600,))
+
+
+# ───────────── входящие: человек → бот ─────────────
+def bot_incoming(u, to_id, mid):
+    """Человек написал боту в личку."""
+    b = bot_row(to_id)
+    if not b:
+        return
+    if to_id == dicebot_id():
+        return dicebot_handle(u, mid)
+    now = int(time.time())
+    with db_lock:
+        if q1("SELECT 1 FROM bot_users WHERE bot_id=? AND uid=?", (to_id, u["id"])):
+            run("UPDATE bot_users SET last=?, msgs=msgs+1, blocked=0 WHERE bot_id=? AND uid=?", (now, to_id, u["id"]))
+        else:
+            run("INSERT INTO bot_users(bot_id,uid,first,last,msgs) VALUES(?,?,?,?,1)", (to_id, u["id"], now, now))
+        run("UPDATE bots SET msgs_in=msgs_in+1 WHERE id=?", (to_id,))
+    if not b["enabled"]:
+        return                                   # отключённый бот просто молчит: человек видит /start без ответа и сам понимает, что бот не работает
+    row = q1("SELECT * FROM messages WHERE id=?", (mid,))
+    if row:
+        bot_push_update(to_id, {"message": tg_message(row, to_id)})
+
+
+def bot_group_hook(ch, row, sender_u):
+    """Сообщение в группе → обновления для ботов группы (по режиму приватности: только команды, упоминания и ответы им)."""
+    if sender_u.get("bot") or ch["kind"] not in ("group", "channel"):
+        return
+    bots = qa("""SELECT b.* FROM bots b JOIN chat_members m ON m.user_id=b.id AND m.chat_id=? WHERE b.enabled=1""", (ch["id"],))
+    if not bots:
+        return
+    if ch["kind"] == "channel":                              # в канале бот видит все посты (channel_post), как в Telegram
+        for b in bots:
+            bot_push_update(b["id"], {"channel_post": tg_message(row, b["id"])})
+        return
+    text = decrypt_text(row["text"])
+    rr = q1("SELECT sender FROM messages WHERE id=?", (row["reply_to"],)) if row.get("reply_to") else None
+    for b in bots:
+        un = (fresh(b["id"]) or {}).get("username") or ""
+        ok = not b["privacy"]
+        if not ok:
+            if text.startswith("/"):
+                m = re.match(r"^/\w+(?:@(\w+))?", text)
+                tgt = m.group(1) if m else None
+                ok = tgt is None or tgt.lower() == un.lower()
+            if not ok and un and re.search(r"(?<!\w)@" + re.escape(un) + r"(?!\w)", text, re.I):
+                ok = True
+            if not ok and rr and rr["sender"] == b["id"]:
+                ok = True
+        if ok:
+            bot_push_update(b["id"], {"message": tg_message(row, b["id"])})
+
+
+# ───────────── кнопки под сообщением и звёзды ─────────────
+@app.post("/api/bot/cb")
+def bot_cb():
+    """Нажатие inline-кнопки под сообщением бота."""
+    u = auth_user()
+    if not u:
+        return err("Требуется вход", 401)
+    d = body()
+    mid = num(d.get("id"), 1, 2 ** 62) or 0
+    data = str(d.get("d") or "")[:64]
+    row = q1("SELECT * FROM messages WHERE id=?", (mid,))
+    if not row or not vis(row, u["id"]):
+        return err("Сообщение не найдено", 404)
+    if row["receiver"] < 0:
+        if not member_row(-row["receiver"], u["id"]):
+            return err("Нет доступа", 403)
+    elif row["receiver"] != u["id"]:
+        return err("Нет доступа", 403)
+    meta = meta_load(row["meta"])
+    if not any(x.get("d") == data for r in (meta.get("kb") or []) for x in r):
+        return err("Кнопка устарела", 404)
+    if not hit("botcb", u["id"], 30, 10):
+        return err("Слишком часто", 429)
+    sid = row["sender"]
+    if sid == dicebot_id():
+        try:
+            res = dicebot_cb(u, row, data)
+        except Exception as e:
+            print("dicebot_cb:", repr(e))
+            res = "Ошибка. Попробуйте ещё раз"
+        return jsonify(ok=True, toast=res or "")
+    b = bot_row(sid)
+    if not b or not b["enabled"]:
+        return jsonify(ok=True)                       # отключённый бот молчит, без сообщений об ошибке
+    cbid = secrets.token_hex(8)
+    run("INSERT INTO bot_cbq(id,bot_id,uid,mid,ts) VALUES(?,?,?,?,?)", (cbid, sid, u["id"], mid, int(time.time())))
+    bot_push_update(sid, {"callback_query": {"id": cbid, "from": tg_user(u), "message": tg_message(row, sid),
+                                              "chat_instance": str(u["id"]), "data": data}})
+    return jsonify(ok=True, cb=cbid, alive=bot_alive(b))
+
+
+def bot_pay_do(u, row):
+    """Оплата счёта (sendInvoice) звёздами. → (текст ошибки | None, новый баланс)."""
+    meta = meta_load(row["meta"])
+    inv = meta.get("inv")
+    b = bot_row(row["sender"])
+    if not inv or not b or row["receiver"] != u["id"]:
+        return "Счёт не найден", 0
+    if inv.get("paid"):
+        return "Этот счёт уже оплачен", 0
+    amt = int(inv.get("a") or 0)
+    if amt < 1:
+        return "Неверная сумма", 0
+    if not b["enabled"] or not bot_alive(b):
+        return "Бот сейчас не на связи — оплата невозможна, попробуйте позже", 0
+    if (u.get("stars") or 0) < amt:
+        return f"Недостаточно звёзд: нужно {amt} ⭐", 0
+    if not hit("botpay", u["id"], 10, 60):
+        return "Слишком часто. Подождите минуту", 0
+    # шаг 1: pre_checkout_query — бот должен ответить answerPreCheckoutQuery за 10 секунд (как в Telegram)
+    qid = secrets.token_hex(8)
+    ev = {"ev": threading.Event(), "ok": None, "err": ""}
+    _pcq[qid] = ev
+    bot_push_update(b["id"], {"pre_checkout_query": {"id": qid, "from": tg_user(u), "currency": "XTR", "total_amount": amt,
+                                                      "invoice_payload": inv.get("p", "")}})
+    ev["ev"].wait(10)
+    _pcq.pop(qid, None)
+    if ev["ok"] is False:
+        return ev["err"] or "Бот отклонил оплату", 0
+    if ev["ok"] is None:
+        return "Бот не ответил вовремя — оплата отменена", 0
+    # шаг 2: списание и зачисление владельцу бота (комиссии нет)
+    charge = "dg_" + secrets.token_hex(10)
+    with db_lock:
+        cur = run("UPDATE users SET stars=stars-? WHERE id=? AND stars>=?", (amt, u["id"], amt))
+        if not cur.rowcount:
+            return f"Недостаточно звёзд: нужно {amt} ⭐", 0
+        run("UPDATE users SET stars=stars+? WHERE id=?", (amt, b["owner"]))
+        run("UPDATE bots SET stars_in=stars_in+? WHERE id=?", (amt, b["id"]))
+        run("INSERT INTO bot_pay(bot_id,uid,mid,amount,title,payload,charge,ts) VALUES(?,?,?,?,?,?,?,?)",
+            (b["id"], u["id"], row["id"], amt, inv.get("t", ""), inv.get("p", ""), charge, int(time.time())))
+    bu = fresh(b["id"]) or {}
+    star_tx(u["id"], -amt, f"Оплата: {inv.get('t', 'счёт')} (@{bu.get('username', '')})", "bot_pay")
+    star_tx(b["owner"], amt, f"Оплата в @{bu.get('username', '')}: {inv.get('t', 'счёт')}", "bot_income")
+    inv["paid"] = 1
+    meta["inv"], meta["kb"] = inv, None
+    run("UPDATE messages SET meta=? WHERE id=?", (meta_dump(meta), row["id"]))
+    row = q1("SELECT * FROM messages WHERE id=?", (row["id"],))
+    for v in audience(row):
+        if clients.get(v):
+            push(v, {"type": "edit", "message": ser_one(row, v)})
+    msg = tg_message(row, b["id"])
+    msg["from"], msg["chat"] = tg_user(u), tg_chat_user(u)
+    msg.pop("invoice", None)
+    msg["successful_payment"] = {"currency": "XTR", "total_amount": amt, "invoice_payload": inv.get("p", ""),
+                                 "telegram_payment_charge_id": charge, "provider_payment_charge_id": charge}
+    bot_push_update(b["id"], {"message": msg})
+    notify_profile(u["id"])
+    notify_profile(b["owner"])
+    return None, (fresh(u["id"]) or {}).get("stars") or 0
+
+
+@app.post("/api/bot/pay")
+def bot_pay_route():
+    u = auth_user()
+    if not u:
+        return err("Требуется вход", 401)
+    d = body()
+    row = q1("SELECT * FROM messages WHERE id=?", (num(d.get("id"), 1, 2 ** 62) or 0,))
+    if not row or not vis(row, u["id"]):
+        return err("Счёт не найден", 404)
+    e, bal = bot_pay_do(u, row)
+    if e:
+        return jsonify(ok=False, error=e, short=(e.startswith("Недостаточно"))), 402 if e.startswith("Недостаточно") else 400
+    return jsonify(ok=True, stars=bal)
+
+
+
+
+# ───────────── Bot API: методы (названия и поля — как у Telegram) ─────────────
+def _i(v, default=0):
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return default
+
+
+def _truthy(v):
+    return v is True or str(v).lower() in ("1", "true", "yes")
+
+
+def bot_chat_id(p, key="chat_id"):
+    v = p.get(key)
+    if isinstance(v, str) and v.startswith("@"):
+        ch = q1("SELECT id FROM chats WHERE slug=? COLLATE NOCASE", (v[1:],))
+        if ch:
+            return -ch["id"]
+        raise BotErr(400, "Bad Request: chat not found")
+    cid = _i(v, 0)
+    if not cid:
+        raise BotErr(400, "Bad Request: chat_id is empty")
+    return cid
+
+
+def _reply_id(p):
+    rid = _i(p.get("reply_to_message_id"), 0)
+    rp = p.get("reply_parameters")
+    if isinstance(rp, str):
+        try:
+            rp = json.loads(rp)
+        except Exception:
+            rp = None
+    if isinstance(rp, dict):
+        rid = _i(rp.get("message_id"), rid)
+    return rid or None
+
+
+def m_getMe(b, u, p):
+    return {"id": u["id"], "is_bot": True, "first_name": u["name"], "username": u["username"], "can_join_groups": bool(b["groups_ok"]),
+            "can_read_all_group_messages": not b["privacy"], "supports_inline_queries": False}
+
+
+def m_getUpdates(b, u, p):
+    if b["hook_url"]:
+        raise BotErr(409, "Conflict: can't use getUpdates method while webhook is active; use deleteWebhook to delete the webhook first")
+    bid = b["id"]
+    off = _i(p.get("offset"), 0)
+    limit = max(1, min(100, _i(p.get("limit"), 100)))
+    timeout = max(0, min(50, _i(p.get("timeout"), 0)))
+    with _gu_lock:
+        if _gu_active.get(bid):
+            raise BotErr(409, "Conflict: terminated by other getUpdates request; make sure that only one bot instance is running")
+        _gu_active[bid] = time.time()
+    try:
+        if off < 0:                                           # offset=-1 — «только самое последнее»
+            last = q1("SELECT MAX(id) m FROM bot_updates WHERE bot_id=?", (bid,))
+            off = max(0, (last["m"] or 0) + off + 1) if last and last["m"] else 0
+        elif off:
+            run("DELETE FROM bot_updates WHERE bot_id=? AND id<?", (bid, off))      # offset подтверждает всё, что раньше
+        deadline = time.time() + timeout
+        while True:
+            _bot_seen[bid] = time.time()
+            rows = qa("SELECT id, data FROM bot_updates WHERE bot_id=? AND id>=? ORDER BY id LIMIT ?", (bid, off, limit))
+            left = deadline - time.time()
+            if rows or left <= 0:
+                break
+            with bot_cond:
+                bot_cond.wait(timeout=min(4.0, max(0.05, left)))
+        return [dict(json.loads(r["data"]), update_id=r["id"]) for r in rows]
+    finally:
+        with _gu_lock:
+            _gu_active.pop(bid, None)
+
+
+def m_setWebhook(b, u, p):
+    url = str(p.get("url") or "").strip()
+    if not url:
+        return m_deleteWebhook(b, u, p)
+    if len(url) > 500 or not (url.lower().startswith("https://") or HOOK_ALLOW_PRIVATE):
+        raise BotErr(400, "Bad Request: bad webhook: HTTPS url must be provided for webhook")
+    if not bot_url_ok(url):
+        raise BotErr(400, "Bad Request: bad webhook: failed to resolve host or the address is not public")
+    secret = str(p.get("secret_token") or "")[:256]
+    if secret and not re.fullmatch(r"[A-Za-z0-9_-]{1,256}", secret):
+        raise BotErr(400, "Bad Request: secret token contains unallowed characters")
+    if _truthy(p.get("drop_pending_updates")):
+        run("DELETE FROM bot_updates WHERE bot_id=?", (b["id"],))
+    run("UPDATE bots SET hook_url=?, hook_secret=?, hook_ts=?, hook_err='', hook_err_ts=0 WHERE id=?", (url, secret, int(time.time()), b["id"]))
+    _hook_retry.pop(b["id"], None)
+    hook_kick(b["id"])
+    return True
+
+
+def m_deleteWebhook(b, u, p):
+    if _truthy(p.get("drop_pending_updates")):
+        run("DELETE FROM bot_updates WHERE bot_id=?", (b["id"],))
+    run("UPDATE bots SET hook_url='', hook_secret='', hook_err='', hook_err_ts=0 WHERE id=?", (b["id"],))
+    return True
+
+
+def m_getWebhookInfo(b, u, p):
+    b = bot_row(b["id"])
+    n = (q1("SELECT COUNT(*) n FROM bot_updates WHERE bot_id=?", (b["id"],)) or {}).get("n", 0)
+    d = {"url": b["hook_url"] or "", "has_custom_certificate": False, "pending_update_count": n, "max_connections": 1}
+    if b["hook_err"]:
+        d["last_error_date"], d["last_error_message"] = b["hook_err_ts"], b["hook_err"]
+    return d
+
+
+def _markup_of(p):
+    return bot_markup(p.get("reply_markup"))
+
+
+def m_sendMessage(b, u, p):
+    cid = bot_chat_id(p)
+    text, ents = bot_parse(p.get("text"), p.get("parse_mode"), p.get("entities"))
+    kb, rk = _markup_of(p)
+    row = bot_send_msg(b, cid, text, ents, "text", None, _reply_id(p), kb, rk, topic=_i(p.get("message_thread_id"), 0))
+    return tg_message(row, b["id"])
+
+
+def _send_media(field, kind):
+    def fn(b, u, p):
+        cid = bot_chat_id(p)
+        att = bot_media(b["id"], p, field, kind)
+        text, ents = bot_parse(p.get("caption"), p.get("parse_mode"), p.get("caption_entities"))
+        if kind == "voice":
+            dur = _i(p.get("duration"), 0)
+            if dur:
+                att["dur"] = dur * 1000
+            text, ents = "", []
+        if kind == "photo":
+            w, h = _i(p.get("width"), 0), _i(p.get("height"), 0)
+            if w and h:
+                att["w"], att["h"] = min(w, 20000), min(h, 20000)
+        kb, rk = _markup_of(p)
+        row = bot_send_msg(b, cid, text, ents, kind, att, _reply_id(p), kb, rk, topic=_i(p.get("message_thread_id"), 0))
+        return tg_message(row, b["id"])
+    return fn
+
+
+def m_sendChatAction(b, u, p):
+    cid = bot_chat_id(p)
+    if cid > 0 and q1("SELECT 1 FROM bot_users WHERE bot_id=? AND uid=? AND blocked=0", (b["id"], cid)) and hit("bact", f"{b['id']}:{cid}", 12, 10):
+        push(cid, {"type": "typing", "from": b["id"], "chat": b["id"], "act": str(p.get("action") or "typing")[:20]})
+    return True
+
+
+def m_editMessageText(b, u, p):
+    cid = bot_chat_id(p)
+    row = bot_row_for(b, cid, p.get("message_id"))
+    if row["sender"] != b["id"] or (row.get("kind") or "text") != "text" or meta_load(row["meta"]).get("inv"):
+        raise BotErr(400, "Bad Request: message can't be edited")
+    text, ents = bot_parse(p.get("text"), p.get("parse_mode"), p.get("entities"))
+    if not text.strip() or len(text) > 4096:
+        raise BotErr(400, "Bad Request: message text is empty or too long")
+    kb, rk = _markup_of(p)
+    ents = clean_ents(ents, utf16len(text), None)
+    if text == decrypt_text(row["text"]) and kb == (meta_load(row["meta"]).get("kb") or None):
+        raise BotErr(400, "Bad Request: message is not modified: specified new message content and reply markup are exactly the same")
+    return tg_message(bot_edit_row(row, text, ents, kb, True), b["id"])
+
+
+def m_editMessageCaption(b, u, p):
+    cid = bot_chat_id(p)
+    row = bot_row_for(b, cid, p.get("message_id"))
+    if row["sender"] != b["id"] or (row.get("kind") or "text") in ("text", "voice", "sticker"):
+        raise BotErr(400, "Bad Request: there is no caption in the message to edit")
+    text, ents = bot_parse(p.get("caption"), p.get("parse_mode"), p.get("caption_entities"))
+    if len(text) > 1024:
+        raise BotErr(400, "Bad Request: message caption is too long")
+    kb, rk = _markup_of(p)
+    return tg_message(bot_edit_row(row, text, clean_ents(ents, utf16len(text), None), kb, True), b["id"])
+
+
+def m_editMessageReplyMarkup(b, u, p):
+    cid = bot_chat_id(p)
+    row = bot_row_for(b, cid, p.get("message_id"))
+    if row["sender"] != b["id"]:
+        raise BotErr(400, "Bad Request: message can't be edited")
+    kb, rk = _markup_of(p)
+    return tg_message(bot_edit_row(row, None, None, kb, True), b["id"])
+
+
+def m_deleteMessage(b, u, p):
+    cid = bot_chat_id(p)
+    row = bot_row_for(b, cid, p.get("message_id"))
+    if row["sender"] != b["id"] and not (cid > 0 and row["receiver"] == b["id"]):
+        raise BotErr(400, "Bad Request: message can't be deleted")
+    bot_delete_row(row)
+    return True
+
+
+def m_answerCallbackQuery(b, u, p):
+    qid = str(p.get("callback_query_id") or "")
+    r = q1("SELECT * FROM bot_cbq WHERE id=? AND bot_id=?", (qid, b["id"]))
+    if not r:
+        raise BotErr(400, "Bad Request: query is too old and response timeout expired or query ID is invalid")
+    run("DELETE FROM bot_cbq WHERE id=?", (qid,))
+    url = str(p.get("url") or "")
+    push(r["uid"], {"type": "cbans", "id": qid, "mid": r["mid"], "text": str(p.get("text") or "")[:200],
+                    "alert": _truthy(p.get("show_alert")), "url": url if URL_OK.match(url) else ""})
+    return True
+
+
+def m_setMyCommands(b, u, p):
+    cmds = p.get("commands")
+    if isinstance(cmds, str):
+        try:
+            cmds = json.loads(cmds)
+        except Exception:
+            cmds = None
+    if not isinstance(cmds, list) or len(cmds) > 100:
+        raise BotErr(400, "Bad Request: commands must be an array of up to 100 items")
+    out = []
+    for c in cmds:
+        if not isinstance(c, dict):
+            raise BotErr(400, "Bad Request: can't parse commands")
+        cm, ds = str(c.get("command") or "").lstrip("/").lower(), str(c.get("description") or "").strip()
+        if not BOT_CMD_RE.match(cm):
+            raise BotErr(400, "Bad Request: BOT_COMMAND_INVALID")
+        if not (3 <= len(ds) <= 256):
+            raise BotErr(400, "Bad Request: BOT_COMMAND_DESCRIPTION_INVALID")
+        out.append({"command": cm, "description": ds})
+    run("UPDATE bots SET cmds=? WHERE id=?", (json.dumps(out, ensure_ascii=False), b["id"]))
+    notify_profile(b["id"])
+    return True
+
+
+def m_getMyCommands(b, u, p):
+    return bot_cmds(bot_row(b["id"]))
+
+
+def m_deleteMyCommands(b, u, p):
+    run("UPDATE bots SET cmds='[]' WHERE id=?", (b["id"],))
+    notify_profile(b["id"])
+    return True
+
+
+def m_setMyName(b, u, p):
+    name = " ".join(str(p.get("name") or "").split())[:64]
+    if name:
+        if name.lower() in BOT_BAD_NAMES and not is_admin(fresh(b["owner"]) or {}):
+            raise BotErr(400, "Bad Request: this name can't be used")
+        run("UPDATE users SET name=? WHERE id=?", (name, b["id"]))
+        notify_profile(b["id"])
+    return True
+
+
+def m_getMyName(b, u, p):
+    return {"name": (fresh(b["id"]) or {}).get("name") or ""}
+
+
+def m_setMyDescription(b, u, p):
+    """Отдельного «описания» у ботов Dicegram нет — есть только «О боте»; метод оставлен для совместимости с Telegram-библиотеками."""
+    run("UPDATE bots SET about=? WHERE id=?", (str(p.get("description") or "").strip()[:BOT_ABOUT_MAX], b["id"]))
+    notify_profile(b["id"])
+    return True
+
+
+def m_getMyDescription(b, u, p):
+    return {"description": bot_row(b["id"])["about"]}
+
+
+def m_setMyShortDescription(b, u, p):
+    run("UPDATE bots SET about=? WHERE id=?", (str(p.get("short_description") or "").strip()[:BOT_ABOUT_MAX], b["id"]))
+    notify_profile(b["id"])
+    return True
+
+
+def m_getMyShortDescription(b, u, p):
+    return {"short_description": bot_row(b["id"])["about"]}
+
+
+def m_getChat(b, u, p):
+    cid = bot_chat_id(p)
+    if cid > 0:
+        if not q1("SELECT 1 FROM bot_users WHERE bot_id=? AND uid=?", (b["id"], cid)):
+            raise BotErr(400, "Bad Request: chat not found")
+        t = fresh(cid)
+        d = tg_chat_user(t)
+        if t.get("bio"):
+            d["bio"] = t["bio"]
+        return d
+    ch = chat_row(-cid)
+    if not ch or not member_row(ch["id"], b["id"]):
+        raise BotErr(400, "Bad Request: chat not found")
+    d = tg_chat_group(ch)
+    if ch.get("about"):
+        d["description"] = ch["about"]
+    return d
+
+
+def m_getChatMember(b, u, p):
+    cid = bot_chat_id(p)
+    uid = _i(p.get("user_id"), 0)
+    t = fresh(uid)
+    if not t:
+        raise BotErr(400, "Bad Request: user not found")
+    if cid > 0:
+        if cid != uid or not q1("SELECT 1 FROM bot_users WHERE bot_id=? AND uid=?", (b["id"], uid)):
+            raise BotErr(400, "Bad Request: chat not found")
+        return {"status": "member", "user": tg_user(t)}
+    ch = chat_row(-cid)
+    if not ch or not member_row(ch["id"], b["id"]):
+        raise BotErr(400, "Bad Request: chat not found")
+    m = member_row(ch["id"], uid)
+    st = "left" if not m else {"owner": "creator", "admin": "administrator"}.get(m["role"], "member")
+    return {"status": st, "user": tg_user(t)}
+
+
+def m_getFile(b, u, p):
+    fid = str(p.get("file_id") or "")
+    if not bot_can_file(b["id"], fid):
+        raise BotErr(400, "Bad Request: wrong file_id or the file is temporarily unavailable")
+    f = q1("SELECT * FROM files WHERE fid=? AND done=1", (fid,))
+    if not f:
+        raise BotErr(400, "Bad Request: wrong file_id or the file is temporarily unavailable")
+    from urllib.parse import quote
+    return {"file_id": fid, "file_unique_id": fid[:16], "file_size": f["size"], "file_path": f"{fid}/{quote(f['name'] or 'file')}"}
+
+
+def m_sendInvoice(b, u, p):
+    cid = bot_chat_id(p)
+    if cid < 0:
+        raise BotErr(400, "Bad Request: invoices can be sent only to private chats")
+    if str(p.get("currency") or "").upper() != "XTR":
+        raise BotErr(400, "Bad Request: currency must be XTR (Telegram Stars)")
+    prices = p.get("prices")
+    if isinstance(prices, str):
+        try:
+            prices = json.loads(prices)
+        except Exception:
+            prices = None
+    if not isinstance(prices, list) or len(prices) != 1 or not isinstance(prices[0], dict):
+        raise BotErr(400, "Bad Request: prices must contain exactly one item for XTR")
+    amt = _i(prices[0].get("amount"), 0)
+    if not (1 <= amt <= 100000):
+        raise BotErr(400, "Bad Request: TOTAL_AMOUNT_INVALID (1…100000)")
+    title = str(p.get("title") or "").strip()[:32]
+    descr = str(p.get("description") or "").strip()[:255]
+    payload = str(p.get("payload") or "")[:128]
+    if not title or not descr or not payload:
+        raise BotErr(400, "Bad Request: title, description and payload are required")
+    kb, rk = _markup_of(p)
+    pay_btn = {"t": f"Оплатить ⭐{amt}", "p": 1}
+    if kb and kb[0] and kb[0][0].get("p"):
+        kb[0][0]["t"] = kb[0][0]["t"] or pay_btn["t"]
+    else:
+        kb = [[pay_btn]] + (kb or [])
+    row = bot_send_msg(b, cid, f"🧾 {title}\n{descr}", None, "text", None, _reply_id(p), kb, None,
+                       inv={"t": title, "d": descr, "a": amt, "p": payload})
+    return tg_message(row, b["id"])
+
+
+def m_answerPreCheckoutQuery(b, u, p):
+    q = _pcq.get(str(p.get("pre_checkout_query_id") or ""))
+    if not q:
+        raise BotErr(400, "Bad Request: query is too old and response timeout expired or query ID is invalid")
+    ok = _truthy(p.get("ok"))
+    if not ok and not str(p.get("error_message") or "").strip():
+        raise BotErr(400, "Bad Request: error_message is required when ok is False")
+    q["ok"], q["err"] = ok, str(p.get("error_message") or "")[:200]
+    q["ev"].set()
+    return True
+
+
+def m_refundStarPayment(b, u, p):
+    charge = str(p.get("telegram_payment_charge_id") or "")
+    uid = _i(p.get("user_id"), 0)
+    with db_lock:
+        r = q1("SELECT * FROM bot_pay WHERE bot_id=? AND charge=? AND uid=?", (b["id"], charge, uid))
+        if not r or r["status"] != "paid":
+            raise BotErr(400, "Bad Request: CHARGE_NOT_FOUND" if not r else "Bad Request: CHARGE_ALREADY_REFUNDED")
+        cur = run("UPDATE users SET stars=stars-? WHERE id=? AND stars>=?", (r["amount"], b["owner"], r["amount"]))
+        if not cur.rowcount:
+            raise BotErr(400, "Bad Request: not enough stars on the bot owner's balance")
+        run("UPDATE users SET stars=stars+? WHERE id=?", (r["amount"], uid))
+        run("UPDATE bot_pay SET status='refunded' WHERE id=?", (r["id"],))
+        run("UPDATE bots SET stars_in=stars_in-? WHERE id=?", (r["amount"], b["id"]))
+    bu = fresh(b["id"]) or {}
+    star_tx(uid, r["amount"], f"Возврат: {r['title']} (@{bu.get('username', '')})", "bot_refund")
+    star_tx(b["owner"], -r["amount"], f"Возврат покупателю: {r['title']}", "bot_refund")
+    notify_profile(uid)
+    notify_profile(b["owner"])
+    return True
+
+
+BOT_PAYOUT_DAILY = env_int("BOT_PAYOUT_DAILY", 100000)      # сколько звёзд бот может выплатить людям за 24 часа (защита, если токен утечёт)
+
+
+def m_transferStars(b, u, p):
+    """Расширение Dicegram: выплата звёзд человеку с баланса владельца бота (вывод выигрыша, награды, кэшбэк).
+    Идемпотентно: повтор с тем же idempotency_key ничего не делает и возвращает прежний результат."""
+    uid, amt = _i(p.get("user_id"), 0), _i(p.get("amount"), 0)
+    key = str(p.get("idempotency_key") or "").strip()[:64]
+    if not (1 <= amt <= 100000):
+        raise BotErr(400, "Bad Request: amount must be from 1 to 100000")
+    if not key:
+        raise BotErr(400, "Bad Request: idempotency_key is required")
+    t = fresh(uid)
+    if not t or t.get("deleted") or t.get("banned") or t.get("bot") or t.get("is_system"):
+        raise BotErr(400, "Bad Request: user not found")
+    bu = q1("SELECT * FROM bot_users WHERE bot_id=? AND uid=?", (b["id"], uid))
+    if not bu or bu["blocked"]:
+        raise BotErr(403, "Forbidden: user has not started the bot or has blocked it")
+    ref = "dgo_" + secrets.token_hex(8)
+    now = int(time.time())
+    with db_lock:
+        old = q1("SELECT * FROM bot_out WHERE bot_id=? AND key=?", (b["id"], key))
+        if old:
+            if old["uid"] != uid or old["amount"] != amt:
+                raise BotErr(400, "Bad Request: idempotency_key was already used with other parameters")
+            return {"id": old["ref"], "user_id": uid, "amount": amt, "repeated": True}
+        spent = (q1("SELECT COALESCE(SUM(amount),0) s FROM bot_out WHERE bot_id=? AND ts>?", (b["id"], now - 86400)) or {}).get("s", 0)
+        if spent + amt > BOT_PAYOUT_DAILY:
+            raise BotErr(400, "Bad Request: daily payout limit of the bot is reached")
+        cur = run("UPDATE users SET stars=stars-? WHERE id=? AND stars>=?", (amt, b["owner"], amt))
+        if not cur.rowcount:
+            raise BotErr(400, "Bad Request: not enough stars on the bot owner's balance")
+        run("UPDATE users SET stars=stars+? WHERE id=?", (amt, uid))
+        run("INSERT INTO bot_out(bot_id,uid,amount,key,ref,ts) VALUES(?,?,?,?,?,?)", (b["id"], uid, amt, key, ref, now))
+    bu2 = fresh(b["id"]) or {}
+    star_tx(uid, amt, f"Выплата от @{bu2.get('username', '')}", "bot_payout")
+    star_tx(b["owner"], -amt, f"Выплата людям от @{bu2.get('username', '')}", "bot_payout")
+    notify_profile(uid)
+    notify_profile(b["owner"])
+    return {"id": ref, "user_id": uid, "amount": amt}
+
+
+def m_getStarTransactions(b, u, p):
+    off, lim = max(0, _i(p.get("offset"), 0)), max(1, min(100, _i(p.get("limit"), 100)))
+    rows = qa("SELECT * FROM bot_pay WHERE bot_id=? ORDER BY id DESC LIMIT ? OFFSET ?", (b["id"], lim, off))
+    out = []
+    for r in rows:
+        t = fresh(r["uid"]) or {"id": r["uid"], "name": "?"}
+        out.append({"id": r["charge"], "amount": r["amount"], "date": r["ts"], "source": {"type": "user", "user": tg_user(t)},
+                    **({"refunded": True} if r["status"] == "refunded" else {})})
+    return {"transactions": out}
+
+
+def m_getMyStarBalance(b, u, p):
+    return {"amount": bot_row(b["id"])["stars_in"], "nanostar_amount": 0}
+
+
+def m_true(b, u, p):
+    return True
+
+
+def m_getChatMenuButton(b, u, p):
+    return {"type": "default"}
+
+
+BOT_METHODS = {k.lower(): v for k, v in {
+    "getMe": m_getMe, "getUpdates": m_getUpdates, "setWebhook": m_setWebhook, "deleteWebhook": m_deleteWebhook,
+    "getWebhookInfo": m_getWebhookInfo, "sendMessage": m_sendMessage,
+    "sendPhoto": _send_media("photo", "photo"), "sendDocument": _send_media("document", "file"),
+    "sendVideo": _send_media("video", "file"), "sendAudio": _send_media("audio", "file"),
+    "sendVoice": _send_media("voice", "voice"), "sendAnimation": _send_media("animation", "gif"),
+    "sendChatAction": m_sendChatAction, "editMessageText": m_editMessageText, "editMessageCaption": m_editMessageCaption,
+    "editMessageReplyMarkup": m_editMessageReplyMarkup, "deleteMessage": m_deleteMessage,
+    "answerCallbackQuery": m_answerCallbackQuery, "setMyCommands": m_setMyCommands, "getMyCommands": m_getMyCommands,
+    "deleteMyCommands": m_deleteMyCommands, "setMyName": m_setMyName, "getMyName": m_getMyName,
+    "setMyDescription": m_setMyDescription, "getMyDescription": m_getMyDescription,
+    "setMyShortDescription": m_setMyShortDescription, "getMyShortDescription": m_getMyShortDescription,
+    "getChat": m_getChat, "getChatMember": m_getChatMember, "getFile": m_getFile, "sendInvoice": m_sendInvoice,
+    "answerPreCheckoutQuery": m_answerPreCheckoutQuery, "refundStarPayment": m_refundStarPayment, "transferStars": m_transferStars,
+    "getStarTransactions": m_getStarTransactions, "getMyStarBalance": m_getMyStarBalance,
+    "close": m_true, "logOut": m_true, "setChatMenuButton": m_true, "getChatMenuButton": m_getChatMenuButton,
+    "setMyDefaultAdministratorRights": m_true,
+}.items()}
+
+
+def bot_fail(code, desc, params=None):
+    d = {"ok": False, "error_code": code, "description": desc, "error": desc}
+    if params:
+        d["parameters"] = params
+    r = jsonify(d)
+    r.status_code = code
+    return r
+
+
+def bot_params():
+    p = {}
+    p.update(request.args.to_dict())
+    if (request.mimetype or "") == "application/json":
+        d = request.get_json(silent=True)
+        if isinstance(d, dict):
+            p.update(d)
+    elif request.form:
+        p.update(request.form.to_dict())
+    return p
+
+
+@app.route("/bot<token>/<method>", methods=["GET", "POST"])
+def bot_api(token, method):
+    a = bot_auth(token)
+    if not a:
+        return bot_fail(401, "Unauthorized")
+    b, u = a
+    if not b["enabled"]:
+        return bot_fail(403, "Forbidden: the bot is disabled by its owner")
+    now = time.time()
+    if now - _bot_seen.get(b["id"], 0) > 30:
+        run("UPDATE bots SET last_api=? WHERE id=?", (int(now), b["id"]))
+    _bot_seen[b["id"]] = now
+    fn = BOT_METHODS.get(method.lower())
+    if not fn:
+        return bot_fail(404, "Not Found")
+    if method.lower() != "getupdates" and not hit("bapi", b["id"], 40, 1):
+        return bot_fail(429, "Too Many Requests: retry after 1", {"retry_after": 1})
+    if request.content_length and request.content_length > BODY_MAX and not (request.mimetype or "").startswith("multipart/"):
+        return bot_fail(413, "Request Entity Too Large")
+    try:
+        res = fn(b, u, bot_params())
+    except BotErr as e:
+        return bot_fail(e.code, e.desc, e.params)
+    except Exception as e:
+        print("bot api", method, repr(e))
+        return bot_fail(500, "Internal Server Error")
+    return jsonify(ok=True, result=res)
+
+
+def _bot_file_send(token, fid):
+    a = bot_auth(token)
+    if not a:
+        return bot_fail(401, "Unauthorized")
+    b, _u = a
+    f = q1("SELECT * FROM files WHERE fid=? AND done=1", (fid,)) if FID_RE.match(fid or "") else None
+    if not f or not bot_can_file(b["id"], fid) or not os.path.exists(file_path(fid)):
+        return bot_fail(404, "Not Found")
+    mime = f["mime"] if f["mime"] and not f["mime"].startswith(("text/html", "image/svg", "application/xhtml")) else "application/octet-stream"
+    return send_file(file_path(fid), mimetype=mime, as_attachment=True, download_name=f["name"] or "file")
+
+
+@app.get("/file/bot<token>/<fid>/<path:name>")
+def bot_file_dl(token, fid, name):
+    return _bot_file_send(token, fid)
+
+
+@app.get("/file/bot<token>/<fid>")
+def bot_file_dl2(token, fid):
+    return _bot_file_send(token, fid)
+
+
+
+
+# ───────────── создание и управление ботами ─────────────
+def bot_username_err(un, owner_u):
+    if not (5 <= len(un) <= 32) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", un):
+        return "Username: от 5 до 32 символов — латиница, цифры и _, начинается с буквы."
+    if not un.lower().endswith("bot"):
+        return "Username бота должен заканчиваться на «bot», например my_helper_bot."
+    if "__" in un:
+        return "Нельзя использовать подряд два символа _"
+    if (un.lower().startswith(BOT_BAD_PREFIX) or name_reserved(un, owner_u)) and not is_admin(owner_u):
+        return "Это имя зарезервировано."
+    if name_taken(un):
+        return "Этот username уже занят."
+    return None
+
+
+def bot_create(owner_u, name, username):
+    """→ (bots-строка, токен, None) или (None, None, текст ошибки)."""
+    name = " ".join(str(name or "").split())
+    username = str(username or "").strip().lstrip("@")
+    if not (1 <= len(name) <= 64):
+        return None, None, "Название: от 1 до 64 символов."
+    if owner_u.get("bot") or owner_u.get("is_system"):
+        return None, None, "Боты не могут создавать ботов."
+    if name.lower() in BOT_BAD_NAMES and not is_admin(owner_u):
+        return None, None, "Это название нельзя использовать."
+    e = bot_username_err(username, owner_u)
+    if e:
+        return None, None, e
+    cnt = (q1("SELECT COUNT(*) n FROM bots WHERE owner=?", (owner_u["id"],)) or {}).get("n", 0)
+    lim = BOT_LIMIT
+    if cnt >= lim:
+        return None, None, f"Достигнут лимит: не больше {lim} ботов на один аккаунт."
+    if not hit("botnew", owner_u["id"], 5, 3600):
+        return None, None, "Слишком часто. Подождите немного и попробуйте снова."
+    now = int(time.time())
+    try:
+        with db_lock:
+            if name_taken(username):
+                return None, None, "Этот username уже занят."
+            uid = run("INSERT INTO users(number,name,username,created,bot,last_seen) VALUES(?,?,?,?,1,?)",
+                      ("bot:t" + secrets.token_hex(5), name, username, now, now)).lastrowid
+            run("UPDATE users SET number=? WHERE id=?", (f"bot:{uid}", uid))
+            token, th = bot_make_token(uid)
+            run("INSERT INTO bots(id,owner,tok_hash,tok_enc,tok_ts,created) VALUES(?,?,?,?,?,?)", (uid, owner_u["id"], th, encrypt_text(token), now, now))
+    except sqlite3.IntegrityError:
+        return None, None, "Этот username уже занят."
+    hc_log(f"🤖 {who_label(owner_u)} создал(а) бота @{username}")
+    return bot_row(uid), token, None
+
+
+def bot_new_token(b):
+    token, th = bot_make_token(b["id"])
+    run("UPDATE bots SET tok_hash=?, tok_enc=?, tok_ts=? WHERE id=?", (th, encrypt_text(token), int(time.time()), b["id"]))
+    return token
+
+
+def bot_delete(b):
+    bid = b["id"]
+    u = fresh(bid) or {}
+    drop_photo(u.get("avatar"))
+    with db_lock:
+        run("DELETE FROM chat_members WHERE user_id=?", (bid,))
+        for t in ("bot_updates", "bot_users", "bot_admins", "bot_cbq"):
+            run(f"DELETE FROM {t} WHERE bot_id=?", (bid,))
+        run("DELETE FROM bots WHERE id=?", (bid,))
+        run("UPDATE users SET deleted=1, username='', name='', surname='', bio='', avatar='', vtier='', number=? WHERE id=?", (f"deleted:{bid}", bid))
+    with bot_cond:
+        bot_cond.notify_all()
+    notify_profile(bid)
+    hc_log(f"🗑 Удалён бот @{u.get('username', '')} (#{bid})")
+
+
+def bot_managed(uid, bid, owner_only=False):
+    b = bot_row(bid)
+    if not b or not bid:
+        return None
+    if b["owner"] == uid:
+        return b, "owner"
+    if not owner_only and q1("SELECT 1 FROM bot_admins WHERE bot_id=? AND uid=?", (bid, uid)):
+        return b, "admin"
+    return None
+
+
+def bots_of(uid):
+    rows = qa("""SELECT b.*, 'owner' role FROM bots b WHERE b.owner=? AND b.id!=?
+                 UNION ALL SELECT b.*, 'admin' role FROM bots b JOIN bot_admins a ON a.bot_id=b.id WHERE a.uid=? ORDER BY created DESC""",
+              (uid, dicebot_id(), uid))
+    return rows
+
+
+def bot_stats(b):
+    now = int(time.time())
+    r = q1("""SELECT COUNT(*) total, COALESCE(SUM(last>?),0) d1, COALESCE(SUM(last>?),0) d7, COALESCE(SUM(last>?),0) d30,
+                     COALESCE(SUM(first>?),0) new7, COALESCE(SUM(blocked),0) blocked FROM bot_users WHERE bot_id=?""",
+           (now - 86400, now - 7 * 86400, now - 30 * 86400, now - 7 * 86400, b["id"])) or {}
+    pays = q1("SELECT COUNT(*) n FROM bot_pay WHERE bot_id=? AND status='paid'", (b["id"],)) or {}
+    return {"users": r.get("total", 0), "d1": r.get("d1", 0), "d7": r.get("d7", 0), "d30": r.get("d30", 0), "new7": r.get("new7", 0),
+            "blocked": r.get("blocked", 0), "msgs_in": b["msgs_in"], "msgs_out": b["msgs_out"], "stars": b["stars_in"], "pays": pays.get("n", 0)}
+
+
+def bot_out(b, role, full=False):
+    u = fresh(b["id"]) or {}
+    d = {"id": b["id"], "name": u.get("name") or "", "username": u.get("username") or "", "avatar": u.get("avatar") or "",
+         "enabled": bool(b["enabled"]), "role": role, "verified": (u.get("vtier") or "") in ("blue", "major", "official"),
+         "created": b["created"], "alive": bot_alive(b), "stats": bot_stats(b)}
+    if full:
+        n = (q1("SELECT COUNT(*) n FROM bot_updates WHERE bot_id=?", (b["id"],)) or {}).get("n", 0)
+        d.update(about=b["about"], cmds=bot_cmds(b), menu_kb=json_load(b["menu_kb"], []), privacy=bool(b["privacy"]),
+                 groups_ok=bool(b["groups_ok"]), hook={"url": b["hook_url"], "err": b["hook_err"], "err_ts": b["hook_err_ts"], "pending": n})
+        if role == "owner":
+            d["token"] = bot_token_of(b)
+            d["admins"] = [public_mini_bot(r["uid"]) for r in qa("SELECT uid FROM bot_admins WHERE bot_id=? ORDER BY ts", (b["id"],))]
+        else:
+            d["owner_user"] = public_mini_bot(b["owner"])
+        pays = qa("SELECT * FROM bot_pay WHERE bot_id=? ORDER BY id DESC LIMIT 30", (b["id"],))
+        d["pays"] = [{"id": r["id"], "uid": r["uid"], "who": public_mini_bot(r["uid"]), "amount": r["amount"], "title": r["title"], "ts": r["ts"],
+                      "status": r["status"]} for r in pays]
+    return d
+
+
+def public_mini_bot(uid):
+    t = fresh(uid) or {}
+    return {"id": uid, "name": t.get("name") or "", "surname": t.get("surname") or "", "username": t.get("username") or "", "avatar": t.get("avatar") or ""}
+
+
+def bot_info_out(uid):
+    """Что видят люди в профиле бота: описание, «о боте», команды, кнопки меню."""
+    b = bot_row(uid)
+    if not b:
+        return None
+    return {"about": b["about"], "cmds": bot_cmds(b), "menu": json_load(b["menu_kb"], []), "off": 0 if b["enabled"] else 1,
+            "groups": bool(b["groups_ok"])}
+
+
+def api_base():
+    env = os.environ.get("PUBLIC_API", "").strip().rstrip("/")
+    if env:
+        return env
+    proto = (request.headers.get("X-Forwarded-Proto") or request.scheme).split(",")[0].strip()
+    return f"{proto}://{request.host}"
+
+
+# ───────────── Dicebot (системный бот для создания ботов) ─────────────
+DICEBOT_CMDS = [("start", "Главное меню"), ("miniapp", "Открыть панель управления ботами"), ("createbot", "Создать нового бота"),
+                ("mybots", "Список ваших ботов"), ("setname", "Изменить название бота"),
+                ("setabouttext", "Изменить «О боте»"), ("setuserpic", "Установить аватар бота"), ("token", "Получить API-токен"),
+                ("revoke", "Заменить токен"), ("deletebot", "Удалить бота"), ("documention", "Документация Bot API (Python)")]
+_dstate = {}
+
+
+def dicebot_id():
+    if _dicebot_cache[0]:
+        return _dicebot_cache[0]
+    r = q1("SELECT id FROM users WHERE number=?", (DICEBOT_NUMBER,))
+    if not r:
+        with db_lock:
+            r = q1("SELECT id FROM users WHERE number=?", (DICEBOT_NUMBER,))
+            if not r:
+                now = int(time.time())
+                try:
+                    uid = run("INSERT INTO users(number,name,username,created,bot,vtier,bio,last_seen) VALUES(?,?,?,?,1,'blue',?,?)",
+                              (DICEBOT_NUMBER, DICEBOT_NAME, DICEBOT_USER, now, "Создание и управление ботами Dicegram", now)).lastrowid
+                except sqlite3.IntegrityError:
+                    uid = run("INSERT INTO users(number,name,username,created,bot,vtier,bio,last_seen) VALUES(?,?,?,?,1,'blue',?,?)",
+                              (DICEBOT_NUMBER, DICEBOT_NAME, "", now, "Создание и управление ботами Dicegram", now)).lastrowid
+                run("INSERT INTO bots(id,owner,tok_hash,tok_enc,created,cmds,descr,about) VALUES(?,?,?,?,?,?,?,?)",
+                    (uid, 0, secrets.token_hex(32), encrypt_text(secrets.token_hex(16)), now,
+                     json.dumps([{"command": c, "description": d} for c, d in DICEBOT_CMDS], ensure_ascii=False),
+                     "Dicebot — здесь создают ботов для Dicegram: получают токен, настраивают имя, описание и аватар, управляют ботом и читают документацию Bot API.",
+                     "Создание и управление ботами"))
+                r = {"id": uid}
+    _dicebot_cache[0] = r["id"]
+    return r["id"]
+
+
+def md_code(text):
+    """Текст с ```блоками``` и `кодом` → (чистый текст, entities кода)."""
+    out, ents, n = [], [], 0
+
+    def emit(s, code):
+        nonlocal n
+        if code and s:
+            ents.append({"t": "c", "o": n, "l": utf16len(s)})
+        out.append(s)
+        n += utf16len(s)
+    for i, part in enumerate(re.split(r"```(?:[a-z]+)?\n?(.*?)```", text, flags=re.S)):
+        if i % 2:
+            emit(part.strip("\n"), True)
+        else:
+            for j, seg in enumerate(re.split(r"`([^`\n]+)`", part)):
+                emit(seg, j % 2 == 1)
+    return "".join(out), ents
+
+
+def dm(uid, text, kb=None, plain=False):
+    """Сообщение от Dicebot человеку."""
+    if plain:
+        t, ents = text, []
+    else:
+        t, ents = md_code(text)
+    return add_message(dicebot_id(), uid, t[:4000], None, "text", ents[:200], None, None, extra={"bot": 1, "kb": kb})
+
+
+def dm_edit(row, text, kb=None):
+    t, ents = md_code(text)
+    return bot_edit_row(row, t[:4000], ents[:200], kb or None, True, mark=False)
+
+
+def kb_start():
+    return [[{"t": "🚀 Открыть панель", "a": "dicebot"}],
+            [{"t": "➕ Создать бота", "d": "cb:new"}, {"t": "🤖 Мои боты", "d": "cb:my"}],
+            [{"t": "📚 Документация", "a": "dicebot:docs"}]]
+
+
+def d_start(u, arg=""):
+    dm(u["id"], "👋 Привет! Я Dicebot — здесь создают ботов для Dicegram и управляют ими.\n\n"
+                "/createbot — создать нового бота\n/mybots — список ваших ботов\n/miniapp — удобная панель управления\n"
+                "/token — получить токен · /revoke — заменить токен\n"
+                "/setname · /setabouttext · /setuserpic — оформление бота\n"
+                "/deletebot — удалить бота\n/documention — документация Bot API с примерами на Python", kb_start())
+
+
+def d_miniapp(u, arg=""):
+    dm(u["id"], "📱 Панель Dicebot: все ваши боты, токены, настройки, статистика и платежи звёздами — в одном окне.",
+       [[{"t": "🚀 Нажмите, чтобы открыть", "a": "dicebot"}]])
+
+
+def d_create_begin(u, arg=""):
+    cnt = (q1("SELECT COUNT(*) n FROM bots WHERE owner=?", (u["id"],)) or {}).get("n", 0)
+    lim = BOT_LIMIT
+    if cnt >= lim:
+        return dm(u["id"], f"Достигнут лимит: не больше {lim} ботов на один аккаунт. Удалите ненужного бота (/deletebot).")
+    _dstate[u["id"]] = {"k": "cb_name", "ts": time.time()}
+    dm(u["id"], "Как назвать бота? Это имя увидят люди в списке чатов, например «Мой помощник».\n\nОтмена: /cancel", plain=True)
+
+
+def d_bots_kb(u, prefix, with_new=True):
+    rows = [[{"t": "🤖 " + (fresh(b["id"]) or {}).get("name", "") + "  @" + ((fresh(b["id"]) or {}).get("username") or ""), "d": f"{prefix}:{b['id']}"}]
+            for b in bots_of(u["id"])[:30]]
+    if with_new:
+        rows.append([{"t": "➕ Создать бота", "d": "cb:new"}])
+    return rows
+
+
+def d_mybots(u, arg=""):
+    bs = bots_of(u["id"])
+    if not bs:
+        return dm(u["id"], "У вас пока нет ботов. Создайте первого — это займёт полминуты.", [[{"t": "➕ Создать бота", "d": "cb:new"}]])
+    dm(u["id"], f"🤖 Ваши боты ({len(bs)}). Выберите, чтобы управлять:", d_bots_kb(u, "b"))
+
+
+def d_bot_card(u, b, role):
+    t = fresh(b["id"]) or {}
+    st = bot_stats(b)
+    text = (f"🤖 {t.get('name', '')} · @{t.get('username', '')}\nID: {b['id']}\nСтатус: {'включён' if b['enabled'] else '⛔ отключён'}"
+            f"{' · на связи' if bot_alive(b) else ' · не на связи'}\nПользователей: {st['users']} · сообщений: {st['msgs_in']}/{st['msgs_out']}"
+            f"\nЗаработано звёзд: {st['stars']} ⭐")
+    kb = []
+    if role == "owner":
+        kb.append([{"t": "🔑 Токен", "d": f"tk:{b['id']}"}, {"t": "♻️ Заменить токен", "d": f"rv:{b['id']}"}])
+    kb += [[{"t": "✏️ Название", "d": f"pk:setname:{b['id']}"}, {"t": "ℹ️ О боте", "d": f"pk:setabouttext:{b['id']}"}],
+           [{"t": "🖼 Аватар", "d": f"pk:setuserpic:{b['id']}"}],
+           [{"t": "▶️ Включить" if not b["enabled"] else "⛔ Отключить", "d": f"tg:{b['id']}"}]]
+    if role == "owner":
+        kb[-1].append({"t": "🗑 Удалить", "d": f"dl:{b['id']}"})
+    kb += [[{"t": "🚀 Панель бота", "a": f"dicebot:bot:{b['id']}"}], [{"t": "‹ Назад", "d": "cb:my"}]]
+    return text, kb
+
+
+def d_token_msg(uid, b, token, new=False):
+    t = fresh(b["id"]) or {}
+    dm(uid, f"{'✅ Бот создан!' if new == 'created' else '🔑 Новый токен' if new else '🔑 Токен'} @{t.get('username', '')}:\n\n`{token}`\n\n"
+            "Храните токен в секрете: любой, у кого он есть, управляет ботом. Если токен утёк — /revoke.",
+       [[{"t": "📚 Документация", "a": "dicebot:docs"}, {"t": "🚀 Панель бота", "a": f"dicebot:bot:{b['id']}"}]])
+
+
+def d_pick(u, cmd, arg=""):
+    owner_only = cmd in ("token", "revoke", "deletebot")
+    bs = [x for x in bots_of(u["id"]) if not owner_only or x["role"] == "owner"]
+    if not bs:
+        return dm(u["id"], "У вас пока нет ботов. Создайте первого:", [[{"t": "➕ Создать бота", "d": "cb:new"}]])
+    rows = [[{"t": "🤖 " + (fresh(b["id"]) or {}).get("name", "") + "  @" + ((fresh(b["id"]) or {}).get("username") or ""), "d": f"pk:{cmd}:{b['id']}"}]
+            for b in bs[:30]]
+    what = {"setname": "изменить название", "setabouttext": "изменить «О боте»", "setuserpic": "поставить аватар",
+            "token": "получить токен", "revoke": "заменить токен", "deletebot": "удалить"}[cmd]
+    dm(u["id"], f"Выберите бота, чтобы {what}:", rows)
+
+
+def d_begin_set(u, cmd, b):
+    uid = u["id"]
+    if cmd == "setname":
+        _dstate[uid] = {"k": "set_name", "bot": b["id"], "ts": time.time()}
+        return dm(uid, "Пришлите новое название бота (до 64 символов). Отмена: /cancel", plain=True)
+    if cmd == "setabouttext":
+        _dstate[uid] = {"k": "set_about", "bot": b["id"], "ts": time.time()}
+        return dm(uid, "Пришлите информацию «О боте» — она показывается в профиле бота (до 200 символов). Чтобы убрать — «-». Отмена: /cancel", plain=True)
+    if cmd == "setuserpic":
+        _dstate[uid] = {"k": "set_pic", "bot": b["id"], "ts": time.time()}
+        return dm(uid, "Пришлите фото — оно станет аватаром бота. Чтобы убрать аватар — отправьте «-». Отмена: /cancel", plain=True)
+    if cmd == "token":
+        return d_token_msg(uid, b, bot_token_of(b))
+    if cmd == "revoke":
+        return dm(uid, "Заменить токен? Старый токен перестанет работать сразу — бота придётся перезапустить с новым.",
+                  [[{"t": "✅ Да, заменить", "d": f"rvy:{b['id']}"}, {"t": "Отмена", "d": f"b:{b['id']}"}]])
+    if cmd == "deletebot":
+        t = fresh(b["id"]) or {}
+        return dm(uid, f"Удалить бота @{t.get('username', '')}? Это нельзя отменить: токен, настройки и история платежей будут потеряны.",
+                  [[{"t": "🗑 Да, удалить", "d": f"dly:{b['id']}"}, {"t": "Отмена", "d": f"b:{b['id']}"}]])
+
+
+def d_state_text(u, st, text):
+    uid, k = u["id"], st["k"]
+    if k == "cb_name":
+        name = " ".join(text.split())
+        if not (1 <= len(name) <= 64):
+            return dm(uid, "Название: от 1 до 64 символов. Попробуйте ещё раз или /cancel.", plain=True)
+        if name.lower() in BOT_BAD_NAMES and not is_admin(u):
+            return dm(uid, "Это название нельзя использовать. Придумайте другое.", plain=True)
+        _dstate[uid] = {"k": "cb_user", "name": name, "ts": time.time()}
+        return dm(uid, "Теперь username бота. Он должен заканчиваться на «bot», например my_helper_bot (латиница, цифры, _; от 5 до 32 символов).", plain=True)
+    if k == "cb_user":
+        b, token, e = bot_create(u, st["name"], text)
+        if e:
+            return dm(uid, e + "\n\nПопробуйте другой username или /cancel.", plain=True)
+        _dstate.pop(uid, None)
+        return d_token_msg(uid, b, token, "created")
+    sb = bot_managed(uid, st.get("bot"))
+    if not sb:
+        _dstate.pop(uid, None)
+        return dm(uid, "Бот не найден.", plain=True)
+    b = sb[0]
+    t = fresh(b["id"]) or {}
+    if k == "set_name":
+        name = " ".join(text.split())
+        if not (1 <= len(name) <= 64) or (name.lower() in BOT_BAD_NAMES and not is_admin(u)):
+            return dm(uid, "Название: от 1 до 64 символов, не «Dicegram»/«Dicebot»/«Telegram». Попробуйте ещё или /cancel.", plain=True)
+        run("UPDATE users SET name=? WHERE id=?", (name, b["id"]))
+        res = f"✅ Название изменено: {name}"
+    elif k == "set_about":
+        run("UPDATE bots SET about=? WHERE id=?", ("" if text == "-" else text[:BOT_ABOUT_MAX], b["id"]))
+        res = "✅ Информация «О боте» обновлена" if text != "-" else "✅ Информация убрана"
+    elif k == "set_pic":
+        if text != "-":
+            return dm(uid, "Пришлите именно фото (или «-», чтобы убрать аватар). Отмена: /cancel", plain=True)
+        drop_photo(t.get("avatar"))
+        run("UPDATE users SET avatar='' WHERE id=?", (b["id"],))
+        res = "✅ Аватар убран"
+    else:
+        _dstate.pop(uid, None)
+        return
+    _dstate.pop(uid, None)
+    notify_profile(b["id"])
+    dm(uid, res + f" · @{t.get('username', '')}", [[{"t": "🤖 К боту", "d": f"b:{b['id']}"}]])
+
+
+def d_set_pic(u, st, row):
+    uid = u["id"]
+    sb = bot_managed(uid, st.get("bot"))
+    _dstate.pop(uid, None)
+    if not sb:
+        return dm(uid, "Бот не найден.", plain=True)
+    b = sb[0]
+    fid = row.get("fid")
+    try:
+        with open(file_path(fid), "rb") as fh:
+            raw = fh.read(2_000_001)
+        if len(raw) > 2_000_000:
+            raise ValueError("Фото слишком большое (до 2 МБ)")
+        ext = ("jpg" if raw[:3] == b"\xff\xd8\xff" else "png" if raw[:8] == b"\x89PNG\r\n\x1a\n"
+               else "webp" if raw[:4] == b"RIFF" and raw[8:12] == b"WEBP" else None)
+        if not ext:
+            raise ValueError("Нужно фото в формате JPG, PNG или WebP")
+        fname = f"{b['id']}_{secrets.token_hex(6)}.{ext}"
+        with open(os.path.join(AVATAR_DIR, fname), "wb") as fh:
+            fh.write(raw)
+    except (OSError, ValueError, TypeError) as e:
+        return dm(uid, f"Не получилось: {e}. Пришлите другое фото или /cancel.", plain=True)
+    drop_photo((fresh(b["id"]) or {}).get("avatar"))
+    run("UPDATE users SET avatar=? WHERE id=?", (fname, b["id"]))
+    notify_profile(b["id"])
+    dm(uid, "✅ Аватар обновлён", [[{"t": "🤖 К боту", "d": f"b:{b['id']}"}]])
+
+
+# ── документация (одни и те же тексты — в чате с Dicebot и в окне «Документация») ──
+DOC_SECTIONS = [
+    ("start", "Быстрый старт", """Bot API Dicegram устроен так же, как Bot API Telegram: те же названия методов, те же поля, тот же формат ответа. Бот живёт на вашем сервере (или бесплатном хостинге) и обращается к нашему адресу.
+
+**Как это работает**
+1. Напишите @Dicebot → /createbot → получите токен.
+2. Ваша программа вызывает методы по адресу:
+`{API}/bot<ТОКЕН>/<метод>`
+3. Люди находят бота по @username и пишут ему — вы получаете сообщения и отвечаете.
+
+**Проверка токена**
+```
+curl "{API}/bot123456:AA…/getMe"
+```
+Ответ: {"ok": true, "result": {"id": …, "is_bot": true, "username": "my_helper_bot"}}
+
+Ответ на любой запрос — JSON: при успехе `ok: true` и `result`, при ошибке `ok: false`, `error_code`, `description`.
+
+Токен — секрет. Если он утёк, выполните /revoke: старый перестанет работать сразу."""),
+    ("python", "Бот на Python за 2 минуты", """Нужен только пакет `requests` (pip install requests).
+
+```
+import requests
+
+TOKEN = "123456:AA…"                  # токен из @Dicebot → /token
+API = "{API}/bot" + TOKEN
+
+def call(method, **params):
+    r = requests.post(f"{API}/{method}", json=params, timeout=70)
+    data = r.json()
+    if not data.get("ok"):
+        raise RuntimeError(data.get("description"))
+    return data["result"]
+
+offset = 0
+while True:                                   # long polling
+    for upd in call("getUpdates", offset=offset, timeout=30):
+        offset = upd["update_id"] + 1         # подтверждаем обработанное
+        msg = upd.get("message")
+        if msg and msg.get("text"):
+            chat_id = msg["chat"]["id"]
+            if msg["text"].startswith("/start"):
+                call("sendMessage", chat_id=chat_id, text="Привет! Я бот на Dicegram 👋",
+                     reply_markup={"inline_keyboard": [[{"text": "Нажми меня", "callback_data": "hi"}]]})
+            else:
+                call("sendMessage", chat_id=chat_id, text="Вы написали: " + msg["text"])
+        cb = upd.get("callback_query")
+        if cb:
+            call("answerCallbackQuery", callback_query_id=cb["id"], text="Привет!")
+            call("sendMessage", chat_id=cb["message"]["chat"]["id"], text="Кнопка нажата")
+```
+Бот может писать человеку только после того, как тот написал боту первым.
+
+Запускайте скрипт где угодно: на своём компьютере, VPS или бесплатном хостинге. Пока скрипт работает, бот «на связи»."""),
+    ("libs", "aiogram, python-telegram-bot, pyTelegramBotAPI", """Привычные библиотеки работают, если указать наш адрес вместо адреса Telegram — меняется одна строка.
+
+**aiogram 3**
+```
+from aiogram import Bot, Dispatcher
+from aiogram.client.session.aiohttp import AiohttpSession
+from aiogram.client.telegram import TelegramAPIServer
+from aiogram.filters import CommandStart
+from aiogram.types import Message
+import asyncio
+
+session = AiohttpSession(api=TelegramAPIServer.from_base("{API}"))
+bot = Bot("123456:AA…", session=session)
+dp = Dispatcher()
+
+@dp.message(CommandStart())
+async def start(m: Message):
+    await m.answer("Привет!")
+
+asyncio.run(dp.start_polling(bot))
+```
+**python-telegram-bot**
+```
+from telegram.ext import ApplicationBuilder
+app = (ApplicationBuilder().token("123456:AA…")
+       .base_url("{API}/bot").base_file_url("{API}/file/bot").build())
+```
+**pyTelegramBotAPI (telebot)**
+```
+import telebot
+telebot.apihelper.API_URL = "{API}/bot{0}/{1}"
+telebot.apihelper.FILE_URL = "{API}/file/bot{0}/{1}"
+bot = telebot.TeleBot("123456:AA…")
+```
+Поддерживаются методы из раздела «Список методов». Возможности, которых у Dicegram пока нет (inline-режим, игры, платёжные провайдеры кроме звёзд), вернут ошибку."""),
+    ("kb", "Кнопки и клавиатуры", """**Кнопки под сообщением (inline)** — параметр `reply_markup`:
+```
+{"inline_keyboard": [
+  [{"text": "Да", "callback_data": "yes"}, {"text": "Нет", "callback_data": "no"}],
+  [{"text": "Сайт", "url": "https://example.com"}],
+  [{"text": "Мини-приложение", "web_app": {"url": "https://example.com/app"}}]
+]}
+```
+Нажатие на кнопку с callback_data приходит как `callback_query`. Ответьте на него через `answerCallbackQuery` (можно с текстом `text` и `show_alert`), а сообщение измените через `editMessageText` / `editMessageReplyMarkup`.
+
+**Обычная клавиатура** (кнопки вместо поля ввода):
+```
+{"keyboard": [["Купить", "Помощь"], ["Контакты"]], "resize_keyboard": true, "one_time_keyboard": false}
+```
+Нажатая кнопка отправляет её текст как обычное сообщение. Убрать клавиатуру: `{"remove_keyboard": true}`.
+
+**Команды с автодополнением** — `setMyCommands`:
+```
+call("setMyCommands", commands=[{"command": "start", "description": "Начать"}, {"command": "help", "description": "Помощь"}])
+```
+Когда человек вводит «/», Dicegram предлагает эти команды.
+
+**Форматирование** — `parse_mode`: "HTML" (<b>, <i>, <u>, <s>, <code>, <a href>, <tg-spoiler>, <blockquote>) или "MarkdownV2".
+
+**Фото, видео, файлы** — `sendPhoto`, `sendVideo`, `sendDocument`, `sendAudio`, `sendVoice`, `sendAnimation`: передайте file_id, ссылку https или загрузите файл (multipart)."""),
+    ("hook", "Webhook вместо getUpdates", """Если у бота есть публичный HTTPS-адрес, Dicegram сам отправляет обновления на него.
+
+```
+call("setWebhook", url="https://example.com/hook", secret_token="my_secret_123")
+```
+Dicegram делает POST с JSON-обновлением и заголовком `X-Telegram-Bot-Api-Secret-Token` (проверяйте его). Ответьте кодом 200 — иначе обновление придёт повторно (до 12 попыток).
+
+Пример на Flask:
+```
+from flask import Flask, request
+app = Flask(__name__)
+
+@app.post("/hook")
+def hook():
+    if request.headers.get("X-Telegram-Bot-Api-Secret-Token") != "my_secret_123":
+        return "", 403
+    upd = request.get_json()
+    msg = upd.get("message")
+    if msg and msg.get("text"):
+        call("sendMessage", chat_id=msg["chat"]["id"], text="Получил: " + msg["text"])
+    return "ok"
+```
+Пока webhook включён, getUpdates недоступен. Отключить: `deleteWebhook`. Состояние: `getWebhookInfo`.
+
+Адрес должен быть HTTPS и указывать на публичный сервер (адреса внутренней сети запрещены)."""),
+    ("stars", "Платежи звёздами и донаты", """Бот может принимать оплату звёздами ⭐ — это валюта `XTR`. Звёзды сразу попадают на баланс владельца бота (комиссии нет) — в «Профиль → Звёзды».
+
+**1. Отправьте счёт**
+```
+call("sendInvoice", chat_id=chat_id, title="Донат", description="Поддержать автора ⭐",
+     payload="donate_50", currency="XTR", prices=[{"label": "Донат", "amount": 50}])
+```
+Человек увидит карточку счёта с кнопкой «Оплатить ⭐50». В `prices` ровно один пункт, сумма от 1 до 100 000.
+
+**2. Подтвердите оплату** — в течение 10 секунд ответьте на `pre_checkout_query`:
+```
+pcq = upd.get("pre_checkout_query")
+if pcq:
+    call("answerPreCheckoutQuery", pre_checkout_query_id=pcq["id"], ok=True)
+    # отказать: ok=False, error_message="Товар закончился"
+```
+**3. Выдайте товар** — после списания приходит сообщение с полем `successful_payment`:
+```
+msg = upd.get("message")
+if msg and msg.get("successful_payment"):
+    pay = msg["successful_payment"]      # total_amount, invoice_payload, telegram_payment_charge_id
+    call("sendMessage", chat_id=msg["chat"]["id"], text=f"Спасибо за {pay['total_amount']} ⭐!")
+```
+**Возврат**
+```
+call("refundStarPayment", user_id=msg["from"]["id"], telegram_payment_charge_id=pay["telegram_payment_charge_id"])
+```
+Деньги вернутся покупателю с баланса владельца (на нём должно хватать звёзд).
+
+**Выплата людям** (расширение Dicegram — в Telegram такого метода нет): бот, который принимает звёзды, может и отдавать их — например, выводить выигрыш или выдавать награды.
+```
+call("transferStars", user_id=msg["from"]["id"], amount=100, idempotency_key="reward_42")
+```
+Звёзды списываются с баланса владельца бота. `idempotency_key` обязателен: повтор запроса с тем же ключом ничего не выплатит второй раз — это защищает от двойной выплаты при сбое сети. Платить можно только тем, кто уже написал боту; на бота действует лимит выплат за 24 часа.
+
+**Важно:** бот должен быть «на связи» (работает getUpdates или webhook), иначе оплата невозможна. Свою статистику смотрите в панели Dicebot → бот → «Платежи»; `getMyStarBalance` и `getStarTransactions` тоже работают.
+
+**Донат-бот целиком** — отправляйте счёт на команду /donate и благодарите в `successful_payment`: это ~15 строк поверх примера «Бот на Python»."""),
+    ("methods", "Список методов", """getMe · getUpdates · setWebhook · deleteWebhook · getWebhookInfo
+sendMessage · sendPhoto · sendVideo · sendDocument · sendAudio · sendVoice · sendAnimation · sendChatAction
+editMessageText · editMessageCaption · editMessageReplyMarkup · deleteMessage
+answerCallbackQuery · sendInvoice · answerPreCheckoutQuery · refundStarPayment · transferStars · getStarTransactions · getMyStarBalance
+setMyCommands · getMyCommands · deleteMyCommands · setMyName · getMyName · setMyDescription · getMyDescription · setMyShortDescription · getMyShortDescription
+getChat · getChatMember · getFile
+
+Файлы входящих сообщений: `getFile(file_id)` → `file_path`, скачать: `{API}/file/bot<ТОКЕН>/<file_path>`.
+
+Группы: добавьте бота в группу — он получает команды (/cmd, /cmd@имя_бота), упоминания и ответы на свои сообщения (режим приватности включён по умолчанию; отключить можно в панели бота)."""),
+    ("limits", "Лимиты и безопасность", """• До {LIMIT} ботов на аккаунт.
+• До 40 запросов в секунду на бота; в один чат — не больше 30 сообщений за 10 секунд.
+• Бот не может писать первым: только тем, кто уже написал ему. Если человек заблокировал бота — ошибка 403.
+• Бот видит только свои переписки: личные сообщения ему и группы, где он состоит. Чужие диалоги недоступны.
+• getUpdates: одновременно одно подключение (иначе 409). Необработанные обновления хранятся 24 часа.
+• Файлы — до {MAXMB} МБ.
+• Токен хранится в зашифрованном виде; /revoke заменяет его мгновенно.
+• Администраторы Dicegram могут ограничить бота за спам и нарушения. Нельзя выдавать себя за Dicegram, Dicebot или другие сервисы."""),
+]
+
+
+def doc_text(sid):
+    for i, t, body_ in DOC_SECTIONS:
+        if i == sid:
+            return t, body_.replace("{API}", api_base()).replace("{LIMIT}", str(BOT_LIMIT)).replace("{MAXMB}", str(MAX_UPLOAD // 1048576))
+    return None, None
+
+
+def d_docs(u, arg=""):
+    dm(u["id"], "📚 Документация Bot API Dicegram\n\nМетоды называются так же, как в Telegram Bot API, поэтому готовые библиотеки "
+                "(aiogram, python-telegram-bot, telebot) работают после замены адреса. Откройте полную документацию или выберите раздел:",
+       [[{"t": "📖 Открыть документацию", "a": "dicebot:docs"}],
+        [{"t": "🚀 Быстрый старт", "d": "doc:start"}, {"t": "🐍 Python", "d": "doc:python"}],
+        [{"t": "📦 Библиотеки", "d": "doc:libs"}, {"t": "🔘 Кнопки", "d": "doc:kb"}],
+        [{"t": "🔔 Webhook", "d": "doc:hook"}, {"t": "⭐ Платежи звёздами", "d": "doc:stars"}],
+        [{"t": "📋 Методы", "d": "doc:methods"}, {"t": "🛡 Лимиты", "d": "doc:limits"}]])
+
+
+def d_cancel(u, arg=""):
+    had = _dstate.pop(u["id"], None)
+    dm(u["id"], "Отменено." if had else "Нечего отменять.", plain=True)
+
+
+D_COMMANDS = {"start": d_start, "help": d_start, "miniapp": d_miniapp, "createbot": d_create_begin, "newbot": d_create_begin,
+              "mybots": d_mybots, "cancel": d_cancel, "documention": d_docs, "documentation": d_docs, "docs": d_docs, "doc": d_docs,
+              "setname": lambda u, a: d_pick(u, "setname"),
+              "setabouttext": lambda u, a: d_pick(u, "setabouttext"), "setuserpic": lambda u, a: d_pick(u, "setuserpic"),
+              "token": lambda u, a: d_pick(u, "token"), "revoke": lambda u, a: d_pick(u, "revoke"),
+              "deletebot": lambda u, a: d_pick(u, "deletebot")}
+
+
+def dicebot_handle(u, mid):
+    """Человек написал Dicebot: команда или ответ на вопрос (название, описание, фото…)."""
+    row = q1("SELECT * FROM messages WHERE id=?", (mid,))
+    if not row or not hit("dicebot", u["id"], 25, 30):
+        return
+    uid = u["id"]
+    st = _dstate.get(uid)
+    if st and time.time() - st["ts"] > 900:
+        st = _dstate.pop(uid, None)
+    kind = row.get("kind") or "text"
+    if kind == "photo" and st and st["k"] == "set_pic":
+        return d_set_pic(u, st, row)
+    if kind != "text":
+        return dm(uid, "Пришлите текстом или выберите команду: /start", plain=True)
+    text = decrypt_text(row["text"]).strip()
+    if not text:
+        return
+    if text.startswith("/"):
+        m = re.match(r"^/([A-Za-z0-9_]+)(?:@\w+)?\s*(.*)$", text, re.S)
+        fn = D_COMMANDS.get(m.group(1).lower()) if m else None
+        _dstate.pop(uid, None)
+        if fn:
+            return fn(u, m.group(2).strip())
+        return dm(uid, "Не знаю такой команды. Откройте меню: /start", plain=True)
+    if st:
+        return d_state_text(u, st, text)
+    d_start(u)
+
+
+def dicebot_cb(u, row, data):
+    """Нажатие кнопки под сообщением Dicebot. Возвращает текст всплывающей подсказки."""
+    uid = u["id"]
+    p = data.split(":")
+    k = p[0]
+    if k == "cb":
+        if p[1] == "new":
+            d_create_begin(u)
+        else:
+            bs = bots_of(uid)
+            if bs:
+                dm_edit(row, f"🤖 Ваши боты ({len(bs)}). Выберите, чтобы управлять:", d_bots_kb(u, "b"))
+            else:
+                dm_edit(row, "У вас пока нет ботов. Создайте первого — это займёт полминуты.", [[{"t": "➕ Создать бота", "d": "cb:new"}]])
+        return ""
+    if k == "doc":
+        t, body_ = doc_text(p[1] if len(p) > 1 else "")
+        if not t:
+            return "Раздел не найден"
+        dm(uid, f"📘 {t}\n\n" + body_.replace("**", ""))
+        return ""
+    bid = num(p[-1], 1, 2 ** 62) if k != "pk" else num(p[2] if len(p) > 2 else "", 1, 2 ** 62)
+    owner_only = k in ("tk", "rv", "rvy", "dl", "dly") or (k == "pk" and len(p) > 1 and p[1] in ("token", "revoke", "deletebot"))
+    sb = bot_managed(uid, bid or 0, owner_only)
+    if not sb:
+        return "Бот не найден или нет доступа"
+    b, role = sb
+    if k == "b":
+        text, kb = d_bot_card(u, b, role)
+        dm_edit(row, text, kb)
+        return ""
+    if k == "tk":
+        d_token_msg(uid, b, bot_token_of(b))
+        return ""
+    if k == "rv":
+        d_begin_set(u, "revoke", b)
+        return ""
+    if k == "rvy":
+        token = bot_new_token(b)
+        d_token_msg(uid, b, token, True)
+        return "Токен заменён"
+    if k == "tg":
+        run("UPDATE bots SET enabled=? WHERE id=?", (0 if b["enabled"] else 1, b["id"]))
+        b = bot_row(b["id"])
+        text, kb = d_bot_card(u, b, role)
+        dm_edit(row, text, kb)
+        return "Бот включён" if b["enabled"] else "Бот отключён"
+    if k == "dl":
+        d_begin_set(u, "deletebot", b)
+        return ""
+    if k == "dly":
+        un = (fresh(b["id"]) or {}).get("username", "")
+        bot_delete(b)
+        dm_edit(row, f"🗑 Бот @{un} удалён.", [[{"t": "🤖 Мои боты", "d": "cb:my"}]])
+        return "Бот удалён"
+    if k == "pk":
+        d_begin_set(u, p[1], b)
+        return ""
+    return "Кнопка устарела"
+
+
+# ───────────── API панели управления (мини-приложение Dicebot) ─────────────
+def need_user():
+    u = auth_user()
+    if not u:
+        return None, err("Требуется вход", 401)
+    if u.get("bot"):
+        return None, err("Недоступно для ботов", 403)
+    return u, None
+
+
+@app.get("/api/dicebot/bots")
+def dbp_bots():
+    u, e = need_user()
+    if e:
+        return e
+    return jsonify(ok=True, bots=[bot_out(b, b["role"]) for b in bots_of(u["id"])], limit=BOT_LIMIT, dicebot=dicebot_id())
+
+
+@app.post("/api/dicebot/create")
+def dbp_create():
+    u, e = need_user()
+    if e:
+        return e
+    d = body()
+    b, token, er = bot_create(u, d.get("name"), d.get("username"))
+    if er:
+        return err(er)
+    return jsonify(ok=True, bot=bot_out(b, "owner", True), token=token)
+
+
+@app.get("/api/dicebot/username")
+def dbp_username():
+    u, e = need_user()
+    if e:
+        return e
+    un = str(request.args.get("u") or "").strip().lstrip("@")
+    er = bot_username_err(un, u) if un else "Введите username"
+    return jsonify(ok=True, free=not er, error=er or "")
+
+
+@app.get("/api/dicebot/docs")
+def dbp_docs():
+    u, e = need_user()
+    if e:
+        return e
+    return jsonify(ok=True, sections=[{"id": i, "title": t, "body": b_.replace("{LIMIT}", str(BOT_LIMIT)).replace("{MAXMB}", str(MAX_UPLOAD // 1048576))}
+                                      for i, t, b_ in DOC_SECTIONS])
+
+
+def _managed_or_err(u, bid, owner_only=False):
+    sb = bot_managed(u["id"], bid, owner_only)
+    if not sb:
+        return None, None, err("Бот не найден или нет доступа", 404)
+    return sb[0], sb[1], None
+
+
+@app.get("/api/dicebot/bot/<int:bid>")
+def dbp_bot(bid):
+    u, e = need_user()
+    if e:
+        return e
+    b, role, e = _managed_or_err(u, bid)
+    if e:
+        return e
+    return jsonify(ok=True, bot=bot_out(b, role, True))
+
+
+@app.post("/api/dicebot/bot/<int:bid>/update")
+def dbp_update(bid):
+    u, e = need_user()
+    if e:
+        return e
+    b, role, e = _managed_or_err(u, bid)
+    if e:
+        return e
+    d = body()
+    if not hit("dbp_upd", u["id"], 40, 60):
+        return err("Слишком часто", 429)
+    if "name" in d:
+        name = " ".join(str(d["name"]).split())
+        if not (1 <= len(name) <= 64):
+            return err("Название: от 1 до 64 символов")
+        if name.lower() in BOT_BAD_NAMES and not is_admin(u):
+            return err("Это название нельзя использовать")
+        run("UPDATE users SET name=? WHERE id=?", (name, bid))
+    if "about" in d:
+        run("UPDATE bots SET about=? WHERE id=?", (str(d["about"]).strip()[:BOT_ABOUT_MAX], bid))
+    if "cmds" in d:
+        if not isinstance(d["cmds"], list) or len(d["cmds"]) > 100:
+            return err("Не больше 100 команд")
+        out = []
+        for c in d["cmds"]:
+            cm, ds = str((c or {}).get("command") or "").lstrip("/").lower(), str((c or {}).get("description") or "").strip()
+            if not BOT_CMD_RE.match(cm):
+                return err(f"Команда «{cm}»: только a–z, 0–9 и _, до 32 символов")
+            if not (3 <= len(ds) <= 256):
+                return err(f"Описание команды /{cm}: от 3 до 256 символов")
+            out.append({"command": cm, "description": ds})
+        run("UPDATE bots SET cmds=? WHERE id=?", (json.dumps(out, ensure_ascii=False), bid))
+    if "menu_kb" in d:
+        rows = []
+        for row in (d["menu_kb"] if isinstance(d["menu_kb"], list) else [])[:10]:
+            r = [str(x).strip()[:64] for x in (row if isinstance(row, list) else [])[:6] if str(x).strip()]
+            if r:
+                rows.append(r)
+        run("UPDATE bots SET menu_kb=? WHERE id=?", (json.dumps(rows, ensure_ascii=False) if rows else "", bid))
+    if "enabled" in d:
+        run("UPDATE bots SET enabled=? WHERE id=?", (1 if d["enabled"] else 0, bid))
+        if d["enabled"]:
+            hook_kick(bid)
+    for k, col in (("privacy", "privacy"), ("groups_ok", "groups_ok")):
+        if k in d:
+            run(f"UPDATE bots SET {col}=? WHERE id=?", (1 if d[k] else 0, bid))
+    notify_profile(bid)
+    return jsonify(ok=True, bot=bot_out(bot_row(bid), role, True))
+
+
+@app.post("/api/dicebot/bot/<int:bid>/avatar")
+def dbp_avatar(bid):
+    u, e = need_user()
+    if e:
+        return e
+    b, role, e = _managed_or_err(u, bid)
+    if e:
+        return e
+    old = (fresh(bid) or {}).get("avatar")
+    data = body().get("data")
+    if not data:                                   # убрать аватар
+        drop_photo(old)
+        run("UPDATE users SET avatar='' WHERE id=?", (bid,))
+    else:
+        try:
+            fname = save_photo(str(bid), data)
+        except ValueError as ex:
+            return err(str(ex))
+        drop_photo(old)
+        run("UPDATE users SET avatar=? WHERE id=?", (fname, bid))
+    notify_profile(bid)
+    return jsonify(ok=True, bot=bot_out(bot_row(bid), role, True))
+
+
+@app.post("/api/dicebot/bot/<int:bid>/revoke")
+def dbp_revoke(bid):
+    u, e = need_user()
+    if e:
+        return e
+    b, role, e = _managed_or_err(u, bid, True)
+    if e:
+        return e
+    token = bot_new_token(b)
+    return jsonify(ok=True, token=token)
+
+
+@app.post("/api/dicebot/bot/<int:bid>/hook/delete")
+def dbp_hook_delete(bid):
+    u, e = need_user()
+    if e:
+        return e
+    b, role, e = _managed_or_err(u, bid)
+    if e:
+        return e
+    m_deleteWebhook(b, None, {"drop_pending_updates": body().get("drop")})
+    return jsonify(ok=True, bot=bot_out(bot_row(bid), role, True))
+
+
+@app.post("/api/dicebot/bot/<int:bid>/delete")
+def dbp_delete(bid):
+    u, e = need_user()
+    if e:
+        return e
+    b, role, e = _managed_or_err(u, bid, True)
+    if e:
+        return e
+    bot_delete(b)
+    return jsonify(ok=True)
+
+
+def _target_user(ref):
+    ref = str(ref or "").strip()
+    if not ref:
+        return None
+    t = user_by_name(ref.lstrip("@")) if not ref.isdigit() else q1("SELECT * FROM users WHERE id=?", (int(ref),))
+    if not t or t.get("deleted") or t.get("banned") or t.get("bot") or t.get("is_system"):
+        return None
+    return t
+
+
+@app.post("/api/dicebot/bot/<int:bid>/admins")
+def dbp_admins(bid):
+    u, e = need_user()
+    if e:
+        return e
+    b, role, e = _managed_or_err(u, bid, True)
+    if e:
+        return e
+    d = body()
+    if d.get("remove"):
+        run("DELETE FROM bot_admins WHERE bot_id=? AND uid=?", (bid, num(d["remove"], 1, 2 ** 62) or 0))
+    elif d.get("add"):
+        t = _target_user(d["add"])
+        if not t:
+            return err("Пользователь не найден. Укажите @username человека")
+        if t["id"] == u["id"]:
+            return err("Вы уже владелец")
+        if (q1("SELECT COUNT(*) n FROM bot_admins WHERE bot_id=?", (bid,)) or {}).get("n", 0) >= 5:
+            return err("Не больше 5 соуправляющих")
+        run("INSERT OR IGNORE INTO bot_admins(bot_id,uid,ts) VALUES(?,?,?)", (bid, t["id"], int(time.time())))
+        un = (fresh(bid) or {}).get("username", "")
+        try:
+            dm(t["id"], f"🤝 {who_label(u)} добавил(а) вас в управление ботом @{un}. Вы можете менять его настройки, но не токен.",
+               [[{"t": "🚀 Открыть панель бота", "a": f"dicebot:bot:{bid}"}]])
+        except Exception as ex:
+            print("bot admin notify:", ex)
+    return jsonify(ok=True, bot=bot_out(bot_row(bid), role, True))
+
+
+@app.post("/api/dicebot/bot/<int:bid>/transfer")
+def dbp_transfer(bid):
+    u, e = need_user()
+    if e:
+        return e
+    b, role, e = _managed_or_err(u, bid, True)
+    if e:
+        return e
+    t = _target_user(body().get("to"))
+    if not t:
+        return err("Пользователь не найден. Укажите @username человека")
+    if t["id"] == u["id"]:
+        return err("Бот уже ваш")
+    if (q1("SELECT COUNT(*) n FROM bots WHERE owner=?", (t["id"],)) or {}).get("n", 0) >= BOT_LIMIT:
+        return err("У этого человека уже максимум ботов")
+    with db_lock:
+        run("UPDATE bots SET owner=? WHERE id=?", (t["id"], bid))
+        run("DELETE FROM bot_admins WHERE bot_id=? AND uid=?", (bid, t["id"]))
+    bot_new_token(bot_row(bid))                    # старый токен прежнего владельца сразу перестаёт работать
+    un = (fresh(bid) or {}).get("username", "")
+    hc_log(f"🔁 Бот @{un}: {who_label(u)} → {who_label(t)}")
+    try:
+        dm(t["id"], f"🎁 {who_label(u)} передал(а) вам бота @{un}. Теперь он ваш: токен новый, старый перестал работать.",
+           [[{"t": "🚀 Открыть панель бота", "a": f"dicebot:bot:{bid}"}]])
+        dm(u["id"], f"✅ Бот @{un} передан: {who_label(t)}.", plain=True)
+    except Exception as ex:
+        print("bot transfer notify:", ex)
+    return jsonify(ok=True)
+
+
+@app.post("/api/dicebot/bot/<int:bid>/refund")
+def dbp_refund(bid):
+    u, e = need_user()
+    if e:
+        return e
+    b, role, e = _managed_or_err(u, bid, True)
+    if e:
+        return e
+    r = q1("SELECT * FROM bot_pay WHERE id=? AND bot_id=?", (num(body().get("id"), 1, 2 ** 62) or 0, bid))
+    if not r:
+        return err("Платёж не найден", 404)
+    try:
+        m_refundStarPayment(b, None, {"user_id": r["uid"], "telegram_payment_charge_id": r["charge"]})
+    except BotErr as ex:
+        return err(ex.desc.replace("Bad Request: ", ""))
+    return jsonify(ok=True, bot=bot_out(bot_row(bid), role, True), stars=(fresh(u["id"]) or {}).get("stars") or 0)
+
+
 @app.after_request
 def headers(r):
     r.headers["X-Content-Type-Options"] = "nosniff"
@@ -6533,14 +11192,109 @@ def on_error(e):
     return jsonify(ok=False, error="Ошибка сервера"), 500
 
 
+# ───────────────────── УСТОЙЧИВОСТЬ: сбой одного не роняет сервер для всех ─────────────────────
+def safe_loop(fn, name):
+    """Фоновый цикл (бот, обслуживание, истечение) перезапускается, если он вдруг вылетел."""
+    def runner():
+        while True:
+            try:
+                fn()
+                return
+            except Exception as e:
+                print(f"!!! фоновая задача {name} упала: {e!r} — перезапуск через 5 с")
+                time.sleep(5)
+    return threading.Thread(target=runner, daemon=True, name=name)
+
+
+AUTOBOTS = [x.strip() for x in os.environ.get("AUTOBOTS", "casino_bot.py").split(",") if x.strip()]   # готовые боты рядом с main.py; AUTOBOTS= (пусто) — не запускать
+
+
+def autobots_start():
+    """Запускает готовых ботов (скрипты в одной папке с main.py) отдельными процессами и поднимает их заново, если упадут.
+    Бот ходит в Bot API этого же сервера по 127.0.0.1 — внешняя сеть не нужна. Нет файла — ничего не происходит."""
+    import subprocess
+
+    def run_one(name):
+        path = os.path.join(BASE, name)
+        env = {k: v for k, v in os.environ.items() if k != "BOT_TOKEN"}          # BOT_TOKEN у main.py — токен Telegram-бота, ботам Dicegram он не нужен
+        env.update(DG_API=f"http://127.0.0.1:{PORT}", PYTHONUNBUFFERED="1")
+        fails = 0
+        time.sleep(3)                                                            # сервер должен успеть подняться
+        while True:
+            t0 = time.time()
+            try:
+                code = subprocess.Popen([sys.executable, path], cwd=BASE, env=env).wait()
+            except Exception as e:
+                code = f"не запустился: {e}"
+            fails = fails + 1 if time.time() - t0 < 60 else 0
+            pause = min(60, 3 * (2 ** min(fails, 4)))
+            print(f"!!! бот {name} остановился ({code}) — перезапуск через {pause} с")
+            time.sleep(pause)
+
+    for name in AUTOBOTS:
+        if os.path.isfile(os.path.join(BASE, name)):
+            threading.Thread(target=run_one, args=(name,), daemon=True, name="autobot-" + name).start()
+            print(f"i  бот {name} будет запущен вместе с сервером")
+
+
+def _thread_hook(a):
+    if a.exc_type is not SystemExit:
+        print(f"!!! ошибка в потоке {getattr(a.thread, 'name', '?')}: {a.exc_type.__name__}: {a.exc_value}")
+
+
+def supervise():
+    """Сторож: сам сервер работает в дочернем процессе. Если он упадёт (нехватка памяти, сбой библиотеки и т.п.),
+    сторож сразу запустит его снова — мессенджер не «лежит» у всех из-за одного сбоя. Выключить: SUPERVISE=0."""
+    import subprocess, signal
+    env = dict(os.environ, DG_CHILD="1", PYTHONUNBUFFERED="1")
+    st = {"child": None, "stop": False}
+
+    def on_sig(sig, _frm):
+        st["stop"] = True
+        c = st["child"]
+        if c and c.poll() is None:
+            try:
+                c.send_signal(sig)
+            except Exception:
+                pass
+    for sg in (signal.SIGTERM, signal.SIGINT):
+        try:
+            signal.signal(sg, on_sig)
+        except Exception:
+            pass
+    recent = []
+    while not st["stop"]:
+        st["child"] = subprocess.Popen([sys.executable] + sys.argv, env=env)
+        code = st["child"].wait()
+        if st["stop"] or code == 0:
+            break
+        now = time.time()
+        recent = [t for t in recent if now - t < 120] + [now]
+        pause = 2 if len(recent) < 5 else 20             # падает раз за разом — ждём подольше, чтобы не крутиться впустую
+        print(f"!!! сервер остановился (код {code}) — перезапуск через {pause} с")
+        time.sleep(pause)
+    sys.exit(0)
+
+
+if __name__ == "__main__" and os.environ.get("DG_CHILD") != "1" and os.environ.get("SUPERVISE", "1") != "0" and os.name == "posix":
+    supervise()
+
 if __name__ == "__main__":
+    try:
+        import faulthandler
+        faulthandler.enable()                            # при тяжёлом сбое в лог попадёт, где именно
+    except Exception:
+        pass
+    threading.excepthook = _thread_hook
     init_db()
     if not BOT_APP_LINK:
         print("!!! BOT_APP_LINK не задан: в кнопке бота будет виден WEB_URL. См. README/BotFather /newapp")
     if not TRUST_PROXY:
         print("i  TRUST_PROXY=0: если сервер за прокси хостинга и в «Новый вход» у всех один IP — поставь TRUST_PROXY=1")
-    threading.Thread(target=bot_loop, daemon=True).start()
-    threading.Thread(target=maintenance_loop, daemon=True).start()
-    threading.Thread(target=expiry_loop, daemon=True).start()
+    safe_loop(bot_loop, "bot").start()
+    bots_boot()
+    autobots_start()
+    safe_loop(maintenance_loop, "maintenance").start()
+    safe_loop(expiry_loop, "expiry").start()
     print(f"Сервер: http://{HOST}:{PORT}")
     app.run(host=HOST, port=PORT, threaded=True)

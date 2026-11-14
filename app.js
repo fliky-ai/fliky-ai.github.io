@@ -281,7 +281,7 @@ const Kbd = {
       }
     } catch (e) {}
     // поле потеряло фокус — клавиатура закрыта, даже если событие скрытия не пришло
-    document.addEventListener("focusout", () => setTimeout(() => { if (!Kbd.typing()) Kbd.set(0); }, 150));
+    document.addEventListener("focusout", () => setTimeout(() => { if (!Kbd.typing()) Kbd.set(0); }, 70));
     // запасной вариант для APK без событий клавиатуры: окно не сжалось и высоту никто не сообщил —
     // считаем клавиатуру типичной высоты (~40% экрана), чтобы поле ввода точно было видно
     if (Kbd.isApp && !navigator.virtualKeyboard) {
@@ -376,7 +376,11 @@ const App = {
   // Запуск сессии. Нет связи или сервер недоступен — НЕ выбрасываем на экран входа
   // (это создавало бы лишние сессии), а ждём и пробуем снова. На вход отправляет только 401.
   async boot() {
-    if (!Store.token) return App.showAuth();
+    if (!Store.token) {                            // гость: если идут техработы — сразу их экран, без приветствия и формы регистрации
+      let on = false;
+      try { on = await Promise.race([Maint.check(), new Promise((r) => setTimeout(() => r(false), 1500))]); } catch (e) {}
+      return App.showAuth(on);
+    }
     let d;
     // Нет интернета или сервер выключен, но мы уже входили: открываем приложение из сохранённого
     // на устройстве (как Telegram) и подключаемся в фоне. Без сохранённого — ждём связь, как раньше.
@@ -384,6 +388,7 @@ const App = {
     try { d = await api("/api/me", { timeout: cachedMe ? 6000 : 15000 }); }
     catch (e) {
       if (!Store.token) return App.showAuth();   // 401: api() уже сбросил токен и перезагружает страницу
+      if (e && e.maint) return setTimeout(() => App.boot(), 8000);   // техработы: экран уже показан (сам закроется), без всплывающих сообщений
       if (/заблокирован/i.test((e && e.message) || "")) return App.banned();
       if (cachedMe && !App.user) {
         try { App.enter(cachedMe, true); } catch (er) { guardLog("enter", er); }
@@ -410,12 +415,12 @@ const App = {
     }
   },
 
-  showAuth() {
+  showAuth(maint) {
     const b = $("boot"); if (b) b.classList.add("hidden");
     const go = () => Auth.init((u) => App.enter(u));
     // вводный экран — один раз и только когда нет сохранённых аккаунтов
     let first = false;
-    try { first = typeof Intro !== "undefined" && !Intro.seen() && !Accounts.list().length; } catch (e) {}
+    try { first = !maint && !Maint.shown && typeof Intro !== "undefined" && !Intro.seen() && !Accounts.list().length; } catch (e) {}
     if (first) { go(); Intro.show(() => {}); } else go();
   },
 
@@ -652,7 +657,7 @@ const App = {
       "voicefx.js": () => VoiceFX && typeof VoiceFX.process === "function",
       "call.js": () => Calls && typeof Calls.start === "function",
       "settings.js": () => Settings && Accounts,
-      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261113a/.test([...document.scripts].map((x) => x.src).join(" ")),
+      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261114a/.test([...document.scripts].map((x) => x.src).join(" ")),
     };
     const bad = Object.keys(chk).filter((k) => !has(chk[k]));
     const miss = (window.__boot && window.__boot.miss || []).filter((x, i, a) => a.indexOf(x) === i && /\.(js|css)$/.test(x));

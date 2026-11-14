@@ -71,6 +71,7 @@ const React = {
       const id = +e.slice(2), i = r.url ? { url: r.url, mime: r.mime } : CE.items[id];
       return i ? CE.media(i, "cem-m") : `<span class="cem-ph">★</span>`;
     }
+    if (typeof e === "string" && e.startsWith("b:") && typeof ES !== "undefined") return `<span class="es-r">${ES.svg(e.slice(2))}</span>`;       // собственный значок Dicegram
     return esc(e);
   },
   chips(m) {
@@ -89,6 +90,9 @@ const React = {
     const bar = `<div class="mm-react">${QUICK.map((e, i) => btn(e, i)).join("")}${ALL.length > QUICK.length || !some ? `<button class="mm-more" data-more aria-label="${esc(T("Ещё"))}" style="--i:7">${MIC.more}</button>` : ""}</div>`;
     let grid = `<div class="mm-grid hidden"><div class="mg-h"><b>${esc(T("Реакции"))}</b><small>${esc(prem ? T("до 3 на сообщение") : T("одна на сообщение"))}</small></div>
       <div class="mg-g">${ALL.map((e) => btn(e)).join("")}</div>`;
+    if (!some && typeof ES !== "undefined") {            // собственные значки Dicegram — для всех
+      grid += `<div class="mg-h"><b>Dicegram</b></div><div class="mg-g mg-d">${ES.items.map((x) => btn("b:" + x.id, undefined, ES.svg(x.id))).join("")}</div>`;
+    }
     if (!some) {
       if (prem) {
         const sets = React.sets || [];
@@ -102,6 +106,35 @@ const React = {
     }
     return { bar, grid: grid + "</div>" };
   },
+};
+
+// ───────────── кто поставил реакцию ─────────────
+React.who = async function (m, only) {
+  if (!m || !m.id) return;
+  let d;
+  try { d = await api("/api/react/who?id=" + m.id); } catch (e) { return toast(e.message); }
+  d.tabs.forEach((t) => { if (t.url) CE.put([{ id: +t.e.slice(2), url: t.url, mime: t.mime }]); });
+  const L = Gifts.layer("rw-ov", `<div class="rw-card" role="dialog"><button class="gb-x" data-x aria-label="${esc(T("Закрыть"))}">${GIC.x}</button>
+    <h3>${esc(T("Реакции"))} · ${d.total}</h3>
+    <div class="rw-tabs"><button class="on" data-t="">${esc(T("Все"))} ${d.total}</button>${d.tabs.map((t) => `<button data-t="${esc(t.e)}"><span class="e">${React.glyph(t)}</span>${t.n}</button>`).join("")}</div>
+    <div class="rw-list"></div></div>`, 128);
+  const el = L.el, list = el.querySelector(".rw-list");
+  const draw = (tab) => {
+    const rows = d.items.filter((x) => !tab || x.e === tab);
+    list.innerHTML = rows.map((x) => `<button class="rw-row" data-u="${x.user.id}">${avatar(x.user, "sm")}<span class="tx"><b>${esc(x.user.id === (App.user && App.user.id) ? T("Вы") : dispName(x.user))}</b></span><span class="e">${React.glyph(x)}</span></button>`).join("") || `<p class="rw-e">${esc(T("Пока никто"))}</p>`;
+  };
+  draw(only || "");
+  if (only) { el.querySelectorAll(".rw-tabs button").forEach((b) => b.classList.toggle("on", b.dataset.t === only)); }
+  el.addEventListener("click", (e) => {
+    const t = e.target.closest(".rw-tabs button");
+    if (t) { el.querySelectorAll(".rw-tabs button").forEach((b) => b.classList.toggle("on", b === t)); draw(t.dataset.t); return; }
+    const r = e.target.closest(".rw-row");
+    if (r) {
+      const it = d.items.find((x) => String(x.user.id) === r.dataset.u); if (!it) return;
+      L.close && L.close();
+      if (it.user.id !== (App.user && App.user.id)) setTimeout(() => { try { UserProfile.open(it.user); } catch (er) {} }, 200);
+    }
+  });
 };
 
 // ───────────── набор эмодзи по ссылке ─────────────

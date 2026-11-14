@@ -8,6 +8,7 @@ const GIC = {
   pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5M8 3h8l-1 6 3 4H6l3-4z"/></svg>',
   eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
   eyeOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4M6.5 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7c1.6 0 3-.4 4.3-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>',
+  send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h13"/><path d="m12 6 6 6-6 6"/><path d="M20 5v14" opacity=".35"/></svg>',
   wear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/><path d="M17.5 2.5l.7 1.6 1.6.7-1.6.7-.7 1.6-.7-1.6-1.6-.7 1.6-.7z" fill="currentColor"/></svg>',
   lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2.4"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
   gift: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4.2" rx="1.3"/><path d="M12 8v13M5 12.2V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6.8"/><path d="M12 8C10.4 4.4 6.2 4.2 6.2 6.4 6.2 8.2 9 8 12 8zm0 0c1.6-3.600 5.800-3.800 5.800-1.600C17.800 8.200 15 8 12 8z"/></svg>',
@@ -584,6 +585,7 @@ const Gifts = {
           if (G.up) act.push(`<button class="gd-b main up" data-a="up">${GIC.up}${esc(T("Улучшить"))} ${Gifts.stars(G.up)}<small>${esc(T("уровень {0} из {1}", (n.tier || 0) + 1, (Gifts.cat && Gifts.cat.tiers ? Gifts.cat.tiers.max : 3)))}</small></button>`);
           else act.push(`<div class="gd-max">${GIC.star}${esc(T("Максимальное улучшение"))}</div>`);
           act.push(`<button class="gd-b" data-a="equip">${GIC.wear}${esc(worn ? T("Снять с профиля") : T("Поставить в профиль"))}</button>`);
+          if (G.can_transfer) act.push(`<button class="gd-b" data-a="xfer">${GIC.send}${esc(T("Передать другому"))}</button>`);
         }
         act.push(`<div class="gd-row2"><button class="gd-b" data-a="show">${G.shown ? GIC.eyeOff : GIC.eye}${esc(G.shown ? T("Скрыть") : T("Показать"))}</button>
           <button class="gd-b" data-a="pin" ${G.shown ? "" : "disabled"}>${GIC.pin}${esc(G.pin ? T("Открепить") : T("Закрепить"))}</button></div>`);
@@ -648,6 +650,9 @@ const Gifts = {
           draw(full);
           Gifts.reveal({ mode: "upgrade", gift: full, prev: d.prev });
           haptic("medium");
+        } else if (a === "xfer") {
+          L.close();
+          return setTimeout(() => Gifts.transfer(full), 280);
         } else if (a === "sell") {
           const price = full.sell_price;
           const ok = await UI.sheet({ title: T("Продать подарок?"), icon: SI.starF, text: T("Подарок исчезнет из профиля, а на баланс поступит {0} ⭐. Отменить это нельзя.", price), actions: [{ label: T("Продать"), value: "go", accent: true }] });
@@ -662,6 +667,45 @@ const Gifts = {
         Gifts.changed(App.user.id);
       } catch (x) { toast(x.message); b.disabled = false; }
     });
+  },
+
+  // ── передать свой NFT другому человеку (бесплатно; продажи пока нет) ──
+  transfer(G) {
+    let tm = 0;
+    const pg = Pg.open({ title: T("Передать подарок"), data: { q: "", found: [] }, build: (pg) => {
+      const q = (pg.data.q || "").trim().toLowerCase();
+      const ok = (p) => p && p.id !== App.user.id && !p.is_system && !p.saved && !p.gk && !p.bot;
+      const mine = Chats.list.map((c) => c.peer).filter(ok);
+      const base = q ? mine.filter((p) => (dispName(p) + " " + (p.username || "")).toLowerCase().includes(q)).concat((pg.data.found || []).filter(ok)) : mine;
+      const seen = new Set(), list = base.filter((p) => !seen.has(p.id) && seen.add(p.id));
+      pg.set(`<div class="gx-top">${GiftArt.html(G, { s: 64 })}<div><b>${esc(Gifts.title(G))}</b><small>${esc(T("Подарок перейдёт новому владельцу вместе с номером и характеристиками. Вернуть его сможет только он."))}</small></div></div>
+        <label class="search g-s">${SI.search}<input id="g-q" data-i="q" placeholder="${esc(T("Имя или @username"))}" value="${esc(pg.data.q || "")}" autocomplete="off"></label>
+        ${list.length ? `${R.lbl(esc(T("Кому передать")))}<div class="card2 irows">${list.map((p) => `<button class="irow" data-a="to" data-v="${p.id}">${Stories.av(p, "sm")}<span class="tx"><b>${nameHTML(p)}</b><small>${esc(p.username ? "@" + p.username : "")}</small></span></button>`).join("")}</div>`
+          : `<div class="empty"><h3>${esc(T(q ? "Никого не нашли" : "Пока не с кем"))}</h3><p>${esc(T("Найдите человека по имени или @username."))}</p></div>`}`);
+      const i = pg.$("#g-q"); if (i && q) { i.focus(); i.setSelectionRange(q.length, q.length); }
+    } });
+    const byId = (id) => { const c = Chats.byId(id); return (c && c.peer) || (pg.data.found || []).find((p) => p.id === id); };
+    pg.on = {
+      q: (v) => {
+        pg.data.q = v; pg.refresh();
+        clearTimeout(tm);
+        if (v.trim().length >= 2) tm = setTimeout(async () => {
+          try { const d = await api("/api/search?q=" + encodeURIComponent(v.trim())); if (pg.alive && pg.data.q === v) { pg.data.found = d.users || []; pg.refresh(); } } catch (e) {}
+        }, 260);
+      },
+      to: async (el) => {
+        const p = byId(+el.dataset.v); if (!p) return;
+        const go = await UI.sheet({ title: T("Передать подарок?"), icon: SI.starF, text: T("«{0}» перейдёт к {1} и исчезнет из вашего профиля. Отменить это нельзя.", Gifts.title(G), dispName(p)), actions: [{ label: T("Передать"), value: "go", accent: true }], cancel: T("Отмена") });
+        if (go !== "go") return;
+        try {
+          const d = await api("/api/gift/transfer", { method: "POST", body: { id: G.id, to: p.id } });
+          App.user = d.user; haptic("medium");
+          toast(T("Подарок передан: {0}", dispName(p)));
+          Gifts.changed(App.user.id);
+          try { Nav.pop(); } catch (e) {}
+        } catch (e) { toast(e.message); }
+      },
+    };
   },
 
   // ── коллекция в профиле ──

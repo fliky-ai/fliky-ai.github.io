@@ -53,6 +53,7 @@ const Profile = {
     rows.push(row(esc(fmtPhone(u.number)), "Телефон", 'data-copy="' + esc(u.number) + '"'));
     const unr = UserProfile.unRow(u);                                 // @username и «а также @…» (коллекционные имена)
     rows.push(unr || row('<span class="dim">Не задано</span>', "Имя пользователя", 'data-edit="1"'));
+    if (u.pubid) rows.push(row(String(u.pubid), "ID", 'data-copy="' + u.pubid + '"'));
     if (u.birthday) rows.push(row(esc(bdayText(u.birthday)) + (bdayToday(u.birthday) ? " 🎂" : ""), "День рождения", 'data-edit="1"'));
     const pc = Profile.curPc();
     Profile._pcDrawn = pc ? pc.gid : 0;
@@ -79,7 +80,7 @@ const Profile = {
     $("pf-av").onclick = () => Profile.photoMenu();
     $("pf-photo").onclick = () => Profile.photoMenu();
     $("pf-edit").onclick = () => Profile.openEdit();
-    if ($("pf-est")) $("pf-est").onclick = () => StatusPicker.open();
+    if ($("pf-est")) $("pf-est").onclick = (e) => StatusPicker.open(e.currentTarget);
     $("pf-set").onclick = () => App.go("settings");
     Profile.bindLv();
     $("profile-box").querySelectorAll(".pi").forEach((b) => (b.onclick = (e) => {

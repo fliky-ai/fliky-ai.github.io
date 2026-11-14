@@ -261,3 +261,38 @@ video.cem-m{object-fit:cover;border-radius:18%}
 .sp-h{padding-top:14px}
 @media (max-width:360px){.sp-grid{grid-template-columns:repeat(6,1fr)}}
 .eco-anim .sp-t [class^="a-"]{animation:none!important}
+
+/* ───────── выбор эмодзи-статуса — всплывающее окно у кнопки, как в Telegram ───────── */
+.sp-ov.sp-pop{display:block;background:rgba(0,0,0,0);transition:background .22s}
+.sp-ov.sp-pop.show{background:rgba(10,14,20,.28)}
+.sp-pop .sp-card{position:absolute;max-width:none;border-radius:22px;padding-bottom:0;overflow:visible;display:flex;flex-direction:column;
+  background:var(--surface);box-shadow:0 12px 44px rgba(0,0,0,.34),0 0 0 1px rgba(127,140,160,.14);
+  transform:scale(.6);opacity:0;transition:transform .36s cubic-bezier(.2,1.25,.35,1),opacity .16s}
+.sp-pop.show .sp-card{transform:none;opacity:1}
+.sp-pop .sp-tail{position:absolute;display:none;width:22px;height:22px;margin-left:-11px;border-radius:50%;background:var(--surface);box-shadow:0 0 0 1px rgba(127,140,160,.14)}
+.sp-pop .sp-card[data-tail="top"] .sp-tail{display:block;top:-9px}
+.sp-pop .sp-card[data-tail="bottom"] .sp-tail{display:block;bottom:-9px}
+.sp-pop .sp-card>:not(.sp-tail){position:relative;z-index:1}
+.sp-pop .sp-tabs{display:flex;align-items:center;flex:none;border-bottom:1px solid var(--line);border-radius:22px 22px 0 0;background:var(--surface)}
+.sp-pop .sp-sbtn{flex:none;width:44px;height:50px;margin-left:4px;display:grid;place-items:center;color:var(--dim);border-radius:12px}
+.sp-pop .sp-sbtn svg{width:21px;height:21px}
+.sp-pop .sp-cats{flex:1;min-width:0;border:0;margin:0;padding:6px 8px 6px 0;gap:2px}
+.sp-pop .sp-cats button{min-width:46px;width:46px;height:46px;padding:0;border-radius:13px;color:var(--dim)}
+.sp-pop .sp-cats button.on{background:var(--raised);background:color-mix(in srgb,var(--text) 8%,transparent);color:var(--text)}
+.sp-pop .sp-cats button .cs-ic,.sp-pop .sp-cats button .sp-ci{width:30px;height:30px;font-size:25px}
+.sp-pop .sp-cats button .cs-ic .es-c,.sp-pop .sp-cats button .cs-ic img,.sp-pop .sp-cats button .cs-ic video,.sp-pop .sp-cats button .cs-ic svg,.sp-pop .sp-cats button .cs-ic .sp-ch{width:30px;height:30px;font-size:25px}
+.sp-pop .sp-cats button.sp-plus{width:34px;min-width:34px;height:34px;margin:6px 4px 6px 4px;border-radius:50%;background:var(--raised);color:var(--dim)}
+.sp-pop .sp-cats button svg{width:22px;height:22px}
+.sp-pop .sp-search{margin:8px 12px 2px}
+.sp-pop .sp-search[hidden]{display:none}
+.sp-pop .sp-body{flex:1;min-height:0;padding:0 8px 12px;border-radius:0 0 22px 22px;overscroll-behavior:contain}
+.sp-pop .sp-h{padding:12px 6px 4px;font-size:12.5px;font-weight:700;text-transform:none;letter-spacing:0}
+.sp-pop .sp-grid{grid-template-columns:repeat(8,1fr);gap:0}
+.sp-pop .sp-t{padding:8px;border-radius:13px}
+.sp-pop .sp-t.on{background:color-mix(in srgb,var(--text) 9%,transparent);box-shadow:none}
+.sp-pop .sp-t .sp-ch{font-size:26px}
+.sp-pop .sp-none i{display:block;width:100%;height:100%;border-radius:46% 54% 52% 48%/54% 46% 54% 46%;background:var(--line);background:color-mix(in srgb,var(--text) 12%,transparent);transition:transform .15s}
+.sp-pop .sp-none:active i{transform:scale(.9)}
+@media (max-width:360px){.sp-pop .sp-grid{grid-template-columns:repeat(7,1fr)}}
+@media (prefers-reduced-motion:reduce){.sp-pop .sp-card{transition:opacity .12s;transform:none}}
+.es-lk{display:block;white-space:normal;word-break:break-all;overflow-wrap:anywhere;font-size:15px;line-height:1.3}

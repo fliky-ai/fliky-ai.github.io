@@ -83,3 +83,7 @@ html.no-blur *{-webkit-backdrop-filter:none!important;backdrop-filter:none!impor
 
 /* плавная смена темы */
 html.theming *{transition:background-color .25s,color .25s,border-color .25s!important}
+
+/* Клавиатура закрылась, а высота страницы ещё не обновилась: под страницей не должен «проглядывать» список чатов —
+   продлеваем её фон вниз (только вниз, по высоте самой страницы) */
+.page,.auth{box-shadow:0 var(--vh,100vh) 0 var(--bg)}

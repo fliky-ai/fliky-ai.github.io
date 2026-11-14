@@ -303,3 +303,9 @@ html.lite .gv-pat,html.lite .gv-gl,html.lite .ga-p,html.lite .ga-g,html.lite .gu
 html.lite .gv-sd,html.lite .ga-sd{filter:none}
 html.lite .gt .gt-p,html.lite .gt-rb,html.lite .gd-x,html.lite .gd-hint,html.lite .gp-card .gb-x{-webkit-backdrop-filter:none;backdrop-filter:none}
 html.lite .ga-i{image-rendering:auto;will-change:auto}
+
+/* передача NFT */
+.gx-top{display:flex;gap:14px;align-items:center;margin:12px 14px 4px;padding:14px;background:var(--surface);border-radius:16px}
+.gx-top>div:first-child{flex:none;width:64px;height:64px;display:grid;place-items:center}
+.gx-top b{display:block;font-size:16px;font-weight:800}
+.gx-top small{display:block;margin-top:3px;color:var(--dim);font-size:12.5px;line-height:1.35}

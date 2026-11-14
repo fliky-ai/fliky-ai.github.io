@@ -83,6 +83,7 @@ const UserProfile = {
       if (u.bio) rows.push(row(Rich.render(u.bio, u.bio_ents || []), isBot ? T("О боте") : T("О себе"), u.bio));
       if (u.number && !isBot) rows.push(row(esc(fmtPhone(u.number)), T("Телефон"), u.number));
       const unr = UserProfile.unRow(u); if (unr) rows.push(unr);
+      if (u.pubid) rows.push(row(String(u.pubid), "ID", String(u.pubid)));
       if (isBot && Array.isArray(bi.cmds) && bi.cmds.length) {
         const shown = bi.cmds.slice(0, 8).map((c) => `<span class="bcmd"><b>/${esc(c.command)}</b> <i>${esc(c.description || "")}</i></span>`).join("");
         rows.push(`<div class="pi"><span class="pi-v bcmds">${shown}${bi.cmds.length > 8 ? `<span class="bcmd dim">${esc(T("и ещё {0}", bi.cmds.length - 8))}</span>` : ""}</span><span class="pi-l">${esc(T("Команды"))}</span></div>`);
@@ -354,7 +355,7 @@ const UserProfile = {
     const L = Gifts.layer("un-ov", `<div class="un-card" role="dialog">
       <button class="gb-x" data-x aria-label="${esc(T("Закрыть"))}">${GIC.x}</button>
       <div class="un-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></svg></div>
-      <p class="un-t"><b class="un-n">@${esc(it.n)}</b> — ${esc(T("коллекционное имя пользователя, принадлежащее"))}</p>
+      <p class="un-t"><b class="un-n">@${esc(it.n)}</b> — ${esc(T(u.gk === "channel" ? "коллекционное имя канала, принадлежащее" : u.gk === "group" ? "коллекционное имя группы, принадлежащее" : u.bot ? "коллекционное имя бота, принадлежащее" : "коллекционное имя пользователя, принадлежащее"))}</p>
       <div class="un-own">${avatar(u, "sm")}<span>${who}</span></div>
       <p class="un-d">${esc(T("Это имя приобретено на платформе")).replace(/\s*$/, "")} <b>${plat}</b> ${when} ${esc(T("за"))} ${ton} (${usd})</p>
       <div class="un-det" hidden>

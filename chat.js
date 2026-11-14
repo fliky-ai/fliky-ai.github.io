@@ -167,7 +167,12 @@ const Chat = {
     inp.addEventListener("focus", () => { if (Chat.pinned !== false) [60, 260, 520].forEach((t) => setTimeout(() => Chat.onViewport(true), t)); });
 
     Chat.bindTouch(box);
-    box.addEventListener("contextmenu", (e) => { e.preventDefault(); const b = e.target.closest(".b"); if (b) MsgMenu.open(b, Chat.byEl(b)); });
+    box.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      const b = e.target.closest(".b"), chip = e.target.closest(".rx-chip");
+      if (chip && b) return React.who(Chat.byEl(b), chip.dataset.e);              // долгое нажатие / правая кнопка по реакции → кто поставил
+      if (b) MsgMenu.open(b, Chat.byEl(b));
+    });
     box.addEventListener("click", (e) => Chat.tap(e));
   },
 
@@ -190,7 +195,13 @@ const Chat = {
       const t = e.touches[0];
       st = { b, x: t.clientX, y: t.clientY };
       sw = null;
-      lp = setTimeout(() => { st = null; Chat.noTap = Date.now(); const m = Chat.byEl(b); if (m) MsgMenu.open(b, m, true); }, 430);
+      const chipEl = e.target.closest(".rx-chip");
+      lp = setTimeout(() => {
+        st = null; Chat.noTap = Date.now(); const m = Chat.byEl(b);
+        if (!m) return;
+        if (chipEl) { haptic("medium"); return React.who(m, chipEl.dataset.e); }
+        MsgMenu.open(b, m, true);
+      }, 430);
     }, { passive: true });
     box.addEventListener("touchmove", (e) => {
       if (!st) return;
@@ -631,7 +642,10 @@ const Chat = {
     const tmp = document.createElement("div");
     tmp.innerHTML = Chat.bubble(m, Chat.msgs[i - 1] || null, false, Chat.msgs[i + 1] || null);
     const near = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
-    el.replaceWith(...tmp.childNodes);
+    const oldRx = {}; el.querySelectorAll(".rx-chip").forEach((c) => { oldRx[c.dataset.e] = +((c.querySelector(".n") || {}).textContent || 1); });
+    const kids = [...tmp.childNodes];
+    kids.forEach((n) => { if (n.querySelectorAll) n.querySelectorAll(".rx-chip").forEach((c) => { const was = oldRx[c.dataset.e], now = +((c.querySelector(".n") || {}).textContent || 1); if (was !== undefined && now > was) c.classList.add("bump"); }); });
+    el.replaceWith(...kids);
     if (oldCm) oldCm.remove();
     Player.paint();
     if (typeof Music !== "undefined") Music.paint();
@@ -1035,6 +1049,7 @@ const Chat = {
 
   // действие из меню сообщения
   act(a, m) {
+    if (a === "who") return React.who(m);
     if (a === "reply") return Chat.setReply(m);
     if (a === "copy") { RClip.set(m.text || "", m.ents || []); return toast("Скопировано"); }     // свои эмодзи и форматирование сохраняются при вставке
     if (a === "forward") return Fwd.open([m.id]);

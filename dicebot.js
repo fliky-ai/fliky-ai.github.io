@@ -216,7 +216,8 @@ const Dicebot = {
     pg.on = {
       name: () => edit("name", "Название бота", 64, false),
       about: () => edit("about", "О боте", 200, true),
-      id: () => { copyText(String(id)); toast(T("ID скопирован")); },
+      id: () => { const b = B(); copyText(String((b && b.pubid) || id)); toast(T("ID скопирован")); },
+      apiid: () => { copyText(String(id)); toast(T("ID скопирован")); },
       uname: () => { copyText("@" + (B() || {}).username); toast(T("Username скопирован")); },
       avatar: () => Dicebot.avatar(pg),
       token: () => Dicebot.tokenPage(id),
@@ -260,7 +261,8 @@ const Dicebot = {
         R.row({ a: "name", ic: SI.edit, c: "b", t: esc(T("Название")), s: esc(b.name) }),
         R.row({ a: "about", ic: SI.info, c: "t", t: esc(T("О боте")), s: short(b.about) }),
         R.row({ a: "uname", ic: SI.link, c: "v", t: "Username", s: "@" + esc(b.username) }),
-        R.row({ a: "id", ic: SI.user, c: "gr", t: "ID", s: String(b.id) }))}
+        R.row({ a: "id", ic: SI.user, c: "gr", t: "ID", s: String(b.pubid || b.id) }),
+        R.row({ a: "apiid", ic: SI.key, c: "gr", t: esc(T("ID в Bot API")), s: String(b.id) }))}
       ${R.lbl(esc(T("Управление")))}
       ${R.card(
         R.row({ a: own ? "token" : "", ic: SI.key, c: "y", t: esc(T("API-токен")), s: own ? esc(T("получить, скопировать, заменить")) : esc(T("виден только владельцу")), dis: !own, noch: !own }),

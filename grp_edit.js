@@ -90,6 +90,8 @@ const GroupEdit = {
       add: () => Groups.addMembers(pg.data.peer),
       all: () => GroupEdit.members(pg.data.peer),
       link: () => GroupEdit.copy(pg.data.link),
+      nft: () => { const p = pg.data.peer; if (p && p.nft) UserProfile.unameSheet({ ...p, unames: [p.nft] }, p.nft.n); },
+      pubid: () => { const id = pg.data.peer && pg.data.peer.pubid; if (id) { copyText(String(id)); toast(T("ID скопирован")); } },
       plink: () => Links.copy({ kind: "chat", id: pg.data.peer.id }),
       tag: () => GroupEdit.myTag(pg.data.peer, pg),
       tab: (el) => { pg.data.tab = el.dataset.v; pg.refresh(); },
@@ -137,6 +139,8 @@ const GroupEdit = {
     if (p.bio) rows.push(`<div class="gp-info"><small>${esc(T("Описание"))}</small><div>${Rich.render(p.bio, [])}</div></div>`);
     if (p.username && p.plink) { const url = (pg.data.link = Groups.pubLink(p)); rows.push(R.row({ a: "link", ic: SI.link, c: "b", t: esc(url.replace(/^https?:\/\//, "")), s: esc(T("Публичная ссылка. Нажмите, чтобы скопировать")), noch: 1 })); }
     else if (p.role) rows.push(R.row({ a: "plink", ic: SI.link, c: "b", t: esc(T("Копировать ссылку")), s: esc(T(ch ? "Ссылка на канал откроется только подписчикам" : "Ссылка на группу откроется только участникам")), noch: 1 }));
+    if (p.nft) rows.push(R.row({ a: "nft", ic: '<span class="idic nfi">@</span>', c: "v", t: "@" + esc(p.nft.n), s: esc(T("Коллекционное имя (NFT) · нажмите, чтобы посмотреть")), noch: 1 }));
+    if (p.pubid) rows.push(R.row({ a: "pubid", ic: '<span class="idic">ID</span>', c: "g", t: esc(String(p.pubid)), s: esc(T("ID · нажмите, чтобы скопировать")), noch: 1 }));
     if (p.gk === "group" && p.perms && p.perms.tag && p.role !== "owner") rows.push(R.row({ a: "tag", ic: SI.edit, c: "v", t: esc(T("Мой тег")), r: esc(p.tag || T("Не задан")) }));
     if (rows.length) h += `<div class="card2 irows">${rows.join("")}</div>`;
     if (p.can_invite) h += `<div class="card2 irows">${R.row({ a: "add", ic: SI.userPlus, c: "b", t: esc(T(ch ? "Добавить подписчиков" : "Добавить участников")), noch: 1 })}</div>`;
@@ -323,6 +327,13 @@ const GroupEdit = {
       data: { pub: !!peer.username, slug: peer.username || "", links: null },
       build: (pg) => {
         const p = pg.data.peer, d = pg.data;
+        if (p.nft) {      // адрес — коллекционное имя: менять и закрывать канал нельзя
+          pg.set(`${R.lbl(esc(T(ch ? "Тип канала" : "Тип группы")))}${R.card(R.row({ a: "nftv", ic: SI.lock, c: "g", t: esc(T("Публичная")), noch: 1 }))}
+            ${R.lbl(esc(T("Адрес")))}<div class="card2 fields"><input value="@${esc(p.nft.n)}" disabled></div>
+            ${R.hint(esc(T("Адрес — коллекционное имя (NFT). Его нельзя изменить или убрать, а значит нельзя сделать чат частным.")))}
+            <div class="ge-link">${esc(Groups.pubLink(p, p.nft.n).replace(/^https?:\/\//, ""))}</div>`);
+          return;
+        }
         const ok = !d.pub || /^[A-Za-z][A-Za-z0-9_]{3,31}$/.test(d.slug);
         const url = d.links && d.links.primary ? d.links.primary.url : "";
         pg.set(`${R.lbl(esc(T(ch ? "Тип канала" : "Тип группы")))}

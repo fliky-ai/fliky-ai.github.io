@@ -24,7 +24,7 @@ Object.assign(Settings, {
         } catch (e) { toast(e.message); }
       },
       stars: () => Settings.stars(),
-      est: () => StatusPicker.open(),
+      est: (v, el) => StatusPicker.open(el),
       mine: () => EmojiSets.open(),
       gift: () => Settings.gift(),
     };

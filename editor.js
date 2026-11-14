@@ -196,9 +196,10 @@ const Editor = {
     if (!r || tb.classList.contains("hidden")) return;
     const rc = r.getBoundingClientRect(), w = tb.offsetWidth, h = tb.offsetHeight;
     const gap = /Android/i.test(navigator.userAgent) ? 58 : 10;   // на Android выше системной панели, если она показалась
+    const vv = window.visualViewport, vb = vv ? Math.min(innerHeight, vv.height + vv.offsetTop) : innerHeight;      // видимая область — без клавиатуры
     let top = rc.top - h - gap;
     if (top < 8) top = rc.bottom + gap;
-    top = Math.max(8, Math.min(top, innerHeight - h - 8));
+    top = Math.max(8, Math.min(top, vb - h - 8));
     const left = Math.max(8, Math.min(rc.left + rc.width / 2 - w / 2, innerWidth - w - 8));
     tb.style.left = left + "px"; tb.style.top = top + "px";
   },

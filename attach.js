@@ -102,6 +102,7 @@ const Attach = {
   // выбор файлов через скрытый input (системный выбор файлов нельзя заменить, но всё остальное — наше)
   pick(accept, multiple = true) {
     return new Promise((res) => {
+      try { if (typeof Kbd !== "undefined" && Kbd.typing()) { document.activeElement.blur(); Kbd.set(0); } } catch (e) {}
       const i = document.createElement("input");
       i.type = "file"; i.multiple = multiple; if (accept) i.accept = accept;
       i.style.display = "none";
@@ -127,7 +128,18 @@ const Attach = {
     });
   },
 
-  menu() {
+  // клавиатура открыта (фокус в поле) — сначала убираем её: окно «вложить» не должно прятаться под ней
+  async calmKb() {
+    try {
+      if (typeof Kbd !== "undefined" && Kbd.typing()) {
+        document.activeElement.blur(); Kbd.set(0);
+        await new Promise((r) => setTimeout(r, 140));
+      }
+    } catch (e) {}
+  },
+
+  async menu() {
+    await Attach.calmKb();
     const el = document.createElement("div");
     el.className = "sheet2";
     const ic = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;

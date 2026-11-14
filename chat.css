@@ -248,10 +248,10 @@
 .tb-main button:active,.tb-more button:active{background:var(--line)}
 .tb-dots{display:grid!important;place-items:center;padding:0 10px!important}
 .tb-dots svg{width:18px;height:18px}
-.tb-more{display:flex;flex-direction:column;min-width:220px;padding:4px 0}
-.tb-more button{padding:11px 22px;text-align:left;font-size:16px}
+.tb-more{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;width:min(330px,calc(100vw - 16px));padding:4px;max-height:calc(var(--vh,100vh) - 16px);overflow-y:auto;overscroll-behavior:contain}
+.tb-more button{padding:11px 2px;text-align:center;font-size:13px;border-radius:10px;overflow:hidden;text-overflow:ellipsis}
 .f-b{font-weight:800}.f-i{font-style:italic}.f-u{text-decoration:underline}.f-s{text-decoration:line-through}.f-c{font-family:ui-monospace,Menlo,monospace}
-.tb-back{display:flex!important;align-items:center;gap:18px;border-top:1px solid var(--line);margin-top:4px;color:var(--dim)}
+.tb-back{display:flex!important;align-items:center;justify-content:center;gap:10px;grid-column:1/-1;border-top:1px solid var(--line);margin-top:2px;border-radius:0 0 10px 10px!important;color:var(--dim)}
 .tb-back svg{width:22px;height:22px}
 
 /* ─────────── меню сообщения ─────────── */
@@ -283,7 +283,7 @@
 .mm-menu .danger,.mm-menu .danger svg{color:var(--danger)}
 
 /* ─────────── нижние окна ─────────── */
-.sheet2{position:fixed;inset:0;z-index:130;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0);transition:background .2s}
+.sheet2{position:fixed;inset:auto;left:0;right:0;top:0;height:var(--vh,100%);z-index:130;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0);transition:background .2s}
 .sheet2.show{background:rgba(0,0,0,.45)}
 .s2-card{width:100%;max-width:480px;background:var(--surface);border-radius:22px 22px 0 0;padding:18px 14px calc(14px + var(--safe-b));text-align:center;transform:translateY(40px);opacity:0;transition:transform .24s cubic-bezier(.2,.9,.3,1),opacity .2s;max-height:88vh;overflow-y:auto}
 .sheet2.show .s2-card{transform:none;opacity:1}
@@ -695,7 +695,7 @@ html.eco-anim .dl-btn.busy .dl-ar{animation:none}
 .dl-empty .hero-ic svg{width:44px;height:44px}
 
 /* ───────── «Галерея» Dicegram (как в Telegram) ───────── */
-.gal{position:fixed;inset:0;z-index:125;display:flex;flex-direction:column;background:var(--bg);color:var(--text);transform:translateY(100%);transition:transform .26s cubic-bezier(.2,.9,.3,1)}
+.gal{position:fixed;inset:auto;left:0;right:0;top:0;height:var(--vh,100%);z-index:125;display:flex;flex-direction:column;background:var(--bg);color:var(--text);transform:translateY(100%);transition:transform .26s cubic-bezier(.2,.9,.3,1)}
 .gal.show{transform:none}
 .gal-top{flex:none;display:flex;align-items:center;gap:4px;height:calc(54px + var(--safe-t,0px));padding:var(--safe-t,0px) 6px 0;background:var(--surface);border-bottom:1px solid var(--line);position:relative;z-index:3}
 .gal-b{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;color:var(--text);flex:none}
@@ -769,3 +769,46 @@ html.eco-anim .dl-btn.busy .dl-ar{animation:none}
 #panel .pn-tabs{touch-action:none}
 #panel .pn-cats,#panel .pn-packs{touch-action:pan-x;overscroll-behavior:contain}
 #panel button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+
+/* ───────── реакции: док-увеличение, «вырастание» выбранной, раскрытие панели, список «кто поставил» ───────── */
+.mm-react button{--mg:1;transform:scale(var(--mg)) translateY(calc((var(--mg) - 1) * -14px));transition:transform .16s cubic-bezier(.2,1.5,.4,1)}
+.mm-react button:hover{transform:scale(calc(var(--mg) * 1.12)) translateY(-5px)}
+.mm-react button:active{transform:scale(1.4) translateY(-6px)}
+.mm-react button.pick{animation:none!important;transform:scale(1.85) translateY(-10px)!important;transition:transform .17s cubic-bezier(.2,1.8,.4,1);z-index:2}
+.mm-react button.pick~button,.mm-react button:has(~button.pick){opacity:.45;transition:opacity .15s}
+.mm.expanded .mm-grid{animation:mmGridIn .3s cubic-bezier(.2,.9,.25,1) both}
+@keyframes mmGridIn{from{transform:scale(.72);opacity:0}to{transform:none;opacity:1}}
+.mm-grid button.pick{transform:scale(1.5)!important;transition:transform .17s cubic-bezier(.2,1.8,.4,1)}
+.mm-grid .mg-d{grid-template-columns:repeat(7,1fr)}
+.mm-grid .mg-d button{padding:4px}
+.mm-grid .es-r,.mm-grid .es-r svg,.rx-chip .es-r,.rx-chip .es-r svg,.rx-fly .es-r,.rx-fly .es-r svg,.rw-row .es-r,.rw-row .es-r svg,.rw-tabs .es-r,.rw-tabs .es-r svg{display:block;width:100%;height:100%}
+.rx-chip .es-r{width:19px;height:19px}
+.rx-fly .es-r{width:56px;height:56px}
+.rw-tabs .es-r{width:19px;height:19px}
+.rw-row .es-r{width:26px;height:26px;flex:none}
+.eco-anim .mm-grid .es-r [class^="a-"]{animation:none!important}
+.rx-chip{transition:transform .14s cubic-bezier(.2,1.6,.4,1),background .15s}
+.rx-chip:active{transform:scale(.92)}
+.rx-chip.bump{animation:chipBump .3s cubic-bezier(.2,1.7,.4,1)}
+@keyframes chipBump{40%{transform:scale(1.25)}}
+@keyframes fly{0%{transform:translate(-50%,-50%) scale(.3);opacity:0}22%{transform:translate(-50%,-75%) scale(1.9);opacity:1}45%{transform:translate(-50%,-95%) scale(1.5);opacity:1}100%{transform:translate(-50%,-240%) scale(1);opacity:0}}
+.rw-ov{position:fixed;inset:0;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0);transition:background .25s}
+.rw-ov.show{background:rgba(0,0,0,.5)}
+.rw-card{position:relative;width:100%;max-width:520px;max-height:72vh;display:flex;flex-direction:column;padding:20px 12px calc(14px + env(safe-area-inset-bottom));border-radius:26px 26px 0 0;background:var(--surface);transform:translateY(100%);transition:transform .32s cubic-bezier(.2,.85,.25,1)}
+.show>.rw-card{transform:none}
+.rw-card h3{font-size:18px;font-weight:900;margin:0 44px 10px 6px}
+.rw-tabs{display:flex;gap:6px;overflow-x:auto;padding:0 2px 10px;scrollbar-width:none}
+.rw-tabs::-webkit-scrollbar{display:none}
+.rw-tabs button{flex:none;display:inline-flex;align-items:center;gap:5px;height:34px;padding:0 12px;border-radius:17px;background:var(--raised);font-size:14px;font-weight:800;color:var(--dim)}
+.rw-tabs button .e{display:inline-grid;place-items:center;font-size:18px;line-height:1;color:var(--text)}
+.rw-tabs button .e .cem-m{width:19px;height:19px}
+.rw-tabs button.on{background:color-mix(in srgb,var(--accent) 22%,transparent);color:var(--accent);box-shadow:inset 0 0 0 1.5px var(--accent)}
+.rw-list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.rw-row{display:flex;align-items:center;gap:12px;width:100%;padding:8px 8px;border-radius:14px;text-align:left}
+.rw-row:active{background:var(--raised)}
+.rw-row .tx{flex:1;min-width:0}
+.rw-row .tx b{display:block;font-size:15.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rw-row .e{flex:none;display:inline-grid;place-items:center;font-size:24px;line-height:1;width:28px;height:28px}
+.rw-row .e .cem-m{width:26px;height:26px}
+.rw-e{padding:26px;text-align:center;color:var(--dim)}
+@media (prefers-reduced-motion:reduce){.mm.expanded .mm-grid,.rx-chip.bump{animation:none}}

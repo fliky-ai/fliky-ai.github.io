@@ -1,8 +1,9 @@
 // menu.js — меню сообщения как в Telegram (панель реакций + список действий над размытым фоном) и выбор чата для пересылки.
 const REACT_QUICK = ["❤️", "👍", "👎", "🔥", "😁", "😢", "🎉"];
-const REACT_ALL = ["👍", "👎", "❤️", "🔥", "🥰", "👏", "😁", "🤔", "🤯", "😱", "😢", "🎉", "🤩", "🙏", "👌", "😍", "🤣", "💯", "😎", "🥳", "😭", "😡", "🤮", "💩", "🤡", "🥱", "😴", "👀", "🙈", "😇", "😨", "🤝", "💔", "🤨", "😐", "🍓", "🍾", "💋", "😈", "🤓", "👻", "🫡", "🗿", "🤪", "⚡", "🏆", "🌚", "🐳", "🦄", "😘", "👨‍💻", "🎃", "🤷", "🤗", "🥴", "🍌", "🌭", "🆒", "💘", "🙉", "🙊", "😅", "😏", "😬", "🤭", "🥺", "🤤", "😤"];
+const REACT_ALL = ["👍", "👎", "❤️", "🔥", "🥰", "👏", "😁", "🤔", "🤯", "😱", "😢", "🎉", "🤩", "🙏", "👌", "😍", "🤣", "💯", "😎", "🥳", "😭", "😡", "🤮", "💩", "🤡", "🖕", "🥱", "😴", "👀", "🙈", "😇", "😨", "🤝", "💔", "🤨", "😐", "🍓", "🍾", "💋", "😈", "🤓", "👻", "🫡", "🗿", "🤪", "⚡", "🏆", "🌚", "🐳", "🦄", "😘", "👨‍💻", "🎃", "🤷", "🤗", "🥴", "🍌", "🌭", "🆒", "💘", "🙉", "🙊", "😅", "😏", "😬", "🤭", "🥺", "🤤", "😤"];
 
 const MIC = {
+  who: svg('<circle cx="12" cy="12" r="9"/><path d="M8.5 14a4 4 0 0 0 7 0"/><path d="M9 9.5h.01M15 9.5h.01"/>'),
   reply: svg('<path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 6 6v3"/>'),
   copy: svg('<rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/>'),
   fwd: svg('<path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0-6 6v3"/>'),
@@ -28,6 +29,7 @@ const MsgMenu = {
     const delOther = !!(gk && R.delete), editOther = gk === "channel" && !!R.edit;
     const L = [];
     if (k === "call") { L.push(["del", "Удалить"]); return L; }
+    if (m.id && m.reacts && m.reacts.length && k !== "call") L.push(["who", T("Реакции") + " · " + m.reacts.reduce((a, r) => a + (r.n || 0), 0)]);
     if (m.id && canWrite) L.push(["reply", "Ответить"]);
     if (m.text) L.push(["copy", "Копировать"]);
     if (m.id) L.push(["forward", "Переслать"]);
@@ -101,15 +103,30 @@ const MsgMenu = {
       const age = Date.now() - Math.max(MsgMenu.born, MsgMenu.guard);
       if (age < (e.target.closest(".mm-menu, .mm-react, .mm-grid") ? 180 : 450)) return;
       const more = e.target.closest("[data-more]");
-      if (more) { ov.classList.add("expanded"); bar.classList.add("hidden"); menu.classList.add("hidden"); grid.classList.remove("hidden"); if (clone) clone.classList.add("dim"); return; }
+      if (more) {
+        grid.style.transformOrigin = (mine ? "right" : "left") + " top";
+        ov.classList.add("expanded"); bar.classList.add("hidden"); menu.classList.add("hidden"); grid.classList.remove("hidden"); if (clone) clone.classList.add("dim"); return;
+      }
       if (e.target.closest("[data-prem]")) { MsgMenu.close(); return setTimeout(() => PremiumPromo.open(App.user), 220); }
       const r = e.target.closest("[data-r]");
-      if (r) { MsgMenu.close(); return Chat.react(m, r.dataset.r); }
+      if (r) {                                   // выбранная реакция «вырастает», затем меню закрывается и она вылетает к сообщению
+        if (MsgMenu.picked) return;
+        MsgMenu.picked = true; r.classList.add("pick"); haptic("light");
+        return setTimeout(() => { MsgMenu.picked = false; MsgMenu.close(); Chat.react(m, r.dataset.r); }, 170);
+      }
       const b = e.target.closest("[data-a]");
       if (b) { MsgMenu.close(); return Chat.act(b.dataset.a, m); }
       if (!e.target.closest(".mm-menu, .mm-react, .mm-grid")) MsgMenu.close();
     });
     ov.addEventListener("contextmenu", (e) => e.preventDefault());
+    // «док»: эмодзи под пальцем/курсором увеличивается, соседние — чуть меньше (как в Telegram)
+    if (bar) {
+      const btns = [...bar.querySelectorAll("button:not(.mm-more)")];
+      const mag = (x) => { for (const b of btns) { const r = b.getBoundingClientRect(), d = Math.abs(x - (r.left + r.width / 2)); b.style.setProperty("--mg", x == null ? 1 : Math.max(1, 1.5 - d / 70).toFixed(3)); } };
+      bar.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse" || e.buttons) mag(e.clientX); });
+      bar.addEventListener("pointerleave", () => mag(null));
+      bar.addEventListener("pointerup", () => mag(null));
+    }
   },
 
   // закрыть: убираем запись в стеке «назад» — она сама вызовет hide()

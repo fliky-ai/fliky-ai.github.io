@@ -22,6 +22,7 @@ const Gallery = {
 
   // opts: { title, onSend(list, caption) } — list: [{ file } | { att }] в порядке выбора
   open(opts = {}) {
+    try { if (typeof Kbd !== "undefined" && Kbd.typing()) { document.activeElement.blur(); Kbd.set(0); } } catch (e) {}     // клавиатура от чата не должна перекрывать галерею
     if (Gallery.el) Gallery.close();
     Gallery.opts = opts;
     Object.assign(Gallery, { items: [], byId: {}, sel: [], album: "all", type: opts.single ? "image" : "all", next: 0, more: false, loading: false, peers: {} });

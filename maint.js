@@ -69,7 +69,12 @@ const Maint = {
     if (!b || b <= a) return 0;
     return Math.max(4, Math.min(97, Math.round(((now - a) / (b - a)) * 100)));
   },
+  // запасной вход владельца без кнопки на экране: сайт с #admin в конце адреса. Сервер всё равно пускает только владельца и белый список
+  adminDoor() {
+    try { return !(typeof Store !== "undefined" && Store.token) && /(^|[#&])admin$/.test(location.hash); } catch (e) { return false; }
+  },
   show(d) {
+    if (Maint.adminDoor()) return;
     Maint.d = d = Object.assign({}, Maint.d || {}, d || {});
     Maint.css();
     let el = Maint.el;
@@ -78,7 +83,6 @@ const Maint = {
       document.body.appendChild(el); void el.offsetWidth; el.classList.add("show");
       el.addEventListener("click", (e) => {
         if (e.target.closest("[data-r]")) return Maint.poll(true);
-        if (e.target.closest("[data-x]")) return Maint.hide();
       });
     }
     const until = +d.until || 0;
@@ -95,7 +99,7 @@ const Maint = {
         <div>${ni('<path d="M12 3 5 6v5c0 4.4 2.8 8.3 7 10 4.2-1.7 7-5.6 7-10V6l-7-3z"/><path d="m9 12 2 2 4-4"/>')}<span>${esc(T("Ваши сообщения и данные в безопасности"))}</span></div>
         <div>${ni('<rect x="4" y="11" width="16" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>')}<span>${esc(T("Вход и регистрация временно недоступны"))}</span></div>
       </div>
-      <div class="mt-b"><button type="button" data-r>${esc(T("Проверить снова"))}</button>${authed ? "" : `<button type="button" class="g" data-x>${esc(T("Вход для администратора"))}</button>`}</div></div>`;
+      <div class="mt-b"><button type="button" data-r>${esc(T("Проверить снова"))}</button></div></div>`;
     Maint.shown = true;
     clearInterval(Maint.tick);
     Maint.tick = setInterval(() => {

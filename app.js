@@ -405,7 +405,7 @@ const App = {
     if (App.user) {                                // приложение уже открыто из кэша — просто обновляем данные
       Object.assign(App.user, d.user);
       guard("profile", () => Profile.render()); guard("tabav", () => App.tabAvatar());
-      guard("ws", () => App.connect()); Chats.load();
+      guard("ws", () => App.connect()); Chats.load({ age: 15000 });
       return;
     }
     try { App.enter(d.user); }
@@ -446,7 +446,7 @@ const App = {
     setInterval(() => { try { Chat.updateHeader(); } catch (e) {} }, 30000);
     document.addEventListener("visibilitychange", () => {
       App.sendVis();
-      if (document.visibilityState === "visible") { guard("resume", () => { App.connect(); Chats.load(); Chat.sync(); }); }
+      if (document.visibilityState === "visible") { guard("resume", () => { App.connect(); Chats.load({ age: 30000, delay: 300 }); Chat.sync(); }); }
     });
     addEventListener("online", () => App.connect());
   },
@@ -509,7 +509,7 @@ const App = {
   go(tab) {
     document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
     document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === "v-" + tab));
-    if (tab === "chats") Chats.load();
+    if (tab === "chats") Chats.load({ age: 20000 });
     if (tab === "contacts") Contacts.load();
     if (tab === "profile") { Profile.loadStories(); Stories.load(); }
     if (tab === "settings") { Settings.fetchUnread(); }
@@ -545,7 +545,7 @@ const App = {
   connect() {
     if (!Store.token || (App.ws && App.ws.readyState <= 1)) return;
     clearTimeout(App.retryT);
-    const again = () => { if (Store.token) App.retryT = setTimeout(() => App.connect(), Math.min(1000 * 2 ** App.retry++, 15000)); };
+    const again = () => { if (Store.token) App.retryT = setTimeout(() => App.connect(), Math.min(1000 * 2 ** App.retry++, 15000) * (0.7 + Math.random() * 0.6)); };
     let ws;
     try { ws = new WebSocket(CONFIG.WS); } catch (e) { return again(); }
     App.ws = ws;
@@ -554,7 +554,9 @@ const App = {
       let d; try { d = JSON.parse(ev.data); } catch (e) { return; }
       guard("rx", () => Net.add("rx", "msg", (ev.data || "").length));
       if (d.type === "ready") {   // сервер принял токен
-        App.retry = 0; App.setOnline(true); Chats.load(); Chat.sync(); App.sendVis();
+        // после переподключения все клиенты возвращаются одновременно (перезапуск сервера, пропал интернет) — разводим запросы по времени
+        { const first = !App.wsOnce; App.wsOnce = true; Chats.load(first ? { age: 15000 } : { delay: 200 + Math.random() * 2500 }); }
+        App.retry = 0; App.setOnline(true); Chat.sync(); App.sendVis();
         guard("outbox", () => Outbox.flush());       // сообщения, написанные без сети, уходят сами
         clearInterval(App.pingT); App.pingT = setInterval(() => ws.readyState === 1 && ws.send("ping"), 25000);
         if (App.pendingCall) guard("pushcall", () => App.resolvePendingCall());
@@ -562,7 +564,7 @@ const App = {
       else if (d.type === "message") { Chat.onMessage(d.message); Chats.onMessage(d.message); guard("notify", () => Notif.onMessage(d.message)); }
       else if (d.type === "read") Chat.onRead(d.by);
       else if (d.type === "edit") { Chat.onEdit(d.message); Chats.onEdit(d.message); }
-      else if (d.type === "del") { Chat.onDel(d.ids); Chats.load(); }
+      else if (d.type === "del") { Chat.onDel(d.ids); Chats.load({ delay: 600 }); }
       else if (d.type === "react") { Chat.onReact(d); guard("notify", () => Notif.onReact(d)); }
       else if (d.type === "pin") Chat.onPin(d);
       else if (d.type === "cc") Chat.onCC(d);

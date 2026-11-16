@@ -141,12 +141,47 @@ const Chats = {
     }, { passive: true });
   },
 
-  async load() {
+  // Список чатов — самый тяжёлый запрос (~100 КБ). Поэтому:
+  //  • одновременно идёт только один запрос; если за это время просят ещё раз — делаем один повторный после него (не чаще раза в секунду);
+  //  • {age: мс} — не качать, если список обновлялся недавно (при возврате в приложение, смене вкладки, выходе из чата);
+  //  • {delay: мс} — подождать и слить несколько просьб в одну (удаление, переподключение: так тысячи людей не стучатся одновременно);
+  //  • если с сервера пришло то же самое — страница не перерисовывается.
+  load(o) {
+    o = o || {};
+    if (o.age && Chats.loadedOnce && Date.now() - Chats._ok < o.age) return Promise.resolve();
+    if (o.age && Chats._p) return Chats._p;                  // свежие данные уже едут
+    if (o.delay) {
+      clearTimeout(Chats._dt);
+      return new Promise((res) => {
+        Chats._dr = (Chats._dr || []).concat(res);
+        Chats._dt = setTimeout(() => { const rs = Chats._dr; Chats._dr = []; Chats.load({ age: o.age }).then(() => rs.forEach((f) => f()), () => rs.forEach((f) => f())); }, o.delay);
+      });
+    }
+    if (Chats._p) {
+      if (!Chats._next) {
+        Chats._next = Chats._p.then(() => new Promise((r) => setTimeout(r, Math.max(0, 1000 - (Date.now() - Chats._t0))))).then(() => Chats._run());
+      }
+      return Chats._next;
+    }
+    return Chats._run();
+  },
+  _run() {
+    Chats._next = null; Chats._t0 = Date.now();
+    const p = Chats._fetch().then(() => {}, () => {});
+    Chats._p = p;
+    p.then(() => { if (Chats._p === p) Chats._p = null; });
+    return p;
+  },
+  async _fetch() {
     // список ещё пуст (только что открыли приложение) — сразу рисуем сохранённый, не дожидаясь сервера
     if (!Chats.list.length && !Chats.loadedOnce) await Chats.fromCache();
     try {
-      Chats.list = (await api("/api/chats")).chats; Chats.loadedOnce = true; Chats.render(); Stories.load();
-      OC.saveChats(Chats.list);
+      const d = await api("/api/chats");
+      Chats._ok = Date.now();
+      const same = Chats.loadedOnce && JSON.stringify(d.chats) === JSON.stringify(Chats.list);   // сравниваем с тем, что сейчас на экране
+      if (!same) { Chats.list = d.chats; Chats.loadedOnce = true; Chats.render(); OC.saveChats(Chats.list); }
+      Chats.loadedOnce = true;
+      Stories.load();
       if (!Chats._pf) { Chats._pf = 1; setTimeout(() => { try { OC.prefetch(Chats.list.slice(0, 8), (window.LITE && LITE.on) ? 3 : 6); } catch (e) {} }, 2500); }
     } catch (e) {}
   },
@@ -172,7 +207,7 @@ const Chats = {
     const mine = m.sender === App.user.id, pid = Chats.peerOf(m);
     try { OC.appendMsg(pid, m); } catch (e) {}       // кэш переписки обновляется, даже если чат сейчас не открыт
     const c = Chats.byId(pid);
-    if (!c) return Chats.load();
+    if (!c) return Chats.load({ delay: 400 });
     if (c.last && c.last.id === m.id) return;
     Chats.upsert(c.peer, m, !mine);
   },

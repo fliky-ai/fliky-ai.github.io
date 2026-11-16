@@ -45,7 +45,7 @@ const Stories = {
   // ───────────── данные ─────────────
   async load(force) {
     const now = Date.now();
-    if (!force && now - Stories.last < 2500) return;
+    if (!force && now - Stories.last < 20000) return;
     Stories.last = now;
     try {
       const d = await api("/api/stories/feed");

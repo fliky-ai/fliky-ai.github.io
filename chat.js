@@ -387,7 +387,7 @@ const Chat = {
     $("msgs").innerHTML = ""; Editor.clear(); Panel.hide(); Chat.syncMain();
     Nav.open("chat", () => {
       Chat.peer = null; Chat.topic = null; MsgMenu.close(true); Panel.hide(); Voice.cancel(); Player.stop(); Editor.clear(); Editor.hideTb();
-      Chat.replyTo = null; Chat.editing = null; Chats.load();
+      Chat.replyTo = null; Chat.editing = null; Chats.load({ age: 45000 });   // список и так обновляется по ходу переписки — качаем заново только если он давно не обновлялся
       $("composer").classList.remove("nowrite");
       try { BotUI.sync(); } catch (e) {}
       if (typeof Music !== "undefined") setTimeout(() => Music.paint(), 0);     // полоска плеера — обратно в список чатов
@@ -930,7 +930,7 @@ const Chat = {
     try {
       const d = await api("/api/edit", { method: "POST", body: { id: m.id, text, ents } });
       Object.assign(m, d.message); Chat.patch(m);
-      Chats.load();
+      Chats.onEdit(m);
     } catch (e) { toast(e.message); }
   },
 
@@ -1043,7 +1043,7 @@ const Chat = {
     try {
       const d = await api("/api/delete", { method: "POST", body: { ids: [m.id], all } });
       Chat.onDel(d.ids.length ? d.ids : [m.id]);
-      Chats.load();
+      Chats.load({ delay: 600 });
     } catch (e) { toast(e.message); }
   },
 

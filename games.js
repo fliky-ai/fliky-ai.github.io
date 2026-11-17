@@ -45,7 +45,8 @@ const Games = {
     try {
       const d = await api("/api/games/leaderboard/" + encodeURIComponent(game));
       if (!pg.alive) return;
-      pg.data = { loading: false, day: d.day, top: d.top || [], me: d.me || { score: 0, rank: null } };
+      pg.data = { loading: false, day: d.day, top: d.top || [], me: d.me || { score: 0, rank: null }, prizes: d.prizes || [], ends: d.ends_in ? Date.now() + d.ends_in * 1000 : 0 };
+      if (pg.data.ends) { clearInterval(pg._tm); pg._tm = setInterval(() => { if (!pg.alive) return clearInterval(pg._tm); const el = pg.$ && pg.$(".g-timer b"); if (el) el.textContent = Games.left(pg.data.ends); }, 1000); }
     } catch (e) {
       if (!pg.alive) return;
       pg.data = { loading: false, err: e.message };
@@ -60,17 +61,25 @@ const Games = {
     const mine = App.user && App.user.id;
     const top = d.top || [];
     // первые три места — подиум (золото/серебро/бронза), остальные — обычный список
+    Games._pz = d.prizes || [];
     const podium = top.length ? Games.podium(top.slice(0, 3), mine) : "";
     const rows = top.slice(3).map((row, i) => Games.boardRow(i + 4, row.user, row.score, mine && row.user.id === mine)).join("");
     const inTop = top.some((r) => mine && r.user.id === mine);
     const meLine = !inTop && d.me && d.me.rank ? Games.boardRow(d.me.rank, App.user, d.me.score, true) : "";
+    const star = typeof Stars2 !== "undefined" ? Stars2.star : "★", pz = d.prizes || [];
+    const prizeBar = pz.length ? `<div class="g-prizes">${pz.map((a, i) => `<span class="g-prz m${i + 1}">${i + 1} ${esc(T("место"))} · ${star}${a}</span>`).join("")}</div><div class="g-timer">${esc(T("Призы за день. До конца:"))} <b>${Games.left(d.ends)}</b></div>` : "";
     pg.set(
+      prizeBar +
       (top.length ? podium : "") +
       (rows ? `<div class="g-board">${rows}</div>` : top.length ? "" : `<div class="g-board"><div class="g-empty">${esc(T("Сегодня пока никто не играл — сыграйте первым!"))}</div></div>`) +
       (meLine ? `<div class="g-meline">${meLine}</div>` : "")
     );
   },
 
+  left(ends) {
+    const s = Math.max(0, Math.round((ends - Date.now()) / 1000)), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;
+    return `${h}:${String(m).padStart(2, "0")}:${String(x).padStart(2, "0")}`;
+  },
   // пьедестал: порядок колонок 2-1-3, у первого — корона и самый высокий постамент
   podium(three, mine) {
     const slot = (rank, row) => row
@@ -79,6 +88,7 @@ const Games = {
            <div class="g-pod-av">${avatar(row.user)}<b class="g-medal m${rank}">${rank}</b></div>
            <span class="g-pod-name">${esc(dispName(row.user))}</span>
            <b class="g-pod-score">${row.score}</b>
+           ${(Games._pz || [])[rank - 1] ? `<span class="g-pod-prize">${typeof Stars2 !== "undefined" ? Stars2.star : "★"}${Games._pz[rank - 1]}</span>` : ""}
            <div class="g-pod-base"><span>${rank}</span></div>
          </div>`
       : `<div class="g-pod p${rank} empty"><div class="g-pod-base"><span>${rank}</span></div></div>`;

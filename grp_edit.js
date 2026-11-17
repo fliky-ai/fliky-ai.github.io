@@ -384,13 +384,15 @@ const GroupEdit = {
         const p = pg.data.peer, mode = p.react_mode || "all", list = new Set(p.react_list || []);
         pg.set(`${R.opts([{ v: "all", t: esc(T("Все реакции")) }, { v: "some", t: esc(T("Некоторые реакции")) }, { v: "none", t: esc(T("Реакции выключены")) }], mode, "mode")}
           ${mode === "some" ? `${R.lbl(esc(T("Разрешённые реакции")))}<div class="card2 rx-grid">${REACT_ALL.map((e) => `<button class="rxg${list.has(e) ? " on" : ""}" data-a="emo" data-v="${e}">${e}</button>`).join("")}</div>` : ""}
-          ${R.hint(esc(T(mode === "none" ? "Участники не смогут ставить реакции на сообщения." : mode === "some" ? "Участники смогут ставить только отмеченные реакции." : "Участники могут ставить любые реакции.")))}`);
+          ${R.hint(esc(T(mode === "none" ? "Участники не смогут ставить реакции на сообщения." : mode === "some" ? "Участники смогут ставить только отмеченные реакции." : "Участники могут ставить любые реакции.")))}
+          ${p.gk === "channel" ? `${R.lbl(esc(T("Звёзды")))}${R.card(R.row({ a: "paid", ic: typeof Stars2 !== "undefined" ? Stars2.star : "", c: "star", t: esc(T("Платные реакции")), s: esc(T("Подписчики смогут отправлять звёзды на посты")), sw: true, on: !!p.paid_react, noch: true }))}${R.hint(esc(T("Звёзды за реакции приходят на ваш баланс.")))}` : ""}`);
       },
     });
     let timer = 0;
     const push = () => { clearTimeout(timer); timer = setTimeout(async () => { try { await GroupEdit.upd(pg.data.peer, { react_mode: pg.data.peer.react_mode, react_list: pg.data.peer.react_list || [] }); } catch (e) { toast(e.message); } }, 350); };
     pg.on = {
       mode: (el) => { const p = pg.data.peer; p.react_mode = el.dataset.v; if (p.react_mode === "some" && !(p.react_list || []).length) p.react_list = REACT_QUICK.slice(); pg.refresh(); push(); },
+      paid: async () => { const p = pg.data.peer; const v = !p.paid_react; p.paid_react = v ? 1 : 0; pg.refresh(); try { await GroupEdit.upd(p, { paid_react: v ? 1 : 0 }); } catch (e) { p.paid_react = v ? 0 : 1; pg.refresh(); toast(e.message); } },
       emo: (el) => { const p = pg.data.peer, s = new Set(p.react_list || []), e = el.dataset.v; if (s.has(e)) s.delete(e); else s.add(e); p.react_list = [...s]; pg.refresh(); push(); },
     };
   },

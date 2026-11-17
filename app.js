@@ -433,6 +433,8 @@ const App = {
     guard("profile", () => Profile.render());               // внутри обновляет и вкладку «Настройки»
     guard("tabav", () => App.tabAvatar());
     guard("lists", () => { Chats.load(); Stories.load(true); Profile.loadStories(); });
+    guard("secret", () => { if (!App.secretInit) { App.secretInit = true; Secret.init(); } Secret.load(); });
+    guard("space", () => { Space.init(); Space.load(); });
     guard("outbox", () => Outbox.restore());
     guard("ws", () => App.connect());
     guard("go", () => App.go("chats"));
@@ -442,7 +444,7 @@ const App = {
     guard("appicon", () => AppIcon.guard());                             // Premium закончился — возвращаем стандартный значок
     guard("apppush", () => { AppPush.init(); Notif.syncCloud(); });     // APK: уведомления через Firebase (AppMint Push)
     guard("sharein", () => ShareIn.ready());                            // прислали что-то из другого приложения — «Отправить в…»
-    guard("deeplink", () => { if (!App.dlBound) { App.dlBound = true; DeepLink.init(); } else if (DeepLink.wait) DeepLink.openChat(DeepLink.wait); });
+    guard("deeplink", () => { if (!App.dlBound) { App.dlBound = true; DeepLink.init(); } else { if (DeepLink.wait) DeepLink.openChat(DeepLink.wait); if (DeepLink.waitS) DeepLink.openSecret(DeepLink.waitS); if (DeepLink.waitSp) DeepLink.openSpace(DeepLink.waitSp); } });
     setInterval(() => { try { Chat.updateHeader(); } catch (e) {} }, 30000);
     document.addEventListener("visibilitychange", () => {
       App.sendVis();
@@ -566,6 +568,8 @@ const App = {
       else if (d.type === "edit") { Chat.onEdit(d.message); Chats.onEdit(d.message); }
       else if (d.type === "del") { Chat.onDel(d.ids); Chats.load({ delay: 600 }); }
       else if (d.type === "react") { Chat.onReact(d); guard("notify", () => Notif.onReact(d)); }
+      else if (d.type === "secret") guard("secret", () => Secret.onEvent(d));
+      else if (d.type === "sp") guard("space", () => Space.onWS(d));
       else if (d.type === "pr") guard("pr", () => Stars2.onPr(d));
       else if (d.type === "stars") guard("stars", () => Stars2.onStars(d));
       else if (d.type === "pin") Chat.onPin(d);
@@ -609,8 +613,17 @@ const App = {
     try { UserProfile.onBlock(d); } catch (e) {}
   },
   profile(u) {
-    App.patchUser(u.id, { name: u.name, surname: u.surname, username: u.username, bio: u.bio, bio_ents: u.bio_ents || null, avatar: u.avatar, premium: u.premium ? 1 : 0, estatus: u.estatus || null, nft: u.nft || null, verified: u.verified ? 1 : 0, vtier: u.vtier || "", pbg: u.pbg || "", deleted: u.deleted ? 1 : 0, no_voice: u.no_voice, no_msg: u.no_msg, pay: u.pay, gift_ok: u.gift_ok, ...(u.unames ? { unames: u.unames } : {}) });
+    // сменился чей-то стиль пузыря — обновляем уже загруженные сообщения и перерисовываем открытый чат
+    let bsChanged = false;
+    if (typeof Bubbles !== "undefined" && Chat.peer) {
+      const nb = u.bubble || "", mm = (Chat.msgs || []).find((m) => m.sender === u.id && m.from);
+      const old = App.user && u.id === App.user.id ? (App.user.bubble || "") : Chat.peer.id === u.id ? (Chat.peer.bubble || "") : mm ? (mm.from.bubble || "") : nb;
+      bsChanged = old !== nb;
+      (Chat.msgs || []).forEach((m) => { if (m.sender === u.id && m.from) m.from.bubble = nb; });
+    }
+    App.patchUser(u.id, { name: u.name, surname: u.surname, username: u.username, bio: u.bio, bio_ents: u.bio_ents || null, avatar: u.avatar, premium: u.premium ? 1 : 0, estatus: u.estatus || null, nft: u.nft || null, verified: u.verified ? 1 : 0, vtier: u.vtier || "", pbg: u.pbg || "", bubble: u.bubble || "", deleted: u.deleted ? 1 : 0, no_voice: u.no_voice, no_msg: u.no_msg, pay: u.pay, gift_ok: u.gift_ok, ...(u.unames ? { unames: u.unames } : {}) });
     Chats.render(); if (u.id === App.user.id) { Profile.render(); guard("tabav", () => App.tabAvatar()); }
+    if (bsChanged) Bubbles.refresh();
     // открыт профиль этого человека — обновляем и его (значок, статус)
     guard("uprofile", () => { if (UserProfile.cur && UserProfile.cur.id === u.id) { UserProfile.cur = Object.assign({}, UserProfile.cur, u); UserProfile.render(UserProfile.cur); } });
   },
@@ -647,6 +660,11 @@ const App = {
       "qr.js": () => QR && QRCard && typeof QR.matrix === "function" && typeof QRCard.open === "function",
       "admin.js": () => HCReport && typeof HCReport.open === "function",
       "sharein.js": () => ShareIn && typeof ShareIn.init === "function",
+      "secret.js": () => typeof Secret === "object" && typeof Secret.start === "function" && typeof Secret.mix === "function" && typeof Secret.onEvent === "function",
+      "space.js": () => typeof Space === "object" && typeof Space.create === "function" && typeof Space.rail === "function" && typeof SPI === "object" && typeof Space.onWS === "function",
+      "space_room.js": () => typeof SpaceRoom === "object" && typeof SpaceRoom.open === "function" && typeof SpaceRoom.onWS === "function",
+      "space_extra.js": () => typeof SpaceExtra === "object" && typeof SpVoice === "object" && typeof SpaceExtra.paintGames === "function" && typeof SpPeer === "function",
+      "mentions.js": () => typeof Mentions === "object" && typeof Mentions.init === "function" && typeof Mentions.sync === "function",
       "games.js": () => Games && GameSession && GameClicker && typeof Games.open === "function" && typeof GameClicker.open === "function",
       "game2048.js": () => G2048 && Game2048 && typeof Game2048.open === "function",
       "gameblocks.js": () => GBlocks && GameBlocks && typeof GameBlocks.open === "function",

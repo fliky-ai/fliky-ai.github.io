@@ -1,6 +1,7 @@
 // sharein.js — «Поделиться» из других приложений (TikTok, WhatsApp, галерея…) в Dicegram.
 // APK (AppMint): общий текст/ссылка — WebToApk.getSharedText() и событие appmint:shared,
 // файлы — AppMint.getOpenedFile(s)() и событие appmint:fileopen (включите в AppMint «Receive shares from other apps»).
+// APK Dicegram (сборка из apk.yml): свой мост DicegramNative — текст, ссылки и файлы из окна «Поделиться» Android.
 // Установленное как приложение из браузера (PWA): Web Share Target — sw.js складывает присланное в кэш и
 // открывает ./index.html?share=1. Дальше одинаково: окно «Отправить в…» со списком чатов и поиском.
 const ShareIn = {
@@ -30,8 +31,50 @@ const ShareIn = {
         try { if (A.releaseOpenedFile) A.releaseOpenedFile(); } catch (e) {}
       } catch (e) {}
     })();
+    // APK Dicegram: «Поделиться» из TikTok, галереи и любых других приложений
+    if (!ShareIn.nbound) {
+      ShareIn.nbound = true;
+      addEventListener("dicegram:share", () => ShareIn.native());                                        // приложение уже было открыто
+      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") ShareIn.native(); });
+    }
+    ShareIn.native();                                                                                    // приложение запустили через «Поделиться»
     // PWA: Web Share Target
     try { if (new URL(location.href).searchParams.get("share") === "1") ShareIn.fromSW(); } catch (e) {}
+  },
+
+  // Мост приложения: takeShare() отдаёт JSON {text, subject, files:[{i,name,type,size}], skipped}, файлы читаются кусками по 768 КБ в base64
+  async native() {
+    const N = window.DicegramNative;
+    if (!N || typeof N.takeShare !== "function" || ShareIn.nbusy) return;
+    let m = null;
+    try { const raw = N.takeShare(); m = raw ? JSON.parse(raw) : null; } catch (e) { return; }
+    if (!m) return;
+    ShareIn.nbusy = true;
+    try {
+      const files = [];
+      const CH = 786432;                                                     // кратно 3: куски base64 склеиваются без хвостов
+      for (const f of m.files || []) {
+        const parts = [];
+        let ok = true;
+        for (let off = 0; off < f.size; off += CH) {
+          const b64 = N.readChunk(f.i, off, Math.min(CH, f.size - off));
+          if (!b64) { ok = false; break; }
+          const bin = atob(b64), u8 = new Uint8Array(bin.length);
+          for (let k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k);
+          parts.push(u8);
+          if (parts.length % 4 === 0) await new Promise((r) => setTimeout(r, 0));        // не замораживаем экран на больших файлах
+        }
+        if (ok) files.push(new File(parts, f.name || "file", { type: f.type || "" }));
+        else m.skipped = (m.skipped || 0) + 1;
+      }
+      try { if (N.clearShare) N.clearShare(); } catch (e) {}
+      if (m.skipped) { try { toast(T("Не все файлы удалось принять (максимум 100 МБ на файл)")); } catch (e) {} }
+      ShareIn.take({ text: ShareIn.textOf(m), files });
+    } catch (e) {
+      try { if (N.clearShare) N.clearShare(); } catch (e2) {}
+    }
+    ShareIn.nbusy = false;
+    setTimeout(() => ShareIn.native(), 300);                                 // пока читали, могло прийти ещё что-то
   },
 
   textOf(v) {
@@ -99,6 +142,14 @@ const ShareIn = {
     };
     pg.data.what = what;
     ShareIn.draw(pg);
+    // приложение запустили через «Поделиться»: список чатов ещё грузится — дорисовываем, как только он появится
+    let n = Chats.sorted().length, tries = 0;
+    const t = setInterval(() => {
+      const now = Chats.sorted().length;
+      if (!pg.$("#shin-list") || ++tries > 40) return clearInterval(t);
+      if (now !== n) { n = now; ShareIn.list(pg); }
+      if (now > 0 && tries > 4) clearInterval(t);
+    }, 250);
   },
   draw(pg) {
     pg.set(`<div class="shin-what">${esc(pg.data.what || "")}</div>

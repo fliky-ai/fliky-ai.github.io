@@ -75,8 +75,9 @@ const React = {
     return esc(e);
   },
   chips(m) {
-    if (!m.reacts || !m.reacts.length) return "";
-    return `<div class="rx">${m.reacts.map((r) => `<button class="rx-chip${r.mine ? " mine" : ""}" data-e="${esc(r.e)}"><span class="e">${React.glyph(r)}</span>${r.n > 1 ? `<span class="n">${r.n}</span>` : ""}</button>`).join("")}</div>`;
+    const st = typeof Stars2 !== "undefined" ? Stars2.chip(m) : "";
+    if ((!m.reacts || !m.reacts.length) && !st) return "";
+    return `<div class="rx">${st}${(m.reacts || []).map((r) => `<button class="rx-chip${r.mine ? " mine" : ""}" data-e="${esc(r.e)}"><span class="e">${React.glyph(r)}</span>${r.n > 1 ? `<span class="n">${r.n}</span>` : ""}</button>`).join("")}</div>`;
   },
 
   // содержимое меню: верхняя панель реакций и (по кнопке) большая панель
@@ -87,7 +88,8 @@ const React = {
     const QUICK = some ? (pr.react_list || []).slice(0, 7) : REACT_QUICK, ALL = some ? pr.react_list || [] : REACT_ALL;
     const prem = !!(App.user && App.user.premium);
     const btn = (e, i, inner) => `<button class="${mine.has(e) ? "on" : ""}" data-r="${esc(e)}" ${i !== undefined ? `style="--i:${i}"` : ""}>${inner || esc(e)}</button>`;
-    const bar = `<div class="mm-react">${QUICK.map((e, i) => btn(e, i)).join("")}${ALL.length > QUICK.length || !some ? `<button class="mm-more" data-more aria-label="${esc(T("Ещё"))}" style="--i:7">${MIC.more}</button>` : ""}</div>`;
+    const starBtn = m.pr && typeof Stars2 !== "undefined" ? `<button class="mm-star" data-star="1" style="--i:0" aria-label="${esc(T("Звёздная реакция"))}">${Stars2.star}</button>` : "";
+    const bar = `<div class="mm-react">${starBtn}${QUICK.map((e, i) => btn(e, i)).join("")}${ALL.length > QUICK.length || !some ? `<button class="mm-more" data-more aria-label="${esc(T("Ещё"))}" style="--i:7">${MIC.more}</button>` : ""}</div>`;
     let grid = `<div class="mm-grid hidden"><div class="mg-h"><b>${esc(T("Реакции"))}</b><small>${esc(prem ? T("до 3 на сообщение") : T("одна на сообщение"))}</small></div>
       <div class="mg-g">${ALL.map((e) => btn(e)).join("")}</div>`;
     if (!some && typeof ES !== "undefined") {            // собственные значки Dicegram — для всех
@@ -110,6 +112,7 @@ const React = {
 
 // ───────────── кто поставил реакцию ─────────────
 React.who = async function (m, only) {
+  if (only === undefined && m && m.pr && typeof Stars2 !== "undefined" && arguments.length > 1) return Stars2.react(m);     // долгое нажатие по ★-чипу — окно звёздной реакции
   if (!m || !m.id) return;
   let d;
   try { d = await api("/api/react/who?id=" + m.id); } catch (e) { return toast(e.message); }

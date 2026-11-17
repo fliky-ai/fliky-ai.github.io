@@ -1917,6 +1917,7 @@ if (I18N.lang === "en") {
   "Фоны профиля доступны с Premium.": "Profile backgrounds are available with Premium.",
   "Без фона": "No background",
   "Отправить в…": "Send to…",
+  "Не все файлы удалось принять (максимум 100 МБ на файл)": "Not all files could be received (100 MB maximum per file)",
   "Этот аккаунт удалён": "This account was deleted",
   "Этот аккаунт уже удалён": "This account has already been deleted",
   "Выберите причину. Человек не узнает, кто пожаловался. Чтобы проверить жалобу, модераторы Dicegram увидят вашу переписку с ним.": "Choose a reason. The person won't know who reported. To review the report, Dicegram moderators will see your chat with them.",

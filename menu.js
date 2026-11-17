@@ -108,6 +108,7 @@ const MsgMenu = {
         ov.classList.add("expanded"); bar.classList.add("hidden"); menu.classList.add("hidden"); grid.classList.remove("hidden"); if (clone) clone.classList.add("dim"); return;
       }
       if (e.target.closest("[data-prem]")) { MsgMenu.close(); return setTimeout(() => PremiumPromo.open(App.user), 220); }
+      if (e.target.closest("[data-star]")) { MsgMenu.close(); return setTimeout(() => Stars2.react(m), 200); }
       const r = e.target.closest("[data-r]");
       if (r) {                                   // выбранная реакция «вырастает», затем меню закрывается и она вылетает к сообщению
         if (MsgMenu.picked) return;

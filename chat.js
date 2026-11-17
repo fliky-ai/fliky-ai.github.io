@@ -122,6 +122,7 @@ const Chat = {
   bind() {
     Editor.init(); Voice.bind(); Player.init(); Panel.bind();
     Editor.onChange = () => { Chat.syncMain(); Chat.quickCheck(); try { BotUI.onInput(); } catch (e) {} if (!Editor.isEmpty()) Typing.send("typing"); };
+    try { Mentions.init(); } catch (e) { console.warn("Mentions.init", e); }
     const inp = Editor.el, box = $("msgs"), main = $("btn-main");
 
     inp.addEventListener("keydown", (e) => {
@@ -384,10 +385,11 @@ const Chat = {
   async open(peer, opt) {
     Chat.peer = peer; Chat.topic = (opt && opt.topic) || null; Chat.msgs = []; Chat.pins = []; Chat.pinI = 0; Chat.lastDay = ""; Chat.loading = true; Chat.hasMore = false; Chat.loadingMore = false;
     Chat.replyTo = null; Chat.editing = null;
+    try { Mentions.pend = []; Mentions.onOpen(peer.id); Mentions.hide(); Mentions.paint(); } catch (e) {}
     Chat.updateHeader(); Chat.renderPins(); Chat.renderBar();
     $("msgs").innerHTML = ""; Editor.clear(); Panel.hide(); Chat.syncMain();
     Nav.open("chat", () => {
-      Chat.peer = null; Chat.topic = null; MsgMenu.close(true); Panel.hide(); Voice.cancel(); Player.stop(); Editor.clear(); Editor.hideTb();
+      Chat.peer = null; Chat.topic = null; try { Mentions.pend = []; Mentions.hide(); Mentions.paint(); } catch (e) {} MsgMenu.close(true); Panel.hide(); Voice.cancel(); Player.stop(); Editor.clear(); Editor.hideTb();
       Chat.replyTo = null; Chat.editing = null; Chats.load({ age: 45000 });   // список и так обновляется по ходу переписки — качаем заново только если он давно не обновлялся
       $("composer").classList.remove("nowrite");
       try { BotUI.sync(); } catch (e) {}
@@ -576,7 +578,8 @@ const Chat = {
     const kb = Array.isArray(m.kb) && m.kb.length ? Chat.kbHTML(m) : "";
     let av = "";
     if (inGroup && !(next && Chat.cont(m, next))) { const f = m.from || {}; av = `<span class="gav" data-uid="${m.sender}">${avatar({ id: m.sender, name: f.name || "", avatar: f.avatar || "" })}</span>`; }
-    const bubble = `<div class="b ${out ? "out" : "in"}${inGroup ? " g" : ""}${big ? " big" : ""}${cont ? " cont" : ""} k-${k}${hasCap ? " hascap" : ""}${kb ? " haskb" : ""}${m.failed ? " failed" : ""}${m.pending ? " pending" : ""}${isNew ? " new" : ""}" data-k="${mkey(m)}"${m.id ? ` data-id="${m.id}"` : ""}>${h}${ov || hasCap ? "" : time}${rx}${av}${kb}</div>`;
+    const bs = typeof Bubbles !== "undefined" && k !== "sticker" && !ov ? Bubbles.of(m, out, inGroup) : "";
+    const bubble = `<div class="b ${out ? "out" : "in"}${inGroup ? " g" : ""}${big ? " big" : ""}${cont ? " cont" : ""} k-${k}${hasCap ? " hascap" : ""}${kb ? " haskb" : ""}${m.failed ? " failed" : ""}${m.pending ? " pending" : ""}${isNew ? " new" : ""}${m.mn && !out ? " mnme" : ""}${next && Chat.cont(m, next) ? " stk-m" : ""}" data-k="${mkey(m)}"${m.id ? ` data-id="${m.id}"` : ""}${bs ? ` data-bs="${bs}"` : ""}>${h}${ov || hasCap ? "" : time}${rx}${av}${kb}</div>`;
     // под постами канала с привязанным обсуждением — пилюля «Комментарии», как в Telegram
     if (gk === "channel" && Chat.peer.disc && m.id) {
       const cmTxt = m.cc ? m.cc + " " + plural(m.cc, T("комментарий"), T("комментария"), T("комментариев")) : T("Оставить комментарий");
@@ -608,6 +611,7 @@ const Chat = {
     if (Chat.hasMore && box.scrollHeight <= box.clientHeight + 40) setTimeout(() => Chat.more(), 0);
     Chat.saveCache();
     try { BotUI.sync(); } catch (e) {}
+    try { Mentions.sync(); } catch (e) {}
   },
   // переписка на экране → в кэш устройства (для мгновенного открытия и оффлайна)
   saveCache() { if (Chat.peer) OC.saveMsgs(Chat.peer.id, Chat.topic && Chat.topic.id, Chat.msgs); },
@@ -620,6 +624,7 @@ const Chat = {
     box.insertAdjacentHTML("beforeend", Chat.dayHead(m) + Chat.bubble(m, prev, true));
     // аватарка группы остаётся только у последнего сообщения в «стопке»
     if (prev && lastEl && lastEl.classList.contains("g") && Chat.cont(prev, m) && m.sender !== App.user.id) { const g = lastEl.querySelector(":scope > .gav"); if (g) g.remove(); }
+    if (prev && lastEl && lastEl.classList.contains("b") && Chat.cont(prev, m)) lastEl.classList.add("stk-m");        // предыдущий пузырь перестаёт быть последним в «стопке»
     Player.paint();
     if (typeof Music !== "undefined") Music.paint();
     if (m.kind === "text" || !m.kind) { const le = box.lastElementChild; if (le && le.classList.contains("big")) setTimeout(() => Fx.appear(le), 260); }
@@ -630,6 +635,7 @@ const Chat = {
     }
     Chat.saveCache();
     try { BotUI.sync(); } catch (e) {}
+    if (m.mn) try { Mentions.add(m); setTimeout(() => Mentions.seen(), 120); } catch (e) {}
   },
 
   // перерисовать один пузырь на месте
@@ -1001,14 +1007,25 @@ const Chat = {
     const i = Chat.pinI % n, p = Chat.pins[i];
     const segs = n > 1 ? `<span class="pb-segs">${Chat.pins.map((_, j) => `<i class="${j === i ? "on" : ""}"></i>`).join("")}</span>` : '<span class="pb-segs"><i class="on"></i></span>';
     bar.innerHTML = `${segs}<div class="pb-t"><b>${T("Закреплённое сообщение")}${n > 1 ? " #" + (n - i) : ""}</b><span>${esc(Rich.preview({ kind: p.kind, text: p.text, att: { em: p.em, name: p.name } }) || T("Сообщение"))}</span></div>
+      ${n > 1 ? `<button class="pb-x pb-list" data-act="plist" aria-label="${esc(T("Все закреплённые"))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg></button>` : ""}
       <button class="pb-x" data-act="unpin" aria-label="Открепить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>`;
   },
   pinClick(e) {
     const n = Chat.pins.length; if (!n) return;
     const p = Chat.pins[Chat.pinI % n];
     if (e.target.closest("[data-act=unpin]")) return Chat.pin({ id: p.id }, false);
+    if (e.target.closest("[data-act=plist]")) return Chat.pinList();
     Chat.jumpTo(p.id);
     Chat.pinI = (Chat.pinI + 1) % n; Chat.renderPins();
+  },
+
+  // список всех закреплённых: «#1 … #N», как в Telegram — по нажатию прокручивает к сообщению
+  async pinList() {
+    const n = Chat.pins.length; if (n < 2) return;
+    const pv = (p) => Rich.preview({ kind: p.kind, text: p.text, att: { em: p.em, name: p.name } }) || T("Сообщение");
+    const acts = Chat.pins.slice(0, 12).map((p, i) => ({ label: `#${n - i} · ${pv(p).slice(0, 48)}`, value: p.id }));
+    const id = await UI.sheet({ title: T("Закреплённые сообщения") + " · " + n, actions: acts, cancel: T("Закрыть") });
+    if (id) { Chat.pinI = Math.max(0, Chat.pins.findIndex((p) => p.id === id)); Chat.renderPins(); Chat.jumpTo(id); }
   },
 
   // прокрутить к сообщению (подгружая историю, если оно далеко)

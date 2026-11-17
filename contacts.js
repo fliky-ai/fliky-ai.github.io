@@ -135,7 +135,9 @@ const NewMsg = {
       const people = Contacts.people(), q = NewMsg.q;
       el.querySelector("#nm-cnt").textContent = people.length ? people.length + " " + plural(people.length, T("контакт"), T("контакта"), T("контактов")) : "";
       const acts = q ? "" : `<button class="nm-act" data-act="group">${SI.userPlus}<span>${esc(T("Создать группу"))}</span></button>
-        <button class="nm-act" data-act="channel">${svg('<path d="m3 11 17-6v14L3 13z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>')}<span>${esc(T("Создать канал"))}</span></button>${people.length ? '<div class="nm-sep"></div>' : ""}`;
+        <button class="nm-act" data-act="channel">${svg('<path d="m3 11 17-6v14L3 13z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>')}<span>${esc(T("Создать канал"))}</span></button>
+        <button class="nm-act" data-act="space">${svg('<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>')}<span>${esc(T("Создать пространство"))}</span></button>
+        <button class="nm-act" data-act="explore">${svg('<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>')}<span>${esc(T("Обзор пространств"))}</span></button>${people.length ? '<div class="nm-sep"></div>' : ""}`;
       body.innerHTML = acts + (people.length || q ? ContactList.html(people, { q, solo: true }) : `<div class="nm-empty">${esc(T("Контактов пока нет. Найдите человека через поиск — кнопка справа внизу."))}</div>`);
       if (!q) ContactList.mountIndex(body);
     };
@@ -147,7 +149,12 @@ const NewMsg = {
       if (e.target.closest("[data-back]")) return Nav.back();
       if (e.target.closest("#nm-fab")) { haptic(); return Search.open(); }
       const a = e.target.closest("[data-act]");
-      if (a) { haptic(); return CreateChat.open(a.dataset.act); }
+      if (a) {
+        haptic();
+        if (a.dataset.act === "space") return Space.create();
+        if (a.dataset.act === "explore") return Space.explore();
+        return CreateChat.open(a.dataset.act);
+      }
       const r = e.target.closest(".nm-row"); if (!r) return;
       const p = Contacts.people().find((x) => x.id === +r.dataset.id); if (!p) return;
       haptic();

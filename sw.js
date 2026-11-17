@@ -136,7 +136,7 @@ async function onMsgPush(data) {
   try {
     await self.registration.showNotification(String(data.title || "Dicegram").slice(0, 64), {
       tag: "m" + data.chat, renotify: true, body: String(data.body || "").slice(0, 200),
-      icon: "icon-192.png", badge: "icon-192.png", data: { chat: data.chat },
+      icon: "icon-192.png", badge: "icon-192.png", data: { chat: data.chat, link: data.link || "" },
     });
   } catch (e) {}
 }
@@ -164,7 +164,7 @@ self.addEventListener("notificationclick", (e) => {
   e.notification.close();
   if (!d.call) {
     // сообщение: открыть нужный чат (в уже открытом окне — через hash, иначе новое окно с #m=…)
-    const link = d.chat ? "#m=" + d.chat : "";
+    const link = d.link || (d.chat ? "#m=" + d.chat : "");
     e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
       for (const c of list) {
         if ("focus" in c) { try { if (link) c.postMessage({ type: "open-link", link }); } catch (er) {} return c.focus(); }

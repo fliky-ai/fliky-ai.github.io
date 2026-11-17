@@ -18,6 +18,7 @@ const Links = {
     const single = /(^|[?&])single(=|&|$)/.test(search || "");
     let m;
     if ((m = /^\+([A-Za-z0-9_-]{4,40})$/.exec(p)) || (m = /^joinchat\/([A-Za-z0-9_-]{4,40})$/.exec(p))) return { k: "j", v: m[1] };
+    if ((m = /^sp\/([A-Za-z0-9_-]{6,40})$/.exec(p))) return { k: "sp", v: m[1] };
     if ((m = /^addemoji\/([A-Za-z0-9_-]{1,60})$/.exec(p))) return { k: "e", v: m[1] };
     if ((m = /^biz\/([A-Za-z0-9_-]{1,60})$/.exec(p))) return { k: "c", v: m[1] };
     if ((m = /^c\/(\d{1,18})(?:\/(\d{1,18}))?$/.exec(p))) return { k: "k", v: m[1] + (m[2] ? "-" + m[2] + (single ? "-s" : "") : "") };
@@ -52,6 +53,7 @@ const Links = {
     }
     if (k === "j" || k === "p") return Groups.joinPreview(v);
     if (k === "e") return EmojiPack.open(v);
+    if (k === "sp") return Space.joinByCode(v);
     if (k === "u" || k === "n") return Links.mention(v);
     if (k === "c") {
       try {
@@ -103,6 +105,7 @@ const Links = {
       if (d.user.id === App.user.id) { try { App.go("profile"); } catch (e) {} return; }
       return UserProfile.open(d.user);
     }
+    if (d.type === "space") return Space.preview(d.space, d.slug);
     const c = Chats.byId(d.chat.id);
     if (c) return Chats.openChat(c.peer);
     return Groups.joinPreview(d.slug || name);

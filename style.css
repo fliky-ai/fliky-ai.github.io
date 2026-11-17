@@ -214,7 +214,7 @@ img{-webkit-user-drag:none;pointer-events:none}
 .sheet-btns{display:flex;gap:10px;margin-top:16px}
 .sheet-btns button{flex:1;height:44px;border-radius:12px;background:var(--raised);font-weight:700}
 .sheet-btns #sheet-ok:not(.danger){color:var(--accent)}
-.toast{position:fixed;left:50%;top:calc(var(--safe-t) + 14px);transform:translate(-50%,-90px);padding:9px 16px;border-radius:14px;background:var(--raised);box-shadow:0 8px 24px rgba(0,0,0,.3);font-weight:600;font-size:14px;transition:transform .25s;z-index:80;max-width:90%;text-align:center}
+.toast{position:fixed;left:50%;top:calc(var(--safe-t) + 14px);transform:translate(-50%,calc(-100% - 40px));pointer-events:none;padding:9px 16px;border-radius:14px;background:var(--raised);box-shadow:0 8px 24px rgba(0,0,0,.3);font-weight:600;font-size:14px;transition:transform .25s;z-index:80;max-width:90%;text-align:center}
 .toast.show{transform:translate(-50%,0)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 

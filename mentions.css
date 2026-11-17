@@ -1,0 +1,31 @@
+/* mentions.css — упоминания @username: подсказка участников, кнопка «@», подсветка */
+.mention{color:var(--accent);font-weight:600;cursor:pointer;border-radius:6px;transition:background .15s}
+.mention:active{background:color-mix(in srgb,var(--accent) 16%,transparent)}
+.mention.me{background:color-mix(in srgb,var(--accent) 16%,transparent);padding:0 4px;margin:0 -1px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.b.out .mention.me{background:rgba(255,255,255,.22);text-decoration:none}
+.b.mnme:not(.out){animation:mn-glow 1.6s ease-out 1}
+@keyframes mn-glow{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 55%,transparent)}100%{box-shadow:0 0 0 14px transparent}}
+.b.flash{animation:mn-flash 1.1s ease-out 1}
+@keyframes mn-flash{0%,35%{filter:brightness(1.35) saturate(1.2);transform:scale(1.025)}100%{filter:none;transform:none}}
+
+/* подсказка при вводе «@» */
+.mnpop{position:absolute;left:10px;right:10px;bottom:calc(100% - 2px);background:var(--surface);border-radius:18px;box-shadow:0 10px 32px rgba(0,0,0,.34),0 0 0 1px var(--line);padding:6px;display:flex;flex-direction:column;gap:2px;max-height:300px;overflow-y:auto;z-index:6;opacity:0;transform:translateY(8px) scale(.98);transform-origin:bottom center;transition:opacity .16s,transform .2s cubic-bezier(.2,.9,.3,1)}
+.mnpop.show{opacity:1;transform:none}
+.mnpop.hidden{display:none}
+.mnr{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:13px;text-align:left;color:var(--text);transition:background .12s}
+.mnr.on,.mnr:active{background:var(--raised)}
+.mnr-av{width:36px;height:36px;flex:none;display:block}
+.mnr-av .av,.mnr-av img{width:100%;height:100%}
+.mnr-t{display:flex;flex-direction:column;min-width:0;line-height:1.25}
+.mnr-t b{font-size:15px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mnr-t i{font-style:normal;font-size:13px;color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* круглая кнопка «@» над перепиской */
+.jump-mn{position:absolute;right:12px;bottom:64px;width:42px;height:42px;border-radius:50%;background:var(--surface);color:var(--accent);display:grid;place-items:center;box-shadow:0 3px 12px rgba(0,0,0,.3),0 0 0 1px var(--line);z-index:2;transition:transform .2s cubic-bezier(.2,.9,.3,1),opacity .18s}
+.jump-mn:active{transform:scale(.92)}
+.jump-mn.hidden{display:none}
+.jump-mn .at{font-size:21px;font-weight:700;line-height:1}
+.jump-mn .n{position:absolute;top:-6px;right:-4px;min-width:19px;height:19px;border-radius:10px;padding:0 5px;background:var(--accent);color:#fff;font:700 11px/19px system-ui,sans-serif;font-style:normal;text-align:center}
+
+/* значок «@» в списке чатов */
+.bdg.at{background:var(--accent);margin-right:4px;min-width:22px;padding:0 0;display:inline-grid;place-items:center;font-weight:700}

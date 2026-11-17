@@ -17,6 +17,7 @@ Object.assign(Settings, {
       mode: (el) => { Theme.set(el.dataset.v); Settings.drawChats(pg); },
       acc: (el) => { Prefs.set("acc", el.dataset.v); Theme.apply(true); Settings.drawChats(pg); },
       wall: () => Settings.wallpaper(),
+      bubble: () => Bubbles.pick(),
       tzs: async (el) => { await Settings.setTz(el.dataset.v === "m" ? TZ.shift(-1) : el.dataset.v === "p" ? TZ.shift(1) : el.dataset.v, pg); },
       night: () => Settings.night(),
       fs: (v) => { Prefs.set("fs", v); Theme.apply(); const n = pg.$("#fs-n"); if (n) n.textContent = v; },
@@ -53,7 +54,7 @@ Object.assign(Settings, {
       <div class="card2 modes">${mode("auto", SI.phone2, T("Авто"))}${mode("light", SI.sun, T("Светлая"))}${mode("dark", SI.moon, T("Тёмная"))}</div>
       ${R.lbl(esc(T("Цвет")))}
       <div class="card2 accs">${ACCENTS.map((a) => `<button class="acd${acc === a.k ? " on" : ""}" data-a="acc" data-v="${a.k}" style="--c:${a.c}" aria-label="${esc(T(a.n))}">${SI.check}</button>`).join("")}</div>
-      ${R.card(R.row({ a: "wall", ic: SI.image, c: "b", t: esc(T("Изменить обои")) }))}
+      ${R.card(R.row({ a: "wall", ic: SI.image, c: "b", t: esc(T("Изменить обои")) }), R.row({ a: "bubble", ic: SI.chat, c: "i", t: esc(T("Стиль пузыря")), r: esc(T(Bubbles.name(App.user && App.user.bubble))) }))}
       ${R.lbl(esc(T("Размер текста")))}
       <div class="card2 rng-card"><div class="rng-h"><span class="aa s">Aa</span><b id="fs-n">${Theme.fs()}</b><span class="aa l">Aa</span></div>${R.range({ s: "fs", min: 12, max: 26, val: Theme.fs(), label: T("Размер текста") })}</div>
       ${R.lbl(esc(T("Скругление сообщений")))}

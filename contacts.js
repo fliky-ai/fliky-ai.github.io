@@ -14,6 +14,7 @@ const Contacts = {
 
   // «Избранное» — своя переписка: заметки, файлы и подарки себе
   savedRow() {
+    return "";            // «Избранное» убрано из контактов (чат с собой по-прежнему доступен в списке чатов и в подарках)
     if (!App.user) return "";
     return `<button class="nm-row solo nm-saved" data-saved="1"><span class="av svd">${SAVED_I}</span><span class="tx"><b>${esc(T("Избранное"))}</b><small>${esc(T("Заметки и файлы для себя"))}</small></span></button>`;
   },

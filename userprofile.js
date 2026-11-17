@@ -313,10 +313,12 @@ const UserProfile = {
     const u = UserProfile.cur; if (!u || u.is_system || u.deleted) return;
     const A = [];
     if (u.username) A.push({ label: T("Скопировать ссылку"), value: "link" });
+    if (!u.bot && u.id !== (App.user && App.user.id) && typeof Secret !== "undefined" && Secret.supported()) A.push({ label: T("Начать секретный чат"), value: "secret" });
     A.push({ label: T("Пожаловаться"), value: "report" });
     A.push(u.blocked ? { label: T("Разблокировать"), value: "unblock", accent: true } : { label: T("Заблокировать"), value: "block", danger: true });
     const v = await UI.sheet({ title: dispName(u), actions: A, cancel: T("Отмена") });
     if (v === "link") { if (!(await Links.copy({ kind: "user", id: u.id }))) { copyText("@" + u.username); } }
+    else if (v === "secret") Secret.start(u);
     else if (v === "report") UserProfile.report();
     else if (v === "block") UserProfile.block(true);
     else if (v === "unblock") UserProfile.block(false);

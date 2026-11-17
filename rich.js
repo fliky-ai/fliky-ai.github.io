@@ -22,7 +22,10 @@ const Rich = (() => {
 
   // @имя в тексте — синяя нажимаемая метка (откроет профиль, группу или канал); ссылки не трогаем
   const MENTION_RE = /(^|[^\w@/.])@([A-Za-z][A-Za-z0-9_]{2,31})(?![\w@])/g;
-  const mention = (h) => h.replace(MENTION_RE, '$1<span class="mention" role="link" data-mention="$2">@$2</span>');
+  const mention = (h) => h.replace(MENTION_RE, (_, pre, n) => {
+    const me = typeof App !== "undefined" && App.user && App.user.username && App.user.username.toLowerCase() === n.toLowerCase();
+    return `${pre}<span class="mention${me ? " me" : ""}" role="link" data-mention="${n}">@${n}</span>`;
+  });
   const linkify = (html) => html.split(URL_RE).map((p, i) => (i % 2 ? `<a href="${p}" rel="noopener">${p}</a>` : mention(p))).join("");
 
   // кусок текста [a,b) со всеми сущностями (кроме q в обычном режиме)

@@ -250,6 +250,7 @@ const Chat = {
     const sp = t.closest(".sp");
     if (sp) { sp.classList.toggle("open"); return; }
     if (t.closest("a")) return;                                       // ссылки открывает общий обработчик
+    if (t.closest("[data-star]")) { Stars2.react(m); return; }
     const chip = t.closest(".rx-chip");
     if (chip) { Chat.react(m, chip.dataset.e); return; }
     const kbb = t.closest(".ikb-b");

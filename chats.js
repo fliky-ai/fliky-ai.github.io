@@ -196,7 +196,7 @@ const Chats = {
     if (i < 0) c = { peer, last: m, unread: 0 };
     else { c = Chats.list.splice(i, 1)[0]; c.last = m; if (peer !== c.peer && peer.gk) c.peer = Object.assign(c.peer, peer); }
     const viewing = Chat.peer && Chat.peer.id === peer.id && document.visibilityState === "visible";
-    if (incoming && !viewing && m.kind !== "svc") c.unread++;
+    if (incoming && !viewing && m.kind !== "svc") { c.unread++; if (m.mn) c.mn = (c.mn || 0) + 1; }
     Chats.list.unshift(c); Chats.render();
   },
 
@@ -222,6 +222,7 @@ const Chats = {
     const c = Chats.byId(pid);
     let ch = false;
     if (c && c.unread) { c.unread = 0; ch = true; }
+    if (c && c.mn) { c.mn = 0; ch = true; }
     if (Chats.markedUnread(pid)) { Chats.setUnread(pid, false); ch = false; }
     if (ch) Chats.render();
   },
@@ -276,7 +277,8 @@ const Chats = {
       else if (p.gk === "group" && m.from) who = `<b>${esc(String(m.from.name || "").split(" ")[0])}:</b> `;
     }
     const checks = mine && !p.gk && m.kind !== "svc" && m.kind !== "call" ? (m.is_read ? CK2 : CK1) : "";
-    const badge = unread > 0 ? `<span class="bdg${muted ? " mut" : ""}">${unread > 999 ? "999+" : unread}</span>` : mu ? `<span class="bdg dot${muted ? " mut" : ""}"></span>` : pinned ? CI.pin : "";
+    const at = c.mn && unread > 0 ? '<span class="bdg at" aria-label="@">@</span>' : "";
+    const badge = unread > 0 ? `${at}<span class="bdg${muted ? " mut" : ""}">${unread > 999 ? "999+" : unread}</span>` : mu ? `<span class="bdg dot${muted ? " mut" : ""}"></span>` : pinned ? CI.pin : "";
     const dot = p.online && !p.gk && !p.is_system && !p.saved ? '<i class="on-dot"></i>' : "";
     return `<button class="row chrow${pinned ? " pin" : ""}${unr ? " unr" : ""}" data-k="c" data-id="${id}">
       <span class="crow-av">${Stories.av(p)}${dot}</span>
@@ -290,19 +292,22 @@ const Chats = {
     if (Chats.loadedOnce) OC.saveChats(Chats.list);      // сохраняем только то, что пришло с сервера (не пустой список до загрузки)
     // число на значке — сообщения из чатов со включённым звуком
     const total = Chats.list.reduce((s, c) => s + (Chats.isMuted(c.peer.id) ? 0 : c.unread), 0)
-      + Chats.list.reduce((s, c) => s + (c.unread === 0 && Chats.markedUnread(c.peer.id) && !Chats.isMuted(c.peer.id) ? 1 : 0), 0);
+      + Chats.list.reduce((s, c) => s + (c.unread === 0 && Chats.markedUnread(c.peer.id) && !Chats.isMuted(c.peer.id) ? 1 : 0), 0)
+      + (typeof Secret !== "undefined" ? Secret.unreadTotal() : 0);
     const b = $("tab-badge"); b.textContent = total > 99 ? "99+" : total; b.classList.toggle("hidden", !total);
     try { Notif.badge(total); } catch (e) {}
     try { Chats.tabs(); } catch (e) {}
     const box = $("chat-list");
-    if (!Chats.list.length) {
-      box.innerHTML = `<div class="cempty">${ILL.chat}<h3>${esc(T("Пока нет чатов"))}</h3><p>${esc(T("Нажмите на кнопку внизу, чтобы написать кому-нибудь, создать группу или канал. Найти человека можно через поиск."))}</p></div>`;
+    const sec = typeof Secret !== "undefined" && Chats.folder === "all" && Secret.list.length;
+    const rail = typeof Space !== "undefined" && Chats.folder === "all" ? Space.rail() : "";
+    if (!Chats.list.length && !sec) {
+      box.innerHTML = rail + `<div class="cempty">${ILL.chat}<h3>${esc(T("Пока нет чатов"))}</h3><p>${esc(T("Нажмите на кнопку внизу, чтобы написать кому-нибудь, создать группу или канал. Найти человека можно через поиск."))}</p></div>`;
       return;
     }
     const fl = Chats.folder === "all" ? null : FO().get().find((f) => f.id === Chats.folder);
     const rows = Chats.sorted().filter((c) => !fl || FO().has(fl, c));
-    box.innerHTML = rows.length ? rows.map((c) => Chats.rowHTML(c)).join("")
-      : `<div class="cempty">${ILL.none}<h3>${esc(T("В папке нет чатов"))}</h3><p>${esc(T("Добавьте чаты в папку: Настройки → Папки с чатами."))}</p></div>`;
+    box.innerHTML = rail + (rows.length || sec ? (sec ? Secret.mix(rows, (c) => Chats.rowHTML(c)) : rows.map((c) => Chats.rowHTML(c)).join(""))
+      : `<div class="cempty">${ILL.none}<h3>${esc(T("В папке нет чатов"))}</h3><p>${esc(T("Добавьте чаты в папку: Настройки → Папки с чатами."))}</p></div>`);
     try { Object.keys(Typing.map).forEach((k) => Typing.paint(+k)); } catch (e) {}     // «печатает…» не пропадает при перерисовке
   },
 };

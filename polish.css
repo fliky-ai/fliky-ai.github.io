@@ -1,0 +1,154 @@
+/* polish.css — «современный вид» Dicegram: шапка чата, пузыри, ответы, реакции, системные сообщения, профиль, палитра.
+   Подключается ПОСЛЕДНИМ и только переопределяет остальные стили. Чтобы вернуть прежний вид, достаточно убрать строку из index.html.
+   Цвета, размер текста и скругление пузырей по-прежнему берутся из настроек (--accent, --fsk, --br). */
+
+:root{
+  --ease-o:cubic-bezier(.22,.9,.28,1);
+  --spring:cubic-bezier(.2,1.25,.4,1);
+  --card-bd:color-mix(in srgb,var(--text) 6.5%,transparent);
+  --sh-card:0 1px 2px rgba(4,10,20,.16),0 8px 20px -10px rgba(4,10,20,.36);
+  --sh-pop:0 12px 34px rgba(4,10,20,.38);
+  --tail:min(7px,var(--br));
+  --accent-soft:color-mix(in srgb,var(--accent) 15%,transparent);
+  --out-bg:linear-gradient(158deg,color-mix(in srgb,var(--accent) 90%,#bcd4ff),var(--accent-2));
+}
+:root[data-theme="light"]{
+  --card-bd:rgba(20,40,80,.075);
+  --sh-card:0 1px 2px rgba(30,50,90,.06),0 8px 20px -12px rgba(30,50,90,.22);
+  --sh-pop:0 12px 32px rgba(30,50,90,.20);
+  --out-bg:linear-gradient(158deg,color-mix(in srgb,var(--accent) 88%,#fff),var(--accent-2));
+}
+/* мягче оттенки тёмной темы: чуть светлее карточки, спокойнее разделители */
+:root[data-theme="dark"]{--surface:#172029;--raised:#212B38;--line:#242E3B;--dim:#8C98AC;--bubble-in:#1F2936}
+
+/* единый стиль иконок: скруглённые линии 1.9 */
+.icon-btn svg,.cbtn svg,.hbtn2 svg,.ua svg,.pa svg,.tgh-btn svg{stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+
+/* ───────── шапка чата ───────── */
+#chat .phead{min-height:60px;padding:calc(var(--safe-t) + 6px) 10px 6px 4px;gap:4px;border-bottom:0;
+  box-shadow:0 1px 0 var(--card-bd),0 10px 22px -16px rgba(4,10,20,.55)}
+#chat-back{width:42px;height:42px;color:var(--text);transition:background .15s,transform .15s var(--ease-o)}
+#chat-back:active{background:var(--accent-soft);transform:scale(.92)}
+#chat .headinfo{gap:12px;padding:3px 6px 3px 0;border-radius:14px;transition:background .15s}
+#chat .headinfo:active{background:color-mix(in srgb,var(--text) 6%,transparent)}
+#chat-av{flex:none;display:block;line-height:0}
+#chat-av .av{width:40px;height:40px;box-shadow:0 0 0 2px var(--surface),0 0 0 3.5px color-mix(in srgb,var(--accent) 24%,transparent)}
+#chat-name{display:block;max-width:100%;font-size:16.5px;font-weight:750;letter-spacing:-.012em;line-height:1.22;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#chat-name .ver,#chat-name .ver-b,#chat-name svg,#chat-name .gbadge,#chat-name i{margin-left:5px;vertical-align:-3px}
+#chat .sub2{font-size:12.5px;margin-top:1px;line-height:1.2}
+#chat .hbtn2{width:40px;height:40px;margin-left:2px;color:var(--text);background:color-mix(in srgb,var(--text) 6%,transparent);transition:background .15s,transform .15s var(--ease-o)}
+#chat .hbtn2:active{background:var(--accent-soft);transform:scale(.92)}
+#chat .hbtn2 svg{width:20px;height:20px}
+#chat.open .headinfo{animation:headIn .42s var(--ease-o) both}
+@keyframes headIn{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:none}}
+
+/* плавнее переходы между экранами */
+.page{transition:transform .34s var(--ease-o),visibility 0s .34s}
+.page.open{transition:transform .34s var(--ease-o);box-shadow:-16px 0 44px rgba(0,0,0,.26)}
+
+/* ───────── сообщения ───────── */
+.msgs{padding:10px 10px 6px}
+.b{margin-top:8px;padding:8px 12px 6px;line-height:1.38}
+.b:not([data-bs]){box-shadow:0 1px 1px rgba(4,10,20,.10),0 2px 8px -3px rgba(4,10,20,.18)}
+.b.cont{margin-top:2px}
+.b:not(.cont) + .b.cont{margin-top:2px}
+.b.in{border-bottom-left-radius:var(--tail)}
+.b.out{border-bottom-right-radius:var(--tail)}
+.b.out:not([data-bs]){background:var(--out-bg)}
+.b.in.cont{border-top-left-radius:var(--tail)}
+.b.out.cont{border-top-right-radius:var(--tail)}
+/* в «стопке» от одного автора промежуточные пузыри плоские с хвостовой стороны, угол — только у последнего */
+.b.in.stk-m{border-bottom-left-radius:var(--tail)}
+.b.out.stk-m{border-bottom-right-radius:var(--tail)}
+.b.in:not(.cont):not(.stk-m){border-bottom-left-radius:min(5px,var(--br))}
+.b.out:not(.cont):not(.stk-m){border-bottom-right-radius:min(5px,var(--br))}
+.b.k-sticker,.b.k-sticker.in,.b.k-sticker.out{box-shadow:none;background:none}
+:root[data-theme="light"] .b.in:not([data-bs]){box-shadow:0 1px 1px rgba(30,50,90,.08),0 2px 8px -4px rgba(30,50,90,.18)}
+.b .t{font-size:11.5px;opacity:.78}
+
+/* группа: имя автора и стопка сообщений */
+.b.g:not(.cont){margin-top:11px}
+.b.g.cont{margin-top:2px}
+.gname{font-size:13.5px;font-weight:700;letter-spacing:-.005em;margin-bottom:1px}
+.gav{margin-left:-2px}
+.gav .av{box-shadow:0 0 0 2px color-mix(in srgb,var(--bg) 70%,transparent)}
+
+/* анимации появления: своё сообщение «вылетает» от поля ввода, чужое — слева */
+.b.new{animation:none}
+.b.new.out{animation:sendIn .34s var(--spring) both;transform-origin:100% 100%}
+.b.new.in{animation:recvIn .3s var(--ease-o) both;transform-origin:0 100%}
+@keyframes sendIn{from{opacity:0;transform:translate(14px,18px) scale(.86)}60%{opacity:1}to{opacity:1;transform:none}}
+@keyframes recvIn{from{opacity:0;transform:translate(-10px,10px) scale(.92)}to{opacity:1;transform:none}}
+.svcm.new,.greetm.new{animation:svcIn .35s var(--ease-o) both}
+@keyframes svcIn{from{opacity:0;transform:scale(.9) translateY(6px)}to{opacity:1;transform:none}}
+
+/* ответы на сообщения */
+.rq{gap:9px;margin:0 0 6px;padding:5px 10px 5px 0;border-radius:10px;background:color-mix(in srgb,var(--accent) 11%,transparent);transition:background .15s}
+.rq:active{background:color-mix(in srgb,var(--accent) 20%,transparent)}
+.rq i{width:3px;margin:1px 0;border-radius:3px}
+.rq b{font-size:13px;letter-spacing:-.005em}
+.rq span{font-size:13.5px;opacity:.88;max-width:58vw}
+.b.out:not([data-bs]) .rq{background:rgba(255,255,255,.17)}
+.b.out:not([data-bs]) .rq:active{background:rgba(255,255,255,.26)}
+.fw{font-size:13px;font-weight:600;margin-bottom:4px}
+
+/* реакции под сообщением */
+.rx{gap:5px;margin-top:6px}
+.rx-chip{height:28px;padding:0 9px;border-radius:14px;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--text) 5%,transparent);
+  transition:transform .15s var(--ease-o),background .15s}
+.b:not([data-bs]) .rx-chip{background:color-mix(in srgb,var(--text) 10%,transparent)}
+.rx-chip:active{transform:scale(.92)}
+.rx-chip .n{font-size:12.5px;font-weight:750}
+.b:not([data-bs]) .rx-chip.mine{background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px var(--accent)}
+.b.out:not([data-bs]) .rx-chip{background:rgba(255,255,255,.2);box-shadow:none}
+.b.out:not([data-bs]) .rx-chip.mine{background:#fff;color:var(--accent-2);box-shadow:0 1px 4px rgba(0,0,0,.18)}
+
+/* системные сообщения и дата */
+.svcm{margin:10px 0 4px;padding:5px 13px;border-radius:15px;font-size:12.5px;font-weight:600;letter-spacing:.005em;
+  background:color-mix(in srgb,var(--text) 9%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--text) 5%,transparent)}
+.day{margin:14px 0 6px;padding:4px 13px;border-radius:14px;font-size:12.5px;font-weight:700;letter-spacing:.01em;box-shadow:0 2px 8px rgba(0,0,0,.14)}
+.greetm{border-radius:20px;box-shadow:var(--sh-card)}
+
+/* поле ввода */
+.pill{box-shadow:var(--sh-card),inset 0 0 0 1px var(--card-bd)}
+.mainbtn{box-shadow:0 6px 16px color-mix(in srgb,var(--accent) 40%,transparent);transition:transform .18s var(--spring),box-shadow .2s}
+.mainbtn:active{transform:scale(.9)}
+.jump{box-shadow:var(--sh-card),0 0 0 1px var(--card-bd)}
+
+/* ───────── профиль ───────── */
+.uhero:not(.prem){position:relative;isolation:isolate}
+.uhero:not(.prem)::before{content:"";position:absolute;inset:0 0 auto 0;height:260px;z-index:-1;pointer-events:none;
+  background:radial-gradient(120% 90% at 50% 0%,color-mix(in srgb,var(--accent) 34%,transparent),transparent 70%),
+             linear-gradient(180deg,color-mix(in srgb,var(--accent) 12%,transparent),transparent)}
+.pf-hero h2{font-size:23px;font-weight:800;letter-spacing:-.02em}
+.uhero .pf-av .av,.uhero .pf-av img{box-shadow:0 0 0 4px var(--bg),0 0 0 6px color-mix(in srgb,var(--accent) 38%,transparent),0 14px 34px -8px rgba(4,10,20,.55)}
+.st2row{gap:8px;margin-top:6px}
+.ua,.pa{border-radius:18px;box-shadow:var(--sh-card),inset 0 0 0 1px var(--card-bd);padding:13px 2px 11px;transition:transform .16s var(--ease-o),background .15s}
+.ua svg,.pa svg{width:24px;height:24px}
+.card2,.group{border-radius:20px;box-shadow:var(--sh-card),inset 0 0 0 1px var(--card-bd);border:0}
+:root[data-theme="light"] .card2,:root[data-theme="light"] .group{border:0}
+.pi{padding:12px 18px}
+.pi+.pi{border-top:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
+.pi-v{font-size:16px;font-weight:500}
+.pi-l{font-size:12.5px;margin-top:2px;letter-spacing:.01em}
+.pi-un .pi-v{color:var(--accent)}
+/* карточка верификации — мягкая «плашка» вместо голого текста */
+.pf-vnote{margin:12px 14px 10px;padding:13px 15px;border-radius:20px;gap:13px;background:var(--surface);box-shadow:var(--sh-card),inset 0 0 0 1px var(--card-bd)}
+.pf-vnote .vn-name{font-size:16px;letter-spacing:.1px}
+.pf-vnote .ver{width:34px;height:34px;margin-top:0}
+/* вкладки «Медиа / Ссылки / Подарки / Группы» */
+.utabs{display:flex;gap:6px;overflow-x:auto;padding:8px 14px 10px;scrollbar-width:none;position:sticky;top:0;z-index:2}
+.utabs::-webkit-scrollbar{display:none}
+.utabs button{flex:none;padding:8px 14px;border-radius:99px;background:var(--surface);color:var(--dim);font-weight:700;font-size:13.5px;box-shadow:inset 0 0 0 1px var(--card-bd);
+  transition:background .2s,color .2s,transform .15s var(--ease-o)}
+.utabs button:active{transform:scale(.95)}
+.utabs button.on{background:var(--accent-soft);color:var(--accent);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 45%,transparent)}
+.utabs em{font-style:normal;margin-left:6px;padding:1px 7px;border-radius:9px;background:color-mix(in srgb,currentColor 16%,transparent);font-size:11.5px;font-weight:800}
+
+/* общие карточки и списки */
+.item{padding:14px 18px}
+.sect{font-size:13px;letter-spacing:.02em}
+.sheet2,.sh2-card{box-shadow:var(--sh-pop)}
+@media (prefers-reduced-motion:reduce){
+  .b.new,.svcm.new,#chat.open .headinfo{animation:none!important}
+}

@@ -163,6 +163,10 @@ const DeepLink = {
     const h = String(link || "").replace(/^[^#]*#\/?/, "");
     let m = /(?:^|&)m=(-?\d+)/.exec(h);
     if (m) return { kind: "chat", id: +m[1] };
+    m = /(?:^|&)s=(\d+)/.exec(h);
+    if (m) return { kind: "secret", id: +m[1] };
+    m = /(?:^|&)sp=(\d+)/.exec(h);
+    if (m) return { kind: "space", id: +m[1] };
     m = /(?:^|&)(ca|cd)=([A-Za-z0-9_-]+)/.exec(h);
     if (m) { const d = DeepLink.b64json(m[2]); if (d && d.call) return { kind: "call", action: m[1] === "cd" ? "decline" : "answer", data: d }; }
     return null;
@@ -174,14 +178,27 @@ const DeepLink = {
       if (lp) { Links.go(lp.k, lp.v); return true; }
       return false;
     }
-    try { if (/[#&](m|ca|cd)=/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+    try { if (/[#&](m|ca|cd|s)=/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
     if (p.kind === "call") {
       App.pendingCall = { action: p.action, data: p.data };
       if (Calls.online()) App.resolvePendingCall();
       return true;
     }
+    if (p.kind === "secret") { DeepLink.openSecret(p.id); return true; }
+    if (p.kind === "space") { DeepLink.openSpace(p.id); return true; }
     DeepLink.openChat(p.id);
     return true;
+  },
+  async openSpace(id) {
+    if (!App.user) { DeepLink.waitSp = id; return; }
+    try { if (!Space.get(id)) await Space.load(); } catch (e) {}
+    if (Space.get(id)) { App.go("chats"); Space.open(id); }
+  },
+  async openSecret(id) {
+    if (!App.user) { DeepLink.waitS = id; return; }
+    try { if (!Secret.byId(id)) await Secret.load(); } catch (e) {}
+    const c = Secret.byId(id);
+    if (c) { App.go("chats"); Secret.open_(id); }
   },
   async openChat(id) {
     if (!App.user) { DeepLink.wait = id; return; }

@@ -63,16 +63,9 @@ Object.assign(Settings, {
   stars() {
     const pg = Pg.open({ title: T(NAME_STARS), data: { tx: null }, build: (pg) => Settings.drawStars(pg) });
     pg.on = {
-      topup: async () => {
-        if (!App.user.admin) {
-          return UI.sheet({ title: T("Пополнение пока недоступно"), icon: SI.starF, text: T("Пополнить баланс звёзд сейчас нельзя. Эта возможность появится позже."), actions: [], cancel: T("Понятно") });
-        }
-        const v = await UI.prompt({ title: T("Пополнить на (тест)"), value: "100", placeholder: "100" });
-        const n = Math.floor(+v); if (!v || !(n > 0)) return;
-        try { const d = await api("/api/stars/topup", { method: "POST", body: { amount: n } }); App.user = d.user; Settings.loadStars(pg); toast(T("Баланс пополнен")); } catch (e) { toast(e.message); }
-      },
+      topup: () => Stars2.topup(),
       stat: () => Settings.starStat(pg),
-      earn: () => Settings.earn(),
+      earn: () => Stars2.earn(),
       prem: () => Settings.premium(),
     };
     Settings.loadStars(pg);
@@ -91,7 +84,7 @@ Object.assign(Settings, {
         R.row({ a: "stat", ic: SI.stats, c: "b", t: esc(T("Статистика")), s: esc(T("История начислений и покупок")) }),
         R.row({ a: "earn", ic: starFancy(), c: "star", t: esc(T("Заработать звёзды")), s: esc(T("Сервисы, которые начисляют звёзды")) }),
         R.row({ a: "prem", ic: SI.starF, c: "pr", t: esc(T(NAME_PREMIUM)), s: esc(T("Потратить звёзды на подписку")) }))}
-      ${R.hint(esc(T("Звёзды — внутренняя валюта приложения. Ими можно оплатить Premium.")))}`);
+      ${R.hint(esc(T("Звёзды — внутренняя валюта приложения: Premium, подарки, звёздные реакции в каналах. Пополнить можно звёздами Telegram.")))}`);
   },
   starStat(parent) {
     const pg = Pg.open({ title: T("Статистика"), build: (pg) => {

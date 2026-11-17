@@ -566,6 +566,8 @@ const App = {
       else if (d.type === "edit") { Chat.onEdit(d.message); Chats.onEdit(d.message); }
       else if (d.type === "del") { Chat.onDel(d.ids); Chats.load({ delay: 600 }); }
       else if (d.type === "react") { Chat.onReact(d); guard("notify", () => Notif.onReact(d)); }
+      else if (d.type === "pr") guard("pr", () => Stars2.onPr(d));
+      else if (d.type === "stars") guard("stars", () => Stars2.onStars(d));
       else if (d.type === "pin") Chat.onPin(d);
       else if (d.type === "cc") Chat.onCC(d);
       else if (d.type === "presence") App.presence(d);

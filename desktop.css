@@ -1,0 +1,76 @@
+/* desktop.css — версия для компьютера (окно шире 900 px; класс body.desk ставит desktop.js).
+   Слева — список чатов, справа — открытый чат (как в Telegram Web); остальные страницы — окнами по центру;
+   пространство — в две колонки. На телефоне ничего из этого не действует. */
+body.desk{--sidew:clamp(340px,30vw,430px)}
+
+/* ── два столбца: список слева, чат справа */
+body.desk #app{right:auto;width:var(--sidew);border-right:1px solid var(--line);z-index:5}
+#deskEmpty{display:none}
+body.desk #deskEmpty{display:flex;position:fixed;left:var(--sidew);top:0;right:0;bottom:0;z-index:4;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px;text-align:center;background:var(--wp-bg);overflow:hidden}
+body.desk #deskEmpty::before{content:"";position:absolute;inset:0;background:radial-gradient(60% 50% at 50% 42%,rgba(79,155,255,.10),transparent 70%);pointer-events:none}
+.de-logo{position:relative;width:96px;height:96px;border-radius:30px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--accent-2),var(--accent));box-shadow:0 18px 44px -12px rgba(79,155,255,.55)}
+.de-logo svg{width:50px;height:50px}
+.de-pill{position:relative;padding:8px 18px;border-radius:20px;font-size:14.5px;font-weight:650;color:var(--text);background:var(--pill-bg);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+:root[data-theme="light"] .de-pill{color:#fff}
+.de-keys{position:relative;display:grid;grid-template-columns:auto auto;gap:7px 14px;font-size:12.5px;color:var(--dim);text-align:left}
+.de-keys kbd{justify-self:end;padding:2px 8px;border-radius:7px;font:700 11.5px/1.5 Manrope,system-ui,sans-serif;color:var(--text);background:var(--surface);box-shadow:inset 0 0 0 1px var(--line),0 1px 0 var(--line)}
+body.desk #chat,body.desk .page.sec-page{left:var(--sidew);right:0;width:auto;transform:none;transition:none;box-shadow:none}
+body.desk #chat:not(.open),body.desk .page.sec-page:not(.open){visibility:hidden}
+body.desk #chat-back,body.desk #chat .phead .icon-btn[data-back]{display:none}
+body.desk #chat .phead{padding-left:16px}
+/* сообщения: колонка по центру, как в Telegram Web */
+body.desk #msgs{padding-left:max(14px,calc((100% - 840px)/2));padding-right:max(14px,calc((100% - 840px)/2));-webkit-user-select:text;user-select:text}
+body.desk .composer{padding-left:max(12px,calc((100% - 840px)/2));padding-right:max(12px,calc((100% - 840px)/2))}
+body.desk .b{max-width:min(82%,580px);-webkit-user-select:text;user-select:text}
+body.desk .b a,body.desk .b .mention{cursor:pointer}
+body.desk #chat.drop::after{content:attr(data-drop);position:absolute;inset:10px;z-index:50;display:grid;place-items:center;border-radius:24px;font-size:20px;font-weight:800;color:#fff;background:rgba(43,123,244,.55);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-shadow:inset 0 0 0 3px #fff;pointer-events:none}
+
+/* ── список слева */
+body.desk .chrow{cursor:pointer;transition:background .12s}
+body.desk .chrow:hover{background:var(--raised)}
+body.desk .chrow.cur,body.desk .chrow.cur:hover{background:color-mix(in srgb,var(--accent) 22%,var(--surface));box-shadow:inset 3px 0 0 var(--accent)}
+body.desk .icon-btn,body.desk .tgh-btn,body.desk button,body.desk .row,body.desk [data-a],body.desk .tab{cursor:pointer}
+body.desk .icon-btn:hover,body.desk .tgh-btn:hover{background:var(--raised)}
+body.desk .tab:hover{background:var(--raised);border-radius:16px}
+body.desk .cfab:hover{filter:brightness(1.08);transform:translateY(-1px)}
+
+/* ── окна по центру (все страницы, кроме чата и пространства) */
+body.desk .page:not(#chat):not(#space):not(.sec-page){left:50%;right:auto;top:max(16px,4vh);height:min(92vh,900px);width:min(580px,94vw);margin-left:calc(min(580px,94vw)/-2);
+  border-radius:22px;overflow:hidden;opacity:0;transform:translateY(18px) scale(.97);
+  transition:transform .22s cubic-bezier(.2,.8,.2,1),opacity .18s,visibility 0s .22s;box-shadow:0 0 0 100vmax rgba(4,9,16,.6),0 30px 80px rgba(0,0,0,.55)}
+body.desk .page.open:not(#chat):not(#space):not(.sec-page){opacity:1;transform:none;transition:transform .22s cubic-bezier(.2,.8,.2,1),opacity .18s;box-shadow:0 0 0 100vmax rgba(4,9,16,.6),0 30px 80px rgba(0,0,0,.55)}
+body.desk .page .phead,body.desk .page .tg-head{border-radius:22px 22px 0 0}
+body.desk .sheet2,body.desk .sheet{align-items:center}
+body.desk .s2-card,body.desk .sheet .card{border-radius:24px;max-width:440px;padding-bottom:18px}
+
+/* ── аккуратные полосы прокрутки */
+body.desk *{scrollbar-width:thin;scrollbar-color:rgba(128,140,160,.35) transparent}
+body.desk ::-webkit-scrollbar{width:9px;height:9px}
+body.desk ::-webkit-scrollbar-track{background:transparent}
+body.desk ::-webkit-scrollbar-thumb{background:rgba(128,140,160,.32);border-radius:6px;border:2px solid transparent;background-clip:padding-box}
+body.desk ::-webkit-scrollbar-thumb:hover{background:rgba(128,140,160,.55);background-clip:padding-box;border:2px solid transparent}
+
+/* ── пространство: слева плеер и участники, справа вкладки */
+.spr-colL,.spr-colR{display:contents}
+body.desk .sp-room .spr-head{max-width:1300px;width:100%;margin:0 auto;padding-left:24px;padding-right:24px}
+body.desk .sp-room .spr-body{display:flex;gap:20px;overflow:hidden;max-width:1300px;width:100%;margin:0 auto;padding:0 24px 12px}
+body.desk .sp-room .spr-colL{display:block;flex:0 0 clamp(380px,34%,470px);overflow-y:auto;padding-bottom:8px}
+body.desk .sp-room .spr-colR{display:flex;flex-direction:column;flex:1;min-width:0;overflow:hidden}
+body.desk .sp-room .spr-colL>*{margin-left:0;margin-right:0}
+body.desk .sp-room .spr-tabs{margin:6px 0 0;flex:none}
+body.desk .sp-room .spr-tabs button{flex-direction:row;height:44px;font-size:13.5px;gap:7px;cursor:pointer}
+body.desk .sp-room .spr-tabs button:hover:not(.on){background:rgba(255,255,255,.06)}
+body.desk .sp-room .spr-pane{margin:10px 0 0;flex:1;min-height:0;overflow-y:auto;padding-right:2px}
+body.desk .sp-room .spr-pane:has(>.spr-msgs){display:flex;flex-direction:column;overflow:hidden}
+body.desk .sp-room .spr-pane>.spr-msgs{flex:1;height:auto;min-height:0}
+body.desk .sp-room .spr-dock{max-width:1300px;width:100%;margin:0 auto;padding-left:24px;padding-right:24px;background:none}
+body.desk .sp-room .spr-card{margin:6px 0}
+body.desk .sp-room .spr-poll{margin:6px 0 0}
+body.desk .sp-room .spr-people{margin:8px 0 0}
+body.desk .spgm-menu{grid-template-columns:repeat(auto-fill,minmax(270px,1fr))}
+body.desk .spgm-mf-g{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}
+body.desk .spgm-lobby,body.desk #spr-pane .spgm{max-width:760px}
+body.desk .sea-g{max-width:480px}
+body.desk .spk-pod{max-width:520px;margin-left:auto;margin-right:auto}
+body.desk .sp-room .spr-dock{justify-content:center;gap:14px}
+body.desk .sp-room .spr-dock .spd-main{min-width:240px;flex:0 1 280px}

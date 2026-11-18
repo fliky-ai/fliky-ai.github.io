@@ -1,0 +1,154 @@
+/* space_more.css — SPACE: щит над видео, реакции, голосование, очередь/плейлисты, караоке, RANK, ARCHIVE */
+/* ── щит над видео: участники не могут нажать на плеер (ни пауза, ни двойной тап «+10 с») */
+.spr-vstage{position:relative}
+.spr-yshield{position:absolute;inset:0;z-index:2;background:transparent;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.spr-vwrap iframe,.spr-vwrap video{pointer-events:none}
+.spr-fs{position:absolute;right:8px;top:8px;z-index:3;width:34px;height:34px;border-radius:50%;display:none;place-items:center;color:#fff;background:rgba(0,0,0,.42);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.spr-fs svg{width:17px;height:17px}
+.spr-vstage.show .spr-fs{display:grid}
+.spr-vstage:fullscreen,.spr-vstage:-webkit-full-screen{border-radius:0;aspect-ratio:auto;width:100vw;height:100vh;background:#000}
+/* ── вкладки: пять штук */
+.spr-tabs{gap:2px;padding:3px}
+.spr-tabs button{flex-direction:column;gap:1px;height:48px;font-size:11px;letter-spacing:-.01em;border-radius:15px;min-width:0}
+.spr-tabs button span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spr-tabs button svg{width:19px;height:19px}
+.spr-tabs .spt-b{position:absolute;top:5px;right:calc(50% - 20px)}
+/* ── реакции */
+.spr-react{display:flex;flex-wrap:wrap;justify-content:center;gap:2px;width:min(92vw,288px);padding:8px 8px;border-radius:26px}
+.spr-react button{width:44px;height:44px;font-size:26px}
+.spr-react button.pop{animation:rxPop .32s cubic-bezier(.2,1.6,.4,1)}
+@keyframes rxPop{0%{transform:scale(1)}40%{transform:scale(1.5) rotate(-8deg)}100%{transform:scale(1)}}
+.spr-fly{z-index:9}
+.spr-emo{position:absolute;bottom:70px;display:flex;flex-direction:column;align-items:center;gap:2px;animation:emoUp 3.4s cubic-bezier(.15,.7,.3,1) forwards;filter:drop-shadow(0 8px 14px rgba(0,0,0,.55));will-change:transform,opacity}
+.spr-emo span{font-size:calc(40px * var(--sc,1));line-height:1}
+.spr-emo i{width:24px;height:24px;border-radius:50%;overflow:hidden;box-shadow:0 0 0 2px rgba(255,255,255,.85);display:block;margin-top:2px}
+.spr-emo i .av{width:24px;height:24px;font-size:11px}
+@keyframes emoUp{0%{transform:translate(0,30px) scale(.3) rotate(0);opacity:0}8%{opacity:1;transform:translate(calc(var(--dx)*.1),-20px) scale(1.2) rotate(var(--rt))}55%{opacity:1}100%{transform:translate(var(--dx),-52vh) scale(1) rotate(calc(var(--rt)*-1));opacity:0}}
+/* ── голосование за песню */
+.spr-poll{margin:6px 12px 0}
+.spv-card{padding:12px 12px 10px;border-radius:26px;background:linear-gradient(180deg,rgba(122,92,255,.2),rgba(79,140,255,.1));box-shadow:inset 0 0 0 1px rgba(140,120,255,.4);animation:spIn .25s both}
+.spv-card.done{background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px var(--sp-line)}
+.spv-h{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.spv-h b{flex:1;display:flex;align-items:center;gap:8px;font-size:14.5px;font-weight:800}
+.spv-h b svg{width:19px;height:19px;color:#A99BFF}
+.spv-t{min-width:34px;height:28px;padding:0 9px;border-radius:14px;display:grid;place-items:center;font-weight:850;font-size:14px;background:rgba(255,255,255,.12);font-variant-numeric:tabular-nums}
+.spv-list{display:grid;gap:6px}
+.spv-o{position:relative;display:flex;align-items:center;gap:10px;min-height:46px;padding:6px 12px 6px 8px;border-radius:17px;text-align:left;color:inherit;background:rgba(255,255,255,.06);overflow:hidden}
+.spv-o:disabled{opacity:1}
+.spv-o:active:not(:disabled){transform:scale(.985)}
+.spv-bar{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,rgba(122,92,255,.4),rgba(79,140,255,.28));transition:width .35s;z-index:0}
+.spv-o>*:not(.spv-bar){position:relative;z-index:1}
+.spv-ic{flex:none;width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:rgba(255,255,255,.1);color:var(--sp-ac)}
+.spv-ic svg{width:16px;height:16px}
+.spv-n{flex:1;min-width:0}
+.spv-n b{display:block;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spv-n small{display:block;font-size:12px;color:var(--sp-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spv-o em{font-style:normal;font-weight:850;font-size:14px;min-width:18px;text-align:right}
+.spv-o u{text-decoration:none;color:var(--sp-green);display:grid}
+.spv-o u svg{width:17px;height:17px}
+.spv-o.mine{box-shadow:inset 0 0 0 2px #8E7BFF}
+.spv-o.win{box-shadow:inset 0 0 0 2px var(--sp-green);background:rgba(61,220,151,.14)}
+.spv-f{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;min-height:24px}
+.spv-f small{font-size:12.5px;color:var(--sp-dim);font-weight:600}
+.spv-f button{height:28px;padding:0 13px;border-radius:14px;font-size:12.5px;font-weight:750;background:rgba(255,255,255,.1);color:var(--sp-tx)}
+/* ── очередь / плейлисты */
+.spq-seg{display:flex;gap:4px;padding:3px;margin-bottom:10px;border-radius:17px;background:rgba(255,255,255,.055)}
+.spq-seg button{flex:1;height:38px;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:14px;font-size:13.5px;font-weight:750;color:var(--sp-dim)}
+.spq-seg button svg{width:17px;height:17px}
+.spq-seg button.on{background:rgba(79,140,255,.2);color:#fff;box-shadow:inset 0 0 0 1px rgba(79,140,255,.45)}
+.spq-acts{display:flex;gap:8px;margin-bottom:10px}
+.spq-acts .spq-add{flex:1;margin:0;height:48px;font-size:14.5px}
+.spq-vote{flex:1;height:48px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:20px;font-weight:750;font-size:14.5px;color:#C8BEFF;background:rgba(122,92,255,.16);box-shadow:inset 0 0 0 1.5px rgba(140,120,255,.45)}
+.spq-vote svg{width:19px;height:19px}.spq-vote:disabled{opacity:.4}.spq-vote:active:not(:disabled){transform:scale(.98)}
+.spq-chip{display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:7px 8px 7px 12px;border-radius:16px;background:rgba(61,220,151,.12);box-shadow:inset 0 0 0 1px rgba(61,220,151,.35);font-size:13px;font-weight:700;color:#9EF0C8}
+.spq-chip svg{width:16px;height:16px;flex:none}
+.spq-chip span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spq-chip button{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:inherit;background:rgba(255,255,255,.1)}
+.spq-chip button svg{width:14px;height:14px}
+.spq-d svg{width:19px;height:19px}
+.spp-card{margin-bottom:8px;border-radius:20px;background:rgba(255,255,255,.045)}
+.spp-card.on{background:rgba(79,140,255,.14);box-shadow:inset 0 0 0 1px rgba(79,140,255,.4)}
+.spp-h{display:flex;align-items:center}
+.spp-m{flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:10px 6px 10px 12px;text-align:left;color:inherit}
+.spp-ic{flex:none;width:42px;height:42px;border-radius:14px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,#7A5CFF,#4F8CFF)}
+.spp-ic svg{width:21px;height:21px}
+.spp-pl{flex:none;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:#fff;background:var(--sp-ac2)}
+.spp-pl svg{width:17px;height:17px}
+.spp-items{padding:0 6px 8px}
+.spp-it{display:flex;align-items:center;border-radius:14px}
+.spp-it:active{background:rgba(255,255,255,.05)}
+.spp-itm{flex:1;min-width:0;display:flex;align-items:center;gap:10px;padding:6px;text-align:left;color:inherit}
+.spp-itm .spq-i{width:34px;height:34px;border-radius:11px}
+/* ── караоке: инструменты и «нет текста» */
+.sk-tools{margin-top:6px}
+.sk-row{display:flex;align-items:center;justify-content:center;gap:8px}
+.sk-row button{min-width:36px;height:36px;padding:0 12px;border-radius:18px;display:grid;place-items:center;font-size:18px;font-weight:800;color:var(--sp-tx);background:rgba(255,255,255,.09)}
+.sk-row button svg{width:17px;height:17px}
+.sk-row button:disabled{opacity:.4}
+.sk-off{font-size:12.5px;font-weight:700;color:var(--sp-dim);min-width:92px;text-align:center}
+.sk-n{display:block;margin-top:5px;text-align:center;font-size:11.5px;color:var(--sp-dim)}
+.sk-none{padding:34px 8px 0;display:grid;gap:8px;justify-items:center}
+.sk-none b{font-size:16px}
+.sk-none small{font-size:13px;color:var(--sp-dim);font-weight:600;line-height:1.35;max-width:280px}
+.sk-none>div{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:4px}
+.sk-none button{height:40px;padding:0 16px;display:flex;align-items:center;gap:7px;border-radius:20px;font-weight:750;font-size:14px;color:#fff;background:linear-gradient(135deg,#4F8CFF,#7A5CFF)}
+.sk-none button svg{width:17px;height:17px}
+.sk-none button:nth-child(2){background:rgba(255,255,255,.1);color:var(--sp-tx)}
+.spr-stage.kara.sync .spr-lrc p{cursor:pointer}
+.sk-tools.stamp{padding:10px;border-radius:20px;background:rgba(255,255,255,.07)}
+.sk-st{text-align:center;margin-bottom:8px}.sk-st small{display:block;font-size:12px;color:var(--sp-dim)}.sk-st b{display:block;font-size:17px;margin-top:2px}
+.sk-row button.big{height:46px;padding:0 24px;gap:8px;grid-auto-flow:column;font-size:16px;color:#fff;background:linear-gradient(135deg,#4F8CFF,#7A5CFF)}
+/* ── SPACE RANK / ARCHIVE */
+.spk-head{margin:2px 2px 10px}
+.spk-head b{display:block;font-size:19px;font-weight:900;letter-spacing:.06em;background:linear-gradient(90deg,#FFC94D,#FF8A5C);-webkit-background-clip:text;background-clip:text;color:transparent}
+.spk-head small{display:block;margin-top:2px;font-size:12.5px;color:var(--sp-dim);font-weight:600}
+.spk-seg{display:flex;gap:4px;padding:3px;margin-bottom:12px;border-radius:15px;background:rgba(255,255,255,.055)}
+.spk-seg button{flex:1;height:34px;border-radius:12px;font-size:13px;font-weight:750;color:var(--sp-dim)}
+.spk-seg button.on{background:rgba(79,140,255,.22);color:#fff;box-shadow:inset 0 0 0 1px rgba(79,140,255,.45)}
+.spk-me{display:flex;align-items:center;gap:12px;padding:12px 14px;margin-bottom:12px;border-radius:22px;background:linear-gradient(135deg,rgba(255,201,77,.2),rgba(255,138,92,.12));box-shadow:inset 0 0 0 1px rgba(255,201,77,.35)}
+.spk-me.dim{background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px var(--sp-line)}
+.spk-me>span{flex:none;width:42px;height:42px;border-radius:15px;display:grid;place-items:center;color:#FFC94D;background:rgba(255,255,255,.1)}
+.spk-me>span svg{width:23px;height:23px}
+.spk-me b{display:block;font-size:15.5px;font-weight:800}.spk-me small{display:block;font-size:12.5px;color:var(--sp-dim);margin-top:1px}
+.spk-pod{display:flex;align-items:flex-end;justify-content:center;gap:10px;margin:6px 0 14px}
+.spk-p{flex:1;max-width:108px;display:grid;justify-items:center;gap:3px;padding:12px 4px 10px;border-radius:22px 22px 14px 14px;text-align:center;background:rgba(255,255,255,.06)}
+.spk-p.p1{padding-top:18px;padding-bottom:16px;background:linear-gradient(180deg,rgba(255,201,77,.28),rgba(255,201,77,.07));box-shadow:inset 0 0 0 1px rgba(255,201,77,.45)}
+.spk-p.p2{background:linear-gradient(180deg,rgba(190,205,230,.2),rgba(190,205,230,.05))}
+.spk-p.p3{background:linear-gradient(180deg,rgba(205,140,90,.22),rgba(205,140,90,.05))}
+.spk-pa{position:relative;display:block}
+.spk-pa .av{width:54px;height:54px}
+.spk-p.p1 .spk-pa .av{width:64px;height:64px}
+.spk-pa b{position:absolute;right:-6px;bottom:-4px;min-width:22px;height:22px;padding:0 4px;border-radius:11px;display:grid;place-items:center;font-size:13px;font-weight:900;background:#1d2740;box-shadow:0 0 0 2px var(--sp-bg)}
+.spk-p em{font-style:normal;font-weight:750;font-size:13px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spk-p small{font-size:12px;color:#FFC94D;font-weight:800}
+.spk-list{display:grid;gap:5px}
+.spk-r{display:flex;align-items:center;gap:10px;padding:8px 12px 8px 8px;border-radius:18px;text-align:left;color:inherit;background:rgba(255,255,255,.045)}
+.spk-r.me{background:rgba(79,140,255,.16);box-shadow:inset 0 0 0 1px rgba(79,140,255,.4)}
+.spk-n{flex:none;width:24px;text-align:center;font-weight:850;color:var(--sp-dim);font-size:14px}
+.spk-r:nth-child(-n+3) .spk-n{color:#FFC94D}
+.spk-a{position:relative;flex:none}.spk-a .av{width:40px;height:40px}
+.spk-a .sp-dot{position:absolute;right:-1px;bottom:-1px;box-shadow:0 0 0 2px var(--sp-bg)}
+.spk-t{flex:1;min-width:0}
+.spk-t b{display:flex;align-items:center;gap:4px;font-size:14.5px;font-weight:750;white-space:nowrap;overflow:hidden}
+.spk-t b i{font-style:normal;font-size:13px}
+.spk-t small{display:block;font-size:11.5px;color:var(--sp-dim);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spk-t u{display:block;height:4px;margin-top:5px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden;text-decoration:none}
+.spk-t u i{display:block;height:100%;border-radius:2px;background:linear-gradient(90deg,#4F8CFF,#7A5CFF)}
+.spk-r>em{flex:none;font-style:normal;font-weight:900;font-size:16px;color:var(--sp-ac)}
+.spk-how{margin-top:14px;padding:12px 14px;border-radius:18px;background:rgba(255,255,255,.04)}
+.spk-how b{display:block;font-size:13px;margin-bottom:3px}.spk-how small{font-size:12px;color:var(--sp-dim);line-height:1.4}
+.sa-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px}
+.sa-sum span{display:grid;justify-items:center;gap:1px;padding:9px 2px;border-radius:16px;background:rgba(255,255,255,.055);font-size:10.5px;color:var(--sp-dim);font-weight:650;text-align:center;line-height:1.2}
+.sa-sum b{font-size:19px;color:var(--sp-tx);font-weight:900}
+.sa-flt{margin-bottom:6px}
+.sa-day{margin:14px 4px 6px;font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--sp-dim)}
+.sa-ev{display:flex;align-items:center;gap:10px;padding:8px 12px 8px 8px;margin-bottom:4px;border-radius:16px;background:rgba(255,255,255,.04)}
+.sa-i{flex:none;width:34px;height:34px;border-radius:12px;display:grid;place-items:center;font-size:17px;background:rgba(255,255,255,.07)}
+.sa-t{flex:1;min-width:0;font-size:13.5px;line-height:1.3;font-weight:600;overflow-wrap:anywhere}
+.sa-ev time{flex:none;font-size:11.5px;color:var(--sp-dim);font-weight:650}
+.sa-ev.k-game .sa-i{background:rgba(255,138,92,.18)}.sa-ev.k-poll .sa-i,.sa-ev.k-playlist .sa-i{background:rgba(122,92,255,.2)}.sa-ev.k-track .sa-i,.sa-ev.k-track_add .sa-i{background:rgba(79,140,255,.2)}
+.sa-more{margin-top:10px}
+
+/* пустой плеер компактнее — на телефоне экран нужен под игры и очередь */
+.spr-stage.idle .spr-cover{width:92px;border-radius:26px;margin:0 auto 8px;box-shadow:0 14px 30px -14px rgba(47,107,255,.75)}
+.spr-stage.idle+.spr-meta{padding-bottom:2px}

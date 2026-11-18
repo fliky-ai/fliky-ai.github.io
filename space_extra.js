@@ -245,6 +245,8 @@ const SpaceExtra = {
           <button class="nm-act cc-row" data-mem type="button">${SPI.users}<span>${esc(T("Все участники"))}</span><em>${I.n}</em></button>
           ${SpaceRoom.can("invite") ? `<button class="nm-act cc-row" data-inv type="button">${SPI.plus}<span>${esc(T("Пригласить людей"))}</span></button>` : ""}
           ${SpaceRoom.can("ban") ? `<button class="nm-act cc-row" data-bans type="button"><span>${esc(T("Заблокированные"))}</span></button>` : ""}
+          <div class="sp-sec">${esc(T("Музыка"))}</div>
+          <button class="nm-act cc-row sp-av" data-autovote type="button" ${edit ? "" : "disabled"}><span>${esc(T("Голосование за следующую песню"))}<small class="sp-sub">${esc(T("Когда играет трек, участники сами выбирают, что дальше"))}</small></span><em>${esc(T(I.autovote ? "Вкл" : "Выкл"))}</em></button>
           <div class="sp-sec">${esc(T("Настройки доступа"))}</div>${perms}
           ${edit ? "" : `<div class="cc-hint">${esc(T("Настройки доступа меняют администраторы и владелец."))}</div>`}
           <div class="sp-sec">${esc(T("Ваша роль"))}: ${esc(SpaceRoom.roleName(R.role))}</div>
@@ -284,6 +286,10 @@ const SpaceExtra = {
       if (e.target.closest("[data-inv]")) return SpaceExtra.invite();
       if (e.target.closest("[data-bans]")) return SpaceExtra.bans();
       if (e.target.closest("[data-leave]")) return SpaceExtra.leaveSpace();
+      if (e.target.closest("[data-autovote]") && edit) {
+        try { const d = await api("/api/spaces/" + R.id + "/update", { method: "POST", body: { autovote: R.info.autovote ? 0 : 1 } }); R.info = Object.assign(R.info, d.space); draw(); toast(T(R.info.autovote ? "Голосование включено" : "Голосование выключено")); } catch (er) { toast(er.message); }
+        return;
+      }
       const pm = e.target.closest("[data-perm]");
       if (pm && edit) {
         const k = pm.dataset.perm, v = await Space.pickPerm(k, (I.perms || {})[k] || "member"); if (!v) return;
@@ -454,73 +460,5 @@ const SpaceExtra = {
         if (first && SpaceRoom.can("control")) setTimeout(() => SpaceRoom.player_("play"), 400);
       } catch (er) { st.busy = false; prog.hidden = true; upd(); if (!er.aborted) toast(er.message || T("Не удалось добавить")); }
     });
-  },
-
-  // ───────────── мини-игры ─────────────
-  GAMES: [["ttt", "❌⭕", "Крестики-нолики", "Двое играют, остальные болеют"], ["rps", "✌️", "Камень, ножницы, бумага", "До трёх побед"], ["quiz", "🧠", "Викторина", "5 вопросов, играют все — кто быстрее"]],
-  chip(g, uid, mark) {
-    const u = (g.users || {})[uid]; if (!uid || !u) return `<span class="spg-chip wait"><i>?</i><b>${esc(T("Ждём соперника"))}</b></span>`;
-    return `<span class="spg-chip">${avatar(u, "sm")}<b>${esc(uid === App.user.id ? T("Вы") : dispName(u))}</b>${mark ? `<em>${mark}</em>` : ""}</span>`;
-  },
-  paintGames(box) {
-    const R = SpaceRoom.R; box = box || $("spr-pane"); if (!R || !box || R.tab !== "games") return;
-    const g = R.game, me = App.user.id, canStart = SpaceRoom.can("games");
-    const end = g && (g.host === me || SpaceRoom.can("kick")) ? `<button class="spg-btn ghost" data-g="end" type="button">${esc(T("Закончить игру"))}</button>` : "";
-    if (!g) {
-      box.innerHTML = `<div class="spg-pick">${SpaceExtra.GAMES.map(([k, ic, n, d]) => `<button class="spg-card" data-g="start" data-k="${k}" type="button" ${canStart ? "" : "disabled"}><span class="spg-ic">${ic}</span><span><b>${esc(T(n))}</b><small>${esc(T(d))}</small></span></button>`).join("")}</div>
-        ${canStart ? "" : `<div class="spr-note">${esc(T("Запускать игры здесь могут: {0}.", T(spOptName((R.info.perms || {}).games || "member")).toLowerCase()))}</div>`}`;
-      return;
-    }
-    if (g.type === "ttt") {
-      const X = g.p.X, O = g.p.O, mine = X === me ? "X" : O === me ? "O" : "";
-      const turnId = g.turn === "X" ? X : O;
-      const status = g.over ? (g.win === "draw" ? T("Ничья") : T("Победил(а): {0}", dispName(g.users[g.win === "X" ? X : O] || {}))) : !O ? T("Ждём второго игрока") : turnId === me ? T("Ваш ход") : T("Ходит: {0}", dispName(g.users[turnId] || {}));
-      box.innerHTML = `<div class="spg-board ttt"><div class="spg-pl">${SpaceExtra.chip(g, X, "X")}<span class="vs">vs</span>${SpaceExtra.chip(g, O, "O")}</div>
-        <div class="spg-st${g.over ? " done" : ""}">${esc(status)}</div>
-        <div class="spg-grid">${g.board.map((c, i) => `<button class="c ${c.toLowerCase()}${g.line && g.line.includes(i) ? " win" : ""}" data-g="move" data-i="${i}" type="button" ${g.over || !O || c || turnId !== me ? "disabled" : ""}>${c ? `<span>${c}</span>` : ""}</button>`).join("")}</div>
-        <div class="spg-acts">${!O && X !== me ? `<button class="spg-btn" data-g="join" type="button">${esc(T("Играть"))}</button>` : ""}${g.over && (mine || g.host === me) ? `<button class="spg-btn" data-g="again" type="button">${esc(T("Ещё раз"))}</button>` : ""}${end}</div></div>`;
-      return;
-    }
-    if (g.type === "rps") {
-      const a = g.p.a, b = g.p.b, mine = a === me || b === me, pick = (g.pick || {})[me];
-      const IC = { r: "✊", p: "✋", s: "✌️" };
-      let status = g.over ? T("Победил(а): {0}", dispName(g.users[(g.score[a] || 0) >= 3 ? a : b] || {})) : !b ? T("Ждём второго игрока") : !mine ? T("Игроки выбирают…") : pick ? T("Ждём соперника…") : T("Ваш выбор");
-      const l = g.last, lastHtml = l ? `<div class="spg-last">${esc(dispName(g.users[a] || {}))} ${IC[l.picks[a]] || ""} <i>vs</i> ${IC[l.picks[b]] || ""} ${esc(dispName(g.users[b] || {}))} — <b>${l.win ? esc(T("{0} выигрывает раунд", dispName(g.users[l.win] || {}))) : esc(T("ничья"))}</b></div>` : "";
-      box.innerHTML = `<div class="spg-board rps"><div class="spg-pl">${SpaceExtra.chip(g, a)}<span class="sc">${g.score[a] || 0} : ${g.score[b] || 0}</span>${SpaceExtra.chip(g, b)}</div>
-        <div class="spg-st${g.over ? " done" : ""}">${esc(status)}</div>${lastHtml}
-        ${mine && b && !g.over ? `<div class="spg-rps">${["r", "p", "s"].map((c) => `<button class="${pick === c ? "on" : ""}" data-g="pick" data-c="${c}" type="button" ${pick ? "disabled" : ""}>${IC[c]}</button>`).join("")}</div>` : ""}
-        <div class="spg-acts">${!b && a !== me ? `<button class="spg-btn" data-g="join" type="button">${esc(T("Играть"))}</button>` : ""}${g.over && (mine || g.host === me) ? `<button class="spg-btn" data-g="again" type="button">${esc(T("Ещё раз"))}</button>` : ""}${end}</div></div>`;
-      return;
-    }
-    if (g.type === "quiz") {
-      const board = Object.keys(g.score).map((k) => ({ id: +k, s: g.score[k] })).sort((x, y) => y.s - x.s);
-      const lb = `<div class="spg-lb">${board.map((r, i) => `<div class="${r.id === me ? "me" : ""}"><i>${i + 1}</i>${avatar(g.users[r.id] || { id: r.id, name: "?" }, "sm")}<b>${esc(r.id === me ? T("Вы") : dispName(g.users[r.id] || {}))}</b><em>${r.s}</em></div>`).join("") || `<div class="spg-none">${esc(T("Пока никто не ответил"))}</div>`}</div>`;
-      if (g.phase === "over") { box.innerHTML = `<div class="spg-board quiz"><div class="spg-st done">${esc(T("Игра окончена"))}</div>${lb}<div class="spg-acts"><button class="spg-btn" data-g="start" data-k="quiz" type="button">${esc(T("Ещё раз"))}</button>${end}</div></div>`; return; }
-      const mineA = (g.ans || {})[me], ans = mineA != null;
-      box.innerHTML = `<div class="spg-board quiz"><div class="spg-qh"><span>${esc(T("Вопрос {0} из {1}", g.i + 1, g.n))}</span><span class="spg-sec" id="spg-sec"></span></div>
-        <div class="spg-bar"><i id="spg-bar"></i></div>
-        <h4 class="spg-q">${esc(g.text)}</h4>
-        <div class="spg-opts">${g.opts.map((o, i) => `<button class="${g.phase === "reveal" ? (i === g.right ? "right" : mineA === i ? "wrong" : "") : mineA === i ? "on" : ""}" data-g="answer" data-c="${i}" type="button" ${ans || g.phase !== "q" ? "disabled" : ""}><em>${"ABCD"[i]}</em><span>${esc(o)}</span>${g.phase === "reveal" ? `<small>${Object.values(g.ans || {}).filter((x) => x === i).length || ""}</small>` : ""}</button>`).join("")}</div>
-        <div class="spg-st">${esc(g.phase === "reveal" ? T("Правильный ответ: {0}", g.opts[g.right]) : ans ? T("Ответ принят — ждём остальных ({0}/{1})", Object.keys(g.answered || {}).length, Object.keys(SpaceRoom.R.users).length) : T("Выберите ответ — чем быстрее, тем больше очков"))}</div>
-        ${lb}<div class="spg-acts">${end}</div></div>`;
-      SpaceExtra.tickGame();
-    }
-  },
-  tickGame() {
-    const R = SpaceRoom.R, g = R && R.game; if (!g || g.type !== "quiz" || R.tab !== "games" || g.phase === "over") return;
-    const bar = $("spg-bar"); if (!bar) return;
-    const total = g.phase === "q" ? 15 : 4, left = Math.max(0, g.ends - Space.now());
-    bar.style.width = Math.min(100, (left / total) * 100) + "%";
-    const s = $("spg-sec"); if (s) s.textContent = Math.ceil(left) + " " + T("с");
-  },
-  async gameClick(e) {
-    const R = SpaceRoom.R, b = e.target.closest("[data-g]"); if (!R || !b || b.disabled) return;
-    const op = b.dataset.g; haptic();
-    const body = { op };
-    if (b.dataset.k) body.game = b.dataset.k;
-    if (b.dataset.i != null) body.i = +b.dataset.i;
-    if (b.dataset.c != null && op === "answer") body.c = +b.dataset.c;
-    if (b.dataset.c != null && op === "pick") body.c = b.dataset.c;
-    try { await api("/api/spaces/" + R.id + "/game", { method: "POST", body }); } catch (er) { toast(er.message); }
   },
 };

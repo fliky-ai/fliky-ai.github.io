@@ -78,7 +78,7 @@ Object.assign(Settings, {
   drawStars(pg) {
     const u = App.user;
     pg.set(`
-      <div class="stars-bal"><div class="stars-ic">${starFancy()}</div><div class="stars-n">${u.stars || 0}</div><div class="stars-l">${esc(T("Ваш баланс"))}</div>
+      <div class="stars-bal"><div class="stars-ic">${typeof Stars2 !== "undefined" ? Stars2.hero("lg") : starFancy()}</div><div class="stars-n">${u.stars || 0}</div><div class="stars-l">${esc(T("Ваш баланс"))}</div>
         <button class="pbtn sm" data-a="topup">${esc(T("Пополнить"))}</button></div>
       ${R.card(
         R.row({ a: "stat", ic: SI.stats, c: "b", t: esc(T("Статистика")), s: esc(T("История начислений и покупок")) }),

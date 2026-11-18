@@ -555,7 +555,7 @@ const Chat = {
     const ov = ((k === "photo" || k === "gif") && !hasCap) || k === "sticker";
     const big = k === "text" && !m.fw && !m.reply_to && !m.reply && Prefs.get("bigemoji", true) && Chat.isBigEmoji(m.text);
     const sig = gk === "channel" && m.from && m.from.sig ? `<i class="sig">${esc(cleanName(m.from.name) || dispName(m.from))}</i>` : "";
-    const time = `<span class="t${ov ? " ov" : ""}">${sig}${m.exp ? TIMER_I : ""}${m.paid ? `<span class="mpd">⭐${m.paid}</span> ` : ""}${m.edited ? T("изм.") + " " : ""}${fmtTime(m.ts)}${out ? `<span class="st">${stIcon(m)}</span>` : ""}</span>`;
+    const time = `<span class="t${ov ? " ov" : ""}">${sig}${m.exp ? TIMER_I : ""}${m.paid ? `<span class="mpd">${typeof Stars2 !== "undefined" ? Stars2.star : "⭐"}${m.paid}</span> ` : ""}${m.edited ? T("изм.") + " " : ""}${fmtTime(m.ts)}${out ? `<span class="st">${stIcon(m)}</span>` : ""}</span>`;
     let h = "";
     if (inGroup && !cont && k !== "sticker") {
       const f = m.from || {}, lab = f.tag || (f.role === "owner" ? T("владелец") : f.role === "admin" ? T("админ") : "");

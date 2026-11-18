@@ -2,7 +2,28 @@
 // Работает поверх готовых блоков (api, esc, T, toast, avatar, dispName, haptic, App.external).
 const Stars2 = {
   fmt(n) { n = +n || 0; return n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace(/\.0$/, "") + "M" : n >= 1e4 ? (n / 1e3).toFixed(n >= 1e5 ? 0 : 1).replace(/\.0$/, "") + "K" : String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " "); },
-  star: '<svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="s2g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFD54A"/><stop offset="1" stop-color="#F59E0B"/></linearGradient></defs><path d="M12 2.6l2.9 6 6.6.9-4.8 4.6 1.2 6.6L12 17.5l-5.9 3.2 1.2-6.6L2.5 9.5l6.6-.9z" fill="url(#s2g)" stroke="#E08A00" stroke-width=".6" stroke-linejoin="round"/></svg>',
+  // ── своя звезда: объёмная золотая, как «стикер» баланса. Один раз кладём в документ, дальше везде <use> (дёшево) ──
+  defs() {
+    if (document.getElementById("sx-defs") || typeof starFancy !== "function" || !document.body) return;
+    const inner = starFancy("").replace(/^<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "");
+    const d = document.createElement("div");
+    d.innerHTML = `<svg id="sx-defs" width="0" height="0" style="position:absolute;pointer-events:none" aria-hidden="true"><symbol id="sx-star" viewBox="0 0 64 64">${inner}</symbol></svg>`;
+    document.body.appendChild(d.firstChild);
+  },
+  get star() { Stars2.defs(); return '<svg class="sxm" viewBox="0 0 64 64" aria-hidden="true"><use href="#sx-star"/></svg>'; },
+  // большая живая звезда: плавает, переливается, вокруг мерцают искры
+  hero(cls) {
+    return `<div class="sxh ${cls || ""}">${typeof starFancy === "function" ? starFancy() : Stars2.star}<i class="sxh-sh"></i><i class="sxh-sp a"></i><i class="sxh-sp b"></i><i class="sxh-sp c"></i></div>`;
+  },
+  // звёзды «вылетают» над постом после отправки реакции
+  burst(m) {
+    try {
+      const el = $("msgs") && $("msgs").querySelector(`[data-k="${mkey(m)}"]`); if (!el) return;
+      const b = document.createElement("div"); b.className = "sx-burst";
+      b.innerHTML = Array.from({ length: 9 }, (_, i) => `<i style="--dx:${Math.round((Math.random() - 0.5) * 160)}px;--dy:${-70 - Math.round(Math.random() * 100)}px;--r:${Math.round((Math.random() - 0.5) * 140)}deg;--sc:${(0.6 + Math.random() * 0.7).toFixed(2)};--d:${i * 45}ms">${Stars2.star}</i>`).join("");
+      el.appendChild(b); setTimeout(() => b.remove(), 1700);
+    } catch (e) {}
+  },
   num(n) { return String(+n || 0).replace(/\B(?=(\d{3})+(?!\d))/g, "\u00a0"); },
   stack(n) { return `<span class="s2x-stk n${n}">${Stars2.star}${n > 1 ? Stars2.star : ""}${n > 2 ? Stars2.star : ""}</span>`; },
 
@@ -32,7 +53,7 @@ const Stars2 = {
     const topHTML = (d.top || []).length ? (d.top || []).map((t) => `<div class="s2x-ld">${t.anon ? `<span class="av s2x-anon">?</span>` : avatar(t.user)}<b class="s2x-chip">${Stars2.star}${Stars2.fmt(t.amount)}</b><span>${t.anon ? esc(T("Аноним")) : esc(dispName(t.user))}</span></div>`).join("")
       : `<div class="s2x-noleaders">${esc(T("Станьте первым — отправьте звёзды"))}</div>`;
     sh.card.innerHTML = `
-      <div class="s2x-hd"><span class="s2x-spacer"></span><h3>${esc(T("Звёздная реакция"))}</h3><button class="s2x-x" data-x aria-label="${esc(T("Закрыть"))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <div class="s2x-hd"><span class="s2x-hs">${Stars2.hero("sm")}</span><h3>${esc(T("Звёздная реакция"))}</h3><button class="s2x-x" data-x aria-label="${esc(T("Закрыть"))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
       <div class="s2x-pop"><div class="s2x-bubble" id="s2x-b"><span>${Stars2.star}<b id="s2x-n">${amt}</b></span></div></div>
       <div class="s2x-sl"><input type="range" id="s2x-r" min="0" max="1000" value="${INV(amt)}" aria-label="${esc(T("Количество звёзд"))}"><i class="s2x-lead" style="left:${leaderPos}%"><em>${esc(T("ЛИДЕР"))}</em></i></div>
       <p class="s2x-t">${esc(T("Выберите количество звёзд для отправки {0} в поддержку этой публикации.", d.owner_name || ""))}</p>
@@ -40,7 +61,7 @@ const Stars2 = {
       <div class="s2x-lds">${topHTML}</div>
       <label class="s2x-ck"><span class="s2x-cb${anon ? "" : " on"}" id="s2x-cb"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>${esc(T("Показывать меня среди лидеров"))}</label>
       <button class="s2x-go" id="s2x-go">${esc(T("Отправить"))} ${Stars2.star}<b id="s2x-g">${amt}</b></button>
-      <p class="s2x-fine">${esc(T("Звёзды получает владелец канала. Баланс:"))} <span class="s2x-bal"><b>${Stars2.fmt(Stars2.balance())}</b> ★</span></p>`;
+      <p class="s2x-fine">${esc(T("Звёзды получает владелец канала. Баланс:"))} <span class="s2x-bal"><b>${Stars2.fmt(Stars2.balance())}</b> ${Stars2.star}</span></p>`;
     const r = sh.card.querySelector("#s2x-r"), bub = sh.card.querySelector("#s2x-b");
     const paint = () => {
       sh.card.querySelector("#s2x-n").textContent = amt; sh.card.querySelector("#s2x-g").textContent = amt;
@@ -58,7 +79,7 @@ const Stars2 = {
       try {
         const x = await api("/api/react/paid", { method: "POST", body: { id: m.id, amount: amt, anon } });
         m.pr = x.pr; Stars2.setBalance(x.balance);
-        Chat.patch(m); try { Chat.fly(m, "⭐"); } catch (e) {} haptic("medium");
+        Chat.patch(m); Stars2.burst(m); haptic("medium");
         sh.close(); toast(T("Отправлено {0} ★", amt));
       } catch (e) { go.disabled = false; toast(e.message); }
     });
@@ -83,7 +104,7 @@ const Stars2 = {
     const rows = d.packs.map((p, i) => `<button class="s2x-pk${need && p.stars >= need && !sh._hl ? (sh._hl = 1, " hl") : ""}" data-s="${p.stars}">${Stars2.stack(i < 2 ? 1 : i < 4 ? 2 : 3)}<b>${Stars2.num(p.stars)} ${esc(T("звёзд"))}</b><span class="s2x-pr">${Stars2.star}<i>${Stars2.num(p.tg)}</i></span></button>`).join("");
     sh.card.innerHTML = `
       <div class="s2x-hd"><span class="s2x-spacer"></span><h3>${esc(T("Пополнить звёзды"))}</h3><button class="s2x-x" data-x aria-label="${esc(T("Закрыть"))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
-      <div class="s2x-balbox">${Stars2.star}<b class="s2x-bal"><b>${Stars2.fmt(d.balance)}</b></b><small>${esc(T("Ваш баланс"))}</small></div>
+      <div class="s2x-balbox">${Stars2.hero("lg")}<b class="s2x-bal"><b>${Stars2.fmt(d.balance)}</b></b><small>${esc(T("Ваш баланс"))}</small></div>
       ${need ? `<p class="s2x-need">${esc(T("Для отправки не хватает {0} ★", Stars2.fmt(need)))}</p>` : ""}
       <div class="s2x-lbl">${esc(T("Выберите количество"))}</div>
       <div class="s2x-pks">${rows}</div>
@@ -146,8 +167,8 @@ const Stars2 = {
     const d = pg.data, items = d.items, adm = !!d.admin;
     const list = !items ? `<div class="s2x-load">${esc(T("Загрузка…"))}</div>`
       : items.length ? `<div class="card2 s2x-bots">${items.map((it) => `<div class="s2x-bot"><button class="s2x-bo" data-a="open" data-v="${it.id}">${avatar(it.user)}<span class="tx"><b>${nameHTML(it.user)}</b><small>@${esc(it.user.username || "")}${it.note ? " · " + esc(it.note) : ""}</small></span><span class="s2x-go2">${esc(T("Открыть"))}</span></button>${adm ? `<button class="s2x-rm" data-a="del" data-v="${it.id}" aria-label="${esc(T("Убрать"))}">×</button>` : ""}</div>`).join("")}</div>`
-      : `<div class="s2x-empty"><div class="s2x-eic">${Stars2.star}</div><h3>${esc(T("Пока здесь пусто"))}</h3><p>${esc(T("Скоро появятся боты, которые платят звёзды за задания."))}</p></div>`;
-    pg.set(`<div class="s2x-hero"><div class="s2x-hero-ic">${Stars2.star}</div><h2>${esc(T("Зарабатывайте звёзды"))}</h2><p>${esc(T("Откройте бота, выполняйте задания — звёзды придут на баланс."))}</p></div>
+      : `<div class="s2x-empty"><div class="s2x-eic">${Stars2.hero("sm")}</div><h3>${esc(T("Пока здесь пусто"))}</h3><p>${esc(T("Скоро появятся боты, которые платят звёзды за задания."))}</p></div>`;
+    pg.set(`<div class="s2x-hero"><div class="s2x-hero-ic">${Stars2.hero("md")}</div><h2>${esc(T("Зарабатывайте звёзды"))}</h2><p>${esc(T("Откройте бота, выполняйте задания — звёзды придут на баланс."))}</p></div>
       ${adm ? `<button class="pbtn s2x-add" data-a="add">＋ ${esc(T("Добавить бота"))}</button>` : ""}
       ${R.lbl(esc(T("Боты для заработка")))}${list}
       ${R.hint(esc(T("Звёзды начисляет сам бот. Dicegram не отвечает за задания сторонних ботов.")))}`);

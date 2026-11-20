@@ -11,8 +11,8 @@
 .ga-p{position:absolute;inset:-4%;z-index:0;background-size:100% 100%;background-repeat:no-repeat;transform:rotate(var(--rot,0deg));transition:opacity .4s}
 .ga-g{position:absolute;left:50%;top:48%;width:84%;height:84%;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.5),rgba(255,255,255,0) 68%);z-index:1}
 .ga-sd{position:absolute;left:50%;bottom:10%;width:46%;height:7%;transform:translateX(-50%);background:radial-gradient(closest-side,rgba(0,0,0,.4),transparent);filter:blur(2px);z-index:2}
-.ga-i{position:absolute;left:5%;top:3%;width:90%;height:90%;object-fit:contain;z-index:3;opacity:0;transform:translateY(5%) scale(.92);transition:opacity .4s,transform .5s cubic-bezier(.2,1.2,.3,1);filter:drop-shadow(0 5px 7px rgba(0,0,0,.3));pointer-events:none;-webkit-user-drag:none}
-.ga.rdy .ga-i{opacity:1;transform:none}
+.ga-i{position:absolute;left:5%;top:3%;width:90%;height:90%;object-fit:contain;z-index:3;opacity:0;transition:opacity .3s;pointer-events:none;-webkit-user-drag:none}
+.ga.rdy .ga-i{opacity:1}
 .ga-f{position:absolute;inset:0;z-index:3;display:none;place-items:center;color:rgba(255,255,255,.85)}
 .ga-f svg{width:42%;height:42%;filter:drop-shadow(0 3px 6px rgba(0,0,0,.3))}
 .ga.err .ga-f{display:grid}
@@ -26,8 +26,14 @@
 .ga.prem b{font-size:1.45em;font-weight:900;line-height:1;text-shadow:0 2px 6px rgba(0,0,0,.25)}
 .ga.prem small{font-size:.62em;font-weight:700;opacity:.92;line-height:1.2}
 .ga.mini{border-radius:16px}
+/* «Плоская» плитка: фон, узор, свет и сам предмет уже склеены в одну картинку (gifts.js → bake). Внутри нет слоёв, клипа, фильтров и анимаций —
+   поэтому она одинаково рисуется в любом Android WebView (раньше на части телефонов подарки выходили обрезанными или пустыми). */
+.ga.flat{background-size:100% 100%;background-repeat:no-repeat;background-position:center;box-shadow:none;transition:none}
+.ga.flat>*,.ga.flat::before,.ga.flat::after{display:none!important}
+/* старый WebView без aspect-ratio: квадрат плитки держим отступом */
+@supports not (aspect-ratio:1){.gt .ga,.gc-art .ga{height:0!important;padding-top:100%}.gt.pf .ga{padding-top:0!important;height:100%!important}.gt.pf{height:0;padding-top:100%}.gt.pf .ga{position:absolute;left:0;top:0;width:100%}}
 .ga-m{display:inline-block;width:var(--s,20px);height:var(--s,20px);position:relative;flex:none;vertical-align:middle}
-.ga-m .ga-i{position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;transform:none;transition:opacity .3s;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3))}
+.ga-m .ga-i{position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;transform:none;transition:opacity .3s}
 .ga-m.rdy .ga-i{opacity:1}
 @keyframes ga-fl{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-4%) rotate(2deg)}}
 @keyframes ga-tw{0%,100%{transform:scale(.8) rotate(0);opacity:.7}50%{transform:scale(1.15) rotate(18deg);opacity:1}}
@@ -41,16 +47,16 @@ html.eco-anim .ga:not(.rdy):not(.err)::after{animation:none}
 .gs-s svg{width:.95em;height:.95em;flex:none}
 
 /* ── сцена: живой 3D-просмотр на красивом фоне ── */
-.gv{position:relative;overflow:hidden;isolation:isolate;container-type:size;--e:0;--cy:50%;background:#0a0a14}
+.gv{position:relative;overflow:hidden;isolation:isolate;--gs:280px;--e:0;--cy:50%;background:#0a0a14}
 .gv-bg{position:absolute;inset:0;z-index:0;background:radial-gradient(120% 110% at 50% 40%,var(--c1),var(--c2))}
 .gv-bg.n{background:radial-gradient(120% 110% at 50% 40%,var(--n1),var(--n2));opacity:0;transition:opacity .7s}
 .gv-bg.n.on{opacity:1}
 .gv-pat{position:absolute;inset:0;z-index:1;background-size:cover;background-position:center;transition:opacity .4s;animation:gv-breath 7s ease-in-out infinite alternate}
 .gv-rays{position:absolute;left:50%;top:var(--cy);width:190%;aspect-ratio:1;z-index:2;transform:translate(-50%,-50%);background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.2) 0 5deg,transparent 5deg 19deg);-webkit-mask:radial-gradient(circle,#000 0,transparent 52%);mask:radial-gradient(circle,#000 0,transparent 52%);opacity:calc(.3 + var(--e)*.5);animation:gv-spin 70s linear infinite}
 .gv-gl{position:absolute;left:50%;top:var(--cy);width:78%;aspect-ratio:1;border-radius:50%;z-index:3;transform:translate(-50%,-50%) scale(calc(1 + var(--e)*.5));background:radial-gradient(circle,rgba(255,255,255,calc(.26 + var(--e)*.55)),transparent 66%)}
-.gv-sd{position:absolute;left:50%;top:calc(var(--cy) + min(100cqw,100cqh)*.3);width:min(40cqw,40cqh);height:min(6cqw,6cqh);transform:translateX(-50%);background:radial-gradient(closest-side,rgba(0,0,0,.45),transparent);filter:blur(3px);z-index:3}
+.gv-sd{position:absolute;left:50%;top:calc(var(--cy) + var(--gs)*.3);width:calc(var(--gs)*.4);height:calc(var(--gs)*.06);transform:translateX(-50%);background:radial-gradient(closest-side,rgba(0,0,0,.45),transparent);filter:blur(3px);z-index:3}
 .gv::after{content:"";position:absolute;inset:0;z-index:5;pointer-events:none;background:radial-gradient(120% 100% at 50% 40%,transparent 58%,rgba(0,0,0,.32))}
-.g3-live{position:absolute;left:50%;top:var(--cy);width:min(100cqw,100cqh);height:min(100cqw,100cqh);transform:translate(-50%,-50%);z-index:4;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}
+.g3-live{position:absolute;left:50%;top:var(--cy);width:var(--gs);height:var(--gs);transform:translate(-50%,-50%);z-index:4;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}
 .g3-live:active{cursor:grabbing}
 .gv-f{position:absolute;left:50%;top:var(--cy);transform:translate(-50%,-50%);z-index:4;width:34%;aspect-ratio:1;color:rgba(255,255,255,.8)}
 .gv-f svg{width:100%;height:100%}

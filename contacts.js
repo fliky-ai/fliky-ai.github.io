@@ -47,14 +47,18 @@ const Contacts = {
     const box = $("contact-list"); if (!box) return;
     const people = Contacts.people();
     const acts = Contacts.savedRow();  // «Создать группу / канал» живут в кнопке «+» на главном экране, а не во вкладке контактов
+    const cnt = $("contact-count");
+    if (cnt) cnt.textContent = people.length ? String(people.length) : "";
     if (!people.length) {
       box.innerHTML = acts + `<div class="cempty">${ILL.chat}<h3>${esc(T("Контактов пока нет"))}</h3><p>${esc(T("Здесь будут люди, с которыми вы переписываетесь. Найти человека можно через поиск."))}</p></div>`;
+      try { DX.scrub(box, true); } catch (e) {}
       return;
     }
     const y = box.scrollTop;
     box.innerHTML = acts + ContactList.html(people, { solo: true });
     box.scrollTop = y;
     ContactList.mountIndex(box);
+    try { DX.enter(box, ".nm-row"); } catch (e) {}
   },
 };
 
@@ -87,6 +91,7 @@ const ContactList = {
   },
   // буквы справа: касание или протягивание пальца прокручивает список
   mountIndex(box) {
+    try { if (typeof DX !== "undefined" && DX.scrub) { DX.scrub(box); return; } } catch (e) {}      // новая линейка (rd.js); ниже — запасной прежний вариант
     let idx = box.querySelector(".nm-idx"); if (idx) idx.remove();
     const ls = [...box.querySelectorAll(".nm-sect")].map((s) => s.dataset.l);
     if (ls.length < 6) return;
@@ -139,7 +144,7 @@ const NewMsg = {
         <button class="nm-act" data-act="space">${svg('<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>')}<span>${esc(T("Создать пространство"))}</span></button>
         <button class="nm-act" data-act="explore">${svg('<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>')}<span>${esc(T("Обзор пространств"))}</span></button>${people.length ? '<div class="nm-sep"></div>' : ""}`;
       body.innerHTML = acts + (people.length || q ? ContactList.html(people, { q, solo: true }) : `<div class="nm-empty">${esc(T("Контактов пока нет. Найдите человека через поиск — кнопка справа внизу."))}</div>`);
-      if (!q) ContactList.mountIndex(body);
+      if (!q) ContactList.mountIndex(body); else { try { DX.scrub(body, true); } catch (e) {} }
     };
     draw();
     Contacts.load().then(() => { if (NewMsg.el === el) draw(); });

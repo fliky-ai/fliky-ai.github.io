@@ -4,7 +4,8 @@
 const Gift3D = (() => {
   const TAU = Math.PI * 2, PI = Math.PI;
   const LT = !!(window.LITE && window.LITE.on);          // слабый / 32-битный телефон: без WebGL, меньше треугольников, меньше картинки
-  const G = { designs: { reg: {}, nft: {} }, PAL: {}, forceSoft: LT, lodSoft: LT ? 0.4 : 0.5, lite: LT };
+  const SOFTPREF = (() => { try { return localStorage.getItem("pf_g3soft") === "1"; } catch (e) { return false; } })();   // «рисовать подарки без видеокарты» (Настройки → Энергосбережение; включается и само, если WebGL отдаёт плохие картинки)
+  const G = { designs: { reg: {}, nft: {} }, PAL: {}, forceSoft: LT || SOFTPREF, lodSoft: LT ? 0.4 : 0.5, lite: LT };
 
   // ───────────── цвет и материал ─────────────
   const lin = (c) => Math.pow(c, 2.2);
@@ -244,7 +245,7 @@ col=col/(1.+col*.28);col=pow(col,vec3(1./2.2));gl_FragColor=vec4(col,1.);}`;
       this.un = {}; ["u_mv", "u_proj", "u_nm", "u_holo", "u_time", "u_glow", "u_gcol"].forEach((n) => { this.un[n] = gl.getUniformLocation(pr, n); });
       gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
       canvas.addEventListener("webglcontextlost", (e) => { e.preventDefault(); this.lost = true; });
-      canvas.addEventListener("webglcontextrestored", () => { this.lost = false; this.cache.clear(); });
+      canvas.addEventListener("webglcontextrestored", () => { this.lost = false; this.lostAt = 0; this.cache.clear(); });
     }
     upload(mesh) {
       let c = this.cache.get(mesh); if (c) return c;
@@ -367,22 +368,34 @@ col=col/(1.+col*.28);col=pow(col,vec3(1./2.2));gl_FragColor=vec4(col,1.);}`;
     const out = {}; for (const r of ["main", "accent", "metal", "gem", "glow", "soft", "dark"]) if (pal[r]) out[r] = pal[r];
     return out;
   }
-  G.canGL = (() => { if (G.forceSoft) return false; try { const c = document.createElement("canvas"); return !!(c.getContext("webgl") || c.getContext("experimental-webgl")); } catch (e) { return false; } })();
+  G.canGL = (() => { if (G.forceSoft) return false; try { const c = document.createElement("canvas"), g = c.getContext("webgl") || c.getContext("experimental-webgl"); if (g) { try { const x = g.getExtension("WEBGL_lose_context"); if (x) x.loseContext(); } catch (e) {} } return !!g; } catch (e) { return false; } })();   // пробный контекст сразу освобождаем: на Android их число ограничено
   const useSoft = () => G.forceSoft || !G.canGL || G._glFail;
 
-  // миниатюры: прозрачный PNG на каждую пару (дизайн, модель) — рисуется один раз и переиспользуется всеми карточками
+  // миниатюры: прозрачный PNG на каждую пару (дизайн, модель) — рисуется один раз и переиспользуется всеми карточками.
+  // Надёжность на Android WebView (там WebGL-контекст может молча «потеряться» или отдать обрезанную/пустую картинку):
+  //  • результат читается через readPixels (а не toDataURL с WebGL-холста) и ПРОВЕРЯЕТСЯ: есть ли предмет и не обрезан ли он краем;
+  //  • готовая картинка собирается на обычном 2D-холсте;
+  //  • не прошла проверку — повтор на новом контексте, затем этот подарок рисуется без видеокарты, а после нескольких сбоёв
+  //    весь движок переходит на рисование без видеокарты и запоминает это на устройстве;
+  //  • WebGL-контекст для миниатюр живёт только пока идёт очередь и сразу освобождается (долгоживущие контексты Android отбирает первыми).
   const thumbs = new Map(), waiting = new Map(), queue = [];
-  let tr = null, trCanvas = null, busy = false;
-  const mkRenderer = (size) => {
-    if (!trCanvas) { trCanvas = document.createElement("canvas"); }
+  let tr = null, trCanvas = null, busy = false, idleT = 0;
+  G.stat = { ok: 0, bad: 0, soft: 0, lastBad: "" };                       // для диагностики
+  const dropTr = () => { try { if (tr && !tr.soft) tr.dispose(); } catch (e) {} tr = null; trCanvas = null; };
+  const mkRenderer = (size, forceSoft) => {
+    const wantSoft = !!forceSoft || useSoft();
+    if (tr && tr.soft !== wantSoft) dropTr();                          // тип холста сменить нельзя — берём новый
+    if (!trCanvas) trCanvas = document.createElement("canvas");
     trCanvas.width = trCanvas.height = size;
-    if (!tr || tr.soft !== useSoft()) {
-      if (useSoft()) { tr = new SoftR(trCanvas); tr.soft = true; }
-      else { try { tr = new GLR(trCanvas, { keep: true }); tr.soft = false; } catch (e) { G._glFail = true; trCanvas = document.createElement("canvas"); trCanvas.width = trCanvas.height = size; tr = new SoftR(trCanvas); tr.soft = true; } }
+    if (!tr) {
+      if (wantSoft) { tr = new SoftR(trCanvas); tr.soft = true; }
+      else { try { tr = new GLR(trCanvas, { keep: true }); tr.soft = false; } catch (e) { G._glFail = true; dropTr(); trCanvas = document.createElement("canvas"); trCanvas.width = trCanvas.height = size; tr = new SoftR(trCanvas); tr.soft = true; } }
     }
     return tr;
   };
-  G.reset = () => { tr = null; trCanvas = null; thumbs.forEach((u) => { try { URL.revokeObjectURL(u); } catch (e) {} }); thumbs.clear(); waiting.clear(); queue.length = 0; };
+  G.reset = () => { dropTr(); thumbs.forEach((u) => { try { URL.revokeObjectURL(u); } catch (e) {} }); thumbs.clear(); waiting.clear(); queue.length = 0; };
+  // переключатель «без видеокарты»: on=true — всегда рисовать на обычном холсте
+  G.setSoft = (on) => { try { localStorage.setItem("pf_g3soft", on ? "1" : "0"); } catch (e) {} G.forceSoft = !!(on || LT); G._glFail = false; G.stat.bad = 0; G.reset(); };
   const tkey = (kind, id, model, size, ang) => [kind, id, model || "classic", size, ang || 0].join("|");
   G.thumbNow = (kind, id, model, size = 320, ang = 0) => thumbs.get(tkey(kind, id, model, LT ? Math.min(size, 200) : size, ang)) || "";
   // cb(url) вызывается сразу (если уже есть) либо когда миниатюра нарисуется
@@ -392,37 +405,93 @@ col=col/(1.+col*.28);col=pow(col,vec3(1./2.2));gl_FragColor=vec4(col,1.);}`;
     if (waiting.has(k)) return waiting.get(k).push(cb);
     waiting.set(k, [cb]); queue.push({ kind, id, model, size, ang, k }); pump();
   };
+  // есть ли в картинке предмет и не упёрся ли он в край (значит, обрезан). px — RGBA, S×S (порядок строк не важен)
+  const judge = (px, S) => {
+    let n = 0, edge = 0;
+    const e = Math.max(1, Math.round(S * 0.012));
+    for (let y = 0; y < S; y++) {
+      const ey = y < e || y >= S - e, row = y * S * 4 + 3;
+      for (let x = 0; x < S; x++) if (px[row + x * 4] > 40) { n++; if (ey || x < e || x >= S - e) edge++; }
+    }
+    const ring = 4 * e * S - 4 * e * e;
+    return { cover: n / (S * S), edge: edge / ring, ok: n / (S * S) > 0.012 && edge / ring < 0.03 };
+  };
+  const grabGL = (r, S) => {
+    const gl = r.gl;
+    gl.finish();
+    if (gl.isContextLost()) return "";
+    const raw = new Uint8Array(S * S * 4);
+    gl.readPixels(0, 0, S, S, gl.RGBA, gl.UNSIGNED_BYTE, raw);
+    if (gl.getError() !== gl.NO_ERROR || gl.isContextLost()) return "";
+    const j = judge(raw, S);
+    if (!j.ok) { G.stat.lastBad = "gl cover=" + j.cover.toFixed(3) + " edge=" + j.edge.toFixed(3); return ""; }
+    const c2 = document.createElement("canvas"); c2.width = c2.height = S;
+    const x2 = c2.getContext("2d"), id = x2.createImageData(S, S), d = id.data;
+    for (let y = 0; y < S; y++) {                                          // WebGL отдаёт строки снизу вверх и с «предумноженной» прозрачностью
+      const sy = (S - 1 - y) * S * 4, dy = y * S * 4;
+      for (let x = 0; x < S * 4; x += 4) {
+        const a = raw[sy + x + 3]; if (!a) continue;
+        const k = 255 / a;
+        d[dy + x] = Math.min(255, raw[sy + x] * k + 0.5); d[dy + x + 1] = Math.min(255, raw[sy + x + 1] * k + 0.5); d[dy + x + 2] = Math.min(255, raw[sy + x + 2] * k + 0.5); d[dy + x + 3] = a;
+      }
+    }
+    x2.putImageData(id, 0, 0);
+    return c2.toDataURL("image/png");
+  };
+  const grabSoft = (S) => {
+    let j = null;
+    try { j = judge(trCanvas.getContext("2d").getImageData(0, 0, S, S).data, S); } catch (e) {}
+    if (j && j.cover < 0.004) { G.stat.lastBad = "soft cover=" + j.cover.toFixed(3); return ""; }
+    return trCanvas.toDataURL("image/png");
+  };
   function pump() {
-    if (busy || !queue.length) return; busy = true;
-    const run = () => {
-      const it = queue.shift();
-      if (!it) { busy = false; return; }
-      let url = "";
-      try {
-        const r = mkRenderer(it.size), soft = r.soft, m = G.mesh(it.kind, it.id, it.model, soft ? G.lodSoft : 1);
-        if (m) {
-          r.draw(m, { yaw: -0.5 + it.ang, pitch: 0.18, zoom: 1.38, holo: m.holo, glow: m.aura.concat(0.25), time: 0 });
-          // WebGL-контекст слабого телефона мог «потеряться» посреди рисования — картинка выйдет белой/обрезанной: рисуем заново на обычном canvas
-          if (!soft && r.gl && r.gl.isContextLost && r.gl.isContextLost()) { G._glFail = true; tr = null; trCanvas = null; queue.unshift(it); busy = false; requestAnimationFrame(() => pump()); return; }
-          url = trCanvas.toDataURL("image/png");
-        }
-      } catch (e) { console.warn("gift3d thumb", e); }
-      thumbs.set(it.k, url);
-      (waiting.get(it.k) || []).forEach((cb) => { try { cb(url); } catch (e) {} }); waiting.delete(it.k);
-      busy = false; if (queue.length) requestAnimationFrame(() => pump());
-    };
+    if (busy || !queue.length) return; busy = true; clearTimeout(idleT);
     requestAnimationFrame(run);
+  }
+  function run() {
+    const it = queue.shift();
+    if (!it) { busy = false; return; }
+    let url = "", bad = false, soft = useSoft() || !!it.soft;
+    try {
+      const r = mkRenderer(it.size, it.soft); soft = r.soft;
+      const m = G.mesh(it.kind, it.id, it.model, soft ? G.lodSoft : 1);
+      if (m) {
+        r.draw(m, { yaw: -0.5 + it.ang, pitch: 0.18, zoom: 1.38, holo: m.holo, glow: m.aura.concat(0.25), time: 0 });
+        url = soft ? grabSoft(it.size) : grabGL(r, it.size);
+        if (!url && !soft) bad = true;
+      }
+    } catch (e) { console.warn("gift3d thumb", e); if (!soft) bad = true; }
+    if (bad) {                                                             // WebGL подвёл: новый контекст, потом без видеокарты
+      G.stat.bad++; dropTr();
+      it.tries = (it.tries || 0) + 1; if (it.tries >= 2) it.soft = true;
+      if (G.stat.bad >= 3 && !G._glFail) { G._glFail = true; try { localStorage.setItem("pf_g3soft", "1"); } catch (e) {} }   // устройство стабильно отдаёт плохие картинки — дальше без WebGL
+      queue.unshift(it); busy = false; requestAnimationFrame(pump); return;
+    }
+    if (url) { if (soft) G.stat.soft++; else G.stat.ok++; }
+    thumbs.set(it.k, url);
+    (waiting.get(it.k) || []).forEach((cb) => { try { cb(url); } catch (e) {} }); waiting.delete(it.k);
+    busy = false;
+    if (queue.length) requestAnimationFrame(pump);
+    else { clearTimeout(idleT); idleT = setTimeout(() => { if (!busy && !queue.length) dropTr(); }, 2500); }
   }
   // сколько миниатюр ещё рисуется (для тестов)
   G.pending = () => queue.length + (busy ? 1 : 0);
+  G.diag = () => ({ lt: LT, softPref: SOFTPREF, forceSoft: G.forceSoft, canGL: G.canGL, glFail: !!G._glFail, dpr: window.devicePixelRatio || 1, ...G.stat });
 
   // ───────────── живой просмотр с вращением ─────────────
   // host — элемент; spec {kind,id,model}; opts {auto:1, size, pitch}. Возвращает {set(spec), destroy(), kick(), parts, onFrame}
   G.live = (host, spec, opts = {}) => {
-    const cv = document.createElement("canvas"); cv.className = "g3-live"; host.appendChild(cv);
+    let cv = document.createElement("canvas"); cv.className = "g3-live"; host.appendChild(cv);
     const dpr = LT ? 1 : Math.min(window.devicePixelRatio || 1, opts.dpr || 2);
-    let W = 0, H = 0;
-    const fit = () => { const r = host.getBoundingClientRect(), s = Math.max(120, Math.min(LT ? 300 : 900, Math.round(Math.min(r.width || opts.size || 280, r.height || opts.size || 280) * dpr))); if (s !== W) { W = H = s; cv.width = cv.height = s; } };
+    let W = 0, lastPx = 0;
+    // Размер холста задаём в пикселях сами (а не через cqw/aspect-ratio): так он одинаков в любом WebView, в том числе старом
+    const fit = () => {
+      const css = Math.min(host.clientWidth || opts.size || 280, host.clientHeight || opts.size || 280) || 280;
+      const s = Math.max(120, Math.min(LT ? 300 : 900, Math.round(css * dpr)));
+      if (s !== W) { W = s; cv.width = cv.height = s; }
+      const px = Math.round(css);
+      if (px !== lastPx) { lastPx = px; cv.style.width = cv.style.height = px + "px"; host.style.setProperty("--gs", px + "px"); }
+    };
     fit();
     let rend, soft = useSoft();
     try { rend = soft ? new SoftR(cv) : new GLR(cv); } catch (e) { G._glFail = true; soft = true; rend = new SoftR(cv); }
@@ -436,17 +505,28 @@ col=col/(1.+col*.28);col=pow(col,vec3(1./2.2));gl_FragColor=vec4(col,1.);}`;
     };
     const pos = (e) => ({ x: e.clientX, y: e.clientY });
     let lp = null;
-    cv.style.touchAction = "none";
-    cv.addEventListener("pointerdown", (e) => { st.drag = true; lp = pos(e); st.last = performance.now(); try { cv.setPointerCapture(e.pointerId); } catch (x) {} });
-    cv.addEventListener("pointermove", (e) => { if (!st.drag) return; const p = pos(e), dx = p.x - lp.x, dy = p.y - lp.y; lp = p; st.yaw += dx * 0.011; st.pitch = Math.max(-0.7, Math.min(0.7, st.pitch + dy * 0.008)); st.vy = dx * 0.011 * 1.2; st.vp = 0; st.last = performance.now(); });
     const up = () => { st.drag = false; st.last = performance.now(); };
-    cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
+    const bind = (c) => {
+      c.style.touchAction = "none";
+      c.addEventListener("pointerdown", (e) => { st.drag = true; lp = pos(e); st.last = performance.now(); try { c.setPointerCapture(e.pointerId); } catch (x) {} });
+      c.addEventListener("pointermove", (e) => { if (!st.drag) return; const p = pos(e), dx = p.x - lp.x, dy = p.y - lp.y; lp = p; st.yaw += dx * 0.011; st.pitch = Math.max(-0.7, Math.min(0.7, st.pitch + dy * 0.008)); st.vy = dx * 0.011 * 1.2; st.vp = 0; st.last = performance.now(); });
+      c.addEventListener("pointerup", up); c.addEventListener("pointercancel", up);
+    };
+    bind(cv);
+    // WebGL-контекст отобрали и не вернули — переходим на обычный холст (новый, на старом 2D-контекст уже не получить)
+    const toSoft = () => {
+      const nc = document.createElement("canvas"); nc.className = cv.className; nc.style.cssText = cv.style.cssText;
+      try { rend.dispose(); } catch (e) {}
+      host.replaceChild(nc, cv); cv = nc; ctl.el = nc; W = 0; lastPx = 0; bind(nc); fit();
+      soft = true; ctl.soft = true; rend = new SoftR(nc); mesh = G.mesh(st.spec.kind, st.spec.id, st.spec.model, G.lodSoft);
+    };
     let prev = performance.now();
     const loop = (now) => {
       if (!st.alive) return;
       st.raf = requestAnimationFrame(loop);
       if (!host.isConnected) return ctl.destroy();
       if (document.hidden) { prev = now; return; }
+      if (!soft && rend.lost) { if (!rend.lostAt) rend.lostAt = now; if (now - rend.lostAt > 1200) { try { toSoft(); } catch (e) {} } return; }
       if (LT && !st.drag && now - prev < 33) return;              // слабый телефон: не чаще ~30 кадров в секунду
       const dt = Math.min(0.05, (now - prev) / 1000); prev = now;
       if (!st.drag) {

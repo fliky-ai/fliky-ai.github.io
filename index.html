@@ -2,6 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
 <script>/* адрес вида dicegram.dpdns.org/имя/123 или /+код: переносим путь в #!/путь и открываем главную страницу, ссылку обработает приложение */
 (function(){try{var l=location,p=l.pathname;if(p!=="/"&&!/\/index\.html$/.test(p)&&!/\/$/.test(p)&&!/\.github\.io$/.test(l.hostname)){l.replace("/#!"+p+l.search);}}catch(e){}})();
 </script>
@@ -17,7 +18,7 @@
 <link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Dicegram</title>
-<script src="lite.js?v=20261114a"></script>
+<script src="lite.js?v=20261120a"></script>
 <script>(function(){try{var h=document.documentElement,L=localStorage,g=function(k,d){var v=L.getItem("pf_"+k);return v===null?d:JSON.parse(v)};
 var th=L.getItem("theme")||"auto",nm=g("night","off"),light=matchMedia("(prefers-color-scheme:light)").matches,r;
 if(nm==="sched"){var f=String(g("night_from","21:00")).split(":"),t=String(g("night_to","07:00")).split(":"),a=f[0]*60+ +f[1],b=t[0]*60+ +t[1],n=new Date(),m=n.getHours()*60+n.getMinutes();r=(a===b?false:a<b?(m>=a&&m<b):(m>=a||m<b))?"dark":"light"}
@@ -50,29 +51,30 @@ if(!document.documentElement.dataset.theme)document.documentElement.dataset.them
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20261118b">
-<link rel="stylesheet" href="chat.css?v=20261114a">
-<link rel="stylesheet" href="profile.css?v=20261114a">
-<link rel="stylesheet" href="theme.css?v=20261114a">
-<link rel="stylesheet" href="settings.css?v=20261114a">
-<link rel="stylesheet" href="premium.css?v=20261114a">
-<link rel="stylesheet" href="gifts.css?v=20261114a">
-<link rel="stylesheet" href="tg.css?v=20261114a">
-<link rel="stylesheet" href="groups.css?v=20261114a">
-<link rel="stylesheet" href="stars2.css?v=20261118b">
-<link rel="stylesheet" href="bubbles.css?v=20261118b">
-<link rel="stylesheet" href="mentions.css?v=20261118b">
-<link rel="stylesheet" href="call.css?v=20261114a">
-<link rel="stylesheet" href="intro.css?v=20261114a">
-<link rel="stylesheet" href="modern.css?v=20261114a">
-<link rel="stylesheet" href="games.css?v=20261114a">
-<link rel="stylesheet" href="dicebot.css?v=20261114a">
-<link rel="stylesheet" href="polish.css?v=20261118b">
-<link rel="stylesheet" href="secret.css?v=20261118b">
-<link rel="stylesheet" href="space.css?v=20261118c">
-<link rel="stylesheet" href="space_more.css?v=20261118c">
-<link rel="stylesheet" href="space_games.css?v=20261118c">
-<link rel="stylesheet" href="desktop.css?v=20261118c">
+<link rel="stylesheet" href="style.css?v=20261120a">
+<link rel="stylesheet" href="chat.css?v=20261120a">
+<link rel="stylesheet" href="profile.css?v=20261120a">
+<link rel="stylesheet" href="theme.css?v=20261120a">
+<link rel="stylesheet" href="settings.css?v=20261120a">
+<link rel="stylesheet" href="premium.css?v=20261120a">
+<link rel="stylesheet" href="gifts.css?v=20261120a">
+<link rel="stylesheet" href="tg.css?v=20261120a">
+<link rel="stylesheet" href="groups.css?v=20261120a">
+<link rel="stylesheet" href="stars2.css?v=20261120a">
+<link rel="stylesheet" href="bubbles.css?v=20261120a">
+<link rel="stylesheet" href="mentions.css?v=20261120a">
+<link rel="stylesheet" href="call.css?v=20261120a">
+<link rel="stylesheet" href="intro.css?v=20261120a">
+<link rel="stylesheet" href="modern.css?v=20261120a">
+<link rel="stylesheet" href="games.css?v=20261120a">
+<link rel="stylesheet" href="dicebot.css?v=20261120a">
+<link rel="stylesheet" href="polish.css?v=20261120a">
+<link rel="stylesheet" href="secret.css?v=20261120a">
+<link rel="stylesheet" href="space.css?v=20261120a">
+<link rel="stylesheet" href="space_more.css?v=20261120a">
+<link rel="stylesheet" href="space_games.css?v=20261120a">
+<link rel="stylesheet" href="rd.css?v=20261120a">
+<link rel="stylesheet" href="desktop.css?v=20261120a">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
@@ -234,19 +236,28 @@ window.__boot = { errs: [], miss: [], net: "" };
         <div class="tgh-row">
           <div class="tgh-title"><span class="tt-main">Чаты</span><span class="tt-off">Соединение…</span><i class="tt-spin"></i></div>
           <button id="btn-search" class="tgh-btn" type="button" aria-label="Поиск"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
+          <button id="btn-new" class="tgh-btn dx-new" type="button" aria-label="Новое сообщение"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>
         </div>
-        <button id="chat-sbar" class="sbar" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Поиск</span></button>
+        <div class="dx-big"><span class="tt-main">Чаты</span><span class="tt-off">Соединение…</span><i class="tt-spin"></i></div>
+        <div class="dx-sr"><div class="dx-sbw">
+          <button id="chat-sbar" class="sbar" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Поиск</span></button>
+          <button id="btn-filter" class="dx-sf" type="button" aria-label="Фильтр"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h9M18 7h2M4 17h3M12 17h8"/><circle cx="15.5" cy="7" r="2.3"/><circle cx="9.5" cy="17" r="2.3"/></svg></button>
+        </div></div>
         <div id="ftabs" class="ftabs hidden" role="tablist"></div>
       </header>
       <div class="scroll" id="chat-list"></div>
       <button id="chat-fab" class="cfab" type="button" aria-label="Новое сообщение"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>
     </section>
     <section class="view" id="v-contacts">
-      <header class="tgh"><div class="tgh-row"><div class="tgh-title"><span>Контакты</span></div>
-        <button id="btn-csearch" class="tgh-btn" type="button" aria-label="Поиск"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button></div>
-        <button id="contact-sbar" class="sbar" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Поиск</span></button></header>
+      <header class="tgh">
+        <div class="tgh-row"><div class="tgh-title"><span>Контакты</span></div>
+          <button id="btn-csearch" class="tgh-btn" type="button" aria-label="Поиск"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
+          <button id="btn-cmenu" class="tgh-btn" type="button" aria-label="Ещё"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="12" cy="19" r="1.9"/></svg></button></div>
+        <div class="dx-big"><span>Контакты</span><small id="contact-count"></small></div>
+        <div class="dx-sr"><div class="dx-sbw"><button id="contact-sbar" class="sbar" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Поиск</span></button></div></div>
+      </header>
       <div class="scroll nm-body" id="contact-list"></div>
-      <button id="contact-fab" class="cfab" type="button" aria-label="Новый контакт"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.500" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></svg></button>
+      <button id="contact-fab" class="cfab" type="button" aria-label="Добавить" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
     </section>
     <section class="view" id="v-settings"><div class="scroll" id="settings-box"></div></section>
     <section class="view" id="v-profile"><div class="scroll" id="profile-box"></div></section>
@@ -337,77 +348,78 @@ window.__boot = { errs: [], miss: [], net: "" };
 <div id="toast" class="toast"></div>
 
 <script src="config.js"></script>
-<script src="i18n.js?v=20261114a"></script>
-<script src="lang_en.js?v=20261114a"></script>
-<script src="lang_en2.js?v=20261118c"></script>
-<script src="lang_en_bots.js?v=20261114a"></script>
-<script src="tz.js?v=20261114a"></script>
-<script src="api.js?v=20261114a"></script>
-<script src="maint.js?v=20261115a"></script>
-<script src="offline.js?v=20261114a"></script>
-<script src="prefs.js?v=20261114a"></script>
-<script src="rich.js?v=20261118b"></script>
-<script src="ui.js?v=20261114a"></script>
-<script src="register.js?v=20261114a"></script>
-<script src="intro.js?v=20261114a"></script>
-<script src="chats.js?v=20261118b"></script>
-<script src="search.js?v=20261114a"></script>
-<script src="editor.js?v=20261114a"></script>
-<script src="voice.js?v=20261114a"></script>
-<script src="attach.js?v=20261114a"></script>
-<script src="fx.js?v=20261114a"></script>
-<script src="stickers.js?v=20261114a"></script>
-<script src="emojipick.js?v=20261114a"></script>
-<script src="gifmaker.js?v=20261114a"></script>
-<script src="menu.js?v=20261118b"></script>
-<script src="chat.js?v=20261118b"></script>
-<script src="contacts.js?v=20261118b"></script>
-<script src="groups.js?v=20261114a"></script>
-<script src="grp_edit.js?v=20261118b"></script>
-<script src="voicefx.js?v=20261114a"></script>
-<script src="call.js?v=20261114a"></script>
-<script src="stories.js?v=20261115a"></script>
-<script src="userprofile.js?v=20261118b"></script>
-<script src="cropper.js?v=20261114a"></script>
-<script src="profile.js?v=20261114a"></script>
-<script src="pg.js?v=20261114a"></script>
-<script src="settings.js?v=20261114a"></script>
-<script src="set_look.js?v=20261118b"></script>
-<script src="set_safe.js?v=20261114a"></script>
-<script src="set_misc.js?v=20261118b"></script>
-<script src="set_prem.js?v=20261118b"></script>
-<script src="dicebot.js?v=20261114a"></script>
-<script src="botui.js?v=20261114a"></script>
-<script src="appicon.js?v=20261114a"></script>
-<script src="premium.js?v=20261114a"></script>
-<script src="gift3d.js?v=20261114a"></script>
-<script src="gift3d_designs.js?v=20261114a"></script>
-<script src="gifts.js?v=20261114a"></script>
-<script src="cemoji.js?v=20261118b"></script>
-<script src="links.js?v=20261118b"></script>
-<script src="fileview.js?v=20261114a"></script>
-<script src="music.js?v=20261114a"></script>
-<script src="downloads.js?v=20261114a"></script>
-<script src="gallery.js?v=20261114a"></script>
-<script src="qr.js?v=20261114a"></script>
-<script src="admin.js?v=20261114a"></script>
-<script src="sharein.js?v=20261115a"></script>
-<script src="games.js?v=20261118b"></script>
-<script src="game2048.js?v=20261114a"></script>
-<script src="gameblocks.js?v=20261114a"></script>
-<script src="gamesand.js?v=20261114a"></script>
-<script src="bubbles.js?v=20261118b"></script>
-<script src="stars2.js?v=20261118b"></script>
-<script src="mentions.js?v=20261118b"></script>
-<script src="secret.js?v=20261118b"></script>
-<script src="space.js?v=20261118b"></script>
-<script src="space_room.js?v=20261118c"></script>
-<script src="space_extra.js?v=20261118c"></script>
-<script src="space_more.js?v=20261118c"></script>
-<script src="space_games.js?v=20261118c"></script>
-<script src="space_games_a.js?v=20261118c"></script>
-<script src="space_games_b.js?v=20261118c"></script>
-<script src="desktop.js?v=20261118c"></script>
-<script src="app.js?v=20261118c"></script>
+<script src="i18n.js?v=20261120a"></script>
+<script src="lang_en.js?v=20261120a"></script>
+<script src="lang_en2.js?v=20261120a"></script>
+<script src="lang_en_bots.js?v=20261120a"></script>
+<script src="tz.js?v=20261120a"></script>
+<script src="api.js?v=20261120a"></script>
+<script src="maint.js?v=20261120a"></script>
+<script src="offline.js?v=20261120a"></script>
+<script src="prefs.js?v=20261120a"></script>
+<script src="rich.js?v=20261120a"></script>
+<script src="ui.js?v=20261120a"></script>
+<script src="register.js?v=20261120a"></script>
+<script src="intro.js?v=20261120a"></script>
+<script src="chats.js?v=20261120a"></script>
+<script src="search.js?v=20261120a"></script>
+<script src="editor.js?v=20261120a"></script>
+<script src="voice.js?v=20261120a"></script>
+<script src="attach.js?v=20261120a"></script>
+<script src="fx.js?v=20261120a"></script>
+<script src="stickers.js?v=20261120a"></script>
+<script src="emojipick.js?v=20261120a"></script>
+<script src="gifmaker.js?v=20261120a"></script>
+<script src="menu.js?v=20261120a"></script>
+<script src="chat.js?v=20261120a"></script>
+<script src="contacts.js?v=20261120a"></script>
+<script src="groups.js?v=20261120a"></script>
+<script src="grp_edit.js?v=20261120a"></script>
+<script src="voicefx.js?v=20261120a"></script>
+<script src="call.js?v=20261120a"></script>
+<script src="stories.js?v=20261120a"></script>
+<script src="userprofile.js?v=20261120a"></script>
+<script src="cropper.js?v=20261120a"></script>
+<script src="profile.js?v=20261120a"></script>
+<script src="pg.js?v=20261120a"></script>
+<script src="settings.js?v=20261120a"></script>
+<script src="set_look.js?v=20261120a"></script>
+<script src="set_safe.js?v=20261120a"></script>
+<script src="set_misc.js?v=20261120a"></script>
+<script src="set_prem.js?v=20261120a"></script>
+<script src="dicebot.js?v=20261120a"></script>
+<script src="botui.js?v=20261120a"></script>
+<script src="appicon.js?v=20261120a"></script>
+<script src="premium.js?v=20261120a"></script>
+<script src="gift3d.js?v=20261120a"></script>
+<script src="gift3d_designs.js?v=20261120a"></script>
+<script src="gifts.js?v=20261120a"></script>
+<script src="cemoji.js?v=20261120a"></script>
+<script src="links.js?v=20261120a"></script>
+<script src="fileview.js?v=20261120a"></script>
+<script src="music.js?v=20261120a"></script>
+<script src="downloads.js?v=20261120a"></script>
+<script src="gallery.js?v=20261120a"></script>
+<script src="qr.js?v=20261120a"></script>
+<script src="admin.js?v=20261120a"></script>
+<script src="sharein.js?v=20261120a"></script>
+<script src="games.js?v=20261120a"></script>
+<script src="game2048.js?v=20261120a"></script>
+<script src="gameblocks.js?v=20261120a"></script>
+<script src="gamesand.js?v=20261120a"></script>
+<script src="bubbles.js?v=20261120a"></script>
+<script src="stars2.js?v=20261120a"></script>
+<script src="mentions.js?v=20261120a"></script>
+<script src="secret.js?v=20261120a"></script>
+<script src="space.js?v=20261120a"></script>
+<script src="space_room.js?v=20261120a"></script>
+<script src="space_extra.js?v=20261120a"></script>
+<script src="space_more.js?v=20261120a"></script>
+<script src="space_games.js?v=20261120a"></script>
+<script src="space_games_a.js?v=20261120a"></script>
+<script src="space_games_b.js?v=20261120a"></script>
+<script src="desktop.js?v=20261120a"></script>
+<script src="rd.js?v=20261120a"></script>
+<script src="app.js?v=20261120a"></script>
 </body>
 </html>

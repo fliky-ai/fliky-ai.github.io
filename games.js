@@ -3,6 +3,8 @@
 // (монеты + анти-бот капча). Экраны — обычные страницы Pg (как в Settings), без своего каркаса.
 
 const GI = {
+  // кубок — кнопка «таблица лидеров» на карточке игры
+  cup: svg('<path d="M8 21h8M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>'),
   // корона для первого места на подиуме
   crown: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 8l4.5 4L12 5l4.500 7L21 8l-2 11H5z"/></svg>',
   // 2×2 плитки — тема «слияния» для 2048
@@ -22,15 +24,51 @@ const Games = {
   ],
 
   open() {
-    Pg.open({ title: T("Игры"), cls: "gameshub", build: (pg) => Games.draw(pg) });
+    const pg = Pg.open({ title: T("Игры"), cls: "gameshub", data: { ov: null, ends: 0 }, build: (p) => Games.draw(p), onClose: (p) => clearInterval(p._tm) });
+    Games.loadOv(pg);
+  },
+
+  // один запрос на весь экран: сколько играют, мой результат и место, призы дня (раньше цифр на экране не было вовсе)
+  async loadOv(pg) {
+    try {
+      const d = await api("/api/games/overview");
+      if (!pg.alive) return;
+      pg.data.ov = d; pg.data.ends = Date.now() + (d.ends_in || 0) * 1000;
+      pg.refresh();
+      clearInterval(pg._tm);
+      pg._tm = setInterval(() => {
+        if (!pg.alive) return clearInterval(pg._tm);
+        const el = pg.$(".dx-tm"); if (el) el.textContent = Games.left(pg.data.ends);
+        if (pg.data.ends - Date.now() < -2000) { clearInterval(pg._tm); Games.loadOv(pg); }          // наступили новые сутки — подтягиваем новый день
+      }, 1000);
+    } catch (e) { /* без сети остаются просто карточки игр */ }
   },
 
   draw(pg) {
-    pg.set(
-      R.hero(SI.games, T("Игры"), T("4 мини-игры и таблицы лидеров дня")) +
-      R.card(...Games.LIST.map((g) => R.row({ a: "go", v: g.id, ic: g.icon, c: g.c, t: esc(T(g.name)), s: esc(T(g.desc)) })))
-    );
+    const ov = pg.data.ov, G = (ov && ov.games) || {};
+    const star = typeof Stars2 !== "undefined" ? Stars2.star : "★";
+    const pz = (ov && ov.prizes) || [];
+    const col = { clicker: "y", "2048": "b", block_blast: "g", sand: "v" };
+    const fmt = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, "\u2009");
+    const trophy = GI.cup;
+    const hero = `<div class="dx-gday"><h3>${esc(T("Призы дня"))}</h3>
+        <div class="tm"><span class="dx-tm">${ov ? Games.left(pg.data.ends) : "–:––:––"}</span></div>
+        <div class="pz">${pz.length ? pz.map((a, i) => `<span>${i + 1} ${esc(T("место"))} · ${star}${a}</span>`).join("") : `<span>${esc(T("За каждую игру отдельно"))}</span>`}</div></div>`;
+    const card = (g) => {
+      const o = G[g.id], me = o && o.me, meta = [];
+      if (o) meta.push(`<span>${o.players ? o.players + " " + esc(plural(o.players, T("игрок"), T("игрока"), T("игроков"))) : esc(T("Будь первым"))}</span>`);
+      if (me && me.rank) meta.push(`<span class="t">${esc(T("Ты"))}: ${fmt(me.score)} · #${me.rank}</span>`);
+      return `<button class="dx-gc ${col[g.id] || "b"}" data-a="go" data-v="${g.id}">
+        <span class="dx-gt" data-a="lb" data-v="${g.id}" role="button" aria-label="${esc(T("Таблица лидеров"))}">${trophy}</span>
+        <i class="dx-gi">${g.icon}</i>
+        <span><b>${esc(T(g.name))}</b><small>${esc(T(g.desc))}</small></span>
+        <span class="dx-gm">${meta.join("")}</span></button>`;
+    };
+    const won = ov && ov.won && ov.won.count ? `<div class="dx-gsec"><span>${esc(T("Мои призы"))}</span></div>
+        <div class="dx-gp"><i>${star}</i><span><b>${esc(T("Выиграно"))} ${star}${fmt(ov.won.total)}</b><small>${ov.won.count} ${esc(plural(ov.won.count, T("приз"), T("приза"), T("призов")))}</small></span></div>` : "";
+    pg.set(`<div class="dx-gh">${hero}<div class="dx-gg">${Games.LIST.map(card).join("")}</div>${won}</div>`);
     pg.on.go = (el) => Games.launch(el.dataset.v);
+    pg.on.lb = (el, _e, ev) => { if (ev) ev.stopPropagation(); const g = Games.LIST.find((x) => x.id === el.dataset.v); if (g) { haptic(); Games.leaderboard(g.id, T(g.name)); } };
   },
 
   launch(id) {

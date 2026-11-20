@@ -87,15 +87,65 @@ const GiftArt = (() => {
   const prem = (months, o = {}) => `<div class="ga prem${o.cls ? " " + o.cls : ""}" style="${o.s ? `--s:${o.s}px;` : ""}"><i class="ga-p gpt-spark"></i><i class="ga-g"></i><div class="ga-st">${typeof ES !== "undefined" ? ES.svg("star") : GIC.star}</div>
     <b class="ga-mo">${months}</b><small>${esc(plural(months, T("месяц"), T("месяца"), T("месяцев")))}</small><i class="ga-sh"></i></div>`;
 
+  // ── «плоская» плитка: фон + узор + свет + предмет склеиваются в ОДНУ картинку ──
+  // Раньше плитка была стопкой из 5–6 слоёв с клипом по скруглению, фильтрами и анимациями — на части Android-телефонов такие плитки
+  // выходили обрезанными или пустыми. Одна картинка в background рисуется одинаково везде.
+  const loadImg = (src) => new Promise((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
+  const patP = new Map(), thP = new Map(), bakeC = new Map();
+  const patImg = (k) => { let p = patP.get(k); if (!p) { p = loadImg(durl(tileSvg(k))); patP.set(k, p); } return p; };
+  const thImg = (tk, url) => { let p = thP.get(tk); if (!p) { p = loadImg(url); thP.set(tk, p); if (thP.size > 160) thP.delete(thP.keys().next().value); } return p; };
+  const bake = async (o) => {
+    const [pim, tim] = await Promise.all([patImg(o.pat), thImg(o.tk, o.url)]);
+    if (!tim || !(tim.naturalWidth > 0)) return "";
+    const S = o.S, cv = document.createElement("canvas"); cv.width = cv.height = S;
+    const c = cv.getContext("2d"); if (!c) return "";
+    c.setTransform(1.3 * S, 0, 0, 1.2 * S, 0.5 * S, 0.28 * S);                       // фон: радиальный градиент, как radial-gradient(130% 120% at 50% 28%)
+    let g = c.createRadialGradient(0, 0, 0, 0, 0, 1); g.addColorStop(0, o.c1); g.addColorStop(1, o.c2);
+    c.fillStyle = g; c.fillRect(-1, -1, 2, 2); c.setTransform(1, 0, 0, 1, 0, 0);
+    g = c.createLinearGradient(0, 0.55 * S, 0, S); g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,.24)");   // тёмный низ
+    c.fillStyle = g; c.fillRect(0, 0.55 * S, S, 0.45 * S);
+    if (pim && pim.naturalWidth > 0) { c.save(); c.translate(S / 2, S / 2); c.rotate(o.rot * Math.PI / 180); c.drawImage(pim, -0.54 * S, -0.54 * S, 1.08 * S, 1.08 * S); c.restore(); }   // узор
+    g = c.createLinearGradient(0, 0, 0, S); g.addColorStop(0, "rgba(255,255,255,.3)"); g.addColorStop(0.4, "rgba(255,255,255,0)");   // блик сверху
+    c.fillStyle = g; c.fillRect(0, 0, S, S);
+    g = c.createRadialGradient(0.5 * S, 0.48 * S, 0, 0.5 * S, 0.48 * S, 0.594 * S); g.addColorStop(0, "rgba(255,255,255,.5)"); g.addColorStop(0.68, "rgba(255,255,255,0)");   // свечение
+    c.fillStyle = g; c.fillRect(0, 0, S, S);
+    c.save(); c.translate(0.5 * S, 0.865 * S); c.scale(0.23 * S, 0.035 * S);                                   // тень под предметом
+    g = c.createRadialGradient(0, 0, 0, 0, 0, 1); g.addColorStop(0, "rgba(0,0,0,.4)"); g.addColorStop(1, "rgba(0,0,0,0)");
+    c.fillStyle = g; c.fillRect(-1, -1, 2, 2); c.restore();
+    c.save(); c.shadowColor = "rgba(0,0,0,.3)"; c.shadowBlur = 0.146 * S; c.shadowOffsetY = 0.052 * S;       // предмет
+    c.drawImage(tim, 0.05 * S, 0.03 * S, 0.9 * S, 0.9 * S); c.restore();
+    c.strokeStyle = "rgba(255,255,255,.18)"; c.lineWidth = Math.max(2, S / 48); c.strokeRect(0, 0, S, S);       // тонкая кромка
+    return cv.toDataURL("image/jpeg", 0.92);
+  };
+  const canFlat = (el) => el.classList.contains("ga") && !el.classList.contains("prem") && !!el.querySelector(".ga-p") && localStorage.getItem("pf_giftflat") !== "0";
+  const flatten = async (el, url, tk) => {
+    try {
+      const cs = el.style, c1 = cs.getPropertyValue("--c1").trim() || "#7ec8ff", c2 = cs.getPropertyValue("--c2").trim() || "#2f7bff", rot = parseFloat(cs.getPropertyValue("--rot")) || 0;
+      const pat = ((el.querySelector(".ga-p").className.match(/gpt-(\w+)/) || [])[1]) || "spark";
+      const dpr = Math.min(3, window.devicePixelRatio || 1), css = el.clientWidth || +el.dataset.sz || SZ;
+      const S = Math.max(96, Math.min(320, Math.ceil(css * dpr / 32) * 32));
+      const key = [c1, c2, pat, rot, tk, S].join("|");
+      let out = bakeC.get(key);
+      if (!out) { out = await bake({ c1, c2, pat, rot, tk, url, S }); if (out) { bakeC.set(key, out); if (bakeC.size > 220) bakeC.delete(bakeC.keys().next().value); } }
+      if (!out) return false;
+      if (el.dataset.g3 !== tk.split("#")[0] || !el.isConnected) return true;   // за это время плитку перекрасили или убрали
+      el.style.backgroundImage = `url("${out}")`; el.classList.add("flat", "rdy"); el.classList.remove("err");
+      return true;
+    } catch (e) { return false; }
+  };
+
   // миниатюры подгружаются сами: наблюдатель находит новые элементы с data-g3 и просит у движка картинку
   const hyd = (el) => {
     if (el.dataset.h) return; el.dataset.h = "1";
-    const [kind, id, model] = el.dataset.g3.split("|"), img = el.querySelector(".ga-i");
+    const g3 = el.dataset.g3, [kind, id, model] = g3.split("|"), img = el.querySelector(".ga-i"), sz = +el.dataset.sz || SZ;
     if (!img || typeof Gift3D === "undefined" || !Gift3D.hasDesign(kind, id)) { el.classList.add("err"); return; }
-    Gift3D.thumb(kind, id, model, +el.dataset.sz || SZ, (url) => {
+    Gift3D.thumb(kind, id, model, sz, (url) => {
       if (!img.isConnected) return;
+      if (el.dataset.g3 !== g3) return;                                     // плитку уже сменили (morph) — этот ответ устарел
       if (!url) { el.classList.add("err"); return; }
-      img.src = url; el.classList.remove("err"); el.classList.add("rdy");
+      const plain = () => { img.onerror = () => { el.classList.remove("rdy"); el.classList.add("err"); }; img.src = url; el.classList.remove("err"); el.classList.add("rdy"); };
+      if (canFlat(el)) flatten(el, url, g3 + "#" + sz).then((ok) => { if (!ok && img.isConnected && el.dataset.g3 === g3) plain(); });
+      else plain();
     });
   };
   const scan = (root) => {
@@ -125,6 +175,12 @@ const GiftArt = (() => {
         `<i class="ga-p gpt-${esc(sp.pat)}"></i><i class="ga-g"></i><i class="ga-sd"></i><img class="ga-i" alt="" draggable="false"><span class="ga-f">${GIC.gift}</span>${sp.kind === "nft" ? '<i class="ga-sh"></i>' : ""}</div>`;
     },
     prem,
+    // перерисовать все плитки на экране (после переключения «без видеокарты» в настройках)
+    refresh() {
+      bakeC.clear(); thP.clear();
+      document.querySelectorAll(".ga[data-g3],.ga-m[data-g3]").forEach((el) => { el.classList.remove("rdy", "flat", "err"); el.style.backgroundImage = ""; delete el.dataset.h; hyd(el); });
+    },
+    diag() { return Object.assign({ flat: localStorage.getItem("pf_giftflat") !== "0", baked: bakeC.size }, (typeof Gift3D !== "undefined" && Gift3D.diag) ? Gift3D.diag() : {}); },
     // совсем маленький значок NFT (рядом с именем): только предмет, без фона
     mini(n, px = 20) {
       if (!n || !n.coll) return "";
@@ -135,7 +191,7 @@ const GiftArt = (() => {
     morph(el, sp) {
       el.style.setProperty("--c1", sp.c1); el.style.setProperty("--c2", sp.c2);
       const p = el.querySelector(".ga-p"); if (p) p.className = "ga-p gpt-" + sp.pat;
-      el.classList.remove("rdy"); el.dataset.g3 = `${sp.kind}|${sp.id}|${sp.model}`; delete el.dataset.h; hyd(el);
+      el.classList.remove("rdy", "flat"); el.style.backgroundImage = ""; el.dataset.g3 = `${sp.kind}|${sp.id}|${sp.model}`; delete el.dataset.h; hyd(el);
     },
   };
   return A;

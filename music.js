@@ -161,7 +161,7 @@ const Music = {
   paintBar(on, frac) {
     const cur = Music.cur;
     let b = Music.bar;
-    if (!cur) { if (b) { b.remove(); Music.bar = null; } return; }
+    if (!cur) { if (b) { b.remove(); Music.bar = null; } const v0 = $("v-chats"); if (v0) v0.classList.remove("dx-mb"); return; }
     if (!b) {
       b = Music.bar = document.createElement("div");
       b.className = "mbar"; b.id = "mbar";
@@ -180,6 +180,8 @@ const Music = {
     const chatOpen = $("chat") && $("chat").classList.contains("open");
     const anchor = chatOpen ? document.querySelector("#chat > .phead") : $("chats-head");
     if (anchor && b.previousElementSibling !== anchor) anchor.after(b);
+    // в списке чатов шапка лежит поверх списка — плееру нужен свой отступ сверху и «след» за сворачивающейся шапкой
+    const vc = $("v-chats"); if (vc) { const inList = b.parentNode === vc; if (vc.classList.contains("dx-mb") !== inList) { vc.classList.toggle("dx-mb", inList); if (vc._dxm) try { vc._dxm(); } catch (e) {} } }
     const nm = Music.names(cur.att);
     const bt = b.querySelector(".mb-t b"), sm = b.querySelector(".mb-t small");
     if (bt.textContent !== nm.title) bt.textContent = nm.title;

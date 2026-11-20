@@ -22,44 +22,66 @@ const Settings = {
     if (searching) { Settings.drawResults(); return; }
 
     const grp = (...rows) => `<div class="card2 irows">${rows.join("")}</div>`;
+    const cap = (t) => `<div class="dx-cap">${esc(T(t))}</div>`;
     const eco = Energy.thr();
-    box.innerHTML = `
-      <div class="s-top"><h1>${esc(T("Настройки"))}</h1>
-        <div class="s-tools"><button id="s-sbtn" aria-label="${esc(T("Поиск"))}">${SI.search}</button><button id="s-menu" aria-label="${esc(T("Ещё"))}">${SI.dots}</button></div></div>
-      <button class="s-me" id="s-me" aria-label="${esc(T("Профиль"))}">
-        <span class="s-av">${Stories.av(u, "xl")}</span>
-        <span class="s-name">${esc(dispName(u))}</span>
-        <span class="s-sub">${u.number ? esc(fmtPhone(u.number)) : ""}${u.username ? " · @" + esc(u.username) : ""}</span>
+    const X = (typeof DX !== "undefined" && DX.I) || new Proxy({}, { get: () => "" });      // без rd.js экран всё равно рисуется
+    const ph = premHero(u);
+    const cover = ph.cls ? `<span class="dx-me-cv pf-hero${ph.cls}"${ph.style}>${ph.pat}</span>` : '<span class="dx-me-cv"><i></i><i></i><i></i></span>';
+    const nUn = (a) => Settings.unread[a.token] || 0;
+    const html = `
+      <div class="dx-top"><b>${esc(T("Настройки"))}</b>
+        <div class="dx-tools"><button id="s-sbtn" aria-label="${esc(T("Поиск"))}">${X.search}</button><button id="s-menu" aria-label="${esc(T("Ещё"))}">${X.dots}</button></div></div>
+      <div class="dx-h1">${esc(T("Настройки"))}</div>
+      <button class="dx-me" id="s-me" aria-label="${esc(T("Профиль"))}">${cover}
+        <span class="dx-me-b">
+          <span class="dx-me-av">${Stories.av(u, "xl")}</span>
+          <span class="dx-me-tx"><b>${esc(dispName(u))}${verBadge(u)}</b><small>${u.number ? esc(fmtPhone(u.number)) : ""}${u.username ? " · @" + esc(u.username) : ""}</small></span>
+          <span class="dx-me-go">${X.chev}</span>
+        </span>
       </button>
 
-      <div class="card2 irows s-accs">
-        ${others.map((a, i) => `<button class="irow acc" data-a="acc" data-v="${i}">${avatar(a, "sm")}<span class="tx"><b>${esc(a.name || T("Аккаунт"))}</b><small>${esc(fmtPhone(a.number || ""))}</small></span>${Settings.unread[a.token] ? `<span class="badge">${Settings.unread[a.token] > 99 ? "99+" : Settings.unread[a.token]}</span>` : ""}</button>`).join("")}
-        <button class="irow" data-a="addacc">${R.ic("b plus", SI.plus)}<span class="tx"><b class="acc-t">${esc(T("Добавить аккаунт"))}</b></span></button>
+      <div class="dx-accs s-accs">
+        <div class="dx-accs-h"><span>${esc(T("Аккаунты"))}</span><button data-a="accmgr">${esc(T("Управление"))}</button></div>
+        <button class="dx-acc cur" data-a="me">${avatar(u, "sm")}<span class="tx"><b>${esc(dispName(u))}</b><small>${esc(T("Текущий"))}${u.number ? " · " + esc(fmtPhone(u.number)) : ""}</small></span><i class="dx-ck">${X.check}</i></button>
+        ${others.map((a, i) => `<button class="dx-acc" data-a="acc" data-v="${i}">${avatar(a, "sm")}<span class="tx"><b>${esc(a.name || T("Аккаунт"))}</b><small>${esc(fmtPhone(a.number || ""))}</small></span>${nUn(a) ? `<span class="dx-un">${nUn(a) > 99 ? "99+" : nUn(a)}</span>` : ""}</button>`).join("")}
+        <button class="dx-add" data-a="addacc"><i>${X.plus}</i><span>${esc(T("Добавить аккаунт"))}</span></button>
       </div>
 
       ${grp(R.row({ a: "edit", ic: SI.user, c: "b", t: esc(T("Аккаунт")), s: esc(T("Имя, о себе, @username, день рождения")) }))}
+      ${cap("Основное")}
       ${grp(
         R.row({ a: "chats", ic: SI.chat, c: "b", t: esc(T("Настройки чатов")) }),
         R.row({ a: "privacy", ic: SI.lock, c: "gr", t: esc(T("Конфиденциальность")) }),
         R.row({ a: "notif", ic: SI.bell, c: "r", t: esc(T("Уведомления")) }),
-        R.row({ a: "data", ic: SI.data, c: "g", t: esc(T("Данные и память")) }),
+        R.row({ a: "data", ic: SI.data, c: "g", t: esc(T("Данные и память")) }))}
+      ${cap("Устройство")}
+      ${grp(
         R.row({ a: "energy", ic: SI.battery, c: "o", t: esc(T("Энергосбережение")), r: esc(eco >= 100 ? T("Вкл.") : eco <= 0 ? T("Выкл.") : eco + "%") }),
         R.row({ a: "folders", ic: SI.folder, c: "t", t: esc(T("Папки с чатами")) }),
         R.row({ a: "devices", ic: SI.laptop, c: "o2", t: esc(T("Устройства")) }),
         R.row({ a: "lang", ic: SI.globe, c: "v", t: esc(T("Язык")), r: I18N.lang === "en" ? "English" : "Русский" }))}
+      ${cap("Возможности")}
+      <div class="dx-promo">
+        <button class="dx-pt pr" data-a="premium"><i class="ic">${X.diamond}</i><span><b>${esc(T(NAME_PREMIUM))}</b><small>${esc(u.premium ? T("активен") : T("Больше возможностей"))}</small></span></button>
+        <button class="dx-pt st" data-a="stars"><i class="ic">${X.star}</i><span><b>${esc(T(NAME_STARS))}</b><small>${esc(u.stars ? String(u.stars) : T("Награды и подарки"))}</small></span></button>
+      </div>
       ${grp(
-        R.row({ a: "premium", ic: SI.starF, c: "pr", t: esc(T(NAME_PREMIUM)), r: u.premium ? esc(T("активен")) : "" }),
-        R.row({ a: "stars", ic: starFancy(), c: "star", t: esc(T(NAME_STARS)), r: u.stars ? String(u.stars) : "" }),
         R.row({ a: "biz", ic: SI.bag, c: "v2", t: esc(T(NAME_BIZ)) }),
         R.row({ a: "gift", ic: SI.gift, c: "p", t: esc(T("Отправить подарок")) }),
-        R.row({ a: "games", ic: SI.games, c: "t", t: esc(T("Игры")), s: esc(T("4 игры и таблицы лидеров дня")) }))}
+        R.row({ a: "games", ic: SI.games, c: "t", t: esc(T("Игры")), s: esc(T("Дуэли, космос и таблицы лидеров")) }))}
       ${isStandalone() || (typeof AppPush !== "undefined" && AppPush.isApp()) ? "" : grp(R.row({ a: "install", ic: SI.laptop, c: "b", t: esc(T("Установить Dicegram")), s: esc(/Android/i.test(navigator.userAgent) ? T("Скачать APK или на экран «Домой»") : T("Как приложение на экран «Домой»")) }))}
+      ${cap("Помощь")}
       ${grp(
         R.row({ a: "ask", ic: SI.headset, c: "b", t: esc(T("Задать вопрос")) }),
         R.row({ a: "tips", ic: SI.bulb, c: "y2", t: esc(T("Возможности Dicegram")), s: esc(T("советы и подсказки на сайте")) }),
         R.row({ a: "policy", ic: SI.doc, c: "gr", t: esc(T("Политика конфиденциальности")) }))}
-      ${grp(R.row({ a: "out", ic: SI.out, c: "r", t: esc(T("Выйти")), danger: 1, chev: false }))}
-      <p class="s-foot">${esc(T("Версия {0}", "1.4"))}</p>`;
+      <button class="dx-logout" data-a="out">${X.out}<span>${esc(T("Выйти"))}</span></button>
+      <p class="s-foot">${esc(T("Версия {0}", "1.5"))}</p>`;
+    // одинаковую разметку не перерисовываем: ни мерцания аватарок, ни сброса прокрутки, ни потерянного нажатия
+    if (box._dxh === html && box.querySelector(".dx-me")) { Settings.fetchUnread(); return; }
+    box._dxh = html;
+    box.innerHTML = html;
+    try { DX.top(box, ".dx-top,.dx-h1", 50); } catch (e) {}
 
     Settings.bindMain();
     Settings.fetchUnread();
@@ -71,8 +93,9 @@ const Settings = {
     $("s-sbtn").onclick = () => Settings.search(true);
     $("s-menu").onclick = async () => {
       const v = await UI.sheet({ title: T("Настройки"), actions: [
-        { label: T("Изменить профиль"), value: "edit" }, { label: T("Добавить аккаунт"), value: "add" }, { label: T("Выйти"), value: "out", danger: true }] });
-      if (v === "edit") Profile.openEdit(); else if (v === "add") Settings.addAccount(); else if (v === "out") Settings.logout();
+        { label: T("Изменить профиль"), value: "edit" }, { label: T("Добавить аккаунт"), value: "add" }, { label: T("Управление аккаунтами"), value: "mgr" },
+        { label: T("Выйти"), value: "out", danger: true }] });
+      if (v === "edit") Profile.openEdit(); else if (v === "add") Settings.addAccount(); else if (v === "mgr") Settings.accMenu(); else if (v === "out") Settings.logout();
     };
     const go = {
       edit: () => Profile.openEdit(), chats: () => Settings.chats(), privacy: () => Settings.privacy(), notif: () => Settings.notif(),
@@ -80,6 +103,7 @@ const Settings = {
       lang: () => Settings.lang(), premium: () => Settings.premium(), stars: () => Settings.stars(), biz: () => Settings.biz(),
       gift: () => Settings.gift(), games: () => Games.open(), tips: () => Browser.external(TIPS_URL), ask: () => Settings.ask(), policy: () => Settings.policy(), out: () => Settings.logout(),
       addacc: () => Settings.addAccount(), acc: (el) => Settings.switchTo(+el.dataset.v), install: () => Settings.install(),
+      accmgr: () => Settings.accMenu(), me: () => App.go("profile"),
     };
     box.onclick = (e) => {
       const el = e.target.closest("[data-a]"); if (!el || el.classList.contains("dis")) return;
@@ -181,6 +205,25 @@ const Settings = {
     const a = Settings.others()[i];
     if (!a) return;
     Store.token = a.token; location.reload();
+  },
+
+  // «Управление» в карточке аккаунтов: добавить, убрать лишний с этого устройства, выйти из текущего
+  async accMenu() {
+    const others = Settings.others();
+    const acts = [{ label: T("Добавить аккаунт"), value: "add", accent: true }]
+      .concat(others.map((a, i) => ({ label: T("Убрать с устройства: {0}", a.name || T("Аккаунт")), value: "rm" + i, danger: true })))
+      .concat([{ label: T("Выйти из текущего аккаунта"), value: "out", danger: true }]);
+    const v = await UI.sheet({ title: T("Аккаунты"), text: T("Переключайтесь между аккаунтами одним нажатием: число рядом с аккаунтом — его непрочитанные сообщения."), actions: acts, cancel: T("Закрыть") });
+    if (v === "add") Settings.addAccount();
+    else if (v === "out") Settings.logout();
+    else if (v && v.startsWith("rm")) Settings.removeAcc(+v.slice(2));
+  },
+  async removeAcc(i) {
+    const a = Settings.others()[i]; if (!a) return;
+    if (!(await ask(T("Убрать аккаунт «{0}» с этого устройства?", a.name || T("Аккаунт")), T("Убрать")))) return;
+    try { await fetch(CONFIG.API + "/api/auth/logout", { method: "POST", headers: { Authorization: "Bearer " + a.token, "Content-Type": "application/json" }, body: "{}" }); } catch (e) {}
+    Accounts.remove(a.token); delete Settings.unread[a.token];
+    Settings.render(); toast(T("Аккаунт убран"));
   },
 
   async addAccount() {
@@ -294,7 +337,8 @@ const Settings = {
     Settings.q = on ? " " : "";
     const box = $("settings-box");
     if (!on) { Settings.render(); return; }
-    box.innerHTML = `<div class="s-top s-find"><label class="s-q">${SI.search}<input id="s-q" placeholder="${esc(T("Поиск настроек"))}" autocomplete="off" autocapitalize="off" spellcheck="false"></label><button id="s-qx" class="s-cancel">${esc(T("Отмена"))}</button></div><div id="s-res"></div>`;
+    box._dxh = "";
+    box.innerHTML = `<div class="dx-find s-find"><label class="s-q">${SI.search}<input id="s-q" placeholder="${esc(T("Поиск настроек"))}" autocomplete="off" autocapitalize="off" spellcheck="false"></label><button id="s-qx" class="s-cancel">${esc(T("Отмена"))}</button></div><div id="s-res"></div>`;
     const inp = $("s-q");
     inp.oninput = () => { Settings.q = inp.value.trim() ? inp.value.trim() : " "; Settings.drawResults(); };
     $("s-qx").onclick = () => Settings.search(false);

@@ -303,7 +303,7 @@ const StatusPicker = {
   place(anchor) {
     const el = StatusPicker.el, card = el && el.querySelector(".sp-card"), tail = el && el.querySelector(".sp-tail"); if (!card) return;
     const vw = window.innerWidth, vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-    const W = Math.min(vw - 16, 392), H = Math.min(Math.round(vh * 0.62), 480);
+    const W = Math.min(vw - 16, 392); let H = Math.min(Math.round(vh * 0.62), 480);
     let r = null; try { if (anchor && anchor.isConnected) r = anchor.getBoundingClientRect(); } catch (e) {}
     if (r && !r.width && !r.height) r = null;
     let left = Math.round((vw - W) / 2), top = Math.max(10, Math.round(vh * 0.12)), side = "none", cx = W / 2;
@@ -313,7 +313,14 @@ const StatusPicker = {
       cx = Math.max(28, Math.min(W - 28, ax - left));
       if (r.bottom + 12 + H <= vh - 8) { top = Math.round(r.bottom + 12); side = "top"; }
       else if (r.top - 12 - H >= 8) { top = Math.round(r.top - 12 - H); side = "bottom"; }
-      else top = Math.max(8, Math.round((vh - H) / 2));
+      else {
+        // ни сверху, ни снизу целиком не помещается (кнопка в середине экрана): берём ту сторону, где больше места, и укорачиваем окно
+        const below = vh - 8 - (r.bottom + 12), above = r.top - 12 - 8;
+        if (Math.max(below, above) >= 300) {
+          if (below >= above) { H = Math.round(below); top = Math.round(r.bottom + 12); side = "top"; }
+          else { H = Math.round(above); top = Math.round(r.top - 12 - H); side = "bottom"; }
+        } else top = Math.max(8, Math.round((vh - H) / 2));
+      }
     }
     card.style.cssText = `left:${left}px;top:${top}px;width:${W}px;height:${H}px;transform-origin:${Math.round(cx)}px ${side === "bottom" ? H + "px" : side === "top" ? "0px" : "30%"}`;
     card.dataset.tail = side;

@@ -493,5 +493,22 @@ if (I18N.lang === "en") {
   "закрыть чат или окно": "close chat or window",
   "новая строка": "new line",
   "Отпустите файлы, чтобы отправить": "Drop files to send",
+  // новый интерфейс (ноябрь 2026)
+  "Фильтр": "Filter",
+  "Фильтр чатов": "Chat filter", "Все чаты": "All chats", "Непрочитанные": "Unread", "Личные": "Personal", "Группы": "Groups", "Каналы": "Channels",
+  "Ничего не найдено": "Nothing found", "В этом фильтре пока нет чатов. Выберите «Все чаты» в кнопке рядом с поиском.": "No chats in this filter yet. Choose “All chats” with the button next to search.",
+  "Добавить контакт": "Add contact", "Пригласить друга": "Invite a friend", "Найти пользователя": "Find a user", "Обновить список": "Refresh list",
+  "Список обновлён": "List refreshed", "Ссылка скопирована": "Link copied", "Я в Dicegram — заходи, будем на связи": "I'm on Dicegram — join me and let's stay in touch",
+  "Основное": "General", "Устройство": "Device", "Возможности": "Features", "Помощь": "Help", "Аккаунты": "Accounts", "Управление": "Manage", "Текущий": "Current",
+  "Управление аккаунтами": "Manage accounts", "Выйти из текущего аккаунта": "Log out of current account", "Убрать с устройства: {0}": "Remove from this device: {0}",
+  "Переключайтесь между аккаунтами одним нажатием: число рядом с аккаунтом — его непрочитанные сообщения.": "Switch accounts with one tap: the number next to an account is its unread messages.",
+  "Убрать аккаунт «{0}» с этого устройства?": "Remove account “{0}” from this device?", "Убрать": "Remove", "Аккаунт убран": "Account removed",
+  "Больше возможностей": "More features", "Награды и подарки": "Rewards and gifts", "Дуэли, космос и таблицы лидеров": "Duels, space and leaderboards",
+  "Изменить фото": "Change photo", "Редактировать профиль": "Edit profile", "Настройки профиля": "Profile settings", "Фото профиля": "Profile photo",
+  "Призы дня": "Prizes of the day", "За каждую игру отдельно": "Separately for each game", "Мои призы": "My prizes", "Выиграно": "Won", "Будь первым": "Be the first",
+  "Ты": "You", "игрок": "player", "игрока": "players", "игроков": "players", "приз": "prize", "приза": "prizes", "призов": "prizes", "Таблица лидеров": "Leaderboard",
+  "Подарки": "Gifts", "Рисовать подарки без видеокарты": "Draw gifts without the GPU",
+  "Включите, если подарки на телефоне обрезаются, мигают или пропадают. Рисунок будет обычным, зато одинаково чётким на любом устройстве.": "Turn on if gifts look cropped, flicker or disappear on your phone. The picture is plainer but equally sharp on any device.",
+  "Версия {0}": "Version {0}",
   });
 }

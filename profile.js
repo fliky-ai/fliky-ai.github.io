@@ -25,7 +25,7 @@ const Profile = {
   },
   // щит рейтинга вставляется точечно — без перерисовки всего профиля, чтобы не сбить нажатие или прокрутку
   paintRt() {
-    const row = document.querySelector("#profile-box .pf-hero .st2row"), r = Profile.rtOf();
+    const row = document.querySelector("#profile-box .dx-name .st2row"), r = Profile.rtOf();
     if (!row || !r) return;
     const old = row.querySelector(".lvb"); if (old) old.remove();
     row.insertAdjacentHTML("afterbegin", UserProfile.lvBadge(r));
@@ -62,20 +62,32 @@ const Profile = {
 
     const ph = premHero(u);
     const pill = (k, t, extra = "") => `<button class="ptab${Profile.tab === k ? " on" : ""}" data-t="${k}">${t}${extra}</button>`;
-    $("profile-box").innerHTML = `
-      <div class="pf-hero${ph.cls}"${ph.style}>${ph.pat}
-        <button class="pf-av" id="pf-av" aria-label="Фото профиля">${Stories.av(u, "xl")}</button>
-        <h2>${profName(u)}</h2><div class="st2row">${Profile.rtOf() ? UserProfile.lvBadge(Profile.rtOf()) : ""}<div class="st2 on">в сети</div></div>
-        ${u.premium && typeof StatusPicker !== "undefined" ? `<button class="pf-edit-st" id="pf-est">${SI.smile}<span>${esc(T("Эмодзи-статус"))}</span></button>` : ""}
-      </div>
-      <div class="pf-actions">
-        <button class="pa" id="pf-photo">${ICON.camera}<span>Выбрать фото</span></button>
-        <button class="pa" id="pf-edit">${ICON.edit}<span>Изменить</span></button>
-        <button class="pa" id="pf-set">${PI.gear}<span>Настройки</span></button>
-      </div>
-      <div class="card2 pf-info">${rows.join("")}</div>${verNote(u)}
-      <div class="pf-tabs">${pill("posts", "Публикации")}${pill("archive", "Архив публикаций")}${pill("gifts", "Подарки")}</div>
-      <div id="pf-tab"></div>`;
+    const X = (typeof DX !== "undefined" && DX.I) || new Proxy({}, { get: () => "" }), lt = /pbg-light/.test(ph.cls);
+    const html = `
+      <div class="dx-prof">
+        <div class="dx-bar"><b><span>${esc(dispName(u))}${verBadge(u)}</span><small>${esc(T("в сети"))}</small></b></div>
+        <div class="dx-cover pf-hero${ph.cls}"${ph.style}>${ph.pat}${ph.cls ? "" : '<span class="dx-pips"><i></i><i></i><i></i><i></i><i></i><i></i></span>'}</div>
+        <button class="pf-av" id="pf-av" aria-label="${esc(T("Фото профиля"))}">${Stories.av(u, "xl")}</button>
+        <div class="dx-flow">
+          <div class="dx-name pf-hero${lt ? " lt" : ""}">
+            <h2>${profName(u)}</h2><div class="st2row">${Profile.rtOf() ? UserProfile.lvBadge(Profile.rtOf()) : ""}<div class="st2 on">${esc(T("в сети"))}</div></div>
+            ${u.premium && typeof StatusPicker !== "undefined" ? `<button class="pf-edit-st" id="pf-est">${SI.smile}<span>${esc(T("Эмодзи-статус"))}</span></button>` : ""}
+          </div>
+          <div class="pf-actions">
+            <button class="pa" id="pf-photo"><span class="dx-pi">${X.camera}</span><span>${esc(T("Изменить фото"))}</span></button>
+            <button class="pa" id="pf-edit"><span class="dx-pi">${X.edit}</span><span>${esc(T("Редактировать профиль"))}</span></button>
+            <button class="pa" id="pf-set"><span class="dx-pi">${X.gear}</span><span>${esc(T("Настройки профиля"))}</span></button>
+          </div>
+          <div class="card2 pf-info">${rows.join("")}</div>${verNote(u)}
+          <div class="pf-tabs">${pill("posts", "Публикации")}${pill("archive", "Архив публикаций")}${pill("gifts", "Подарки")}</div>
+          <div id="pf-tab"></div>
+        </div>
+      </div>`;
+    const pb = $("profile-box");
+    // та же разметка — не трогаем (никакого мерцания и сброса прокрутки), только обновляем вкладку публикаций/подарков
+    if (pb._dxh === html && pb.querySelector(".dx-prof")) { Profile.drawTab(); return; }
+    pb._dxh = html;
+    pb.innerHTML = html;
 
     $("pf-av").onclick = () => Profile.photoMenu();
     $("pf-photo").onclick = () => Profile.photoMenu();
@@ -98,6 +110,7 @@ const Profile = {
       Profile.drawTab();
     };
     Profile.drawTab();
+    try { DX.profile($("profile-box")); } catch (e) {}
   },
 
   // ───────────── личный канал: один из ваших каналов показывается в вашем профиле ─────────────

@@ -31,7 +31,7 @@ const ILL = {
 };
 
 const Chats = {
-  list: [], folder: "all", noClick: 0,
+  list: [], folder: "all", kf: "all", noClick: 0,
 
   // ───────────── закрепы, звук, «непрочитано» ─────────────
   pins() { const a = Prefs.cloud("chat_pins", []); return Array.isArray(a) ? a : []; },
@@ -62,6 +62,16 @@ const Chats = {
   },
 
   byId(id) { return Chats.list.find((c) => c.peer.id === id); },
+  // фильтр по виду чата (кнопка рядом с поиском): все / непрочитанные / личные / группы / каналы
+  kindOK(c) {
+    const k = Chats.kf; if (!k || k === "all") return true;
+    const p = c.peer;
+    if (k === "unread") return c.unread > 0 || Chats.markedUnread(p.id);
+    if (k === "groups") return p.gk === "group";
+    if (k === "channels") return p.gk === "channel";
+    if (k === "personal") return !p.gk;
+    return true;
+  },
   // порядок в списке: сначала закреплённые (в порядке закрепления), затем по времени последнего сообщения
   sorted() {
     const pins = Chats.pins();
@@ -83,6 +93,7 @@ const Chats = {
     $("btn-search").onclick = () => { haptic(); Search.open(); };
     if ($("chat-sbar")) $("chat-sbar").onclick = $("btn-search").onclick;
     $("chat-fab").onclick = () => { haptic(); NewMsg.open(); };
+    if ($("btn-new")) $("btn-new").onclick = $("chat-fab").onclick;
     $("ftabs").addEventListener("click", (e) => {
       const b = e.target.closest(".ftab"); if (!b) return;
       Chats.folder = b.dataset.f; haptic(); Chats.render(); list.scrollTop = 0;
@@ -298,16 +309,19 @@ const Chats = {
     try { Notif.badge(total); } catch (e) {}
     try { Chats.tabs(); } catch (e) {}
     const box = $("chat-list");
-    const sec = typeof Secret !== "undefined" && Chats.folder === "all" && Secret.list.length;
-    const rail = typeof Space !== "undefined" && Chats.folder === "all" ? Space.rail() : "";
+    const kf = Chats.kf && Chats.kf !== "all";
+    const sec = typeof Secret !== "undefined" && Chats.folder === "all" && !kf && Secret.list.length;
+    const rail = typeof Space !== "undefined" && Chats.folder === "all" && !kf ? Space.rail() : "";
     if (!Chats.list.length && !sec) {
       box.innerHTML = rail + `<div class="cempty">${ILL.chat}<h3>${esc(T("Пока нет чатов"))}</h3><p>${esc(T("Нажмите на кнопку внизу, чтобы написать кому-нибудь, создать группу или канал. Найти человека можно через поиск."))}</p></div>`;
       return;
     }
     const fl = Chats.folder === "all" ? null : FO().get().find((f) => f.id === Chats.folder);
-    const rows = Chats.sorted().filter((c) => !fl || FO().has(fl, c));
+    const rows = Chats.sorted().filter((c) => (!fl || FO().has(fl, c)) && Chats.kindOK(c));
     box.innerHTML = rail + (rows.length || sec ? (sec ? Secret.mix(rows, (c) => Chats.rowHTML(c)) : rows.map((c) => Chats.rowHTML(c)).join(""))
+      : kf ? `<div class="cempty">${ILL.none}<h3>${esc(T("Ничего не найдено"))}</h3><p>${esc(T("В этом фильтре пока нет чатов. Выберите «Все чаты» в кнопке рядом с поиском."))}</p></div>`
       : `<div class="cempty">${ILL.none}<h3>${esc(T("В папке нет чатов"))}</h3><p>${esc(T("Добавьте чаты в папку: Настройки → Папки с чатами."))}</p></div>`);
+    try { DX.enter(box, ".chrow"); DX.syncFilter(); } catch (e) {}
     try { Object.keys(Typing.map).forEach((k) => Typing.paint(+k)); } catch (e) {}     // «печатает…» не пропадает при перерисовке
   },
 };

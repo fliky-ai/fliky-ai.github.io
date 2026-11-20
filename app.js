@@ -515,6 +515,7 @@ const App = {
     if (tab === "contacts") Contacts.load();
     if (tab === "profile") { Profile.loadStories(); Stories.load(); }
     if (tab === "settings") { Settings.fetchUnread(); }
+    try { DX.onTab(tab); } catch (e) {}
   },
 
   // серверу важно знать, смотрит ли человек в приложение: свёрнутое приложение держит соединение,
@@ -684,7 +685,8 @@ const App = {
       "voicefx.js": () => VoiceFX && typeof VoiceFX.process === "function",
       "call.js": () => Calls && typeof Calls.start === "function",
       "settings.js": () => Settings && Accounts,
-      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261114a/.test([...document.scripts].map((x) => x.src).join(" ")),
+      "rd.js": () => typeof DX !== "undefined" && DX.I && typeof DX.profile === "function",
+      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261120a/.test([...document.scripts].map((x) => x.src).join(" ")),
     };
     const bad = Object.keys(chk).filter((k) => !has(chk[k]));
     const miss = (window.__boot && window.__boot.miss || []).filter((x, i, a) => a.indexOf(x) === i && /\.(js|css)$/.test(x));

@@ -220,6 +220,8 @@ Object.assign(Settings, {
         const s = pg.$("#eco-st"); if (s) s.innerHTML = Settings.ecoState();
       },
       tg: (on, el) => { Prefs.set("eco_" + el.dataset.v, !!on); Energy.update(); },
+      // подарки без видеокарты: если на телефоне подарки обрезаются или пропадают, рисуем их обычной графикой
+      gsoft: (on) => { try { Gift3D.setSoft(!!on); GiftArt.refresh(); } catch (e) {} },
     };
     pg.timer = setInterval(() => { if (!pg.alive) return clearInterval(pg.timer); const s = pg.$("#eco-bat"); if (s) s.innerHTML = Settings.ecoBat(); }, 5000);
   },
@@ -242,6 +244,9 @@ Object.assign(Settings, {
       ${R.lbl(esc(T("Что отключать при экономии")))}
       ${R.card(
         t("vid", SI.vid, "b", "Автозапуск видео"), t("gif", SI.film, "p", "Автозапуск GIF"), t("stk", SI.smile, "y2", "Анимация стикеров"),
-        t("anim", SI.zap, "o", "Анимации интерфейса"), t("blur", SI.layers, "v", "Размытие и эффекты"), t("pre", SI.data, "g", "Предзагрузка медиа"))}`);
+        t("anim", SI.zap, "o", "Анимации интерфейса"), t("blur", SI.layers, "v", "Размытие и эффекты"), t("pre", SI.data, "g", "Предзагрузка медиа"))}
+      ${R.lbl(esc(T("Подарки")))}
+      ${R.card(R.row({ a: "gsoft", ic: SI.gift, c: "p", t: esc(T("Рисовать подарки без видеокарты")), sw: 1, on: (() => { try { return localStorage.getItem("pf_g3soft") === "1"; } catch (e) { return false; } })() }))}
+      ${R.hint(esc(T("Включите, если подарки на телефоне обрезаются, мигают или пропадают. Рисунок будет обычным, зато одинаково чётким на любом устройстве.")))}`);
   },
 });

@@ -143,10 +143,12 @@ const Attach = {
     const el = document.createElement("div");
     el.className = "sheet2";
     const ic = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+    const cp = Chat.peer || {}, canPoll = typeof Poll !== "undefined" && !!Chat.peer && !cp.is_system && !cp.secret && !(typeof BotUI !== "undefined" && BotUI.isBot(cp)) && !Chat.editing;
     el.innerHTML = `<div class="s2-card" role="dialog"><div class="tiles">
       <button data-a="media" class="tile t-blue">${ic('<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="m4 18 5-5 4 4 3-3 4 4"/>')}<span>Фото и видео</span></button>
       <button data-a="file" class="tile t-teal">${ic('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/>')}<span>Файл</span></button>
-      <button data-a="cam" class="tile t-pink">${ic('<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>')}<span>Камера</span></button></div>
+      <button data-a="cam" class="tile t-pink">${ic('<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>')}<span>Камера</span></button>
+      ${canPoll ? `<button data-a="poll" class="tile t-amber">${ic('<path d="M5 20V11M12 20V4M19 20v-6"/>')}<span>${esc(T("Опрос"))}</span></button>` : ""}</div>
       <div class="s2-btns"><button data-a="x" class="s2-cancel">Отмена</button></div></div>`;
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add("show"));
@@ -164,6 +166,7 @@ const Attach = {
       }
       else if (a === "file") Attach.preview(await Attach.pick(""));
       else if (a === "cam") Camera.open();
+      else if (a === "poll") Poll.create();
     });
   },
 

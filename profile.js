@@ -66,12 +66,11 @@ const Profile = {
     const html = `
       <div class="dx-prof">
         <div class="dx-bar"><b><span>${esc(dispName(u))}${verBadge(u)}</span><small>${esc(T("в сети"))}</small></b></div>
-        <div class="dx-cover pf-hero${ph.cls}"${ph.style}>${ph.pat}</div>
-        <div class="dx-who">
+        <div class="dx-cover pf-hero uhero${ph.cls}"${ph.style}>${ph.pat}
           <button class="pf-av" id="pf-av" aria-label="${esc(T("Фото профиля"))}">${Stories.av(u, "xl")}</button>
           <div class="dx-name">
             <h2>${profName(u)}</h2>
-            <div class="st2row">${Profile.rtOf() ? UserProfile.lvBadge(Profile.rtOf()) : ""}<div class="st2 on">${esc(T("в сети"))}</div></div>
+            <div class="st2row">${Profile.rtOf() ? UserProfile.lvBadge(Profile.rtOf()) : ""}<div class="st2 on">${esc(T("в сети"))}</div>${u.gifts_n > 0 ? `<button class="pf-gc" id="pf-gc" aria-label="${esc(T("Подарки"))}">${X.gift || ""}<b>${u.gifts_n}</b></button>` : ""}</div>
             ${u.premium && typeof StatusPicker !== "undefined" ? `<button class="pf-edit-st" id="pf-est">${SI.smile}<span>${esc(T("Эмодзи-статус"))}</span></button>` : ""}
           </div>
         </div>
@@ -90,10 +89,11 @@ const Profile = {
     pb._dxh = html;
     pb.innerHTML = html;
 
-    $("pf-av").onclick = () => Profile.photoMenu();
+    $("pf-av").onclick = (e) => { const u = App.user; if (u && u.avatar && PHV.avatar(u, $("pf-av").querySelector(".av") || $("pf-av"))) return; Profile.photoMenu(); };      // есть фото — полноэкранный просмотр, нет — выбор фото
     $("pf-photo").onclick = () => Profile.photoMenu();
     $("pf-edit").onclick = () => Profile.openEdit();
     if ($("pf-est")) $("pf-est").onclick = (e) => StatusPicker.open(e.currentTarget);
+    if ($("pf-gc")) $("pf-gc").onclick = () => { haptic(); Profile.tab = "gifts"; Profile.render(); const t = $("profile-box").querySelector(".pf-tabs"); if (t) $("profile-box").scrollTo({ top: Math.max(0, t.offsetTop - 60), behavior: "smooth" }); };
     $("pf-set").onclick = () => App.go("settings");
     Profile.bindLv();
     $("profile-box").querySelectorAll(".pi").forEach((b) => (b.onclick = (e) => {

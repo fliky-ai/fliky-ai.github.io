@@ -24,6 +24,7 @@ const DX = (() => {
     camera: ic('<path d="M3 8a2 2 0 0 1 2-2h2.2l1.4-2h6.8l1.4 2H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.8"/>'),
     edit: ic('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'),
     gear: ic('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l-.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
+    gift: ic('<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v8a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-8"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 0 1 0 5"/>', 1.9),
     star: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z"/></svg>',
     diamond: ic('<path d="M6 3h12l4 6-10 12L2 9z"/><path d="M2 9h20M9 3l3 6 3-6M12 21 9 9M12 21l3-12"/>', 1.9),
     bolt: ic('<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>'),
@@ -54,6 +55,49 @@ const DX = (() => {
     const paint = () => { S.tick = false; const on = box.scrollTop > 2; if (on !== S.on) { S.on = on; v.classList.toggle("dx-sc", on); } };
     if (!S.bound) { S.bound = true; box.addEventListener("scroll", () => { if (!S.tick) { S.tick = true; raf(paint); } }, { passive: true }); }
     paint();
+  }
+
+  // ───────────── шапка списка чатов: уезжает вверх при прокрутке вниз и возвращается при прокрутке вверх ─────────────
+  // Шапка (заголовок + поиск) лежит поверх списка и двигается ТОЛЬКО через transform вместе с пальцем: вниз — на сколько прокрутили,
+  // вверх — вдвое быстрее. Отпустили на полпути — она доезжает до ближайшего края. У самого верха шапка всегда раскрыта,
+  // «резинка» у краёв списка (iOS) и конец списка её не двигают. Папки чатов и плеер остаются на месте под шапкой.
+  function collapse(view, head, list) {
+    if (!view || !head || !list || view._dxc) return;
+    const top = document.createElement("div"); top.className = "dx-top";
+    head.parentNode.insertBefore(top, head); top.appendChild(head);
+    view.classList.add("dx-co");
+    const S = (view._dxc = { off: 0, last: list.scrollTop, range: 0, tick: false, snapT: 0, top });
+    const measure = () => {
+      view.style.setProperty("--hh", top.offsetHeight + "px");
+      const row = head.querySelector(".tgh-row"), sr = head.querySelector(".dx-sr");
+      S.range = Math.max(0, (row ? row.offsetHeight : 0) + (sr ? sr.offsetHeight : 0));
+      if (S.off > S.range) { S.off = S.range; paint(); }
+    };
+    const paint = () => { top.style.transform = S.off > 0.5 ? `translate3d(0,${(-S.off).toFixed(1)}px,0)` : ""; view.classList.toggle("dx-hid", S.off >= S.range - 0.5 && S.range > 0); };
+    const snap = () => {
+      if (S.off <= 0.5 || S.off >= S.range - 0.5) return;
+      const hide = S.off > S.range * 0.5;
+      top.classList.add("snap"); S.off = hide ? S.range : 0; paint();
+      if (hide && list.scrollTop < S.range) { try { list.scrollTo({ top: S.range, behavior: "smooth" }); } catch (e) { list.scrollTop = S.range; } }     // шапка спрятана — список «доезжает», чтобы сверху не оставалось пустой полосы
+    };
+    const step = () => {
+      S.tick = false;
+      if (document.body.classList.contains("desk")) { if (S.off) { S.off = 0; paint(); } return; }      // на компьютере шапка не прячется
+      const max = Math.max(0, list.scrollHeight - list.clientHeight);
+      const st = clamp(list.scrollTop, 0, max), d = st - S.last; S.last = st;
+      if (max <= S.range) { if (S.off) { S.off = 0; paint(); } return; }                               // список короткий — прятать нечего
+      if (st <= 2) S.off = 0;
+      else if (d > 0) S.off = Math.min(S.range, S.off + d);
+      else if (d < 0) S.off = Math.max(0, S.off + d * 2);
+      top.classList.remove("snap"); paint();
+      clearTimeout(S.snapT); S.snapT = setTimeout(snap, 110);
+    };
+    list.addEventListener("scroll", () => { if (!S.tick) { S.tick = true; raf(step); } }, { passive: true });
+    list.addEventListener("touchstart", () => { clearTimeout(S.snapT); top.classList.remove("snap"); }, { passive: true });
+    S.show = () => { S.off = 0; top.classList.add("snap"); paint(); };
+    S.measure = measure;
+    if ("ResizeObserver" in window) { const ro = new ResizeObserver(() => raf(measure)); ro.observe(top); }
+    measure();
   }
 
   // ───────────── плавное появление первых строк ─────────────
@@ -145,23 +189,36 @@ const DX = (() => {
 
   // ───────────── профиль: аватарка уменьшается и гаснет при прокрутке, имя переезжает в верхнюю панель ─────────────
   // Всё считается из одного числа — scrollTop: никакого накопленного состояния, поэтому скачков и «залипаний» нет.
+  // Границы берутся из реальной вёрстки (где аватарка и имя), а не из «магических» чисел — работает при любом размере шрифта и экрана.
+  function offTop(el, root) { let y = 0; while (el && el !== root) { y += el.offsetTop; el = el.offsetParent; } return y; }
   function profile(box) {
     const S = box._dxp || (box._dxp = { tick: false });
     const root = box.querySelector(".dx-prof"); if (!root) { S.root = null; return; }
-    S.root = root; S.av = root.querySelector("#pf-av"); S.bar = root.querySelector(".dx-bar");
+    S.root = root; S.av = root.querySelector("#pf-av"); S.bar = root.querySelector(".dx-bar"); S.nm = root.querySelector(".dx-name h2");
+    S.m = null;
+    const measure = () => {
+      const bar = S.bar ? S.bar.offsetHeight : 52;
+      const av0 = S.av ? offTop(S.av, box) : 60, avH = S.av ? S.av.offsetHeight : 110;
+      const n0 = S.nm ? offTop(S.nm, box) : av0 + avH + 10, nH = S.nm ? S.nm.offsetHeight : 28;
+      S.m = { a: Math.max(60, av0 + avH - bar), n: Math.max(80, n0 - bar), nH };       // a — прокрутка, при которой аватарка уходит под панель; n — имя
+    };
     const paint = () => {
       S.tick = false;
       if (!S.root || !S.root.isConnected) return;
-      const st = Math.max(0, box.scrollTop);
-      const sh = sm(st / 150);
+      if (!S.m) measure();
+      const st = Math.max(0, box.scrollTop), m = S.m;
       if (S.av) {
-        S.av.style.transform = st > 0.5 ? `translate3d(0,${(st * 0.32).toFixed(1)}px,0) scale(${(1 - 0.46 * sh).toFixed(3)})` : "";
-        S.av.style.opacity = st > 0.5 ? (1 - sm((st - 36) / 120)).toFixed(3) : "";
+        S.av.style.transform = st > 0.5 ? `translate3d(0,${(st * 0.3).toFixed(1)}px,0) scale(${(1 - 0.5 * sm(st / m.a)).toFixed(3)})` : "";
+        S.av.style.opacity = st > 0.5 ? (1 - sm((st - m.a * 0.28) / (m.a * 0.62))).toFixed(3) : "";
       }
-      if (S.bar) S.bar.style.setProperty("--cl", sm((st - 128) / 48).toFixed(3));
+      if (S.bar) S.bar.style.setProperty("--cl", sm((st - (m.n - 40)) / 40).toFixed(3));
     };
     S.paint = paint;
-    if (!S.bound) { S.bound = true; box.addEventListener("scroll", () => { if (!S.tick) { S.tick = true; raf(paint); } }, { passive: true }); }
+    if (!S.bound) {
+      S.bound = true;
+      box.addEventListener("scroll", () => { if (!S.tick) { S.tick = true; raf(paint); } }, { passive: true });
+      if ("ResizeObserver" in window) new ResizeObserver(() => { S.m = null; raf(paint); }).observe(box);
+    }
     paint();
   }
 
@@ -169,15 +226,17 @@ const DX = (() => {
   function init() {
     const safe = (f) => { try { f(); } catch (e) { try { console.error("rd.js", e); } catch (e2) {} } };
     safe(dock);
+    safe(() => collapse($("v-chats"), $("chats-head"), $("chat-list")));
     safe(() => hair($("chat-list"), $("v-chats")));
     safe(() => hair($("contact-list"), $("v-contacts")));
   }
   function onTab(tab) {
     raf(() => {
       const cl = $("contact-list"); if (tab === "contacts" && cl && cl._dxLay) cl._dxLay();
+      if (tab === "chats") { const c = $("v-chats") && $("v-chats")._dxc; if (c && !$("chat-list").scrollTop) c.show(); }
       if (tab === "profile") { const b = $("profile-box"); if (b && b._dxp && b._dxp.paint) b._dxp.paint(); }
     });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
-  return { I, ic, dock, hair, enter, scrub, profile, onTab, init };
+  return { I, ic, dock, hair, collapse, enter, scrub, profile, onTab, init };
 })();

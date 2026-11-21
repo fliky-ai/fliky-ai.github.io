@@ -15,6 +15,8 @@ const MIC = {
   dl: svg('<path d="M12 4v11"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/>'),
   save: svg('<rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M12 7v7"/><path d="m9 11.5 3 3 3-3"/><path d="M10.5 18.5h3"/>'),
   link: svg('<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>'),
+  pres: svg('<path d="M5 20V11M12 20V4M19 20v-6"/>'),
+  pclose: svg('<circle cx="12" cy="12" r="9"/><rect x="9" y="9" width="6" height="6" rx="1.5"/>'),
   more: svg('<path d="m6 9 6 6 6-6"/>'),
 };
 
@@ -31,10 +33,12 @@ const MsgMenu = {
     if (k === "call") { L.push(["del", "Удалить"]); return L; }
     if (m.id && m.reacts && m.reacts.length && k !== "call") L.push(["who", T("Реакции") + " · " + m.reacts.reduce((a, r) => a + (r.n || 0), 0)]);
     if (m.id && canWrite) L.push(["reply", "Ответить"]);
+    if (k === "poll" && m.id && m.poll && !m.pending) L.push(["pres", T("Результаты")]);
     if (m.text) L.push(["copy", "Копировать"]);
     if (m.id) L.push(["forward", "Переслать"]);
     if (m.id && gk) L.push(["link", "Копировать ссылку"]);
     if (m.id && canPin) L.push([m.pin ? "unpin" : "pin", m.pin ? "Открепить" : "Закрепить"]);
+    if (k === "poll" && Poll.canClose(m)) L.push(["pclose", T("Завершить опрос")]);
     if (m.id && (mine || editOther) && (k === "text" || k === "photo" || k === "gif" || k === "file")) L.push(["edit", "Изменить"]);
     if (k === "sticker" && a.fid) L.push(["stk", "Добавить в мои стикеры"]);
     if (k === "gif" && a.fid) L.push(["gif", "Сохранить GIF"]);
@@ -64,36 +68,53 @@ const MsgMenu = {
     document.body.appendChild(ov);
 
     const bar = ov.querySelector(".mm-react"), grid = ov.querySelector(".mm-grid"), clone = ov.querySelector(".mm-clone"), menu = ov.querySelector(".mm-menu");
-    const gap = 8, barH = bar ? bar.offsetHeight : 0, menuH = menu.offsetHeight, safeT = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--safe-t")) || 0;
-    const showClone = rc.height <= vh * 0.42;
-    if (showClone) {
-      const c = el.cloneNode(true);
-      c.classList.remove("new", "swiping", "hl"); c.style.transform = "";
-      clone.appendChild(c);
-      clone.style.width = rc.width + "px";
-    } else clone.remove();
-    const cloneH = showClone ? rc.height : 0;
-    const total = (barH ? barH + gap : 0) + cloneH + (showClone ? gap : 0) + menuH;
-    let top = showClone ? rc.top - (barH ? barH + gap : 0) : (vh - total) / 2;
-    top = clamp(top, safeT + 8, Math.max(safeT + 8, vh - total - 8));
-    const place = (node, y) => { node.style.top = y + "px"; };
-    let y = top;
-    if (bar) { place(bar, y); y += barH + gap; }
-    if (showClone) { place(clone, y); y += cloneH + gap; }
-    place(menu, y);
-    if (grid) place(grid, top);
+    const cs = getComputedStyle(document.documentElement);
+    const safeT = parseFloat(cs.getPropertyValue("--safe-t")) || 0, safeB = parseFloat(cs.getPropertyValue("--safe-b")) || 0;
+    const gap = 8, M = 8, top0 = safeT + M, bot0 = vh - safeB - M;
+    // копия сообщения лежит ровно поверх настоящего (оно на время меню скрыто) — для сообщений любой высоты, в том числе фото
+    const c = el.cloneNode(true);
+    c.classList.remove("new", "swiping", "hl", "mm-hid"); c.style.transform = ""; c.style.visibility = "";
+    c.querySelectorAll("video,audio").forEach((v) => { try { v.pause(); v.removeAttribute("autoplay"); } catch (e) {} });
+    clone.appendChild(c);
+    clone.style.width = rc.width + "px"; clone.style.left = rc.left + "px"; clone.style.top = rc.top + "px";
+    el.classList.add("mm-hid"); MsgMenu.src = el;
 
-    // по горизонтали выравниваем по стороне пузыря
+    // ── где разместить панель реакций и список действий (меню само считает границы экрана) ──
+    const barH = bar ? bar.offsetHeight : 0, menuH = menu.offsetHeight, needBar = barH ? barH + gap : 0, needMenu = menuH + gap;
+    const above = rc.top - top0, below = bot0 - rc.bottom;
+    let barY = 0, menuY = 0, dy = 0, up = false;        // up — список открывается выше сообщения
+    if (above >= needBar && below >= needMenu) { barY = rc.top - needBar; menuY = rc.bottom + gap; }                  // реакции сверху, действия снизу
+    else if (below >= needBar + needMenu) { barY = rc.bottom + gap; menuY = barY + needBar; }                       // сообщение у верха: всё ниже него
+    else if (above >= needBar + needMenu) { up = true; menuY = rc.top - gap - menuH; barY = menuY - needBar; }   // сообщение внизу: всё выше него
+    else {
+      const T = needBar + rc.height + needMenu;
+      if (T <= bot0 - top0) {                            // помещается целиком, если чуть сдвинуть сообщение — сдвигаем плавно
+        const st = clamp(rc.top - needBar, top0, bot0 - T);
+        dy = st + needBar - rc.top; barY = st; menuY = st + needBar + rc.height + gap;
+        if (!barH) menuY = st + rc.height + gap;
+      } else {                                           // очень высокое сообщение: панели ложатся поверх него, ближе к пальцу
+        const blockH = needBar + menuH, ty = Chat.touchY > 0 ? Chat.touchY : (rc.top + rc.bottom) / 2;
+        const st = clamp(ty > vh / 2 ? ty - blockH - 24 : ty + 24, top0, bot0 - blockH);
+        barY = st; menuY = st + needBar;
+      }
+    }
+    if (bar) bar.style.top = barY + "px";
+    menu.style.top = menuY + "px";
+    if (grid) grid.style.top = clamp(Math.min(barY, menuY), top0, Math.max(top0, bot0 - Math.min(grid.offsetHeight || 340, vh * 0.54))) + "px";
+    clone.style.setProperty("--dy", dy + "px");
+
+    // по горизонтали выравниваем по стороне пузыря и не даём выйти за экран
     const side = (node, w) => {
-      const x = mine ? Math.min(rc.right, vw - 8) - w : Math.max(rc.left, 8);
-      node.style.left = clamp(x, 8, vw - w - 8) + "px";
+      const x = mine ? Math.min(rc.right, vw - M) - w : Math.max(rc.left, M);
+      node.style.left = clamp(x, M, Math.max(M, vw - w - M)) + "px";
     };
-    if (showClone) { clone.style.left = rc.left + "px"; }
-    if (bar) side(bar, bar.offsetWidth);
-    side(menu, menu.offsetWidth);
-    if (grid) { grid.style.width = Math.min(340, vw - 16) + "px"; side(grid, Math.min(340, vw - 16)); }
-    if (bar) { bar.style.transformOrigin = (mine ? "right" : "left") + " bottom"; }
-    menu.style.transformOrigin = (mine ? "right" : "left") + " top";
+    if (bar) { bar.style.maxWidth = vw - 2 * M + "px"; side(bar, Math.min(bar.offsetWidth, vw - 2 * M)); }
+    menu.style.maxWidth = vw - 2 * M + "px"; side(menu, Math.min(menu.offsetWidth, vw - 2 * M));
+    if (grid) { const gw = Math.min(348, vw - 2 * M); grid.style.width = gw + "px"; side(grid, gw); }
+    const ox = mine ? "right" : "left";
+    if (bar) bar.style.transformOrigin = ox + (barY < rc.top ? " bottom" : " top");
+    menu.style.transformOrigin = ox + (up ? " bottom" : " top");
+    if (grid) grid.style.transformOrigin = ox + " top";
 
     requestAnimationFrame(() => ov.classList.add("show"));
     MsgMenu.release = Nav.layer(() => MsgMenu.hide());
@@ -140,8 +161,10 @@ const MsgMenu = {
   hide(now) {
     const ov = MsgMenu.ov; if (!ov) return;
     MsgMenu.ov = null; MsgMenu.release = null;
+    const src = MsgMenu.src; MsgMenu.src = null;
     ov.classList.remove("show"); ov.classList.add("out");
-    if (now) ov.remove(); else setTimeout(() => ov.remove(), 180);
+    const done = () => { ov.remove(); if (src) src.classList.remove("mm-hid"); };
+    if (now) done(); else setTimeout(done, 200);
   },
 };
 

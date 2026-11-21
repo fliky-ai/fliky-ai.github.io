@@ -1,0 +1,29 @@
+/* avview.css — полноэкранный просмотр фото (см. avview.js) */
+.phv{position:fixed;inset:0;z-index:160;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;color:#fff;-webkit-tap-highlight-color:transparent}
+.phv-bg{position:absolute;inset:0;background:#000;opacity:0}
+.phv-st{position:absolute;inset:0;touch-action:none}
+.phv-img{position:absolute;left:50%;top:50%;transform-origin:50% 50%;will-change:transform;overflow:hidden;opacity:0;border-radius:0;background:#111}
+.phv.ready .phv-img{opacity:1}
+.phv-img img{display:block;width:100%;height:100%;pointer-events:none;-webkit-user-drag:none}
+.phv-load{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;pointer-events:none;transition:opacity .2s}
+.phv-load i{display:block;width:100%;height:100%;border-radius:50%;border:3px solid rgba(255,255,255,.25);border-top-color:#fff;animation:phvSpin .8s linear infinite}
+.phv.ready .phv-load{opacity:0}
+@keyframes phvSpin{to{transform:rotate(360deg)}}
+.phv-top{position:absolute;left:0;right:0;top:0;z-index:3;display:flex;align-items:center;gap:6px;padding:calc(var(--safe-t,0px) + 8px) 8px 26px;background:linear-gradient(rgba(0,0,0,.6),rgba(0,0,0,0));opacity:0;transform:translateY(-6px);transition:opacity .22s,transform .22s}
+.phv.show .phv-top{opacity:1;transform:none}
+.phv.nochrome .phv-top,.phv.drag .phv-top,.phv.out .phv-top{opacity:0;transform:translateY(-8px);pointer-events:none}
+.phv-b{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:#fff;transition:background .15s}
+.phv-b:active{background:rgba(255,255,255,.18)}
+.phv-b svg{width:24px;height:24px}
+.phv-t{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.2}
+.phv-t b{font-size:17px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.phv-t small{font-size:13px;opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.phv-menu{position:absolute;right:10px;top:calc(var(--safe-t,0px) + 54px);z-index:4;min-width:236px;padding:6px 0;background:rgba(34,36,42,.97);border-radius:16px;box-shadow:0 14px 40px rgba(0,0,0,.5),inset 0 0 0 1px rgba(255,255,255,.07);transform-origin:top right;animation:phvMenu .22s cubic-bezier(.2,1.2,.4,1)}
+.phv-menu[hidden]{display:none}
+.phv-menu button{display:flex;align-items:center;gap:14px;width:100%;padding:13px 18px;font-size:16px;font-weight:600;color:#fff;text-align:left}
+.phv-menu button:active{background:rgba(255,255,255,.1)}
+.phv-menu svg{width:22px;height:22px;flex:none;opacity:.85}
+@keyframes phvMenu{from{transform:scale(.7);opacity:0}}
+.zoomable{cursor:zoom-in}
+html.lite .phv-top,html.eco-anim .phv-top{transition:none}
+.phv.out{pointer-events:none}

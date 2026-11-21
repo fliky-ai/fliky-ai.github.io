@@ -77,7 +77,7 @@ const React = {
   chips(m) {
     const st = typeof Stars2 !== "undefined" ? Stars2.chip(m) : "";
     if ((!m.reacts || !m.reacts.length) && !st) return "";
-    return `<div class="rx">${st}${(m.reacts || []).map((r) => `<button class="rx-chip${r.mine ? " mine" : ""}" data-e="${esc(r.e)}"><span class="e">${React.glyph(r)}</span>${r.n > 1 ? `<span class="n">${r.n}</span>` : ""}</button>`).join("")}</div>`;
+    return `<div class="rx">${st}${(m.reacts || []).map((r) => `<button class="rx-chip${r.mine ? " mine" : ""}" data-e="${esc(r.e)}"><span class="e">${React.glyph(r)}</span><span class="n">${r.n}</span></button>`).join("")}</div>`;
   },
 
   // содержимое меню: верхняя панель реакций и (по кнопке) большая панель
@@ -111,33 +111,65 @@ const React = {
 };
 
 // ───────────── кто поставил реакцию ─────────────
+// маленькое окно: вкладки по реакциям, у каждого человека — фото (нажатие открывает фото на весь экран), имя, @username,
+// его реакция; нажатие на строку открывает профиль. Пока окно открыто, список обновляется при каждом изменении реакций.
+React.whoLive = null;
 React.who = async function (m, only) {
   if (only === undefined && m && m.pr && typeof Stars2 !== "undefined" && arguments.length > 1) return Stars2.react(m);     // долгое нажатие по ★-чипу — окно звёздной реакции
   if (!m || !m.id) return;
-  let d;
-  try { d = await api("/api/react/who?id=" + m.id); } catch (e) { return toast(e.message); }
-  d.tabs.forEach((t) => { if (t.url) CE.put([{ id: +t.e.slice(2), url: t.url, mime: t.mime }]); });
-  const L = Gifts.layer("rw-ov", `<div class="rw-card" role="dialog"><button class="gb-x" data-x aria-label="${esc(T("Закрыть"))}">${GIC.x}</button>
-    <h3>${esc(T("Реакции"))} · ${d.total}</h3>
-    <div class="rw-tabs"><button class="on" data-t="">${esc(T("Все"))} ${d.total}</button>${d.tabs.map((t) => `<button data-t="${esc(t.e)}"><span class="e">${React.glyph(t)}</span>${t.n}</button>`).join("")}</div>
-    <div class="rw-list"></div></div>`, 128);
-  const el = L.el, list = el.querySelector(".rw-list");
-  const draw = (tab) => {
-    const rows = d.items.filter((x) => !tab || x.e === tab);
-    list.innerHTML = rows.map((x) => `<button class="rw-row" data-u="${x.user.id}">${avatar(x.user, "sm")}<span class="tx"><b>${esc(x.user.id === (App.user && App.user.id) ? T("Вы") : dispName(x.user))}</b></span><span class="e">${React.glyph(x)}</span></button>`).join("") || `<p class="rw-e">${esc(T("Пока никто"))}</p>`;
+  const load = async () => {
+    const d = await api("/api/react/who?id=" + m.id);
+    d.tabs.forEach((t) => { if (t.url) CE.put([{ id: +t.e.slice(2), url: t.url, mime: t.mime }]); });
+    d.items.forEach((x) => { if (x.url && x.e.startsWith("c:")) CE.put([{ id: +x.e.slice(2), url: x.url, mime: x.mime }]); });
+    return d;
   };
-  draw(only || "");
-  if (only) { el.querySelectorAll(".rw-tabs button").forEach((b) => b.classList.toggle("on", b.dataset.t === only)); }
+  let d;
+  try { d = await load(); } catch (e) { return toast(e.message); }
+  if (!d.total) return toast(T("Реакций пока нет"));
+  if (React.whoLive) { try { React.whoLive.close(); } catch (e) {} }
+  const L = Gifts.layer("rw-ov", `<div class="rw-card" role="dialog"><i class="rw-grip"></i><button class="gb-x" data-x aria-label="${esc(T("Закрыть"))}">${GIC.x}</button>
+    <h3></h3><div class="rw-tabs"></div><div class="rw-list"></div></div>`, 128);
+  const el = L.el, list = el.querySelector(".rw-list"), tabsEl = el.querySelector(".rw-tabs"), title = el.querySelector("h3");
+  let tab = only || "";
+  const me = () => (App.user && App.user.id) || 0;
+  const drawTabs = () => {
+    if (tab && !d.tabs.some((t) => t.e === tab)) tab = "";
+    title.textContent = T("Реакции") + " · " + d.total;
+    tabsEl.innerHTML = `<button class="${tab ? "" : "on"}" data-t="">${esc(T("Все"))} <b>${d.total}</b></button>` +
+      d.tabs.map((t) => `<button class="${tab === t.e ? "on" : ""}" data-t="${esc(t.e)}"><span class="e">${React.glyph(t)}</span><b>${t.n}</b></button>`).join("");
+    tabsEl.style.display = d.tabs.length > 1 ? "" : "none";       // одна реакция — вкладки не нужны
+  };
+  const sub = (u) => (u.username ? "@" + u.username : u.online ? T("в сети") : "");
+  const drawList = (anim) => {
+    const rows = d.items.filter((x) => !tab || x.e === tab);
+    const old = anim ? null : new Set([...list.children].map((r) => r.dataset.k));
+    list.innerHTML = rows.map((x) => `<div class="rw-row${old && !old.has(x.user.id + x.e) ? " new" : ""}" data-u="${x.user.id}" data-k="${x.user.id}${esc(x.e)}" role="button" tabindex="0">
+      <span class="rw-av" data-av="${x.user.id}">${avatar(x.user, "sm")}</span>
+      <span class="tx"><b>${esc(x.user.id === me() ? T("Вы") : dispName(x.user))}${verBadge(x.user)}</b>${sub(x.user) ? `<small>${esc(sub(x.user))}</small>` : ""}</span>
+      <span class="e">${React.glyph(x)}</span></div>`).join("");
+  };
+  drawTabs(); drawList(true);
   el.addEventListener("click", (e) => {
     const t = e.target.closest(".rw-tabs button");
-    if (t) { el.querySelectorAll(".rw-tabs button").forEach((b) => b.classList.toggle("on", b === t)); draw(t.dataset.t); return; }
-    const r = e.target.closest(".rw-row");
-    if (r) {
-      const it = d.items.find((x) => String(x.user.id) === r.dataset.u); if (!it) return;
-      L.close && L.close();
-      if (it.user.id !== (App.user && App.user.id)) setTimeout(() => { try { UserProfile.open(it.user); } catch (er) {} }, 200);
+    if (t) { tab = t.dataset.t; drawTabs(); drawList(true); return; }
+    const r = e.target.closest(".rw-row"); if (!r) return;
+    const it = d.items.find((x) => String(x.user.id) === r.dataset.u); if (!it) return;
+    if (e.target.closest(".rw-av")) {                                              // фото — на весь экран (если фото нет — открывается профиль)
+      if (it.user.avatar && PHV.avatar(it.user, r.querySelector(".rw-av .av") || r.querySelector(".rw-av"))) return;
     }
+    L.close && L.close();
+    if (it.user.id !== me()) setTimeout(() => { try { UserProfile.open(it.user); } catch (er) {} }, 200);
   });
+  const live = { id: m.id, close: L.close, async refresh() {
+    try {
+      const nd = await load();
+      if (React.whoLive !== live) return;
+      if (!nd.total) return L.close();                                              // последнюю реакцию сняли — окно закрывается
+      d = nd; drawTabs(); drawList(false);
+    } catch (e) {}
+  } };
+  React.whoLive = live;
+  L.on(() => { if (React.whoLive === live) React.whoLive = null; });
 };
 
 // ───────────── набор эмодзи по ссылке ─────────────

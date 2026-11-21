@@ -255,7 +255,7 @@
 .tb-back svg{width:22px;height:22px}
 
 /* ─────────── меню сообщения ─────────── */
-.mm{position:fixed;inset:0;z-index:95;background:rgba(0,0,0,.3);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);opacity:0;transition:opacity .18s;touch-action:none;-webkit-user-select:none;user-select:none}
+.mm{position:fixed;inset:0;z-index:95;background:rgba(0,0,0,.38);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);opacity:0;transition:opacity .18s;touch-action:none;-webkit-user-select:none;user-select:none}
 .mm.show{opacity:1}
 .mm.out{opacity:0;pointer-events:none}
 .mm-react{position:absolute;display:flex;align-items:center;gap:2px;padding:6px 8px;background:var(--surface);border-radius:30px;box-shadow:var(--shadow-pop);transform:scale(.5);opacity:0;transition:transform .3s cubic-bezier(.2,1.4,.4,1),opacity .15s}
@@ -270,10 +270,12 @@
 .mm-grid{z-index:3;position:absolute;max-height:min(46vh,290px);overflow-y:auto;display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:8px;background:var(--surface);border-radius:22px;box-shadow:var(--shadow-pop);animation:gridIn .25s cubic-bezier(.2,1.2,.4,1)}
 @keyframes gridIn{from{transform:scale(.6);opacity:0}}
 .mm-grid button{height:42px;font-size:25px;border-radius:12px;display:grid;place-items:center}
-.mm-clone{position:absolute;pointer-events:none;transform:scale(.96);transition:transform .22s cubic-bezier(.2,1.2,.4,1),opacity .2s}
-.mm.show .mm-clone{transform:none}
+.mm-clone{position:absolute;pointer-events:none;transform:none;transition:transform .28s cubic-bezier(.2,.85,.25,1),opacity .2s;will-change:transform}
+.mm.show .mm-clone{transform:translateY(var(--dy,0px))}
+.mm.out .mm-clone{transform:none}
+.mm-hid{visibility:hidden!important}
 .mm-clone.dim{opacity:0}
-.mm-clone .b{max-width:none;width:100%;margin:0;animation:none}
+.mm-clone .b{max-width:none;width:100%;margin:0!important;display:flow-root;animation:none}     /* flow-root: время (float) остаётся внутри пузыря, как в ленте, где пузырь — flex-элемент */
 .mm-clone .b::after{display:none}
 .mm-menu{position:absolute;width:248px;padding:6px 0;background:var(--surface);border-radius:18px;box-shadow:var(--shadow-pop);transform:scale(.7);opacity:0;transition:transform .26s cubic-bezier(.2,1.2,.4,1),opacity .15s}
 .mm.show .mm-menu{transform:none;opacity:1}
@@ -302,7 +304,7 @@
 .tile{flex:1;max-width:122px;display:flex;flex-direction:column;align-items:center;gap:9px;padding:15px 6px 12px;border-radius:16px;background:var(--raised);font-size:13px;font-weight:700}
 .tile svg{width:30px;height:30px}
 .tile span{color:var(--text)}
-.t-blue{color:#4F8CFF}.t-teal{color:#2BC7A3}.t-pink{color:#FF6FA3}
+.t-blue{color:#4F8CFF}.t-teal{color:#2BC7A3}.t-pink{color:#FF6FA3}.t-amber{color:#F5A524}
 .pv-note{font-size:12.5px!important}
 .pv-list{display:flex;gap:8px;overflow-x:auto;padding:8px 0 2px}
 .pv-i{flex:none;width:96px;height:96px;border-radius:12px;overflow:hidden;background:var(--raised)}
@@ -812,3 +814,38 @@ html.eco-anim .dl-btn.busy .dl-ar{animation:none}
 .rw-row .e .cem-m{width:26px;height:26px}
 .rw-e{padding:26px;text-align:center;color:var(--dim)}
 @media (prefers-reduced-motion:reduce){.mm.expanded .mm-grid,.rx-chip.bump{animation:none}}
+
+/* меню сообщения: на слабых устройствах без размытия фона, панели не шире экрана */
+html.lite .mm,html.eco-anim .mm{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(0,0,0,.55)}
+html.lite .mm-react,html.eco-anim .mm-react{-webkit-backdrop-filter:none;backdrop-filter:none;background:var(--surface)}
+.mm-react{max-width:calc(100vw - 16px);box-sizing:border-box}
+.mm-react button{flex:0 1 40px;min-width:26px}
+.mm-react .mm-more{flex:0 0 34px}
+.mm-menu{box-sizing:border-box}
+.mm-clone{z-index:1}
+.mm-react,.mm-menu{z-index:3}
+
+/* реакции под сообщением: анимируется только то, что изменилось */
+.rx-chip{animation:none}
+.rx-chip.pop{animation:chipIn .38s cubic-bezier(.2,1.6,.4,1)}
+.rx-chip.bump{animation:chipBump .34s cubic-bezier(.2,1.7,.4,1)}
+.rx-chip .n{display:inline-block;min-width:8px;text-align:center}
+.rx-chip .n.roll{animation:nRoll .3s cubic-bezier(.2,.9,.3,1)}
+.rx-chip .n.roll[data-up="0"]{animation-name:nRollDn}
+@keyframes nRoll{from{transform:translateY(80%);opacity:0}to{transform:none;opacity:1}}
+@keyframes nRollDn{from{transform:translateY(-80%);opacity:0}to{transform:none;opacity:1}}
+.eco-anim .rx-chip.pop,.eco-anim .rx-chip.bump,.eco-anim .rx-chip .n.roll,html.lite .rx-chip.pop,html.lite .rx-chip.bump,html.lite .rx-chip .n.roll{animation:none}
+
+/* окно «кто поставил реакцию» */
+.rw-grip{position:absolute;left:50%;top:8px;width:38px;height:4px;margin-left:-19px;border-radius:2px;background:rgba(127,127,127,.4)}
+.rw-card{padding-top:24px}
+.rw-card h3{margin:0 44px 10px 8px}
+.rw-tabs button b{font-weight:800}
+.rw-row{cursor:pointer;-webkit-tap-highlight-color:transparent}
+.rw-row .rw-av{flex:none;display:block;width:44px;height:44px;border-radius:50%}
+.rw-row .rw-av .av{width:44px;height:44px;font-size:17px}
+.rw-row .tx b{display:flex;align-items:center;gap:4px;min-width:0}
+.rw-row .tx small{display:block;margin-top:1px;font-size:13px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rw-row.new{animation:rwIn .3s cubic-bezier(.2,.9,.3,1)}
+@keyframes rwIn{from{opacity:0;transform:translateY(8px)}}
+html.lite .rw-row.new,.eco-anim .rw-row.new{animation:none}

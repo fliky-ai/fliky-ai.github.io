@@ -61,8 +61,10 @@
 @keyframes dxView{from{opacity:.001}to{opacity:1}}
 
 /* ═════════ 3. ШАПКА ВКЛАДКИ: одинаковая в «Чаты», «Контакты», «Настройки» ═════════ */
-#v-chats>.tgh,#v-contacts>.tgh,.dx-sh{position:relative;flex:none;z-index:4;background:var(--list-bg)!important;color:var(--text)!important;box-shadow:none!important;transition:box-shadow .2s}
+#v-chats>.tgh,#v-contacts>.tgh,.dx-top>.tgh,.dx-sh{position:relative;flex:none;z-index:4;background:var(--list-bg)!important;color:var(--text)!important;box-shadow:none!important;transition:box-shadow .2s}
 .dx-sc>.tgh,.dx-sc .dx-sh{box-shadow:0 1px 0 var(--hair)!important}
+.dx-sc .dx-top>.tgh{box-shadow:none!important}
+.dx-sc .dx-top{box-shadow:0 1px 0 var(--hair)}
 .dx-sh{position:sticky;top:0;z-index:5;background:var(--bg)!important}
 .tgh-row{height:var(--hdr-h)!important;padding:0 10px 0 var(--gut)!important;gap:2px!important}
 .tgh-title{font-size:28px!important;font-weight:800!important;letter-spacing:-.03em!important;line-height:1;color:var(--text)!important}
@@ -81,7 +83,14 @@
 #chat-list,#contact-list{padding-top:0!important;overscroll-behavior:contain}
 #v-chats,#v-contacts{background:var(--list-bg)}
 /* плеер в списке чатов — своя полоса под шапкой */
-#v-chats>#mbar{background:var(--list-bg);border-bottom:1px solid var(--hair)}
+#v-chats>#mbar,.dx-top>#mbar{background:var(--list-bg);border-bottom:1px solid var(--hair)}
+/* шапка чатов лежит поверх списка и уезжает transform-ом (rd.js → collapse); у списка сверху отступ на её высоту */
+.dx-co{position:relative;overflow:hidden}
+.dx-top{position:absolute;left:0;right:0;top:0;z-index:6;background:var(--list-bg);will-change:transform;transition:box-shadow .2s}
+.dx-top.snap{transition:transform .26s cubic-bezier(.2,.8,.2,1),box-shadow .2s}
+.dx-co>#chat-list{padding-top:var(--hh,0px)!important;scroll-padding-top:var(--hh,0px)}
+body.desk .dx-co>#chat-list{padding-top:var(--hh,0px)!important}
+html.lite .dx-top.snap,html.eco-anim .dx-top.snap{transition-duration:.12s}
 
 /* ═════════ 4. ПОИСК ═════════ */
 .dx-sr{padding:0 var(--gut) 10px}
@@ -109,6 +118,108 @@ button.sbar:active{background:color-mix(in srgb,var(--raised) 86%,var(--accent) 
 #v-chats .ftab.on .fb{background:rgba(255,255,255,.26)!important;color:#fff!important}
 #v-chats .ftab.on::after{display:none!important}
 
+/* ═════════ 4b. НОВЫЙ ПОИСК (search.js): на весь экран, плавное открытие, поле с анимацией, вкладки с «ползунком», скелетоны, история ═════════ */
+#search.srx{background:var(--list-bg);z-index:40}
+body:not(.desk) #search.srx{transform:translateY(16px) scale(.988);opacity:0;box-shadow:none;transition:transform .3s var(--rd-ease),opacity .2s ease,visibility 0s .3s}
+body:not(.desk) #search.srx.open{transform:none;opacity:1;box-shadow:none;transition:transform .36s var(--rd-ease),opacity .24s ease}
+.srx-head{flex:none;display:flex;align-items:center;gap:2px;padding:calc(var(--safe-t) + 8px) 12px 8px 4px;background:var(--list-bg)}
+body.desk .srx-head{border-radius:22px 22px 0 0}
+.srx-back{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;color:var(--text);flex:none;transition:background .15s,transform .15s}
+.srx-back svg{width:24px;height:24px}
+.srx-back:active{background:var(--press);transform:scale(.92)}
+.srx-field{flex:1;min-width:0;display:flex;align-items:center;gap:9px;height:46px;padding:0 5px 0 15px;border-radius:23px;background:var(--raised);box-shadow:inset 0 0 0 1px var(--hair);cursor:text;transition:box-shadow .24s,background .24s}
+.srx-field:focus-within{box-shadow:inset 0 0 0 1.6px color-mix(in srgb,var(--accent) 65%,transparent),0 0 0 4px color-mix(in srgb,var(--accent) 12%,transparent)}
+.srx-ico{position:relative;width:20px;height:20px;flex:none;color:var(--dim);transition:color .2s}
+.srx-field:focus-within .srx-ico{color:var(--accent)}
+.srx-ico i{position:absolute;inset:0;display:grid;place-items:center;transition:opacity .2s,transform .26s var(--rd-ease)}
+.srx-ico .s1 svg{width:20px;height:20px}
+.srx-ico .s2{opacity:0;transform:scale(.5);border:2.2px solid color-mix(in srgb,var(--accent) 24%,transparent);border-top-color:var(--accent);border-radius:50%;box-sizing:border-box}
+.srx-field.busy .s1{opacity:0;transform:scale(.5) rotate(-40deg)}
+.srx-field.busy .s2{opacity:1;transform:none;animation:srxSp .7s linear infinite}
+@keyframes srxSp{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+.srx-field input{flex:1;min-width:0;height:100%;padding:0;border:0;outline:0;background:none;color:var(--text);font:inherit;font-size:16.5px;font-weight:500;caret-color:var(--accent);-webkit-appearance:none;appearance:none}
+.srx-field input::placeholder{color:var(--dim)}
+.srx-field input::-webkit-search-cancel-button,.srx-field input::-webkit-search-decoration{-webkit-appearance:none;display:none}
+.srx-clear{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;color:var(--dim);flex:none;opacity:0;transform:scale(.5) rotate(-90deg);pointer-events:none;transition:opacity .18s,transform .26s var(--rd-spring),background .15s}
+.srx-clear.on{opacity:1;transform:none;pointer-events:auto}
+.srx-clear svg{width:16px;height:16px}
+.srx-clear:active{background:var(--press)}
+/* вкладки */
+.srx-tabs{flex:none;position:relative;background:var(--list-bg)}
+.srx-tabs::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--hair);pointer-events:none}
+.srx-tin{position:relative;display:flex;overflow-x:auto;scrollbar-width:none;padding:0 6px;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+.srx-tin::-webkit-scrollbar{display:none}
+.srx .sr-tab{position:relative;flex:none;padding:11px 14px 13px;font-size:14.5px;font-weight:700;color:var(--dim);white-space:nowrap;background:none;transition:color .22s}
+.srx .sr-tab:active{opacity:.7}
+.srx .sr-tab.on{color:var(--accent)}
+.srx .sr-tab.on::after{display:none}
+.srx-ind{position:absolute;left:0;bottom:0;height:3px;width:var(--iw,24px);border-radius:3px 3px 0 0;background:var(--accent);transform:translateX(var(--ix,10px));transition:transform .32s var(--rd-ease),width .32s var(--rd-ease);z-index:1}
+/* список */
+.srx .sr-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;background:var(--list-bg);-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--safe-b,0px) + 28px)}
+.sr-rw{display:flex;align-items:center;position:relative}
+.sr-rw>.sr-row,.sr-rw>.sr-file{flex:1;min-width:0}
+.sr-rw>.sr-x{width:42px;height:42px;margin-right:8px;border-radius:50%;display:grid;place-items:center;color:var(--dim);transition:background .15s,color .15s}
+.sr-rw>.sr-x svg{width:17px;height:17px}
+.sr-rw>.sr-x:active{background:var(--press);color:var(--text)}
+.sr-body.anim .sr-rw,.sr-body.anim .srx-chip,.sr-body.anim .sr-p{animation:srxIn .34s var(--rd-ease) both;animation-delay:calc(var(--i,0)*24ms)}
+@keyframes srxIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.srx .sr-row{gap:13px;padding:8px 16px;min-height:68px;transition:background .15s}
+.srx .sr-row .av{width:52px;height:52px;flex:none}
+.srx .sr-row .tx b{font-size:16px;font-weight:700;line-height:1.25}
+.srx .sr-row .tx small{margin-top:2px;font-size:14px}
+.srx .sr-row .tx small .on{color:var(--accent)}
+.srx .sr-row mark,.srx .sr-file mark{background:none;color:var(--accent);font-weight:800}
+.srx .sr-row .tx .l1{display:flex;align-items:baseline;gap:8px}
+.srx .sr-row .tx .l1 b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.srx .sr-row .tx .l1 .tm{flex:none;font-style:normal;font-size:12.5px;color:var(--dim)}
+.srx .sr-msg .tx small{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35}
+.srx .sr-file{gap:13px;padding:8px 16px;min-height:68px}
+.srx .sr-file .fi{width:50px;height:50px;border-radius:14px;background:var(--brand)}
+.srx .sr-file .tx{flex:1;min-width:0}
+.srx .sr-file .tx b{display:block;font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.srx .sr-file .tx small{display:block;margin-top:2px;font-size:13.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.srx .sr-file:active{background:var(--press)}
+.srx-lk{border-radius:50%!important;background:var(--brand)!important;color:#fff!important;display:grid;place-items:center}
+.srx-lk svg{width:24px;height:24px}
+.srx .sr-row b.lk{color:var(--accent);font-weight:600}
+.srx .sr-row:active{background:var(--press)}
+.srx .sr-sect{padding:16px 16px 6px;font-size:13.5px;font-weight:800;letter-spacing:.02em;color:var(--accent)}
+.srx .sr-sect button{display:inline-flex;align-items:center;gap:2px;padding:4px 2px 4px 8px;font-size:13.5px;font-weight:700;color:var(--accent)}
+.srx .sr-sect button svg{width:14px;height:14px}
+.srx .sr-people{padding:2px 10px 8px}
+.srx .sr-p{transition:transform .15s var(--rd-ease)}
+.srx .sr-p:active{transform:scale(.94)}
+.srx .sr-p .av{width:60px;height:60px}
+.srx .sr-media{gap:2px;padding:2px}
+.srx .sr-media button{transition:opacity .15s,transform .15s}
+.srx .sr-media button:active{opacity:.75;transform:scale(.97)}
+/* история запросов */
+.srx-chips{display:flex;flex-wrap:wrap;gap:8px;padding:2px 16px 10px}
+.srx-chip{display:inline-flex;align-items:center;height:36px;max-width:100%;border-radius:18px;background:var(--raised);box-shadow:inset 0 0 0 1px var(--hair);overflow:hidden}
+.srx-chip .t{display:inline-flex;align-items:center;gap:6px;height:100%;padding:0 4px 0 12px;min-width:0;font-size:14.5px;font-weight:600;color:var(--text)}
+.srx-chip .t:active{background:var(--press)}
+.srx-chip .t svg{width:16px;height:16px;flex:none;color:var(--dim)}
+.srx-chip .t span{max-width:46vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.srx-chip .x{width:30px;height:100%;display:grid;place-items:center;color:var(--dim)}
+.srx-chip .x svg{width:13px;height:13px}
+.srx-chip .x:active{background:var(--press)}
+/* пустой результат */
+.srx .sr-none{padding-top:52px}
+.srx .sr-none svg.ill{width:132px;height:132px}
+/* скелетоны */
+.srx-sk{padding:2px 0}
+.srx-sr{display:flex;align-items:center;gap:13px;padding:8px 16px;min-height:68px;opacity:0;animation:srxIn .3s var(--rd-ease) both;animation-delay:calc(var(--i,0)*40ms)}
+.srx-sr i{display:block;border-radius:8px;background:linear-gradient(90deg,var(--raised) 0%,color-mix(in srgb,var(--text) 9%,var(--raised)) 50%,var(--raised) 100%);background-size:220% 100%;animation:srxSh 1.25s linear infinite}
+.srx-sr .a{width:52px;height:52px;border-radius:50%;flex:none}
+.srx-sr span{flex:1;min-width:0;display:flex;flex-direction:column;gap:9px}
+.srx-sr .l1{height:13px}
+.srx-sr .l2{height:11px}
+@keyframes srxSh{from{background-position:220% 0}to{background-position:-220% 0}}
+@supports not (background:color-mix(in srgb,red,blue)){.srx-sr i{background:var(--raised)}.srx-field:focus-within{box-shadow:inset 0 0 0 1.6px var(--accent)}}
+html.lite .sr-body.anim .sr-rw,html.lite .sr-body.anim .srx-chip,html.lite .sr-body.anim .sr-p,html.eco-anim .sr-body.anim .sr-rw,html.eco-anim .sr-body.anim .srx-chip,html.eco-anim .sr-body.anim .sr-p{animation:none}
+html.lite .srx-sr i,html.eco-anim .srx-sr i{animation:none}
+html.lite body:not(.desk) #search.srx,html.eco-anim body:not(.desk) #search.srx{transform:none}
+@media (prefers-reduced-motion:reduce){.sr-body.anim .sr-rw,.sr-body.anim .srx-chip,.sr-body.anim .sr-p,.srx-sr i{animation:none}.srx-sr{opacity:1;animation:none}}
 /* ═════════ 5. СПИСОК ЧАТОВ ═════════ */
 .chrow{width:100%!important;margin:0!important;padding:9px var(--gut)!important;gap:14px!important;border-radius:0!important;background:transparent!important;contain-intrinsic-size:auto 72px!important;
   transition:background .15s}
@@ -235,19 +346,27 @@ body.desk .chrow.cur,body.desk .chrow.cur:hover{background:color-mix(in srgb,var
 .dx-bar b{position:relative;display:flex;flex-direction:column;align-items:center;font-size:16px;font-weight:800;letter-spacing:-.01em;line-height:1.15;opacity:var(--cl,0);transform:translate3d(0,calc((1 - var(--cl,0))*6px),0)}
 .dx-bar b small{font-size:11.5px;font-weight:600;color:var(--accent)}
 .dx-bar b .ver{width:15px;height:15px;vertical-align:-2px;margin-left:3px}
-.dx-cover{position:relative!important;display:block!important;height:168px;margin:0!important;padding:0!important;border-radius:0 0 26px 26px!important;overflow:hidden;z-index:0;box-shadow:none!important;background:var(--brand)}
-.dx-cover:not(.prem){background:linear-gradient(160deg,color-mix(in srgb,var(--accent) 80%,#0b1020) 0%,color-mix(in srgb,var(--accent) 48%,#8F6BF5) 75%,color-mix(in srgb,var(--accent) 34%,#6C54E8) 100%)}
-.dx-cover:not(.prem)::before{content:"";position:absolute;inset:0;background:radial-gradient(70% 70% at 85% 0%,rgba(255,255,255,.26),transparent 62%)}
-.dx-who{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;margin-top:-54px;padding:0 var(--gut)}
-#pf-av.pf-av{position:relative;display:block;flex:none;width:108px;height:108px;margin:0;padding:0;border-radius:50%;transform-origin:50% 0;will-change:transform,opacity;animation:none!important;box-shadow:none!important}
-#pf-av .av,#pf-av .ring .av,#pf-av img{width:108px!important;height:108px!important;box-shadow:0 0 0 4px var(--bg)!important}
-.dx-name{display:flex;flex-direction:column;align-items:center;max-width:100%;padding:12px 0 4px;text-align:center}
-.dx-name h2{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:0 2px;margin:0;max-width:100%;font-size:24px;font-weight:800;letter-spacing:-.025em;line-height:1.2;color:var(--text);overflow-wrap:anywhere}
+/* шапка профиля — та же, что у чужих профилей (.uhero): мягкое свечение акцентом, большая аватарка, имя, статус; у Premium/NFT — их фон */
+:root{--pfav:116px}
+.dx-cover{position:relative!important;margin:0!important;box-shadow:none!important;z-index:0;padding-bottom:14px}
+.dx-cover.prem{margin:0!important;border-radius:0 0 28px 28px!important;padding-top:calc(var(--safe-t,0px) + 62px)}
+.dx-cover .pf-av,#pf-av.pf-av{position:relative;display:block;flex:none;width:var(--pfav);height:var(--pfav);margin:0;padding:0!important;border-radius:50%;transform-origin:50% 0;will-change:transform,opacity;animation:none!important}
+.dx-cover:not(.prem) .pf-av{box-shadow:none!important}
+#pf-av .av,#pf-av .ring .av,#pf-av img,.uhero .pf-av .av,.uhero .pf-av img{width:var(--pfav)!important;height:var(--pfav)!important}
+.dx-name{display:flex;flex-direction:column;align-items:center;max-width:100%;padding:12px 0 0;text-align:center}
+.dx-name h2{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:0 2px;margin:0!important;max-width:100%;font-size:24px;font-weight:800;letter-spacing:-.025em;line-height:1.2;overflow-wrap:anywhere}
+.dx-cover:not(.prem) .dx-name h2{color:var(--text)}
 .dx-name h2 .ver{width:20px;height:20px;margin-left:5px}
-.dx-name .st2row{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:6px}
-.dx-name .st2,.dx-name .st2.on{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:9px;background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--accent);font-size:12.5px;font-weight:700}
-.dx-name .st2::before{content:"";width:6px;height:6px;border-radius:2px;background:#35D07F}
+.dx-name .st2row,.uhero .st2row{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin-top:6px}
+.dx-cover:not(.prem) .st2,.dx-cover:not(.prem) .st2.on{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:9px;background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--accent);font-size:12.5px;font-weight:700}
+.dx-cover:not(.prem) .st2::before{content:"";width:6px;height:6px;border-radius:2px;background:#35D07F}
 .dx-name .pf-edit-st{margin:10px auto 0}
+/* значок подарков рядом со статусом (и у своего, и у чужого профиля): нажатие открывает вкладку «Подарки» */
+.pf-gc{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:9px;background:color-mix(in srgb,#FF8A3D 16%,transparent);color:#E8761F;font-size:12.5px;font-weight:800;transition:transform .15s var(--rd-ease)}
+.pf-gc svg{width:14px;height:14px}
+.pf-gc:active{transform:scale(.94)}
+.pf-hero.prem .pf-gc,.uhero.prem .pf-gc{background:rgba(255,255,255,.2);color:inherit}
+html[data-theme="dark"] .pf-gc{color:#FFA05C}
 /* кнопки действий: три равные кнопки в один ряд */
 .pf-actions{display:grid!important;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px var(--gut) 12px!important;padding:0!important}
 .pf-actions .pa{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:auto!important;min-height:68px;padding:10px 6px!important;border-radius:var(--r-card)!important;background:var(--surface)!important;
@@ -326,12 +445,10 @@ body.desk .chrow.cur,body.desk .chrow.cur:hover{background:color-mix(in srgb,var
   .dx-gg{gap:8px}
   .pf-actions{gap:8px}
   .pf-actions .pa{font-size:11px;min-height:64px}
-  .dx-cover{height:150px}
-  .dx-who{margin-top:-48px}
-  #pf-av.pf-av,#pf-av .av,#pf-av .ring .av,#pf-av img{width:96px!important;height:96px!important}
+  :root{--pfav:100px}
   .dx-name h2{font-size:22px}
 }
-@media (max-height:600px){.tgh-title{font-size:24px!important}.dx-cover{height:140px}}
+@media (max-height:600px){.tgh-title{font-size:24px!important}:root{--pfav:92px}}
 /* слабые телефоны и «Энергосбережение»: без анимаций и лишних теней */
 html.lite .tabbar::before,html.eco-anim .tabbar::before{transition-duration:.01s}
 html.lite .tabbar,html.eco-anim .tabbar{box-shadow:0 0 0 1px var(--hair)!important}
@@ -342,3 +459,4 @@ html.lite #pf-av.pf-av,html.eco-anim #pf-av.pf-av{will-change:auto}
 body.desk .tabbar{left:10px;right:10px}
 body.desk .tab:hover{background:var(--press)!important;border-radius:19px!important}
 @media (prefers-reduced-motion:reduce){.chrow.dx-in,.nm-row.dx-in,.view.active{animation:none}.tabbar::before{transition-duration:.01s}}
+.srx-sk.tail .srx-sr{opacity:1;animation:none}

@@ -238,6 +238,7 @@ const Rich = (() => {
     const kinds = { photo: T("Фото"), gif: "GIF", voice: T("Голосовое сообщение"), sticker: (a.em ? a.em + " " : "") + T("Стикер"), file: a.name || T("Файл") };
     const k = m.kind || "text";
     if (k === "text") return cap;
+    if (k === "poll") return "📊 " + (cap || T("Опрос"));
     const base = kinds[k] || T("Сообщение");
     return cap && k !== "voice" && k !== "sticker" ? base + ", " + cap : base;
   }

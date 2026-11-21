@@ -576,6 +576,7 @@ const App = {
       else if (d.type === "pr") guard("pr", () => Stars2.onPr(d));
       else if (d.type === "stars") guard("stars", () => Stars2.onStars(d));
       else if (d.type === "pin") Chat.onPin(d);
+      else if (d.type === "poll") guard("poll", () => Poll.onEvent(d));
       else if (d.type === "cc") Chat.onCC(d);
       else if (d.type === "presence") App.presence(d);
       else if (d.type === "typing") guard("typing", () => Typing.on(d));
@@ -652,6 +653,8 @@ const App = {
       "emojipick.js": () => EmojiSearch && RClip && EmojiPick && BioEd && typeof Rich.splice === "function",
       "links.js": () => Links && typeof Links.go === "function",
       "fileview.js": () => FV && typeof FV.open === "function",
+      "avview.js": () => typeof PHV === "object" && typeof PHV.open === "function" && typeof PHV.avatar === "function",
+      "poll.js": () => typeof Poll === "object" && typeof Poll.create === "function" && typeof Poll.html === "function",
       "music.js": () => Music && typeof Music.play === "function" && typeof Music.mountView === "function",
       "downloads.js": () => DL && typeof DL.get === "function" && typeof DL.openPage === "function" && typeof DL.parallel === "function",
       "appicon.js": () => AppIcon && AppIcon.LIST.length === 5 && typeof AppIcon.open === "function",
@@ -688,7 +691,7 @@ const App = {
       "call.js": () => Calls && typeof Calls.start === "function",
       "settings.js": () => Settings && Accounts,
       "rd.js": () => typeof DX !== "undefined" && DX.I && typeof DX.profile === "function",
-      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261121a/.test([...document.scripts].map((x) => x.src).join(" ")),
+      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261121b/.test([...document.scripts].map((x) => x.src).join(" ")),
     };
     const bad = Object.keys(chk).filter((k) => !has(chk[k]));
     const miss = (window.__boot && window.__boot.miss || []).filter((x, i, a) => a.indexOf(x) === i && /\.(js|css)$/.test(x));

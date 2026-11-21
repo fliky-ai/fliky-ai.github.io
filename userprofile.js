@@ -130,11 +130,18 @@ const UserProfile = {
     $("up-more").hidden = sys || me;
     // Official / Major: значок стоит сразу после имени, а пояснение — серой подписью под карточкой данных (verNote)
     $("up-body").innerHTML = `<div class="pf-hero uhero${ph.cls}${nft ? " nft" : ""}"${ph.style}>${ph.pat}<div class="pf-av">${Stories.av(u, "xl")}</div><h2>${profName(u)}</h2>
-        <div class="st2row">${rt}<div class="st2 ${u.online && !sys ? "on" : ""}">${esc(sys ? T("служебные уведомления") : statusText(u))}</div></div></div>
+        <div class="st2row">${rt}<div class="st2 ${u.online && !sys ? "on" : ""}">${esc(sys ? T("служебные уведомления") : statusText(u))}</div>${u.gifts_n > 0 ? `<button class="pf-gc" id="up-gc" aria-label="${esc(T("Подарки"))}">${(window.DX && DX.I && DX.I.gift) || ""}<b>${u.gifts_n}</b></button>` : ""}</div></div>
       ${acts}${blocked}${pc}
       ${rows.length ? `<div class="card2 pf-info">${rows.join("")}</div>` : ""}${sys ? "" : verNote(u)}
       ${addBtn2}${tb}`;
     $("up-body").scrollTop = scroll;
+    if ($("up-gc")) $("up-gc").onclick = () => {                              // значок подарков в шапке → вкладка «Подарки»
+      haptic(); const b = $("up-tabs") && $("up-tabs").querySelector('button[data-t="gifts"]'); if (!b) return;
+      UserProfile.tab = "gifts"; UserProfile.picked = true; $("up-tabs").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); UserProfile.drawTab();
+      $("up-body").scrollTo({ top: Math.max(0, $("up-tabs").offsetTop - 60), behavior: "smooth" });
+    };
+    const avEl = $("up-body").querySelector(".pf-av");                       // нажатие на фото — полноэкранный просмотр (кроме аватарки с историей: там открываются истории)
+    if (avEl && u.avatar && !u.is_system) { avEl.classList.add("zoomable"); avEl.onclick = (e) => { if (e.target.closest("[data-story]")) return; PHV.avatar(u, avEl.querySelector(".av") || avEl); }; }
     UserProfile.drawTab();
   },
 

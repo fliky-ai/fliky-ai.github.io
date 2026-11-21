@@ -93,7 +93,8 @@ const Outbox = {
   done(m) { const n = Outbox.q.length; Outbox.q = Outbox.q.filter((x) => x.cid !== m.cid); if (n !== Outbox.q.length) Outbox.persist(); },
   persist() {
     const keep = Outbox.q.filter((m) => !m.file).map((m) => ({ cid: m.cid, sender: m.sender, receiver: (m._peer && m._peer.id) || m.receiver, ts: m.ts,
-      kind: m.kind, text: m.text, ents: m.ents, att: m.att ? sendAtt(m.att) : undefined, reply_to: m.reply_to, reply: m.reply, topic: m.topic }));
+      kind: m.kind, text: m.text, ents: m.ents, att: m.att ? sendAtt(m.att) : undefined, reply_to: m.reply_to, reply: m.reply, topic: m.topic,
+      poll: m.kind === "poll" ? m.poll : undefined, pl: m.kind === "poll" ? m.pl : undefined }));
     OC.set("outbox", keep);
   },
   async restore() {
@@ -172,7 +173,7 @@ const Chat = {
       e.preventDefault();
       const b = e.target.closest(".b"), chip = e.target.closest(".rx-chip");
       if (chip && b) return React.who(Chat.byEl(b), chip.dataset.e);              // долгое нажатие / правая кнопка по реакции → кто поставил
-      if (b) MsgMenu.open(b, Chat.byEl(b));
+      if (b) { Chat.touchY = e.clientY; MsgMenu.open(b, Chat.byEl(b)); }
     });
     box.addEventListener("click", (e) => Chat.tap(e));
   },
@@ -195,6 +196,7 @@ const Chat = {
       if (!b || e.touches.length > 1) return;
       const t = e.touches[0];
       st = { b, x: t.clientX, y: t.clientY };
+      Chat.touchY = t.clientY;
       sw = null;
       const chipEl = e.target.closest(".rx-chip");
       lp = setTimeout(() => {
@@ -259,6 +261,7 @@ const Chat = {
     if (t.closest(".upl")) { if (m.up && m.up.ctl) m.up.ctl.abort(); return; }
     if (b.classList.contains("failed")) return Chat.resend(m);
     if (t.closest(".rq")) { if (m.reply && !m.reply.gone) Chat.jumpTo(m.reply.id); return; }
+    if (m.kind === "poll" && t.closest(".poll")) return Poll.tap(m, t);
     const a = m.att || {};
     if (t.closest(".vm-stt")) return Stt.press(m);
     if (t.closest(".vm-play")) return Player.toggle(mkey(m), fileUrl(a.url));
@@ -551,7 +554,7 @@ const Chat = {
     const out = m.sender === App.user.id && gk !== "channel";            // посты канала показываем как входящие
     const inGroup = gk === "group" && !out;
     const cont = Chat.cont(prev, m);
-    const hasCap = !!(m.text && k !== "text");
+    const hasCap = !!(m.text && k !== "text" && k !== "poll");
     const ov = ((k === "photo" || k === "gif") && !hasCap) || k === "sticker";
     const big = k === "text" && !m.fw && !m.reply_to && !m.reply && Prefs.get("bigemoji", true) && Chat.isBigEmoji(m.text);
     const sig = gk === "channel" && m.from && m.from.sig ? `<i class="sig">${esc(cleanName(m.from.name) || dispName(m.from))}</i>` : "";
@@ -573,13 +576,14 @@ const Chat = {
     else if (k === "voice") h += Player.html(m);
     else if (k === "sticker") h += Chat.stickerHTML(m, time);
     else if (k === "call") h += Chat.callHTML(m);
+    else if (k === "poll") h += typeof Poll !== "undefined" ? Poll.html(m, time) : `<span class="tx">${esc(m.text || "")}</span>`;
     if (hasCap) h += `<div class="capw"><span class="tx cap">${Chat.textHTML(m)}</span>${time}</div>`;     // подпись и время в одной строке
     const rx = React.chips(m);
     const kb = Array.isArray(m.kb) && m.kb.length ? Chat.kbHTML(m) : "";
     let av = "";
     if (inGroup && !(next && Chat.cont(m, next))) { const f = m.from || {}; av = `<span class="gav" data-uid="${m.sender}">${avatar({ id: m.sender, name: f.name || "", avatar: f.avatar || "" })}</span>`; }
     const bs = typeof Bubbles !== "undefined" && k !== "sticker" && !ov ? Bubbles.of(m, out, inGroup) : "";
-    const bubble = `<div class="b ${out ? "out" : "in"}${inGroup ? " g" : ""}${big ? " big" : ""}${cont ? " cont" : ""} k-${k}${hasCap ? " hascap" : ""}${kb ? " haskb" : ""}${m.failed ? " failed" : ""}${m.pending ? " pending" : ""}${isNew ? " new" : ""}${m.mn && !out ? " mnme" : ""}${next && Chat.cont(m, next) ? " stk-m" : ""}" data-k="${mkey(m)}"${m.id ? ` data-id="${m.id}"` : ""}${bs ? ` data-bs="${bs}"` : ""}>${h}${ov || hasCap ? "" : time}${rx}${av}${kb}</div>`;
+    const bubble = `<div class="b ${out ? "out" : "in"}${inGroup ? " g" : ""}${big ? " big" : ""}${cont ? " cont" : ""} k-${k}${hasCap ? " hascap" : ""}${kb ? " haskb" : ""}${m.failed ? " failed" : ""}${m.pending ? " pending" : ""}${isNew ? " new" : ""}${m.mn && !out ? " mnme" : ""}${next && Chat.cont(m, next) ? " stk-m" : ""}" data-k="${mkey(m)}"${m.id ? ` data-id="${m.id}"` : ""}${bs ? ` data-bs="${bs}"` : ""}>${h}${ov || hasCap || k === "poll" ? "" : time}${rx}${av}${kb}</div>`;
     // под постами канала с привязанным обсуждением — пилюля «Комментарии», как в Telegram
     if (gk === "channel" && Chat.peer.disc && m.id) {
       const cmTxt = m.cc ? m.cc + " " + plural(m.cc, T("комментарий"), T("комментария"), T("комментариев")) : T("Оставить комментарий");
@@ -651,7 +655,11 @@ const Chat = {
     const near = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
     const oldRx = {}; el.querySelectorAll(".rx-chip").forEach((c) => { oldRx[c.dataset.e] = +((c.querySelector(".n") || {}).textContent || 1); });
     const kids = [...tmp.childNodes];
-    kids.forEach((n) => { if (n.querySelectorAll) n.querySelectorAll(".rx-chip").forEach((c) => { const was = oldRx[c.dataset.e], now = +((c.querySelector(".n") || {}).textContent || 1); if (was !== undefined && now > was) c.classList.add("bump"); }); });
+    kids.forEach((n) => { if (n.querySelectorAll) n.querySelectorAll(".rx-chip").forEach((c) => {
+      const was = oldRx[c.dataset.e], nEl = c.querySelector(".n"), now = +((nEl || {}).textContent || 1);
+      if (was === undefined) c.classList.add("pop");                                 // новая реакция «вырастает»
+      else if (was !== now) { c.classList.add("bump"); if (nEl) { nEl.dataset.up = now > was ? "1" : "0"; nEl.classList.add("roll"); } }   // счётчик «перекатывается»
+    }); });
     el.replaceWith(...kids);
     if (oldCm) oldCm.remove();
     Player.paint();
@@ -712,6 +720,7 @@ const Chat = {
   onReact(d) {
     const m = Chat.msgs.find((q) => q.id === d.id);
     if (m) { m.reacts = d.reacts; Chat.patch(m); }
+    if (React.whoLive && React.whoLive.id === d.id) React.whoLive.refresh();       // открытое окно «кто поставил» обновляется само
   },
   onCC(d) {
     if (!Chat.peer || Chat.peer.id !== d.chat) return;
@@ -778,6 +787,7 @@ const Chat = {
     let ok = false;
     try {
       const body = { to: peer.id, text: m.text, cid: m.cid, kind: m.kind, ents: m.ents, att: sendAtt(m.att), reply_to: m.reply_to, topic: m.topic };
+      if (m.kind === "poll") body.poll = m.pl;
       if (peer.pay && !peer.gk) {                       // человек принимает сообщения за звёзды: один раз спрашиваем подтверждение
         if (!peer._payOk) {
           const go = await UI.sheet({ title: T("Платное сообщение"), text: T("{0} принимает сообщения от незнакомых за звёзды. Каждое сообщение стоит {1} ⭐.", dispName(peer), peer.pay),
@@ -1069,7 +1079,12 @@ const Chat = {
   act(a, m) {
     if (a === "who") return React.who(m);
     if (a === "reply") return Chat.setReply(m);
-    if (a === "copy") { RClip.set(m.text || "", m.ents || []); return toast("Скопировано"); }     // свои эмодзи и форматирование сохраняются при вставке
+    if (a === "copy") {
+      if (m.kind === "poll" && m.poll) { RClip.set([m.poll.q].concat(m.poll.o.map((o, i) => (i + 1) + ". " + o.t)).join("\n"), []); return toast("Скопировано"); }
+      RClip.set(m.text || "", m.ents || []); return toast("Скопировано");     // свои эмодзи и форматирование сохраняются при вставке
+    }
+    if (a === "pres") return Poll.results(m);
+    if (a === "pclose") return Poll.closePoll(m);     // свои эмодзи и форматирование сохраняются при вставке
     if (a === "forward") return Fwd.open([m.id]);
     if (a === "pin") return Chat.pin(m, true);
     if (a === "unpin") return Chat.pin(m, false);

@@ -510,5 +510,7 @@ if (I18N.lang === "en") {
   "Подарки": "Gifts", "Рисовать подарки без видеокарты": "Draw gifts without the GPU",
   "Включите, если подарки на телефоне обрезаются, мигают или пропадают. Рисунок будет обычным, зато одинаково чётким на любом устройстве.": "Turn on if gifts look cropped, flicker or disappear on your phone. The picture is plainer but equally sharp on any device.",
   "Версия {0}": "Version {0}",
+  "Поиск…": "Searching…",
+  "Поиск по контактам": "Search contacts",
   });
 }

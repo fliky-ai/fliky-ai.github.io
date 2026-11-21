@@ -1,5 +1,5 @@
-// rd.js — поведение нового интерфейса DICEGRAM (ноябрь 2026): плавающая нижняя панель с «ползунком», сворачивающиеся большие заголовки,
-// фильтр чатов, меню «+» в контактах, алфавитная линейка, зум аватарки в профиле по прокрутке и по оттягиванию вниз.
+// rd.js — поведение интерфейса DICEGRAM: плавающая нижняя панель с «ползунком», тонкая линия под шапкой при прокрутке,
+// алфавитная линейка контактов и аватарка профиля, которая плавно уменьшается при прокрутке.
 // Всё держится на transform/opacity и на одном rAF-обработчике прокрутки на экран — без перерисовки списков и без дрожания.
 // Файл самостоятельный: если он не загрузится, приложение работает как раньше (только без новых эффектов).
 const DX = (() => {
@@ -45,49 +45,13 @@ const DX = (() => {
     try { new MutationObserver(sync).observe(bar, { subtree: true, attributes: true, attributeFilter: ["class"] }); } catch (e) {}
   }
 
-  // ───────────── сворачивающаяся шапка «Чаты» / «Контакты» ─────────────
-  // Шапка лежит поверх списка и уезжает вверх вместе с ним; верхняя строка с кнопками остаётся на месте и «проявляет» фон.
-  function collapse(viewId, listId) {
-    const view = $(viewId), list = $(listId); if (!view || !list) return;
-    const head = view.querySelector(".tgh"); if (!head) return;
-    const big = head.querySelector(".dx-big"), sr = head.querySelector(".dx-sr");
-    let dy = 100, last = -1, tick = false, col = false;
-    const paint = (force) => {
-      tick = false;
-      const st = Math.max(0, list.scrollTop), v = Math.min(st, dy);
-      if (!force && v === last) return;
-      last = v;
-      const c = dy ? v / dy : 0;
-      head.style.setProperty("--hs", v.toFixed(1));
-      head.style.setProperty("--cl", c.toFixed(3));
-      const mb = $("mbar"); if (mb && mb.parentNode === view) mb.style.setProperty("--hs", v.toFixed(1));   // плеер под шапкой едет вместе с ней
-      const on = c > 0.6;
-      if (on !== col) { col = on; view.classList.toggle("dx-col", on); }
-    };
-    const measure = () => {
-      const h = head.offsetHeight; if (!h) return;
-      dy = (big ? big.offsetHeight : 0) + (sr ? sr.offsetHeight : 0);
-      view.style.setProperty("--hh", h + "px");
-      paint(true);
-    };
-    list.addEventListener("scroll", () => { if (!tick) { tick = true; raf(() => paint()); } }, { passive: true });
-    if ("ResizeObserver" in window) new ResizeObserver(measure).observe(head); else window.addEventListener("resize", measure);
-    measure();
-    view._dxm = measure;
-  }
-
-  // Липкая верхняя панель внутри прокручиваемого блока (Настройки): заголовок сворачивается за ~50 px прокрутки
-  function top(box, sel, dy) {
+  // ───────────── тонкая линия под шапкой, когда список прокручен ─────────────
+  // Шапки статичные (не прыгают и не пересчитываются): единственное, что меняется, — класс dx-sc на экране.
+  function hair(box, view) {
     if (!box) return;
-    const S = box._dxt || (box._dxt = { els: [], dy: 50, last: -1, tick: false });
-    S.els = [...box.querySelectorAll(sel)]; S.dy = dy || 50; S.last = -1;
-    const paint = () => {
-      S.tick = false;
-      const c = clamp(box.scrollTop / S.dy, 0, 1);
-      if (c === S.last) return;
-      S.last = c;
-      for (const e of S.els) e.style.setProperty("--cl", c.toFixed(3));
-    };
+    const S = box._dxs || (box._dxs = { on: false, tick: false });
+    const v = view || box.closest(".view") || box;
+    const paint = () => { S.tick = false; const on = box.scrollTop > 2; if (on !== S.on) { S.on = on; v.classList.toggle("dx-sc", on); } };
     if (!S.bound) { S.bound = true; box.addEventListener("scroll", () => { if (!S.tick) { S.tick = true; raf(paint); } }, { passive: true }); }
     paint();
   }
@@ -104,65 +68,6 @@ const DX = (() => {
       r.classList.add("dx-in");
       r.addEventListener("animationend", () => { r.classList.remove("dx-in"); r.style.removeProperty("--i"); }, { once: true });
     });
-  }
-
-  // ───────────── фильтр чатов ─────────────
-  const KF = [["all", "Все чаты"], ["unread", "Непрочитанные"], ["personal", "Личные"], ["groups", "Группы"], ["channels", "Каналы"]];
-  function syncFilter() {
-    const b = $("btn-filter"); if (!b) return;
-    b.classList.toggle("on", !!Chats.kf && Chats.kf !== "all");
-    const s = $("chat-sbar") && $("chat-sbar").querySelector("span");
-    if (s) { const k = KF.find((x) => x[0] === Chats.kf); s.textContent = k && k[0] !== "all" ? T(k[1]) : T("Поиск"); }
-  }
-  async function filter() {
-    const cur = Chats.kf || "all";
-    const v = await UI.sheet({ title: T("Фильтр чатов"), actions: KF.map(([k, t]) => ({ label: T(t) + (k === cur ? "  ✓" : ""), value: k, accent: k === cur })), cancel: T("Отмена") });
-    if (!v) return;
-    Chats.kf = v; Chats.render(); syncFilter();
-    const l = $("chat-list"); if (l) l.scrollTop = 0;
-  }
-
-  // ───────────── контакты: «+» с меню и «⋮» ─────────────
-  function inviteFriend() {
-    const site = /^https?:/.test(location.origin) ? location.origin + "/" : "https://dicegram.dpdns.org/";
-    const text = T("Я в Dicegram — заходи, будем на связи");
-    (async () => {
-      try { if (navigator.share) { await navigator.share({ title: "Dicegram", text, url: site }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
-      try { copyText(text + " " + site); toast(T("Ссылка скопирована")); } catch (e) { toast(site); }
-    })();
-  }
-  const ACTS = {
-    add: () => AddContact.open(),
-    invite: () => inviteFriend(),
-    find: () => Search.open(),
-  };
-  function fab() {
-    const f = $("contact-fab"), view = $("v-contacts"); if (!f || !view || f._dx) return;
-    f._dx = 1;
-    const scrim = document.createElement("div"); scrim.className = "dx-scrim";
-    const menu = document.createElement("div"); menu.className = "dx-menu"; menu.setAttribute("role", "menu");
-    const items = [["add", I.userPlus, "Добавить контакт"], ["invite", I.share, "Пригласить друга"], ["find", I.userSearch, "Найти пользователя"]];
-    menu.innerHTML = items.map(([k, ico, t], i) => `<button class="dx-mi" data-k="${k}" style="--i:${i}" role="menuitem"><b>${esc(T(t))}</b><i>${ico}</i></button>`).join("");
-    view.appendChild(scrim); view.appendChild(menu);
-    const set = (on) => { f.classList.toggle("open", on); scrim.classList.toggle("show", on); menu.classList.toggle("show", on); f.setAttribute("aria-expanded", on ? "true" : "false"); };
-    const isOpen = () => menu.classList.contains("show");
-    // capture: наш обработчик идёт раньше прежнего f.onclick и забирает нажатие себе
-    f.addEventListener("click", (e) => { e.stopImmediatePropagation(); e.preventDefault(); hap(); set(!isOpen()); }, true);
-    scrim.addEventListener("click", () => set(false));
-    menu.addEventListener("click", (e) => {
-      const b = e.target.closest(".dx-mi"); if (!b) return;
-      hap(); set(false);
-      setTimeout(() => { try { ACTS[b.dataset.k](); } catch (er) { try { console.error(er); } catch (e2) {} } }, 120);
-    });
-    document.addEventListener("click", (e) => { if (isOpen() && !e.target.closest("#contact-fab,.dx-menu")) set(false); }, true);
-    view._dxClose = () => set(false);
-  }
-  async function cmenu() {
-    const v = await UI.sheet({ title: T("Контакты"), actions: [
-      { label: T("Добавить контакт"), value: "add" }, { label: T("Пригласить друга"), value: "invite" }, { label: T("Найти пользователя"), value: "find" },
-      { label: T("Обновить список"), value: "refresh" }], cancel: T("Отмена") });
-    if (v === "refresh") { try { await Contacts.load(true); toast(T("Список обновлён")); } catch (e) {} }
-    else if (ACTS[v]) ACTS[v]();
   }
 
   // ───────────── алфавитная линейка ─────────────
@@ -196,9 +101,9 @@ const DX = (() => {
     const lay = () => {
       const pr = par.getBoundingClientRect(), br = box.getBoundingClientRect(); if (!br.height) return;
       const cs = getComputedStyle(box);
-      const pt = box.id === "contact-list" ? (parseFloat(getComputedStyle(par).getPropertyValue("--hh")) || 0) : (parseFloat(cs.paddingTop) || 0);
+      const pt = parseFloat(cs.paddingTop) || 0;
       idx.style.top = (br.top - pr.top + pt + 6) + "px";
-      idx.style.bottom = (pr.bottom - br.bottom + (parseFloat(cs.paddingBottom) || 0) + (box.id === "contact-list" ? 70 : 6)) + "px";     // над кнопкой «+»
+      idx.style.bottom = (pr.bottom - br.bottom + (parseFloat(cs.paddingBottom) || 0) + 6) + "px";
       meas(); build();
     };
     const mark = (i, force) => {
@@ -238,57 +143,25 @@ const DX = (() => {
     lay(); here();
   }
 
-  // ───────────── профиль: зум аватарки по прокрутке и по оттягиванию вниз ─────────────
-  // p = scrollTop − оттяжка. p < 0 (тянем вниз на самом верху) — аватарка плавно растёт, имя и содержимое «подстраиваются»,
-  // p > 0 (листаем вниз) — аватарка уменьшается и гаснет, а имя переезжает в верхнюю панель. Без скачков: всё считается из одного числа.
+  // ───────────── профиль: аватарка уменьшается и гаснет при прокрутке, имя переезжает в верхнюю панель ─────────────
+  // Всё считается из одного числа — scrollTop: никакого накопленного состояния, поэтому скачков и «залипаний» нет.
   function profile(box) {
-    const S = box._dxp || (box._dxp = { q: 0, base: null, tick: false });
+    const S = box._dxp || (box._dxp = { tick: false });
     const root = box.querySelector(".dx-prof"); if (!root) { S.root = null; return; }
-    S.root = root;
-    S.cover = root.querySelector(".dx-cover"); S.av = root.querySelector("#pf-av"); S.flow = root.querySelector(".dx-flow");
-    S.bar = root.querySelector(".dx-bar"); S.nm = root.querySelector(".dx-name h2");
-    const Q = 160, MAXG = 0.8;
+    S.root = root; S.av = root.querySelector("#pf-av"); S.bar = root.querySelector(".dx-bar");
     const paint = () => {
       S.tick = false;
       if (!S.root || !S.root.isConnected) return;
-      const st = Math.max(0, box.scrollTop), pull = S.q / Q;
-      const grow = pull * MAXG;
-      const sh = sm(st / 170);
-      const sc = (1 + grow) * (1 - 0.5 * sh);
-      const dyp = 108 * grow;
-      const ao = 1 - sm((st - 30) / 120);
-      if (S.av) { S.av.style.transform = `translate3d(0,${(st * 0.42).toFixed(1)}px,0) scale(${sc.toFixed(3)})`; S.av.style.opacity = ao.toFixed(3); }
-      if (S.flow) S.flow.style.transform = dyp > 0.2 ? `translate3d(0,${dyp.toFixed(1)}px,0)` : "";
-      if (S.cover) S.cover.style.setProperty("--pl", dyp.toFixed(1));
-      if (S.nm) S.nm.style.transform = pull > 0.01 ? `scale(${(1 + pull * 0.1).toFixed(3)})` : "";
-      if (S.bar) S.bar.style.setProperty("--cl", sm((st - 112) / 56).toFixed(3));
+      const st = Math.max(0, box.scrollTop);
+      const sh = sm(st / 150);
+      if (S.av) {
+        S.av.style.transform = st > 0.5 ? `translate3d(0,${(st * 0.32).toFixed(1)}px,0) scale(${(1 - 0.46 * sh).toFixed(3)})` : "";
+        S.av.style.opacity = st > 0.5 ? (1 - sm((st - 36) / 120)).toFixed(3) : "";
+      }
+      if (S.bar) S.bar.style.setProperty("--cl", sm((st - 128) / 48).toFixed(3));
     };
-    const sched = () => { if (!S.tick) { S.tick = true; raf(paint); } };
     S.paint = paint;
-    if (!S.bound) {
-      S.bound = true;
-      box.addEventListener("scroll", sched, { passive: true });
-      box.addEventListener("touchstart", (e) => { if (e.touches.length !== 1) return; S.base = null; if (S.root) S.root.classList.remove("dx-rel"); }, { passive: true });
-      box.addEventListener("touchmove", (e) => {
-        if (!S.root || e.touches.length !== 1) return;
-        const y = e.touches[0].clientY;
-        if (box.scrollTop <= 0) {
-          S.base = S.base == null ? y : Math.min(S.base, y);
-          const d = y - S.base;
-          S.q = d > 0 ? Q * (1 - Math.exp(-d / (Q * 1.15))) : 0;
-        } else { S.base = null; S.q = 0; }
-        sched();
-      }, { passive: true });
-      const end = () => {
-        S.base = null;
-        if (S.q <= 0.5) { S.q = 0; return; }
-        S.q = 0;
-        if (S.root) { S.root.classList.add("dx-rel"); clearTimeout(S.relT); S.relT = setTimeout(() => S.root && S.root.classList.remove("dx-rel"), 620); }
-        sched();
-      };
-      box.addEventListener("touchend", end, { passive: true });
-      box.addEventListener("touchcancel", end, { passive: true });
-    }
+    if (!S.bound) { S.bound = true; box.addEventListener("scroll", () => { if (!S.tick) { S.tick = true; raf(paint); } }, { passive: true }); }
     paint();
   }
 
@@ -296,23 +169,15 @@ const DX = (() => {
   function init() {
     const safe = (f) => { try { f(); } catch (e) { try { console.error("rd.js", e); } catch (e2) {} } };
     safe(dock);
-    safe(() => collapse("v-chats", "chat-list"));
-    safe(() => collapse("v-contacts", "contact-list"));
-    safe(fab);
-    const on = (id, f) => { const b = $(id); if (b && !b._dx) { b._dx = 1; b.addEventListener("click", f); } };
-    on("btn-new", () => { hap(); try { NewMsg.open(); } catch (e) {} });
-    on("btn-filter", (e) => { e.stopPropagation(); hap(); filter(); });
-    on("btn-cmenu", () => { hap(); cmenu(); });
-    safe(syncFilter);
+    safe(() => hair($("chat-list"), $("v-chats")));
+    safe(() => hair($("contact-list"), $("v-contacts")));
   }
   function onTab(tab) {
-    const cv = $("v-contacts"); if (cv && cv._dxClose && tab !== "contacts") cv._dxClose();
     raf(() => {
-      const v = $("v-" + tab); if (v && v._dxm) v._dxm();
       const cl = $("contact-list"); if (tab === "contacts" && cl && cl._dxLay) cl._dxLay();
       if (tab === "profile") { const b = $("profile-box"); if (b && b._dxp && b._dxp.paint) b._dxp.paint(); }
     });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
-  return { I, ic, dock, collapse, top, enter, filter, syncFilter, fab, cmenu, scrub, profile, onTab, inviteFriend, init };
+  return { I, ic, dock, hair, enter, scrub, profile, onTab, init };
 })();

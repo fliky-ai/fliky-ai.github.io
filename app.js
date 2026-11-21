@@ -511,6 +511,8 @@ const App = {
   go(tab) {
     document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
     document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === "v-" + tab));
+    if (tab !== "contacts") { try { Contacts.leave(); } catch (e) {} }          // поиск каждого раздела живёт только в нём
+    if (tab !== "settings") { try { if (Settings.q) Settings.search(false); } catch (e) {} }
     if (tab === "chats") Chats.load({ age: 20000 });
     if (tab === "contacts") Contacts.load();
     if (tab === "profile") { Profile.loadStories(); Stories.load(); }
@@ -686,7 +688,7 @@ const App = {
       "call.js": () => Calls && typeof Calls.start === "function",
       "settings.js": () => Settings && Accounts,
       "rd.js": () => typeof DX !== "undefined" && DX.I && typeof DX.profile === "function",
-      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261120a/.test([...document.scripts].map((x) => x.src).join(" ")),
+      "index.html": () => $("ftabs") && $("chat-fab") && $("tab-av") && $("profile-box") && $("settings-box") && $("up-body") && $("chat-list") && /20261121a/.test([...document.scripts].map((x) => x.src).join(" ")),
     };
     const bad = Object.keys(chk).filter((k) => !has(chk[k]));
     const miss = (window.__boot && window.__boot.miss || []).filter((x, i, a) => a.indexOf(x) === i && /\.(js|css)$/.test(x));

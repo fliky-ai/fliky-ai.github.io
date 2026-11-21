@@ -1,7 +1,7 @@
 // contacts.js — вкладка «Контакты», экран «Новое сообщение» и создание группы / канала (как в Telegram).
 // Контакты — это люди, с которыми у вас есть переписка: только их можно добавлять в группы и каналы.
 const Contacts = {
-  cache: [], loaded: false, q: "",
+  cache: [], loaded: false, q: "", g: null, gseq: 0, gt: 0,
 
   async load(force) {
     if (Contacts.loading) return;
@@ -27,15 +27,24 @@ const Contacts = {
   people() { return (Contacts.cache.length ? Contacts.cache : Chats.list.filter((c) => !c.peer.gk && !c.peer.is_system && !c.peer.saved).map((c) => c.peer)).filter((p) => !p.saved && !(App.user && p.id === App.user.id)); },     // «Избранное» в группу добавить нельзя
 
   bind() {
-    const f = $("contact-fab"), s = $("btn-csearch");
-    if (s) s.onclick = () => { haptic(); Search.open(); };
-    if ($("contact-sbar")) $("contact-sbar").onclick = () => { haptic(); Search.open(); };
-    if (f) f.onclick = () => { haptic(); AddContact.open(); };
+    const add = $("btn-cadd");
+    if (add) add.onclick = () => { haptic(); AddContact.open(); };
+    const qi = $("contact-q"), qx = $("contact-qx");
+    if (qi) {
+      qi.addEventListener("input", () => Contacts.search(qi.value));
+      qi.addEventListener("keydown", (e) => { if (e.key === "Enter") qi.blur(); else if (e.key === "Escape") Contacts.clearSearch(); });
+    }
+    if (qx) qx.onclick = () => { haptic(); Contacts.clearSearch(true); };
     $("contact-list").addEventListener("click", (e) => {
       if (e.target.closest("[data-saved]")) { haptic(); return Contacts.openSaved(); }
       const a = e.target.closest("[data-act]");
       if (a) { haptic(); return a.dataset.act === "group" ? CreateChat.open("group") : CreateChat.open("channel"); }
       const r = e.target.closest(".nm-row"); if (!r) return;
+      if (r.dataset.gid) {                                               // человек из общего поиска (ещё не в контактах)
+        const u = ((Contacts.g && Contacts.g.users) || []).find((x) => x.id === +r.dataset.gid);
+        if (u) { haptic(); try { Search.remember(u); } catch (er) {} Chats.openChat(Chats.byId(u.id) ? Chats.byId(u.id).peer : u); }
+        return;
+      }
       const p = Contacts.people().find((x) => x.id === +r.dataset.id);
       if (p) Chat.open(Chats.byId(p.id) ? Chats.byId(p.id).peer : p);
     });
@@ -43,12 +52,51 @@ const Contacts = {
     Contacts.render();
   },
 
+  // ───────────── поиск по контактам: свой, не связан с поиском по чатам ─────────────
+  // Сверху — совпавшие контакты, ниже — люди из общего поиска (ещё не в контактах). Работает прямо в списке вкладки.
+  search(v) {
+    const raw = String(v == null ? "" : v), q = raw.trim().replace(/^@/, "");
+    Contacts.q = q; Contacts.g = null;
+    const x = $("contact-qx"); if (x) x.hidden = !raw;
+    clearTimeout(Contacts.gt);
+    const my = ++Contacts.gseq;
+    Contacts.render();
+    const l = $("contact-list"); if (l) l.scrollTop = 0;
+    if (q.length < 2) return;
+    Contacts.gt = setTimeout(async () => {
+      try {
+        const d = await api("/api/search?q=" + encodeURIComponent(q));
+        if (my !== Contacts.gseq) return;
+        const have = new Set(Contacts.people().map((p) => p.id));
+        Contacts.g = { q, users: (d.users || []).filter((u) => !have.has(u.id) && !(App.user && u.id === App.user.id)) };
+      } catch (e) { if (my !== Contacts.gseq) return; Contacts.g = { q, users: [], err: 1 }; }
+      Contacts.render();
+    }, 260);
+  },
+  // ушли с вкладки — поиск по контактам сбрасывается и не мешает другим разделам
+  leave() { const i = $("contact-q"); if (Contacts.q || (i && i.value)) Contacts.clearSearch(false); },
+  clearSearch(focus) {
+    const i = $("contact-q"); if (i) { i.value = ""; if (focus) { try { i.focus(); } catch (e) {} } else i.blur(); }
+    Contacts.search("");
+  },
+
   render() {
     const box = $("contact-list"); if (!box) return;
     const people = Contacts.people();
+    const q = Contacts.q;
+    if (q) {
+      const ql = q.toLowerCase();
+      const hit = people.filter((u) => (dispName(u) + " " + (u.username || "")).toLowerCase().includes(ql));
+      const g = Contacts.g && Contacts.g.q === q ? Contacts.g : null;
+      let html = hit.map((u) => ContactList.row(u, { solo: true })).join("");
+      if (g && g.users.length) html += `<div class="nm-cap">${esc(T("Глобальный поиск"))}</div>` + g.users.map((u) => ContactList.row(u, { solo: true, gid: 1 })).join("");
+      else if (!g && q.length >= 2) html += `<div class="nm-cap nm-wait">${esc(T("Поиск…"))}</div>`;
+      if (!hit.length && (g || q.length < 2) && !(g && g.users.length)) html = `<div class="nm-empty">${esc(T(q.length < 2 ? "Введите хотя бы два символа" : "Никого не найдено"))}</div>`;
+      box.innerHTML = html;
+      try { DX.scrub(box, true); } catch (e) {}
+      return;
+    }
     const acts = Contacts.savedRow();  // «Создать группу / канал» живут в кнопке «+» на главном экране, а не во вкладке контактов
-    const cnt = $("contact-count");
-    if (cnt) cnt.textContent = people.length ? String(people.length) : "";
     if (!people.length) {
       box.innerHTML = acts + `<div class="cempty">${ILL.chat}<h3>${esc(T("Контактов пока нет"))}</h3><p>${esc(T("Здесь будут люди, с которыми вы переписываетесь. Найти человека можно через поиск."))}</p></div>`;
       try { DX.scrub(box, true); } catch (e) {}
@@ -83,11 +131,12 @@ const ContactList = {
     const list = q ? people.filter((u) => (dispName(u) + " " + (u.username || "")).toLowerCase().includes(q)) : people;
     if (!list.length) return `<div class="nm-empty">${esc(T("Никого не найдено"))}</div>`;
     const grp = ContactList.group(list);
-    return grp.map(([l, us]) => `<div class="nm-sect" data-l="${esc(l)}">${esc(l)}</div>` + us.map((u) => {
-      const on = opts.sel && opts.sel.has(u.id);
-      const st = statusText(u);
-      return `<button class="nm-row${on ? " sel" : ""}${opts.solo ? " solo" : ""}" data-id="${u.id}">${Stories.av(u)}<span class="tx"><b>${nameHTML(u)}</b><small class="${u.online ? "on" : ""}">${esc(st)}</small></span><span class="chk">${SI.check}</span></button>`;
-    }).join("")).join("");
+    return grp.map(([l, us]) => `<div class="nm-sect" data-l="${esc(l)}">${esc(l)}</div>` + us.map((u) => ContactList.row(u, opts)).join("")).join("");
+  },
+  row(u, opts = {}) {
+    const on = opts.sel && opts.sel.has(u.id);
+    const st = u.username && opts.gid ? "@" + u.username : statusText(u);
+    return `<button class="nm-row${on ? " sel" : ""}${opts.solo ? " solo" : ""}" ${opts.gid ? "data-gid" : "data-id"}="${u.id}">${Stories.av(u)}<span class="tx"><b>${nameHTML(u)}</b><small class="${u.online ? "on" : ""}">${esc(st)}</small></span><span class="chk">${SI.check}</span></button>`;
   },
   // буквы справа: касание или протягивание пальца прокручивает список
   mountIndex(box) {

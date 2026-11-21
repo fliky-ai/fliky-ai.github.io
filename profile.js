@@ -62,26 +62,27 @@ const Profile = {
 
     const ph = premHero(u);
     const pill = (k, t, extra = "") => `<button class="ptab${Profile.tab === k ? " on" : ""}" data-t="${k}">${t}${extra}</button>`;
-    const X = (typeof DX !== "undefined" && DX.I) || new Proxy({}, { get: () => "" }), lt = /pbg-light/.test(ph.cls);
+    const X = (typeof DX !== "undefined" && DX.I) || new Proxy({}, { get: () => "" });
     const html = `
       <div class="dx-prof">
         <div class="dx-bar"><b><span>${esc(dispName(u))}${verBadge(u)}</span><small>${esc(T("в сети"))}</small></b></div>
-        <div class="dx-cover pf-hero${ph.cls}"${ph.style}>${ph.pat}${ph.cls ? "" : '<span class="dx-pips"><i></i><i></i><i></i><i></i><i></i><i></i></span>'}</div>
-        <button class="pf-av" id="pf-av" aria-label="${esc(T("Фото профиля"))}">${Stories.av(u, "xl")}</button>
-        <div class="dx-flow">
-          <div class="dx-name pf-hero${lt ? " lt" : ""}">
-            <h2>${profName(u)}</h2><div class="st2row">${Profile.rtOf() ? UserProfile.lvBadge(Profile.rtOf()) : ""}<div class="st2 on">${esc(T("в сети"))}</div></div>
+        <div class="dx-cover pf-hero${ph.cls}"${ph.style}>${ph.pat}</div>
+        <div class="dx-who">
+          <button class="pf-av" id="pf-av" aria-label="${esc(T("Фото профиля"))}">${Stories.av(u, "xl")}</button>
+          <div class="dx-name">
+            <h2>${profName(u)}</h2>
+            <div class="st2row">${Profile.rtOf() ? UserProfile.lvBadge(Profile.rtOf()) : ""}<div class="st2 on">${esc(T("в сети"))}</div></div>
             ${u.premium && typeof StatusPicker !== "undefined" ? `<button class="pf-edit-st" id="pf-est">${SI.smile}<span>${esc(T("Эмодзи-статус"))}</span></button>` : ""}
           </div>
-          <div class="pf-actions">
-            <button class="pa" id="pf-photo"><span class="dx-pi">${X.camera}</span><span>${esc(T("Изменить фото"))}</span></button>
-            <button class="pa" id="pf-edit"><span class="dx-pi">${X.edit}</span><span>${esc(T("Редактировать профиль"))}</span></button>
-            <button class="pa" id="pf-set"><span class="dx-pi">${X.gear}</span><span>${esc(T("Настройки профиля"))}</span></button>
-          </div>
-          <div class="card2 pf-info">${rows.join("")}</div>${verNote(u)}
-          <div class="pf-tabs">${pill("posts", "Публикации")}${pill("archive", "Архив публикаций")}${pill("gifts", "Подарки")}</div>
-          <div id="pf-tab"></div>
         </div>
+        <div class="pf-actions">
+          <button class="pa" id="pf-photo">${X.camera}<span>${esc(T("Изменить фото"))}</span></button>
+          <button class="pa" id="pf-edit">${X.edit}<span>${esc(T("Редактировать профиль"))}</span></button>
+          <button class="pa" id="pf-set">${X.gear}<span>${esc(T("Настройки профиля"))}</span></button>
+        </div>
+        <div class="card2 pf-info">${rows.join("")}</div>${verNote(u)}
+        <div class="pf-tabs">${pill("posts", "Публикации")}${pill("archive", "Архив публикаций")}${pill("gifts", "Подарки")}</div>
+        <div id="pf-tab"></div>
       </div>`;
     const pb = $("profile-box");
     // та же разметка — не трогаем (никакого мерцания и сброса прокрутки), только обновляем вкладку публикаций/подарков

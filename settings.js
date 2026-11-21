@@ -25,20 +25,13 @@ const Settings = {
     const cap = (t) => `<div class="dx-cap">${esc(T(t))}</div>`;
     const eco = Energy.thr();
     const X = (typeof DX !== "undefined" && DX.I) || new Proxy({}, { get: () => "" });      // без rd.js экран всё равно рисуется
-    const ph = premHero(u);
-    const cover = ph.cls ? `<span class="dx-me-cv pf-hero${ph.cls}"${ph.style}>${ph.pat}</span>` : '<span class="dx-me-cv"><i></i><i></i><i></i></span>';
     const nUn = (a) => Settings.unread[a.token] || 0;
     const html = `
-      <div class="dx-top"><b>${esc(T("Настройки"))}</b>
-        <div class="dx-tools"><button id="s-sbtn" aria-label="${esc(T("Поиск"))}">${X.search}</button><button id="s-menu" aria-label="${esc(T("Ещё"))}">${X.dots}</button></div></div>
-      <div class="dx-h1">${esc(T("Настройки"))}</div>
-      <button class="dx-me" id="s-me" aria-label="${esc(T("Профиль"))}">${cover}
-        <span class="dx-me-b">
-          <span class="dx-me-av">${Stories.av(u, "xl")}</span>
-          <span class="dx-me-tx"><b>${esc(dispName(u))}${verBadge(u)}</b><small>${u.number ? esc(fmtPhone(u.number)) : ""}${u.username ? " · @" + esc(u.username) : ""}</small></span>
-          <span class="dx-me-go">${X.chev}</span>
-        </span>
-      </button>
+      <header class="tgh dx-sh"><div class="tgh-row">
+        <div class="tgh-title"><span>${esc(T("Настройки"))}</span></div>
+        <button id="s-sbtn" class="tgh-btn" type="button" aria-label="${esc(T("Поиск"))}">${X.search}</button>
+        <button id="s-menu" class="tgh-btn" type="button" aria-label="${esc(T("Ещё"))}">${X.dots}</button>
+      </div></header>
 
       <div class="dx-accs s-accs">
         <div class="dx-accs-h"><span>${esc(T("Аккаунты"))}</span><button data-a="accmgr">${esc(T("Управление"))}</button></div>
@@ -61,27 +54,26 @@ const Settings = {
         R.row({ a: "devices", ic: SI.laptop, c: "o2", t: esc(T("Устройства")) }),
         R.row({ a: "lang", ic: SI.globe, c: "v", t: esc(T("Язык")), r: I18N.lang === "en" ? "English" : "Русский" }))}
       ${cap("Возможности")}
-      <div class="dx-promo">
-        <button class="dx-pt pr" data-a="premium"><i class="ic">${X.diamond}</i><span><b>${esc(T(NAME_PREMIUM))}</b><small>${esc(u.premium ? T("активен") : T("Больше возможностей"))}</small></span></button>
-        <button class="dx-pt st" data-a="stars"><i class="ic">${X.star}</i><span><b>${esc(T(NAME_STARS))}</b><small>${esc(u.stars ? String(u.stars) : T("Награды и подарки"))}</small></span></button>
-      </div>
+      ${grp(
+        R.row({ a: "premium", ic: SI.starF, c: "pr", t: esc(T(NAME_PREMIUM)), r: u.premium ? esc(T("активен")) : "" }),
+        R.row({ a: "stars", ic: starFancy(), c: "star", t: esc(T(NAME_STARS)), r: u.stars ? String(u.stars) : "" }))}
       ${grp(
         R.row({ a: "biz", ic: SI.bag, c: "v2", t: esc(T(NAME_BIZ)) }),
         R.row({ a: "gift", ic: SI.gift, c: "p", t: esc(T("Отправить подарок")) }),
-        R.row({ a: "games", ic: SI.games, c: "t", t: esc(T("Игры")), s: esc(T("Дуэли, космос и таблицы лидеров")) }))}
+        R.row({ a: "games", ic: SI.games, c: "t", t: esc(T("Игры")), s: esc(T("4 игры и таблицы лидеров дня")) }))}
       ${isStandalone() || (typeof AppPush !== "undefined" && AppPush.isApp()) ? "" : grp(R.row({ a: "install", ic: SI.laptop, c: "b", t: esc(T("Установить Dicegram")), s: esc(/Android/i.test(navigator.userAgent) ? T("Скачать APK или на экран «Домой»") : T("Как приложение на экран «Домой»")) }))}
       ${cap("Помощь")}
       ${grp(
         R.row({ a: "ask", ic: SI.headset, c: "b", t: esc(T("Задать вопрос")) }),
         R.row({ a: "tips", ic: SI.bulb, c: "y2", t: esc(T("Возможности Dicegram")), s: esc(T("советы и подсказки на сайте")) }),
         R.row({ a: "policy", ic: SI.doc, c: "gr", t: esc(T("Политика конфиденциальности")) }))}
-      <button class="dx-logout" data-a="out">${X.out}<span>${esc(T("Выйти"))}</span></button>
+      ${grp(R.row({ a: "out", ic: SI.out, c: "r", t: esc(T("Выйти")), danger: 1, chev: false }))}
       <p class="s-foot">${esc(T("Версия {0}", "1.5"))}</p>`;
     // одинаковую разметку не перерисовываем: ни мерцания аватарок, ни сброса прокрутки, ни потерянного нажатия
-    if (box._dxh === html && box.querySelector(".dx-me")) { Settings.fetchUnread(); return; }
+    if (box._dxh === html && box.querySelector(".dx-accs")) { Settings.fetchUnread(); return; }
     box._dxh = html;
     box.innerHTML = html;
-    try { DX.top(box, ".dx-top,.dx-h1", 50); } catch (e) {}
+    try { DX.hair(box); } catch (e) {}
 
     Settings.bindMain();
     Settings.fetchUnread();
@@ -89,7 +81,6 @@ const Settings = {
 
   bindMain() {
     const box = $("settings-box");
-    $("s-me").onclick = () => App.go("profile");
     $("s-sbtn").onclick = () => Settings.search(true);
     $("s-menu").onclick = async () => {
       const v = await UI.sheet({ title: T("Настройки"), actions: [
